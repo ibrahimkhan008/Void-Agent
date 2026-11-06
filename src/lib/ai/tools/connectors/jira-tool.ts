@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { jiraCommentApprovalSchema } from "lib/ai/tools/hitl/jira-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { jiraApprovalRepository } from "lib/db/pg/repositories/jira-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_projects", "search_issues", "get_issue", "add_comment"]),
@@ -11,6 +13,7 @@ const inputSchema = z.object({
   issueKey: z.string().optional().describe("Jira issue key (e.g. PROJ-123)"),
   jql: z.string().optional().describe("JQL search string"),
   comment: z.string().optional().describe("Comment body (for add_comment)"),
+  approvalToken: z.string().min(40).max(128).optional(),
   limit: z.number().min(1).max(100).optional(),
 });
 
@@ -20,6 +23,7 @@ interface JiraToolInput {
   issueKey?: string;
   jql?: string;
   comment?: string;
+  approvalToken?: string;
   limit?: number;
 }
 
@@ -54,7 +58,7 @@ Actions:
 - list_projects: List accessible Jira projects.
 - search_issues: Search issues by JQL (optional: projectKey, jql).
 - get_issue: Read an issue's full details (requires: issueKey).
-- add_comment: Add a comment to an issue (requires: issueKey, comment).
+- add_comment: Add a comment to an issue (requires: issueKey, comment, and the exact single-use approvalToken returned by proposeJiraComment after user review).
 
 User must connect Jira first via the Connectors menu.`,
     inputSchema,
@@ -141,8 +145,17 @@ User must connect Jira first via the Connectors menu.`,
               error: "issueKey and comment are required for add_comment",
             };
           }
+          const approval = jiraCommentApprovalSchema.safeParse({
+            issueKey: input.issueKey,
+            comment: input.comment,
+          });
+          if (!approval.success || !input.approvalToken) {
+            return { error: "Jira comment creation requires a user-reviewed approval token." };
+          }
+          const consumed = await jiraApprovalRepository.consume(userId, input.approvalToken, approval.data);
+          if (!consumed) return { error: "This Jira comment was not approved, has expired, or was already used." };
           const res = await fetch(
-            `${baseUrl}/issue/${input.issueKey}/comment`,
+            `${baseUrl}/issue/${encodeURIComponent(approval.data.issueKey)}/comment`,
             {
               method: "POST",
               headers,
@@ -153,7 +166,7 @@ User must connect Jira first via the Connectors menu.`,
                   content: [
                     {
                       type: "paragraph",
-                      content: [{ type: "text", text: input.comment }],
+                      content: [{ type: "text", text: approval.data.comment }],
                     },
                   ],
                 },

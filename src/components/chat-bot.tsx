@@ -23,6 +23,7 @@ import { ChatGreeting } from "./chat-greeting";
 import { ThreadInsightsPanel } from "./chat/thread-insights-panel";
 import { ErrorMessage, PreviewMessage } from "./message";
 import PromptInput from "./prompt-input";
+import { VoiceTranscriptReviewPanel } from "./voice-transcript-review-panel";
 
 import {
   DefaultChatTransport,
@@ -33,8 +34,17 @@ import {
 } from "ai";
 import { useShallow } from "zustand/shallow";
 
-import { deleteThreadAction } from "@/app/api/chat/actions";
+import {
+  deleteThreadAction,
+  loadOlderThreadMessagesAction,
+  loadVoiceTranscriptForHandoffAction,
+  updateThreadCollectionScopeAction,
+  updateThreadProjectAction,
+} from "@/app/api/chat/actions";
+import { useCollections } from "@/hooks/queries/use-collections";
 import { useGenerateThreadTitle } from "@/hooks/queries/use-generate-thread-title";
+import { useProjects } from "@/hooks/queries/use-projects";
+import { useChatBackgroundAlerts } from "@/hooks/use-chat-background-alerts";
 import { useFileDragOverlay } from "@/hooks/use-file-drag-overlay";
 import { useToRef } from "@/hooks/use-latest";
 import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
@@ -45,7 +55,9 @@ import {
 } from "app-types/chat";
 import { AnimatePresence, motion } from "framer-motion";
 import { getStorageManager } from "lib/browser-stroage";
+import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
+import { isCurrentVoiceRequest } from "lib/voice/handoff";
 import { ArrowDown, FilePlus, GitBranch, Loader } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -66,6 +78,7 @@ import { Think } from "ui/think";
 type Props = {
   threadId: string;
   initialMessages: Array<UIMessage>;
+  initialHasMoreMessages?: boolean;
   selectedChatModel?: string;
   /**
    * Phase 1+#8 — when the current thread is itself a fork, the parent
@@ -86,6 +99,8 @@ type Props = {
     actionItems: Array<{ text: string; done?: boolean }>;
     generatedAt?: string | null;
   } | null;
+  initialCollectionIds?: string[] | null;
+  initialProjectId?: string | null;
 };
 
 const firstTimeStorage = getStorageManager("IS_FIRST");
@@ -94,11 +109,18 @@ firstTimeStorage.set(false);
 export default function ChatBot({
   threadId,
   initialMessages,
+  initialHasMoreMessages = false,
   parentThreadId,
   initialInsights,
+  initialCollectionIds = null,
+  initialProjectId = null,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasOlderMessages, setHasOlderMessages] = useState(
+    initialHasMoreMessages,
+  );
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
@@ -225,6 +247,55 @@ export default function ChatBot({
   }, []);
 
   const [input, setInput] = useState("");
+  const [collectionIds, setCollectionIds] = useState<string[] | null>(
+    initialCollectionIds,
+  );
+  const [projectId, setProjectId] = useState<string | null>(initialProjectId);
+  const [savingCollectionScope, setSavingCollectionScope] = useState(false);
+  const { data: collectionsData } = useCollections();
+  const { data: projectsData } = useProjects();
+
+  const changeCollectionScope = useCallback(
+    async (next: string[] | null) => {
+      setSavingCollectionScope(true);
+      try {
+        await updateThreadCollectionScopeAction(threadId, next);
+        setCollectionIds(next);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Could not update knowledge collections",
+        );
+      } finally {
+        setSavingCollectionScope(false);
+      }
+    },
+    [threadId],
+  );
+
+  const changeProject = useCallback(
+    async (next: string | null) => {
+      setSavingCollectionScope(true);
+      try {
+        await updateThreadProjectAction(threadId, next);
+        setProjectId(next);
+        setCollectionIds(
+          next
+            ? (projectsData?.projects.find((project) => project.id === next)
+                ?.collectionIds ?? [])
+            : null,
+        );
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not update project",
+        );
+      } finally {
+        setSavingCollectionScope(false);
+      }
+    },
+    [projectsData?.projects, threadId],
+  );
 
   // Defer the message list so that the expensive `react-markdown`
   // re-parse on the streaming assistant text doesn't block the main
@@ -241,6 +312,7 @@ export default function ChatBot({
     stop,
   } = useChat({
     id: threadId,
+    resume: true,
     sendAutomaticallyWhen: (options) =>
       stopRequestedRef.current
         ? false
@@ -299,6 +371,8 @@ export default function ChatBot({
             ? {}
             : latestRef.current.allowedMcpServers,
           mentions: latestRef.current.mentions,
+          collectionIds: latestRef.current.collectionIds ?? undefined,
+          projectId: latestRef.current.projectId ?? undefined,
           message: sanitizedLastMessage,
           imageTool: {
             model: latestRef.current.threadImageToolModel[threadId],
@@ -346,11 +420,27 @@ export default function ChatBot({
     onFinish,
   });
   const [isDeleteThreadPopupOpen, setIsDeleteThreadPopupOpen] = useState(false);
+  const [pendingVoiceHandoff, setPendingVoiceHandoff] = useState<{
+    threadId: string;
+    messageId: string;
+    text: string;
+  } | null>(null);
+  const [loadingVoiceHandoff, setLoadingVoiceHandoff] = useState<{
+    threadId: string;
+    generation: number;
+  } | null>(null);
   // Set when the user hits Stop; sendAutomaticallyWhen returns false while
   // set, so the SDK never auto-resends (which would otherwise re-execute the
   // pending server-side tool calls and duplicate the assistant message after
   // an abort). Reset on the next genuine user message.
   const stopRequestedRef = useRef(false);
+  const voiceHandoffRef = useRef(new Set<string>());
+  const voiceHandoffGenerationRef = useRef(0);
+  const currentThreadIdRef = useRef(threadId);
+  if (currentThreadIdRef.current !== threadId) {
+    currentThreadIdRef.current = threadId;
+    voiceHandoffGenerationRef.current += 1;
+  }
 
   const addToolResult = useCallback(
     async (result: Parameters<typeof _addToolResult>[0]) => {
@@ -366,10 +456,55 @@ export default function ChatBot({
   // rendering catches up between chunks instead of stalling them.
   const messages = useDeferredValue(rawMessages);
   const setMessages = setRawMessages;
+  useChatBackgroundAlerts({ threadId, messages, status });
+
+  const loadOlderMessages = useCallback(async () => {
+    const firstMessageId = rawMessages[0]?.id;
+    if (!firstMessageId || isLoadingOlderMessages || !hasOlderMessages) return;
+
+    setIsLoadingOlderMessages(true);
+    const container = containerRef.current;
+    const previousHeight = container?.scrollHeight ?? 0;
+    try {
+      const olderMessages = await loadOlderThreadMessagesAction(
+        threadId,
+        firstMessageId,
+      );
+      if (olderMessages.length === 0) {
+        setHasOlderMessages(false);
+        return;
+      }
+      setMessages((current) => {
+        const currentIds = new Set(current.map((message) => message.id));
+        return [
+          ...olderMessages.filter((message) => !currentIds.has(message.id)),
+          ...current,
+        ];
+      });
+      if (olderMessages.length < CHAT_MESSAGE_WINDOW)
+        setHasOlderMessages(false);
+      requestAnimationFrame(() => {
+        const element = containerRef.current;
+        if (element) element.scrollTop += element.scrollHeight - previousHeight;
+      });
+    } catch {
+      toast.error("Could not load older messages");
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  }, [
+    hasOlderMessages,
+    isLoadingOlderMessages,
+    rawMessages,
+    setMessages,
+    threadId,
+  ]);
 
   const latestRef = useToRef({
     toolChoice,
     model,
+    collectionIds,
+    projectId,
     allowedAppDefaultToolkit,
     allowedMcpServers,
     messages: rawMessages,
@@ -380,7 +515,6 @@ export default function ChatBot({
     threadImageToolSize,
   });
 
-
   const handleStop = useCallback(() => {
     // Abort the in-flight stream AND break the tool-call auto-resend loop:
     // the SDK re-checks sendAutomaticallyWhen after an abort, and since the
@@ -389,6 +523,18 @@ export default function ChatBot({
     // makes lastAssistantMessageIsCompleteWithToolCalls return false.
     stopRequestedRef.current = true;
     stop();
+    void fetch(`/api/chat/${threadId}/stop`, { method: "POST" })
+      .then((response) => {
+        if (!response.ok)
+          toast.error(
+            "Could not stop generation on the server. It may still be running.",
+          );
+      })
+      .catch(() =>
+        toast.error(
+          "Could not contact the server to stop generation. It may still be running.",
+        ),
+      );
     setMessages((messages) => {
       const last = messages.at(-1);
       if (!last || last.role !== "assistant") return messages;
@@ -404,7 +550,7 @@ export default function ChatBot({
         };
       });
     });
-  }, [stop, setMessages]);
+  }, [stop, setMessages, threadId]);
 
   const isLoading = useMemo(
     () => status === "streaming" || status === "submitted",
@@ -472,6 +618,52 @@ export default function ChatBot({
       appStoreMutate({ currentThreadId: null });
     };
   }, [threadId]);
+
+  useEffect(() => {
+    if (status !== "ready" || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const messageId = url.searchParams.get("processVoice");
+    if (!messageId || messageId.length > 128) return;
+    const handoffKey = `${threadId}:${messageId}`;
+    if (voiceHandoffRef.current.has(handoffKey)) return;
+    voiceHandoffRef.current.add(handoffKey);
+    url.searchParams.delete("processVoice");
+    window.history.replaceState({}, "", url.toString());
+
+    const requestedThreadId = threadId;
+    const generation = ++voiceHandoffGenerationRef.current;
+    const isCurrentRequest = () =>
+      isCurrentVoiceRequest({
+        requestedIdentity: requestedThreadId,
+        currentIdentity: currentThreadIdRef.current,
+        requestedGeneration: generation,
+        currentGeneration: voiceHandoffGenerationRef.current,
+      });
+
+    setLoadingVoiceHandoff({ threadId: requestedThreadId, generation });
+    void loadVoiceTranscriptForHandoffAction(requestedThreadId, messageId)
+      .then((text) => {
+        if (!isCurrentRequest()) return;
+        if (!text) {
+          toast.error(
+            "This saved voice transcript is unavailable or no longer belongs to this chat.",
+          );
+          return;
+        }
+        setPendingVoiceHandoff({
+          threadId: requestedThreadId,
+          messageId,
+          text,
+        });
+      })
+      .catch(() => {
+        if (isCurrentRequest())
+          toast.error("Could not load this saved voice transcript.");
+      })
+      .finally(() => {
+        if (isCurrentRequest()) setLoadingVoiceHandoff(null);
+      });
+  }, [status, threadId]);
 
   useEffect(() => {
     if (pendingThreadMention && threadId) {
@@ -659,6 +851,22 @@ export default function ChatBot({
               ref={containerRef}
               onScroll={handleScroll}
             >
+              {hasOlderMessages && (
+                <div className="mx-auto flex w-full max-w-3xl justify-center px-4 py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isLoadingOlderMessages}
+                    onClick={loadOlderMessages}
+                  >
+                    {isLoadingOlderMessages ? (
+                      <Loader className="size-4 animate-spin" />
+                    ) : (
+                      "Load older messages"
+                    )}
+                  </Button>
+                </div>
+              )}
               {messages.map((message, index) => {
                 const isLastMessage = messages.length - 1 === index;
                 return (
@@ -716,6 +924,95 @@ export default function ChatBot({
             />
           </div>
 
+          <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between px-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5">
+                <span>Project</span>
+                <select
+                  aria-label="Project for this conversation"
+                  className="h-8 max-w-52 rounded-md border bg-background px-2 text-foreground"
+                  value={projectId ?? ""}
+                  disabled={savingCollectionScope}
+                  onChange={(event) =>
+                    void changeProject(event.currentTarget.value || null)
+                  }
+                >
+                  <option value="">No project</option>
+                  {(projectsData?.projects ?? []).map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span>Knowledge</span>
+              <Button
+                type="button"
+                size="sm"
+                variant={collectionIds === null ? "secondary" : "ghost"}
+                disabled={savingCollectionScope}
+                onClick={() => void changeCollectionScope(null)}
+              >
+                All my collections
+              </Button>
+              <select
+                aria-label="Selected knowledge collections for this conversation"
+                className="h-8 max-w-56 rounded-md border bg-background px-2 text-foreground"
+                multiple
+                value={collectionIds ?? []}
+                disabled={savingCollectionScope}
+                onChange={(event) =>
+                  void changeCollectionScope(
+                    Array.from(
+                      event.currentTarget.selectedOptions,
+                      (option) => option.value,
+                    ),
+                  )
+                }
+              >
+                {(collectionsData?.collections ?? []).map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+              <span>
+                {collectionIds === null
+                  ? "All enabled"
+                  : collectionIds.length === 0
+                    ? "None enabled"
+                    : `${collectionIds.length} selected`}
+              </span>
+            </div>
+          </div>
+          {loadingVoiceHandoff?.threadId === threadId &&
+            loadingVoiceHandoff.generation ===
+              voiceHandoffGenerationRef.current && (
+              <div
+                role="status"
+                className="mx-auto mb-2 max-w-3xl rounded-lg border bg-card p-3 text-sm text-muted-foreground"
+              >
+                Loading saved voice request…
+              </div>
+            )}
+          {pendingVoiceHandoff?.threadId === threadId && (
+            <VoiceTranscriptReviewPanel
+              messageId={pendingVoiceHandoff.messageId}
+              transcript={pendingVoiceHandoff.text}
+              sending={isLoading || isPendingToolCall}
+              onCancel={() => {
+                setPendingVoiceHandoff(null);
+              }}
+              onSend={(text) => {
+                setPendingVoiceHandoff(null);
+                stopRequestedRef.current = false;
+                sendMessage({
+                  role: "user",
+                  parts: [{ type: "text", text }],
+                });
+              }}
+            />
+          )}
           <PromptInput
             input={input}
             threadId={threadId}

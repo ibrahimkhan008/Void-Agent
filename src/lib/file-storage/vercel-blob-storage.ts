@@ -1,6 +1,7 @@
 import path from "node:path";
-import { del, head, put } from "@vercel/blob";
+import { del, get, head, put } from "@vercel/blob";
 import { FileNotFoundError } from "lib/errors";
+import { generateUUID } from "lib/utils";
 import type {
   FileMetadata,
   FileStorage,
@@ -10,16 +11,20 @@ import {
   resolveStoragePrefix,
   sanitizeFilename,
   toBuffer,
+  validateStorageOwnerId,
 } from "./storage-utils";
-import { generateUUID } from "lib/utils";
 
-const STORAGE_PREFIX = resolveStoragePrefix();
-
-const buildPathname = (filename: string) => {
+const buildPathname = (filename: string, ownerId?: string) => {
   const safeName = sanitizeFilename(filename);
   const id = generateUUID();
-  const prefix = STORAGE_PREFIX ? `${STORAGE_PREFIX}/` : "";
-  return path.posix.join(prefix, `${id}-${safeName}`);
+  const configuredPrefix = resolveStoragePrefix();
+  const prefix = configuredPrefix ? `${configuredPrefix}/` : "";
+  const owner = ownerId ? validateStorageOwnerId(ownerId) : null;
+  return path.posix.join(
+    prefix,
+    ...(owner ? [owner] : []),
+    `${id}-${safeName}`,
+  );
 };
 
 const mapMetadata = (
@@ -57,15 +62,23 @@ const fetchSourceBuffer = async (url: string) => {
   return Buffer.from(arrayBuffer);
 };
 
+const getBlobAccess = (): "public" | "private" => {
+  const configured = process.env.VERCEL_BLOB_ACCESS?.trim().toLowerCase();
+  if (!configured || configured === "public") return "public";
+  if (configured === "private") return "private";
+  throw new Error("VERCEL_BLOB_ACCESS must be either 'public' or 'private'");
+};
+
 export const createVercelBlobStorage = (): FileStorage => {
   return {
     async upload(content, options: UploadOptions = {}) {
       const buffer = await toBuffer(content);
       const filename = options.filename ?? "file";
-      const pathname = buildPathname(filename);
+      const pathname = buildPathname(filename, options.ownerId);
+      const access = getBlobAccess();
 
       const result = await put(pathname, buffer, {
-        access: "public",
+        access,
         contentType: options.contentType,
       });
 
@@ -92,6 +105,13 @@ export const createVercelBlobStorage = (): FileStorage => {
 
     async download(key) {
       const info = await getHeadForKey(key);
+      if (getBlobAccess() === "private") {
+        const result = await get(key, { access: "private", useCache: false });
+        if (!result || result.statusCode !== 200 || !result.stream) {
+          throw new FileNotFoundError(key);
+        }
+        return Buffer.from(await new Response(result.stream).arrayBuffer());
+      }
       return fetchSourceBuffer(info.url);
     },
 

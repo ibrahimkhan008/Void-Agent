@@ -1,19 +1,19 @@
+import { isFreeTier } from "app-types/subscription";
 import { getSession } from "auth/server";
 import { editImageWithFlare } from "lib/ai/image/edit-image";
 import {
   DEFAULT_IMAGE_EDIT_MODEL,
   IMAGE_EDIT_MODEL_MAP,
 } from "lib/ai/image/edit-models";
+import { userRepository } from "lib/db/repository";
 import { serverFileStorage } from "lib/file-storage";
 import {
   canUseFreeTierImageEdit,
   getFreeTierLimits,
   recordFreeTierImageEditSuccess,
 } from "lib/rate-limit/free-tier-usage";
-import { userRepository } from "lib/db/repository";
 import logger from "logger";
 import { NextResponse } from "next/server";
-import { isFreeTier } from "app-types/subscription";
 
 export const runtime = "nodejs";
 
@@ -89,6 +89,7 @@ export async function POST(request: Request) {
               Buffer.from(img.base64, "base64"),
               {
                 contentType: img.mimeType || "image/png",
+                ownerId: session.user.id,
               },
             );
             return {

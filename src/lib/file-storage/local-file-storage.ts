@@ -13,9 +13,8 @@ import {
   resolveStoragePrefix,
   sanitizeFilename,
   toBuffer,
+  validateStorageOwnerId,
 } from "./storage-utils";
-
-const STORAGE_PREFIX = resolveStoragePrefix();
 
 /**
  * On-disk file storage. Self-hosted alternative to Vercel Blob / S3 — no cloud
@@ -91,8 +90,12 @@ export const createLocalFileStorage = (): FileStorage => {
         sanitizeFilename(options.filename ?? "file"),
         options.contentType,
       );
-      const prefix = STORAGE_PREFIX ? `${STORAGE_PREFIX}/` : "";
-      const key = `${prefix}${generateUUID()}-${filename}`;
+      const configuredPrefix = resolveStoragePrefix();
+      const prefix = configuredPrefix ? `${configuredPrefix}/` : "";
+      const owner = options.ownerId
+        ? `${validateStorageOwnerId(options.ownerId)}/`
+        : "";
+      const key = `${prefix}${owner}${generateUUID()}-${filename}`;
       const filePath = keyToPath(key);
 
       await fs.mkdir(path.dirname(filePath), { recursive: true });

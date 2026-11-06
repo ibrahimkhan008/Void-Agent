@@ -1,18 +1,27 @@
 "use client";
 
+import { formatDistanceToNow } from "date-fns";
+import {
+  executeReviewedN8nWorkflow,
+  previewN8nWorkflow,
+} from "lib/n8n/browser-approval";
+import { notify } from "lib/notify";
+import { fetcher } from "lib/utils";
+import {
+  ArrowUpRight,
+  Play,
+  Trash2,
+  Workflow as WorkflowIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import useSWR, { mutate } from "swr";
-import { fetcher } from "lib/utils";
-import { toast } from "sonner";
-import { notify } from "lib/notify";
 import { useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { ArrowUpRight, Play, Trash2, Workflow as WorkflowIcon } from "lucide-react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+import { BackgroundPaths } from "ui/background-paths";
 import { Button } from "ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
 import { Skeleton } from "ui/skeleton";
-import { BackgroundPaths } from "ui/background-paths";
 
 export type N8nWorkflowSummary = {
   id: string;
@@ -22,7 +31,9 @@ export type N8nWorkflowSummary = {
   updatedAt: string;
 };
 
-export default function WorkflowListPage({ userRole }: { userRole?: string | null } = {}) {
+export default function WorkflowListPage({
+  userRole: _userRole,
+}: { userRole?: string | null } = {}) {
   const t = useTranslations();
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
@@ -75,11 +86,28 @@ export default function WorkflowListPage({ userRole }: { userRole?: string | nul
   const runWorkflow = async (id: string) => {
     try {
       setIsRunning(id);
-      const res = await fetch(`/api/workflow/${id}/execute`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to run");
-      toast.success(t("Workflow.runSuccess"));
-    } catch {
-      toast.error(t("Workflow.runError"));
+      const review = await previewN8nWorkflow(id);
+      const approved = await notify.confirm({
+        title: `Review ${review.workflowName}`,
+        description: (
+          <div className="space-y-2">
+            <p>The run will use the workflow&apos;s saved configuration.</p>
+            <ul className="list-disc pl-5">
+              {review.effects.map((effect, index) => (
+                <li key={`${index}-${effect}`}>{effect}</li>
+              ))}
+            </ul>
+          </div>
+        ),
+        okText: "Approve and run",
+      });
+      if (!approved) return;
+      await executeReviewedN8nWorkflow({ id, review, query: {} });
+      toast.success("Workflow run request accepted by n8n");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("Workflow.runError"),
+      );
     } finally {
       setIsRunning(null);
     }

@@ -1,9 +1,4 @@
 import "server-only";
-import { NextResponse } from "next/server";
-import { siteConfigRepository } from "lib/db/repository";
-import { requireAdminPermission } from "lib/auth/permissions";
-import { customModelProvider, setAdminFallbackChain } from "lib/ai/models";
-import { getSession } from "lib/auth/server";
 import {
   CONFIG_KEYS,
   buildDefaultBrandingConfig,
@@ -17,6 +12,15 @@ import {
   buildDefaultSecurityConfig,
 } from "lib/admin/site-config-defaults";
 import { invalidateAdminConfigCache } from "lib/admin/site-config-reader";
+import {
+  customModelProvider,
+  ensureDynamicProvidersHydrated,
+  setAdminFallbackChain,
+} from "lib/ai/models";
+import { requireAdminPermission } from "lib/auth/permissions";
+import { getSession } from "lib/auth/server";
+import { siteConfigRepository } from "lib/db/repository";
+import { NextResponse } from "next/server";
 
 // KEYS is derived from the shared defaults list so new admin sections
 // automatically become writable through this route.
@@ -75,6 +79,7 @@ export async function GET(req: Request) {
     await requireAdminPermission("access admin configuration");
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    await ensureDynamicProvidersHydrated();
 
     const db = await siteConfigRepository.getAll();
 

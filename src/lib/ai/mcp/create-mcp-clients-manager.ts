@@ -1,26 +1,26 @@
+import { ToolCallOptions, jsonSchema } from "ai";
 import {
-  VercelAIMcpToolTag,
   type MCPServerConfig,
   type McpServerInsert,
   type McpServerSelect,
   type VercelAIMcpTool,
+  VercelAIMcpToolTag,
 } from "app-types/mcp";
-import { createMCPClient, type MCPClient } from "./create-mcp-client";
+import { colorize } from "consola/utils";
+import { normalizeToolInputSchema } from "lib/ai/tools/sanitize-tool-schemas";
+import { McpServerTable } from "lib/db/pg/schema.pg";
 import {
+  Locker,
   errorToString,
   generateUUID,
-  Locker,
   safeJSONParse,
   toAny,
 } from "lib/utils";
-import { safe } from "ts-safe";
-import { McpServerTable } from "lib/db/pg/schema.pg";
-import { createMCPToolId } from "./mcp-tool-id";
 import globalLogger from "logger";
-import { jsonSchema, ToolCallOptions } from "ai";
+import { safe } from "ts-safe";
+import { type MCPClient, createMCPClient } from "./create-mcp-client";
+import { createMCPToolId } from "./mcp-tool-id";
 import { createMemoryMCPConfigStorage } from "./memory-mcp-config-storage";
-import { colorize } from "consola/utils";
-import { normalizeToolInputSchema } from "lib/ai/tools/sanitize-tool-schemas";
 
 /**
  * Interface for storage of MCP server configurations.
@@ -151,6 +151,7 @@ export class MCPClientsManager {
                     _originToolName: tool.name,
                     _mcpServerName: clientName,
                     _mcpServerId: id,
+                    _readOnlyHint: tool.annotations?.readOnlyHint === true,
                     execute: (params, options: ToolCallOptions) => {
                       options?.abortSignal?.throwIfAborted();
                       return this.toolCall(id, tool.name, params);

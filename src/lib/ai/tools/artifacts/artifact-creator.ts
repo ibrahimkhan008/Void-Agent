@@ -1,8 +1,8 @@
 import { generateText, tool } from "ai";
+import { customModelProvider } from "lib/ai/models";
+import { getRuntimeSiteConfig } from "lib/site-config";
 import z from "zod";
 import { DefaultToolName } from "..";
-import { getRuntimeSiteConfig } from "lib/site-config";
-import { customModelProvider } from "lib/ai/models";
 
 export type ArtifactToolResult = {
   toolName: DefaultToolName.ArtifactCreation;
@@ -67,7 +67,7 @@ export const artifactCreationTool = tool({
         /* use default */
       }
 
-      const model = customModelProvider.getModelWithFailureFallback({
+      const model = await customModelProvider.getModelWithFailureFallbackAsync({
         provider: "google",
         model: artifactModel,
       });

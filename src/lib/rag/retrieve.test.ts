@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -87,13 +88,38 @@ describe("buildRetrieveConditions", () => {
     expect(conditions).toHaveLength(3);
   });
 
-  it("does not add the collection filter for an empty array", () => {
+  it("adds a false predicate for an explicitly empty collection scope", () => {
     const conditions = buildRetrieveConditions({
       userId: "user-1",
       collectionIds: [],
     });
-    // Empty array is treated as "no filter" — keeps the SQL plan simple.
-    expect(conditions).toHaveLength(2);
+    expect(conditions).toHaveLength(3);
+    expect(conditions[2]).toBeDefined();
+  });
+
+  it("rechecks current membership before including team-scoped collections", () => {
+    const [scope] = buildRetrieveConditions({
+      userId: "member-1",
+      collectionIds: ["shared-1"],
+      collectionOrgIds: ["team-1"],
+    });
+    const query = new PgDialect().sqlToQuery(scope!);
+    expect(query.sql).toContain("team_member");
+    expect(query.sql).toContain("team");
+    expect(query.sql).toContain("collection");
+    expect(query.params).toContain("member-1");
+    expect(query.params).toContain("team-1");
+  });
+
+  it("does not grant team collection scope when the server supplied no team IDs", () => {
+    const [scope] = buildRetrieveConditions({
+      userId: "member-1",
+      collectionIds: ["shared-1"],
+      collectionOrgIds: [],
+    });
+    const query = new PgDialect().sqlToQuery(scope!);
+    expect(query.sql).not.toContain("team_member");
+    expect(query.sql).toContain("user_id");
   });
 });
 
@@ -135,6 +161,13 @@ describe("retrieveRelevantChunks — embedding integration", () => {
     await retrieveRelevantChunks("user-1", "what is the meaning of life?");
     expect(mockEmbed).toHaveBeenCalledTimes(1);
     expect(mockEmbed).toHaveBeenCalledWith("what is the meaning of life?");
+  });
+
+  it("returns no chunks without embedding when the selected collection scope is empty", async () => {
+    await expect(
+      retrieveRelevantChunks("user-1", "question", { collectionIds: [] }),
+    ).resolves.toEqual([]);
+    expect(mockEmbed).not.toHaveBeenCalled();
   });
 });
 

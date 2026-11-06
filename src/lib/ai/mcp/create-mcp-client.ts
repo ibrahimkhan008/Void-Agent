@@ -1,31 +1,31 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
-  type MCPServerInfo,
   MCPRemoteConfigZodSchema,
-  MCPStdioConfigZodSchema,
   type MCPServerConfig,
+  type MCPServerInfo,
+  MCPStdioConfigZodSchema,
   type MCPToolInfo,
 } from "app-types/mcp";
 
-import { isMaybeRemoteConfig, isMaybeStdioConfig } from "./is-mcp-config";
-import logger from "logger";
+import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { ConsolaInstance } from "consola";
 import { colorize } from "consola/utils";
+import { IS_MCP_SERVER_REMOTE_ONLY, getRequiredBaseUrl } from "lib/const";
 import {
+  Locker,
   createDebounce,
   errorToString,
   generateUUID,
   isNull,
-  Locker,
   withTimeout,
 } from "lib/utils";
-import { getRequiredBaseUrl, IS_MCP_SERVER_REMOTE_ONLY } from "lib/const";
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
+import logger from "logger";
+import { isMaybeRemoteConfig, isMaybeStdioConfig } from "./is-mcp-config";
 import { PgOAuthClientProvider } from "./pg-oauth-provider";
-import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 type ClientOptions = {
   autoDisconnectSeconds?: number;
@@ -419,6 +419,7 @@ export class MCPClient {
             ({
               name: tool.name,
               description: tool.description,
+              annotations: tool.annotations,
               inputSchema: tool.inputSchema,
             }) as MCPToolInfo,
         );

@@ -7,6 +7,15 @@ import { AllowedMCPServerZodSchema } from "./mcp";
 import { UserPreferences } from "./user";
 
 export type ChatMetadata = {
+  runId?: string;
+  runStatus?: "running" | "queued" | "completed" | "incomplete" | "failed" | "cancelled" | "timed_out";
+  error?: { code: string; retryable?: boolean };
+  source?: "voice_realtime" | "voice_device";
+  voiceSessionId?: string;
+  deviceId?: string;
+  sessionId?: string;
+  eventId?: string;
+  language?: string;
   usage?: LanguageModelUsage;
   chatModel?: ChatModel;
   toolChoice?: "auto" | "none" | "manual" | "codemode";
@@ -52,6 +61,8 @@ export type ChatThread = {
   summary?: string | null;
   decisions?: Array<{ text: string; done?: boolean }> | null;
   actionItems?: Array<{ text: string; done?: boolean }> | null;
+  collectionIds?: string[] | null;
+  projectId?: string | null;
   insightsGeneratedAt?: Date | string | null;
 };
 
@@ -158,6 +169,8 @@ export const chatApiSchemaRequestBodySchema = z.object({
     .optional(),
   allowedMcpServers: z.record(z.string(), AllowedMCPServerZodSchema).optional(),
   allowedAppDefaultToolkit: z.array(z.string()).optional(),
+  collectionIds: z.array(z.string().uuid()).max(20).optional(),
+  projectId: z.string().uuid().optional(),
   attachments: z.array(ChatAttachmentSchema).optional(),
   security: ChatRequestSecuritySchema.optional(),
   embed: z
@@ -190,7 +203,12 @@ export type ChatRepository = {
     | null
   >;
 
-  selectMessagesByThreadId(threadId: string): Promise<ChatMessage[]>;
+  selectMessagesByThreadId(
+    threadId: string,
+    opts?: { limit?: number; beforeMessageId?: string },
+  ): Promise<ChatMessage[]>;
+
+  selectMessagesForExport(threadId: string, limit: number): Promise<ChatMessage[]>;
 
   selectLatestChatModelByUserId(
     userId: string,

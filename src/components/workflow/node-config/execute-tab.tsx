@@ -1,35 +1,30 @@
+import { generateObjectAction } from "@/app/api/chat/actions";
+import { appStore } from "@/app/store";
 import { useWorkflowStore } from "@/app/store/workflow.store";
-import {
-  NodeKind,
-  NodeRuntimeHistory,
-} from "lib/ai/workflow/workflow.interface";
-import { useReactFlow } from "@xyflow/react";
+import { SelectModel } from "@/components/select-model";
 import { useObjectState } from "@/hooks/use-object-state";
-import { UINode } from "lib/ai/workflow/workflow.interface";
-import { cn, createDebounce, errorToString } from "lib/utils";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { GraphEndEvent } from "ts-edge";
+import { useReactFlow } from "@xyflow/react";
 import { allNodeValidate } from "lib/ai/workflow/node-validate";
-import { toast } from "sonner";
-import { decodeWorkflowEvents } from "lib/ai/workflow/shared.workflow";
-import { Alert, AlertDescription, AlertTitle } from "ui/alert";
+import { NodeKind } from "lib/ai/workflow/workflow.interface";
+import { UINode } from "lib/ai/workflow/workflow.interface";
+import { notify } from "lib/notify";
+import { cn } from "lib/utils";
 import {
   AlertTriangleIcon,
-  Loader,
-  Loader2,
-  Copy,
   Check,
+  Copy,
+  Loader,
   WandSparklesIcon,
   XIcon,
-  Maximize2,
 } from "lucide-react";
-import JsonView from "ui/json-view";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "ui/alert";
 import { Button } from "ui/button";
-import { Separator } from "ui/separator";
 import { FlipWords } from "ui/flip-words";
-import { Label } from "ui/label";
 import { Input } from "ui/input";
-import { Switch } from "ui/switch";
+import JsonView from "ui/json-view";
+import { Label } from "ui/label";
 import {
   Select,
   SelectContent,
@@ -37,19 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "ui/select";
+import { Separator } from "ui/separator";
+import { Switch } from "ui/switch";
 import { Textarea } from "ui/textarea";
-import { NodeIcon } from "../node-icon";
-import { TextShimmer } from "ui/text-shimmer";
-import { generateObjectAction } from "@/app/api/chat/actions";
-import { appStore } from "@/app/store";
-import { notify } from "lib/notify";
-import { SelectModel } from "@/components/select-model";
 
 import { useCopy } from "@/hooks/use-copy";
-import { NodeResultPopup } from "../node-result-popup";
 import { useTranslations } from "next-intl";
-
-const debounce = createDebounce();
 
 export function ExecuteTab({
   close,
@@ -77,8 +65,15 @@ export function ExecuteTab({
   const [tab, setTab] = useState<(typeof tabs)[number]["value"]>(tabs[0].value);
   const t = useTranslations();
   const [isRunning, setIsRunning] = useState(false);
-  const [histories, setHistories] = useState<NodeRuntimeHistory[]>([]);
-  const [result, setResult] = useState<GraphEndEvent | undefined>();
+  const [executionResult, setExecutionResult] = useState<unknown>();
+  const [review, setReview] = useState<{
+    workflowName: string;
+    graphRevision: string;
+    effects: string[];
+    query: Record<string, unknown>;
+  } | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const { copied, copy } = useCopy();
 
   const isProcessing = useMemo(
@@ -86,12 +81,14 @@ export function ExecuteTab({
     [processIds.length],
   );
 
-  const { getEdges, getNodes, fitView, getNode, updateNodeData, setNodes } =
-    useReactFlow<UINode>();
+  const { getEdges, getNodes, setNodes } = useReactFlow<UINode>();
   const nodes = getNodes();
-  const historyRef = useRef<HTMLDivElement>(null);
 
   const [query, setQuery] = useObjectState({} as Record<string, any>);
+  const updateQuery = (next: Record<string, any>) => {
+    setReview(null);
+    setQuery(next);
+  };
 
   const startNodeData = useMemo(() => {
     return nodes.find((node) => node.data.kind === NodeKind.Input)!.data;
@@ -138,6 +135,7 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
         },
         schema: inputSchema,
       }).then((res) => {
+        setReview(null);
         setQuery(res);
       }),
       {
@@ -179,31 +177,61 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
       }
       return toast.warning(validateResult.errorMessage);
     }
-    run(query);
+    setIsReviewing(true);
+    try {
+      const response = await fetch("/api/approvals/workflow-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ previewN8nWorkflowId: workflow!.id }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        workflowName?: unknown;
+        graphRevision?: unknown;
+        effects?: unknown;
+        error?: unknown;
+      } | null;
+      if (
+        !response.ok ||
+        typeof payload?.workflowName !== "string" ||
+        typeof payload.graphRevision !== "string" ||
+        !Array.isArray(payload.effects) ||
+        !payload.effects.every((effect) => typeof effect === "string")
+      ) {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Could not review this workflow",
+        );
+      }
+      setReview({
+        workflowName: payload.workflowName,
+        graphRevision: payload.graphRevision,
+        effects: payload.effects,
+        query: JSON.parse(JSON.stringify(query)) as Record<string, unknown>,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not review this workflow",
+      );
+    } finally {
+      setIsReviewing(false);
+    }
   };
 
-  const fitviewWithDebounce = useCallback((id: string) => {
-    const node = getNode(id);
-    if (!node) return;
-    const nextNodes = getEdges()
-      .filter((edge) => edge.source == id)
-      .map((edge) => getNode(edge.target))
-      .filter(Boolean) as UINode[];
-    const fitviewNodes = [node, ...nextNodes];
-    debounce(() => {
-      fitView({
-        duration: 300,
-        nodes: fitviewNodes,
-        maxZoom: 1.8,
-      });
-    }, 300);
-  }, []);
-
   const run = useCallback(
-    async (query: Record<string, any>) => {
+    async (
+      query: Record<string, unknown>,
+      approval: {
+        workflowName: string;
+        graphRevision: string;
+        approvalToken: string;
+      },
+    ) => {
       const stop = addProcess();
       const abortController = new AbortController();
-      setHistories([]);
+      setExecutionResult(undefined);
       setIsRunning(true);
       setNodes((nds) => {
         return nds.map((node) => {
@@ -222,7 +250,7 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ query, ...approval }),
           signal: abortController.signal,
         });
 
@@ -230,95 +258,10 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error("No readable stream available");
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) {
-              break;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-            const { events, remainingBuffer } = decodeWorkflowEvents(buffer);
-            buffer = remainingBuffer;
-
-            for (const event of events) {
-              switch (event.eventType) {
-                case "WORKFLOW_START":
-                  setTab("result");
-                  break;
-                case "WORKFLOW_END":
-                  setResult(event);
-                  stop();
-                  break;
-                case "NODE_START": {
-                  fitviewWithDebounce(event.node.name);
-                  historyRef.current?.scrollTo({
-                    top: historyRef.current?.scrollHeight,
-                    behavior: "smooth",
-                  });
-                  updateNodeData(event.node.name, {
-                    runtime: { status: "running" },
-                  });
-                  setHistories((prev) => {
-                    const uiNode = getNode(event.node.name);
-                    if (!uiNode) return prev;
-                    return [
-                      ...prev,
-                      {
-                        nodeId: event.node.name,
-                        startedAt: Date.now(),
-                        id: event.nodeExecutionId,
-                        name: uiNode.data.name,
-                        kind: uiNode.data.kind,
-                        status: "running",
-                      },
-                    ];
-                  });
-                  break;
-                }
-                case "NODE_END": {
-                  updateNodeData(event.node.name, {
-                    runtime: { status: event.isOk ? "success" : "fail" },
-                  });
-                  setHistories((prev) => {
-                    const prevHistory = prev.find(
-                      (h) => h.id === event.nodeExecutionId,
-                    );
-                    if (!prevHistory) return prev;
-                    return prev.map((n) => {
-                      if (n != prevHistory) return n;
-                      const source = event.isOk
-                        ? event.node.output
-                        : event.node.input;
-                      return {
-                        ...prevHistory,
-                        endedAt: Date.now(),
-                        status: event.isOk ? "success" : "fail",
-                        error: event.error,
-                        result: {
-                          output: source?.outputs?.[prevHistory.nodeId],
-                          input: source?.inputs?.[prevHistory.nodeId],
-                        },
-                      } as NodeRuntimeHistory;
-                    });
-                  });
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-          stop();
-        }
+        const execution = await response.json();
+        setExecutionResult(execution);
+        setTab("result");
+        stop();
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
           // User aborted execution; expected.
@@ -333,35 +276,56 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
     [workflow!.id],
   );
 
-  const lastOutput = useMemo(() => {
-    const outputNodes = histories
-      .filter((h) => h.kind == NodeKind.Output)
-      .map((h) => h.result?.output)
-      .filter(Boolean);
-
-    if (outputNodes.length == 0) return undefined;
-    if (outputNodes.length == 1) return outputNodes[0];
-    return outputNodes;
-  }, [histories]);
+  const approveAndRun = async () => {
+    if (!review) return;
+    setIsApproving(true);
+    try {
+      const approvalResponse = await fetch("/api/approvals/workflow-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: "n8n",
+          target: workflow!.id,
+          workflowName: review.workflowName,
+          graphRevision: review.graphRevision,
+          payload: review.query,
+        }),
+      });
+      const payload = (await approvalResponse.json().catch(() => null)) as {
+        approvalToken?: unknown;
+        error?: unknown;
+      } | null;
+      if (!approvalResponse.ok || typeof payload?.approvalToken !== "string") {
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Could not save this workflow approval",
+        );
+      }
+      const approvedReview = review;
+      setReview(null);
+      await run(approvedReview.query, {
+        workflowName: approvedReview.workflowName,
+        graphRevision: approvedReview.graphRevision,
+        approvalToken: payload.approvalToken,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not run this workflow",
+      );
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const resultView = useMemo(() => {
     if (isRunning) return;
-    if (result?.isOk === false)
-      return (
-        <Alert variant={"destructive"} className="border-destructive">
-          <AlertTriangleIcon />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            <JsonView data={result?.error} />
-          </AlertDescription>
-        </Alert>
-      );
     return (
       <div className="p-2">
-        <JsonView data={lastOutput} />
+        <JsonView data={executionResult ?? "No execution result yet"} />
       </div>
     );
-  }, [isRunning, result]);
+  }, [executionResult, isRunning]);
   return (
     <div className="fade-300 w-sm h-[85vh] bg-card border rounded-lg shadow-lg overflow-y-auto py-4">
       <div className="flex flex-col px-4">
@@ -434,7 +398,10 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
                         placeholder={schema.description || "number"}
                         defaultValue={query[key] || undefined}
                         onChange={(e) =>
-                          setQuery({ ...query, [key]: Number(e.target.value) })
+                          updateQuery({
+                            ...query,
+                            [key]: Number(e.target.value),
+                          })
                         }
                       />
                     ) : schema.type == "boolean" ? (
@@ -443,7 +410,7 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
                         id={key || String(i)}
                         checked={query[key]}
                         onCheckedChange={(checked) =>
-                          setQuery({ ...query, [key]: checked })
+                          updateQuery({ ...query, [key]: checked })
                         }
                       />
                     ) : schema.type == "string" && schema.enum ? (
@@ -451,7 +418,7 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
                         disabled={isProcessing}
                         value={query[key]}
                         onValueChange={(value) =>
-                          setQuery({ ...query, [key]: value })
+                          updateQuery({ ...query, [key]: value })
                         }
                       >
                         <SelectTrigger
@@ -478,7 +445,7 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
                         className="resize-none max-h-28 overflow-y-auto"
                         placeholder={schema.description || "string"}
                         onChange={(e) =>
-                          setQuery({ ...query, [key]: e.target.value })
+                          updateQuery({ ...query, [key]: e.target.value })
                         }
                       />
                     ) : null}
@@ -487,115 +454,73 @@ ${workflow!.description ? `tool-description: ${workflow!.description}` : ""}`,
               })}
             </>
           )}
+          {review && (
+            <Alert className="my-3">
+              <AlertTriangleIcon />
+              <AlertTitle>Review workflow effects</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Confirm these saved steps and the exact input before the
+                  workflow runs.
+                </p>
+                <ul className="list-disc pl-5">
+                  {review.effects.map((effect, index) => (
+                    <li key={`${index}-${effect}`}>{effect}</li>
+                  ))}
+                </ul>
+                <pre className="max-h-32 overflow-auto rounded bg-muted p-2 text-xs">
+                  {JSON.stringify(review.query, null, 2)}
+                </pre>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={isApproving || isRunning}
+                    onClick={() => setReview(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={isApproving || isRunning}
+                    onClick={() => void approveAndRun()}
+                  >
+                    {isApproving ? "Approving…" : "Approve and run"}
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
           <Button
-            disabled={isProcessing}
+            disabled={isProcessing || isReviewing || isApproving}
             className="font-bold w-full"
             onClick={handleClick}
           >
             {isProcessing ? (
               <Loader className="size-3.5 animate-spin" />
+            ) : isReviewing ? (
+              "Reviewing…"
             ) : (
-              t("Common.run")
+              "Review effects before running"
             )}
           </Button>
         </div>
       ) : tab == tabs[1].value ? (
-        <div>
-          <div
-            className="flex flex-col px-4 h-[30vh] overflow-y-auto"
-            ref={historyRef}
-          >
-            {histories.map((history, i) => {
-              return (
-                <NodeResultPopup history={history} key={i}>
-                  <div
-                    className={cn(
-                      "cursor-pointer hover:bg-secondary flex items-center gap-2 text-sm rounded-sm px-2 py-1.5 relative",
-                      history.status == "fail" && "text-destructive",
-                    )}
-                  >
-                    {i != 0 && (
-                      <div className="absolute left-4.5 -top-1.5 w-px h-3">
-                        <Separator orientation="vertical" />
-                      </div>
-                    )}
-                    <div className="border rounded overflow-hidden">
-                      <NodeIcon
-                        type={history.kind}
-                        iconClassName="size-3"
-                        className="rounded-none"
-                      />
-                    </div>
-                    {history.status == "running" ? (
-                      <TextShimmer className="font-semibold">
-                        {`${history.name} Running...`}
-                      </TextShimmer>
-                    ) : (
-                      <span className="font-semibold">{history.name}</span>
-                    )}
-                    <span
-                      className={cn(
-                        "ml-auto text-xs",
-                        history.status != "fail" && "text-muted-foreground",
-                      )}
-                    >
-                      {history.status != "running" &&
-                        (
-                          (history.endedAt! - history.startedAt!) /
-                          1000
-                        ).toFixed(2)}
-                    </span>
-                    {history.status == "success" ? (
-                      <Check className="size-3" />
-                    ) : history.status == "fail" ? (
-                      <XIcon className="size-3" />
-                    ) : (
-                      <Loader2 className="size-3 animate-spin" />
-                    )}
-                  </div>
-                </NodeResultPopup>
-              );
-            })}
-          </div>
-          <Separator />
-          <div className="px-4 py-4">
-            <div className="flex items-center mb-4">
-              <p className="font-semibold text-sm">Result</p>
-              <div className="flex-1" />
-              {result && (
-                <NodeResultPopup
-                  history={{
-                    name: "Result",
-                    status: result.isOk ? "success" : "fail",
-                    startedAt: result.startedAt,
-                    endedAt: result.endedAt,
-                    error: errorToString(result.error),
-                    result: {
-                      input: histories[0].result?.output ?? {},
-                      output: histories.at(-1)?.result?.output ?? {},
-                    },
-                  }}
-                >
-                  <Button variant={"ghost"} size={"icon"}>
-                    <Maximize2 className="size-3" />
-                  </Button>
-                </NodeResultPopup>
+        <div className="px-4 py-4">
+          <div className="flex items-center mb-4">
+            <p className="font-semibold text-sm">Run request response</p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              onClick={() => copy(JSON.stringify(executionResult))}
+            >
+              {copied ? (
+                <Check className="size-3" />
+              ) : (
+                <Copy className="size-3" />
               )}
-              <Button
-                variant={"ghost"}
-                size={"icon"}
-                className="ml-auto"
-                onClick={() => copy(JSON.stringify(lastOutput))}
-              >
-                {copied ? (
-                  <Check className="size-3" />
-                ) : (
-                  <Copy className="size-3" />
-                )}
-              </Button>
-            </div>
-            {resultView}
+            </Button>
           </div>
+          {resultView}
         </div>
       ) : null}
     </div>

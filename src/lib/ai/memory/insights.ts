@@ -1,10 +1,10 @@
 import "server-only";
 import { type UIMessage } from "ai";
-import { z } from "zod";
 import type { ChatMessage } from "app-types/chat";
 import { customModelProvider } from "lib/ai/models";
-import { generateJsonObject } from "./generate-json";
 import logger from "logger";
+import { z } from "zod";
+import { generateJsonObject } from "./generate-json";
 
 /**
  * P2.4 — LLM pass that turns a thread's full message history into a
@@ -109,7 +109,7 @@ export const generateThreadInsights = async (
   }
 
   try {
-    const model = customModelProvider.getModel({
+    const model = await customModelProvider.getModelAsync({
       // bedrock_mantle/google.gemma-3-12b-it prettified to the registry
       // key "google/gemma-3-12b-it" — cheap, fast, and authorized on
       // this deployment. The zen/gemini-3-flash alias the original
@@ -145,7 +145,10 @@ export const generateThreadInsights = async (
       actionItems: Array.isArray(object?.actionItems) ? object.actionItems : [],
     };
   } catch (error) {
-    logger.error("Thread insights generation failed; returning empty result", error);
+    logger.error(
+      "Thread insights generation failed; returning empty result",
+      error,
+    );
     return EMPTY_INSIGHTS;
   }
 };

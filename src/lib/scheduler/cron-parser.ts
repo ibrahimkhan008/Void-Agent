@@ -1,7 +1,9 @@
 // ---------------------------------------------------------------------------
-// P3.1 — #11 scheduled agents. Tiny inline 5-field cron parser. No I/O, no
-// deps. Supports `*`, `,`, `-`, `/` in minute / hour / day-of-month / month
-// / day-of-week fields.
+import { CronExpressionParser } from "cron-parser";
+
+// P3.1 — #11 scheduled agents. Validates the product's five-field cron
+// grammar locally. UTC keeps the original deterministic matcher; non-UTC
+// schedules use cron-parser's IANA timezone and DST handling.
 //
 // Field ranges (matching crontab convention):
 //   minute          0-59
@@ -10,8 +12,8 @@
 //   month           1-12
 //   day-of-week     0-6 (Sun=0)
 //
-// "Next run" iterates minute-by-minute for up to ~4 years (a leap-year-aware
-// safety bound) and returns the first instant that matches all 5 fields.
+// Cron iteration is delegated to cron-parser, with a local filter preserving
+// Void-Agent's historical AND semantics when both calendar-day fields are set.
 // ---------------------------------------------------------------------------
 
 export const CRON_FIELDS = [
@@ -22,7 +24,7 @@ export const CRON_FIELDS = [
   { name: "day-of-week", min: 0, max: 6 },
 ] as const;
 
-const SAFETY_BOUND_MS = 4 * 365 * 24 * 60 * 60 * 1000; // ~4 years
+const SAFETY_BOUND_MS = 4 * 366 * 24 * 60 * 60 * 1000;
 
 type FieldMask = boolean[];
 
@@ -126,57 +128,94 @@ const parseAllFields = (cron: string): FieldMask[] | { error: string } => {
   return masks;
 };
 
+export const isValidTimezone = (timezone: string): boolean => {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const validateCron = (
   cron: string,
+  timezone = "UTC",
 ): { ok: true } | { ok: false; error: string } => {
   const result = parseAllFields(cron);
   if ("error" in result) return { ok: false, error: result.error };
+  if (!isValidTimezone(timezone))
+    return { ok: false, error: "Timezone must be a valid IANA timezone." };
+  try {
+    CronExpressionParser.parse(cron, { tz: timezone });
+  } catch {
+    return {
+      ok: false,
+      error: "Cron expression is not supported for this timezone.",
+    };
+  }
   return { ok: true };
 };
 
-const matchesMasks = (masks: FieldMask[], date: Date): boolean => {
-  // Field offsets inside the masks array (matching CRON_FIELDS order).
-  const minute = date.getUTCMinutes();
-  const hour = date.getUTCHours();
-  const dom = date.getUTCDate();
-  const month = date.getUTCMonth() + 1; // 1-12
-  const dow = date.getUTCDay(); // 0-6 (Sun=0)
-
-  if (!masks[0][minute]) return false;
-  if (!masks[1][hour]) return false;
-  if (!masks[2][dom]) return false;
-  if (!masks[3][month]) return false;
-  if (!masks[4][dow]) return false;
-  return true;
+const matchesCalendarDays = (
+  cron: string,
+  date: Date,
+  timezone: string,
+  masks: FieldMask[],
+): boolean => {
+  const [dayOfMonthField, , dayOfWeekField] = cron.trim().split(/\s+/).slice(2);
+  // With either field wildcarded, cron-parser's default behavior already
+  // matches the constrained field. When both are constrained, preserve the
+  // original Void-Agent behavior: both fields must match.
+  if (dayOfMonthField === "*" || dayOfWeekField === "*") return true;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    day: "numeric",
+    weekday: "short",
+  }).formatToParts(date);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  const weekday = parts.find((part) => part.type === "weekday")?.value;
+  const weekdayNumber = (
+    { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as const
+  )[weekday as "Sun" | "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat"];
+  return (
+    Number.isInteger(day) &&
+    weekdayNumber !== undefined &&
+    masks[2][day] &&
+    masks[4][weekdayNumber]
+  );
 };
 
 /**
  * Compute the next instant strictly after `from` that matches the cron
- * expression. Throws on invalid input. Returns a Date (UTC math, then
- * constructed in local time — the date arithmetic is tz-agnostic).
+ * expression. Throws on invalid input and always returns an absolute Date.
+ * UTC retains Void-Agent's legacy matcher; non-UTC uses cron-parser for IANA
+ * wall-clock and daylight-saving behavior.
  */
-export const computeNextRun = (cron: string, from: Date): Date => {
+export const computeNextRun = (
+  cron: string,
+  from: Date,
+  timezone = "UTC",
+): Date => {
+  if (!isValidTimezone(timezone))
+    throw new Error(`Invalid timezone "${timezone}".`);
   const masks = parseAllFields(cron);
   if ("error" in masks) {
     throw new Error(`Invalid cron "${cron}": ${masks.error}`);
   }
-  // Normalize to the start of the next minute, then iterate minute-by-minute.
-  const start = new Date(from.getTime());
-  start.setUTCSeconds(0, 0);
-  start.setUTCMinutes(start.getUTCMinutes() + 1);
-
-  const limit = start.getTime() + SAFETY_BOUND_MS;
-  // Cap iteration at the safety bound to avoid an infinite loop on garbage
-  // input (e.g. day=31 in a month that never has 31 days would otherwise
-  // loop forever — the bound ensures we exit with the last candidate).
-  const cursor = new Date(start.getTime());
-  while (cursor.getTime() <= limit) {
-    if (matchesMasks(masks, cursor)) {
-      return new Date(cursor.getTime());
+  try {
+    const expression = CronExpressionParser.parse(cron, {
+      currentDate: from,
+      tz: timezone,
+    });
+    const limit = from.getTime() + SAFETY_BOUND_MS;
+    while (true) {
+      const candidate = expression.next().toDate();
+      if (candidate.getTime() > limit) break;
+      if (matchesCalendarDays(cron, candidate, timezone, masks))
+        return candidate;
     }
-    cursor.setUTCMinutes(cursor.getUTCMinutes() + 1);
+  } catch {
+    throw new Error(`Invalid cron "${cron}" for timezone "${timezone}".`);
   }
-  // Should not happen for valid crons; fall back to "no next run" via far
-  // future date so callers can detect and skip.
-  return new Date(limit);
+  throw new Error(`Cron "${cron}" has no matching run within four years.`);
 };

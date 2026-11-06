@@ -1,10 +1,7 @@
 "use client";
+import { authDestination, authLink } from "@/lib/auth/callback-url";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -12,29 +9,44 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { SocialAuthenticationProvider } from "app-types/authentication";
 import { authClient } from "auth/client";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GithubIcon } from "ui/github-icon";
 import { GoogleIcon } from "ui/google-icon";
-import { useTranslations } from "next-intl";
 import { MicrosoftIcon } from "ui/microsoft-icon";
-import { SocialAuthenticationProvider } from "app-types/authentication";
-
-const DASHBOARD_PATH = "/dashboard";
 
 export default function SignIn({
   signUpEnabled,
   socialAuthenticationProviders,
+  callbackUrl,
 }: {
   signUpEnabled: boolean;
   socialAuthenticationProviders: SocialAuthenticationProvider[];
+  callbackUrl?: string;
 }) {
   const t = useTranslations("Auth.SignIn");
   const router = useRouter();
+  const redirectTo = authDestination(callbackUrl);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [desktopAuth, setDesktopAuth] = useState(false);
+
+  useEffect(() => {
+    setDesktopAuth(Boolean(window.desktop?.auth));
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get("desktopProvider");
+    if (provider === "google" || provider === "github" || provider === "microsoft") {
+      void authClient.signIn.social({ provider, callbackURL: authDestination(params.get("callbackUrl")) });
+    }
+  }, []);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +56,7 @@ export default function SignIn({
       if (error) {
         toast.error(error.message || String(error));
       } else {
-        router.push(DASHBOARD_PATH);
+        router.push(redirectTo);
         router.refresh();
       }
     } catch (e: unknown) {
@@ -59,13 +71,14 @@ export default function SignIn({
   };
 
   const handleSocialSignIn = (provider: SocialAuthenticationProvider) => {
-    // Better Auth defaults the social callback to `/` if no
-    // `callbackURL` is given. We want OAuth users to land on the
-    // dashboard, not the marketing page. The dashboard route already
-    // has its own server-side auth check that 307s the user out if
-    // the session never got minted.
+    if (window.desktop?.auth) {
+      void window.desktop.auth.startBrowserSignIn({ page: "sign-in", provider, callbackUrl: redirectTo })
+        .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Could not open browser sign-in"));
+      return;
+    }
+    // Keep the requested in-app destination; default to the original dashboard.
     void authClient.signIn
-      .social({ provider, callbackURL: DASHBOARD_PATH })
+      .social({ provider, callbackURL: redirectTo })
       .catch((e: unknown) => {
         toast.error(e instanceof Error ? e.message : "Unknown error");
       });
@@ -118,6 +131,7 @@ export default function SignIn({
 
           {socialAuthenticationProviders.length > 0 && (
             <>
+              {desktopAuth && <p className="my-2 text-center text-sm text-muted-foreground">Social sign-in opens in your browser, then returns to Void-Agent.</p>}
               <div className="flex items-center gap-2 my-4">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-xs text-muted-foreground">
@@ -163,7 +177,10 @@ export default function SignIn({
           {signUpEnabled && (
             <div className="my-8 text-center text-sm text-muted-foreground">
               {t("noAccount")}
-              <Link href="/sign-up" className="underline-offset-4 text-primary">
+              <Link
+                href={authLink("/sign-up", redirectTo)}
+                className="underline-offset-4 text-primary"
+              >
                 {t("signUp")}
               </Link>
             </div>

@@ -435,7 +435,7 @@ export function ChatMentionInputSuggestion({
               id,
             }),
           icon: item.icon,
-          suffix: selectedIds?.includes(id) && (
+          suffix: (selectedIds?.includes(id) || selectedIds?.includes(item.id)) && (
             <CheckIcon className="size-3 ml-auto" />
           ),
         };

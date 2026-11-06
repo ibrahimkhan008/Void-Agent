@@ -1,6 +1,11 @@
 "use client";
 
 import { useCollections } from "@/hooks/queries/use-collections";
+import { useProjectTeams } from "@/hooks/queries/use-projects";
+import { Library, Loader2, Plus } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "ui/button";
 import {
   Dialog,
@@ -14,19 +19,17 @@ import { Input } from "ui/input";
 import { Label } from "ui/label";
 import { Skeleton } from "ui/skeleton";
 import { Textarea } from "ui/textarea";
-import { Library, Loader2, Plus } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
 
 // P2.1 follow-up — knowledge base UI. The ingest API landed first
 // (/api/collections); this is the surface for it.
 
 export default function KnowledgeDashboard() {
   const { data, isLoading, mutate } = useCollections();
+  const { data: teamData } = useProjectTeams();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const collections = data?.collections ?? [];
@@ -44,6 +47,7 @@ export default function KnowledgeDashboard() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || undefined,
+          teamId: teamId || null,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -51,6 +55,7 @@ export default function KnowledgeDashboard() {
       setOpen(false);
       setName("");
       setDescription("");
+      setTeamId("");
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create");
@@ -114,7 +119,10 @@ export default function KnowledgeDashboard() {
                 </p>
               )}
               <p className="text-muted-foreground text-xs mt-2">
-                Created {new Date(c.createdAt).toLocaleDateString()}
+                {c.orgId
+                  ? `Shared with ${teamData?.teams.find((team) => team.id === c.orgId)?.name ?? "team workspace"}`
+                  : "Personal collection"}
+                {" · "}Created {new Date(c.createdAt).toLocaleDateString()}
               </p>
             </Link>
           ))
@@ -130,6 +138,28 @@ export default function KnowledgeDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="kb-team">Sharing</Label>
+              <select
+                id="kb-team"
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+                value={teamId}
+                onChange={(event) => setTeamId(event.target.value)}
+              >
+                <option value="">Personal collection</option>
+                {(teamData?.teams ?? [])
+                  .filter((team) => team.role !== "viewer")
+                  .map((team) => (
+                    <option key={team.id} value={team.id}>
+                      Share with {team.name}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Team members can read this collection. Editors can add
+                documents.
+              </p>
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="kb-name">Name</Label>
               <Input

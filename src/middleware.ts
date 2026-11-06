@@ -1,3 +1,4 @@
+import { authLink } from "@/lib/auth/callback-url";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -95,7 +96,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const sessionCookie = getSessionCookie(request);
+  const sessionCookie = getSessionCookie(request, {
+    cookiePrefix: process.env.AUTH_COOKIE_PREFIX || "better-auth",
+  });
 
   // For root path: app/page.tsx (server component) handles the
   // logged-in → /dashboard redirect. Middleware just lets it
@@ -105,7 +108,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(
+      new URL(
+        authLink("/sign-in", pathname + request.nextUrl.search),
+        request.url,
+      ),
+    );
   }
 
   return NextResponse.next();

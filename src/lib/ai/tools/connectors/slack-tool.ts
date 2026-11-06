@@ -1,12 +1,14 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { slackMessageApprovalSchema } from "lib/ai/tools/hitl/slack-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { slackApprovalRepository } from "lib/db/pg/repositories/slack-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
-  action: z.enum(["list_channels", "list_messages"]),
+  action: z.enum(["list_channels", "list_messages", "send_message"]),
   channelId: z
     .string()
     .optional()
@@ -17,12 +19,16 @@ const inputSchema = z.object({
     .max(100)
     .optional()
     .describe("Maximum number of items to return (default 30)"),
+  text: z.string().max(4000).optional().describe("Slack message (send_message only)"),
+  approvalToken: z.string().min(40).max(128).optional(),
 });
 
 interface SlackToolInput {
-  action: "list_channels" | "list_messages";
+  action: "list_channels" | "list_messages" | "send_message";
   channelId?: string;
   limit?: number;
+  text?: string;
+  approvalToken?: string;
 }
 
 const SLACK_API = "https://slack.com/api";
@@ -49,10 +55,10 @@ export function createSlackToolForUser(userId: string): Tool {
 Actions:
 - list_channels: List public and private channels the user belongs to (optional: limit 1-100, default 30).
 - list_messages: List recent messages in a channel (requires: channelId from list_channels results, optional: limit).
+- send_message: Post a message after the user reviews and approves the exact channel and text with proposeSlackMessage.
 
 IMPORTANT:
-- User must connect Slack first via the Connectors menu.
-- Posting messages is not yet supported.`,
+- User must connect Slack first via the Connectors menu.`,
     inputSchema,
     execute: async (input: SlackToolInput) => {
       try {
@@ -90,6 +96,24 @@ IMPORTANT:
               thread_ts: m.thread_ts,
             })),
           };
+        }
+
+        if (action === "send_message") {
+          if (!channelId || !input.text || !input.approvalToken) {
+            return { error: "Slack posting requires a reviewed channel, message, and approval token." };
+          }
+          const approval = slackMessageApprovalSchema.safeParse({ channelId, text: input.text });
+          if (!approval.success) return { error: "Invalid approved Slack message." };
+          const consumed = await slackApprovalRepository.consume(userId, input.approvalToken, approval.data);
+          if (!consumed) return { error: "This Slack message was not approved, has expired, or was already sent." };
+          const response = await fetch(`${SLACK_API}/chat.postMessage`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ channel: channelId, text: approval.data.text }),
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) return { error: data.error || `Slack API error: ${response.status}` };
+          return { ok: true, channelId, message: data.message };
         }
 
         // list_channels

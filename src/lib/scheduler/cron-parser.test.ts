@@ -44,6 +44,10 @@ describe("validateCron", () => {
     const r = validateCron("* 24 * * *");
     expect(r.ok).toBe(false);
   });
+
+  it("rejects an invalid IANA timezone", () => {
+    expect(validateCron("0 9 * * *", "Mars/Olympus").ok).toBe(false);
+  });
 });
 
 describe("computeNextRun", () => {
@@ -102,5 +106,27 @@ describe("computeNextRun", () => {
 
   it("throws on invalid input rather than looping forever", () => {
     expect(() => computeNextRun("not a cron", new Date())).toThrow();
+  });
+
+  it("keeps a wall-clock recurrence across the spring DST transition", () => {
+    const from = new Date("2026-03-07T15:00:00.000Z");
+    expect(fmt(computeNextRun("30 9 * * *", from, "America/New_York"))).toBe(
+      "2026-03-08T13:30:00Z",
+    );
+  });
+
+  it("uses the first occurrence of an ambiguous wall time during fall DST", () => {
+    const from = new Date("2026-10-31T15:00:00.000Z");
+    expect(fmt(computeNextRun("30 1 * * *", from, "America/New_York"))).toBe(
+      "2026-11-01T05:30:00Z",
+    );
+  });
+
+  it("preserves Void-Agent AND semantics when both calendar-day fields are constrained", () => {
+    const from = new Date("2026-06-02T10:00:00.000Z");
+    expect(fmt(computeNextRun("0 9 1 * 1", from))).toBe("2027-02-01T09:00:00Z");
+    expect(fmt(computeNextRun("0 9 1 * 1", from, "America/New_York"))).toBe(
+      "2027-02-01T14:00:00Z",
+    );
   });
 });

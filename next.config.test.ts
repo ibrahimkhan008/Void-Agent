@@ -31,7 +31,8 @@ describe("embed route security headers", () => {
     for (const entry of [embedPageHeaders, embedScriptHeaders]) {
       expect(entry?.headers).toContainEqual({
         key: "Content-Security-Policy",
-        value: "frame-ancestors *;",
+        value:
+          "frame-ancestors *; object-src 'none'; base-uri 'self'; form-action 'self'",
       });
       expect(
         entry?.headers.some((header) => header.key === "X-Frame-Options"),
@@ -49,7 +50,8 @@ describe("embed route security headers", () => {
     });
     expect(globalHeaders?.headers).toContainEqual({
       key: "Content-Security-Policy",
-      value: "frame-ancestors 'self';",
+      value:
+        "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
     });
   });
 });

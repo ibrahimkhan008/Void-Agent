@@ -4,13 +4,24 @@ import { handleError } from "@/app/api/chat/shared.chat";
 import { getSession } from "auth/server";
 import { z } from "zod";
 
+import { schedulerRepository } from "lib/db/repository";
 import {
   createScheduledJobForUser,
   publicScheduledJob,
 } from "lib/scheduler/jobs";
-import { schedulerRepository } from "lib/db/repository";
 
 export const dynamic = "force-dynamic";
+
+function hasSameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  try {
+    return (
+      Boolean(origin) && new URL(origin!).origin === new URL(request.url).origin
+    );
+  } catch {
+    return false;
+  }
+}
 
 const createBodySchema = z.object({
   scheduleType: z.enum(["once", "recurring"]),
@@ -27,6 +38,7 @@ const createBodySchema = z.object({
   naturalLanguage: z.string().trim().min(1).max(500).optional(),
   agentId: z.string().uuid().optional(),
   threadId: z.string().trim().min(1).max(128).optional(),
+  timezone: z.string().trim().min(1).max(64).optional(),
 });
 
 const errorFromZod = (error: z.ZodError): string =>
@@ -53,6 +65,8 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return new Response("Unauthorized", { status: 401 });
   }
+  if (!hasSameOrigin(request))
+    return new Response("Forbidden", { status: 403 });
 
   let raw: unknown;
   try {
@@ -67,13 +81,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const job = await createScheduledJobForUser(
-      session.user.id,
-      { ...parsed.data, createdFrom: "api" },
-    );
+    const job = await createScheduledJobForUser(session.user.id, {
+      ...parsed.data,
+      createdFrom: "api",
+    });
     return Response.json({ job: publicScheduledJob(job) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to create schedule.";
+    const message =
+      err instanceof Error ? err.message : "Failed to create schedule.";
     return new Response(message, { status: 400 });
   }
 }

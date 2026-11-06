@@ -10,6 +10,7 @@ export enum AppDefaultToolkit {
   Connectors = "connectors",
   Memory = "memory",
   Scheduler = "scheduler",
+  Notifications = "notifications",
   CodeEngine = "codeEngine",
   // E2B AI app builder — provisions a real sandbox with a live preview URL.
   Build = "build",
@@ -89,6 +90,7 @@ export enum DefaultToolName {
   DeleteMemory = "delete_memory",
   SearchMemory = "search_memory",
   Scheduler = "scheduler",
+  CockpitPushUpdate = "cockpit_push_update",
   CodeEngine = "code-engine",
 }
 

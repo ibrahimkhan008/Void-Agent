@@ -46,24 +46,49 @@ const isPrivateIpv4 = (b: number[]): boolean => {
 };
 
 const isPrivateIpv6 = (groups: string[]): boolean => {
-  const lower = groups.join(":").toLowerCase();
-  if (lower === "::" || lower === "::1") return true; // unspecified / loopback
-  if (
-    lower.startsWith("fe8") ||
-    lower.startsWith("fe9") ||
-    lower.startsWith("fea") ||
-    lower.startsWith("feb")
-  )
-    return true; // link-local fe80::/10
-  if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique local fc00::/7
-  // IPv4-mapped (::ffff:0:0/96) — re-check the embedded v4.
-  const mapped = lower.match(/^(?:::ffff:)(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) {
-    const parts = mapped[1].split(".").map(Number);
-    if (parts.length === 4 && parts.every((n) => n >= 0 && n <= 255)) {
-      return isPrivateIpv4(parts);
-    }
+  const lower = groups.join(":").toLowerCase().replace(/^:+/u, "::");
+  if (lower.includes(".")) {
+    const dotted = lower.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+    if (!dotted) return true;
+    const octets = dotted[2].split(".").map(Number);
+    if (octets.length !== 4 || octets.some((value) => value < 0 || value > 255))
+      return true;
+    if (dotted[1].replace(/:$/, "") !== "::ffff") return true;
+    return isPrivateIpv4(octets);
   }
+  const halves = lower.split("::");
+  if (halves.length > 2) return true;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - left.length - right.length;
+  if (missing < 0 || (halves.length === 1 && missing !== 0)) return true;
+  const parts = [...left, ...Array(missing).fill("0"), ...right].map((part) =>
+    Number.parseInt(part, 16),
+  );
+  if (
+    parts.length !== 8 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)
+  )
+    return true;
+  if (
+    parts.every((part) => part === 0) ||
+    (parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1)
+  )
+    return true;
+  if ((parts[0] & 0xffc0) === 0xfe80) return true;
+  if ((parts[0] & 0xfe00) === 0xfc00) return true;
+  if ((parts[0] & 0xff00) === 0xff00) return true;
+  const hasPrefix = (prefix: number[]) =>
+    prefix.every((part, index) => parts[index] === part);
+  if (
+    hasPrefix([0, 0, 0, 0, 0, 0xffff]) ||
+    hasPrefix([0x64, 0xff9b, 0, 0, 0, 0])
+  ) {
+    const high = parts[6];
+    const low = parts[7];
+    return isPrivateIpv4([high >> 8, high & 255, low >> 8, low & 255]);
+  }
+  if (parts.slice(0, 6).every((part) => part === 0)) return true;
   return false;
 };
 
@@ -82,7 +107,7 @@ const isPrivateAddress = (address: string): boolean => {
  * Validate that `raw` is an https URL whose host currently resolves to a
  * public address. Throws UrlBlockedError with a safe message on failure.
  */
-export const assertPublicWebhookUrl = async (raw: string): Promise<URL> => {
+export const resolvePublicWebhookUrl = async (raw: string) => {
   let url: URL;
   try {
     url = new URL(raw);
@@ -98,10 +123,23 @@ export const assertPublicWebhookUrl = async (raw: string): Promise<URL> => {
   }
 
   let addresses;
+  let lookupTimeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    addresses = await lookup(url.hostname, { all: true, verbatim: true });
-  } catch {
+    addresses = await Promise.race([
+      lookup(url.hostname, { all: true, verbatim: true }),
+      new Promise<never>((_, reject) => {
+        lookupTimeout = setTimeout(
+          () => reject(new UrlBlockedError("Webhook host lookup timed out")),
+          5_000,
+        );
+        lookupTimeout.unref?.();
+      }),
+    ]);
+  } catch (error) {
+    if (error instanceof UrlBlockedError) throw error;
     throw new UrlBlockedError("Webhook host does not resolve");
+  } finally {
+    if (lookupTimeout) clearTimeout(lookupTimeout);
   }
 
   if (addresses.length === 0) {
@@ -115,5 +153,8 @@ export const assertPublicWebhookUrl = async (raw: string): Promise<URL> => {
     }
   }
 
-  return url;
+  return { url, addresses };
 };
+
+export const assertPublicWebhookUrl = async (raw: string): Promise<URL> =>
+  (await resolvePublicWebhookUrl(raw)).url;

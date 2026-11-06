@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/apps/desktop/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -71,9 +72,12 @@ v8-compile-cache-0/
 .turbo/
 .eslintcache
 .cache/
+/apps/desktop/dist/
+/apps/desktop/out/
 
 # local agent sessions, worktrees, and browser captures
 /.claude/
+/.audit/
 /.gemini/
 /.zcode/
 /.dodo-bootstrap/
@@ -87,6 +91,7 @@ v8-compile-cache-0/
 *.bak.*
 *.zip
 /tmp-*
+/.tmp-*/
 /scripts/tmp-test/
 
 # local databases and credentials
@@ -102,3 +107,6 @@ service-account*.json
 # operating-system files
 Thumbs.db
 Desktop.ini
+
+# Downloaded OAuth client credentials
+client_secret_*.json

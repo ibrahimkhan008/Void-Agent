@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import {
   admin as adminPlugin,
+  oneTimeToken,
   organization as organizationPlugin,
 } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
@@ -91,6 +92,7 @@ const options = {
       organizationLimit: 10,
       teams: { enabled: false },
     }),
+    oneTimeToken({ expiresIn: 5, storeToken: "hashed", disableClientRequest: true }),
     nextCookies(),
   ],
   baseURL:
@@ -271,6 +273,7 @@ const options = {
     updateAge: authSessionUpdateAge,
   },
   advanced: {
+    cookiePrefix: process.env.AUTH_COOKIE_PREFIX,
     useSecureCookies:
       process.env.USE_SECURE_COOKIES === "1"
         ? true

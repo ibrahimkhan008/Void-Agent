@@ -19,6 +19,7 @@ vi.mock("lib/utils", () => ({
 
 vi.mock("lib/file-storage/storage-utils", () => ({
   resolveStoragePrefix: vi.fn(() => process.env.FILE_STORAGE_PREFIX ?? ""),
+  validateStorageOwnerId: (id: string) => id,
   sanitizeFilename: (f: string) => f.split(/[/\\]/).pop() ?? "file",
   toBuffer: async (c: unknown) => {
     if (Buffer.isBuffer(c)) return c;
@@ -64,16 +65,17 @@ describe("s3-file-storage", () => {
     delete process.env.FILE_STORAGE_S3_PUBLIC_BASE_URL;
     delete process.env.FILE_STORAGE_S3_ENDPOINT;
     delete process.env.FILE_STORAGE_S3_FORCE_PATH_STYLE;
+    delete process.env.FILE_STORAGE_S3_PRIVATE;
   });
 
   it("uploads and returns sourceUrl + metadata", async () => {
     mocks.sendMock.mockResolvedValueOnce({});
 
     const storage = createS3FileStorage();
-    const result = await storage.upload(
-      Buffer.from("png-data"),
-      { filename: "test.png", contentType: "image/png" },
-    );
+    const result = await storage.upload(Buffer.from("png-data"), {
+      filename: "test.png",
+      contentType: "image/png",
+    });
 
     // S3 virtual-hosted style URL
     expect(result.sourceUrl).toMatch(
@@ -110,13 +112,14 @@ describe("s3-file-storage", () => {
 
   it("uses custom public base URL when set", async () => {
     mocks.sendMock.mockResolvedValueOnce({});
-    process.env.FILE_STORAGE_S3_PUBLIC_BASE_URL = "https://cdn.example.com/files";
+    process.env.FILE_STORAGE_S3_PUBLIC_BASE_URL =
+      "https://cdn.example.com/files";
 
     const storage = createS3FileStorage();
-    const result = await storage.upload(
-      Buffer.from("png-data"),
-      { filename: "test.png", contentType: "image/png" },
-    );
+    const result = await storage.upload(Buffer.from("png-data"), {
+      filename: "test.png",
+      contentType: "image/png",
+    });
     expect(result.sourceUrl).toMatch(/^https:\/\/cdn\.example\.com\/files\//);
   });
 
@@ -126,11 +129,13 @@ describe("s3-file-storage", () => {
     process.env.FILE_STORAGE_S3_FORCE_PATH_STYLE = "true";
 
     const storage = createS3FileStorage();
-    const result = await storage.upload(
-      Buffer.from("png-data"),
-      { filename: "test.png", contentType: "image/png" },
+    const result = await storage.upload(Buffer.from("png-data"), {
+      filename: "test.png",
+      contentType: "image/png",
+    });
+    expect(result.sourceUrl).toMatch(
+      /^https:\/\/minio\.local:9000\/my-bucket\//,
     );
-    expect(result.sourceUrl).toMatch(/^https:\/\/minio\.local:9000\/my-bucket\//);
   });
 
   it("handles S3 errors gracefully on delete", async () => {
@@ -147,11 +152,13 @@ describe("s3-file-storage", () => {
     delete process.env.FILE_STORAGE_PREFIX;
 
     const storage = createS3FileStorage();
-    await storage.upload(
-      Buffer.from("png-data"),
-      { filename: "test.png", contentType: "image/png" },
-    );
-    const call = mocks.sendMock.mock.calls[0][0] as { input?: { Key?: string } };
+    await storage.upload(Buffer.from("png-data"), {
+      filename: "test.png",
+      contentType: "image/png",
+    });
+    const call = mocks.sendMock.mock.calls[0][0] as {
+      input?: { Key?: string };
+    };
     expect(call?.input?.Key).not.toContain("uploads/");
   });
 
@@ -159,22 +166,54 @@ describe("s3-file-storage", () => {
     mocks.sendMock.mockResolvedValueOnce({});
 
     const storage = createS3FileStorage();
-    const result = await storage.upload(
-      Buffer.from("png-data"),
-      { filename: "test.png", contentType: "image/png" },
-    );
+    const result = await storage.upload(Buffer.from("png-data"), {
+      filename: "test.png",
+      contentType: "image/png",
+    });
     // key uses fixed UUID, ends with sanitized filename
-    expect(result.metadata.key).toMatch(/^fixed-uuid-12345678-test\.png$/);
+    expect(result.metadata.key).toMatch(
+      /^uploads\/fixed-uuid-12345678-test\.png$/,
+    );
+  });
+
+  it("places user uploads below the authenticated owner's prefix", async () => {
+    mocks.sendMock.mockResolvedValueOnce({});
+    const storage = createS3FileStorage();
+    const result = await storage.upload(Buffer.from("data"), {
+      filename: "notes.txt",
+      ownerId: "user-1",
+    });
+    expect(result.key).toMatch(
+      /^uploads\/user-1\/fixed-uuid-12345678-notes\.txt$/,
+    );
+  });
+
+  it("uses the authenticated app route for owner uploads in private mode", async () => {
+    mocks.sendMock.mockResolvedValueOnce({});
+    process.env.FILE_STORAGE_S3_PRIVATE = "true";
+    const storage = createS3FileStorage();
+    const result = await storage.upload(Buffer.from("data"), {
+      filename: "private note.txt",
+      ownerId: "user-1",
+    });
+
+    expect(result.sourceUrl).toBe(
+      "/api/files/uploads/user-1/fixed-uuid-12345678-private%20note.txt",
+    );
+    expect(await storage.getSourceUrl(result.key)).toBe(result.sourceUrl);
+    expect(await storage.getSourceUrl("uploads/fixed-uuid-image.png")).toMatch(
+      /^https:\/\/my-bucket\.s3\./,
+    );
   });
 
   it("respects custom content type header", async () => {
     mocks.sendMock.mockResolvedValueOnce({});
 
     const storage = createS3FileStorage();
-    await storage.upload(
-      Buffer.from("pdf-data"),
-      { filename: "doc.pdf", contentType: "application/pdf" },
-    );
+    await storage.upload(Buffer.from("pdf-data"), {
+      filename: "doc.pdf",
+      contentType: "application/pdf",
+    });
     const call = mocks.sendMock.mock.calls[0][0] as {
       input?: { ContentType?: string };
     };

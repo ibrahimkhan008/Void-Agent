@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
-import type { UploadContent } from "./file-storage.interface";
-import logger from "logger";
 import { withTimeout } from "lib/utils";
+import logger from "logger";
+import type { UploadContent } from "./file-storage.interface";
 
 export const sanitizeFilename = (filename: string) => {
   const base = filename.split(/[/\\]/).pop() ?? "file";
@@ -73,10 +73,68 @@ export const resolveStoragePrefix = () => {
   return raw.replace(/^\/+|\/+$|\.+/g, "").trim();
 };
 
+export const validateStorageOwnerId = (userId: string) => {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(userId)) {
+    throw new Error("Invalid storage owner identifier");
+  }
+  return userId;
+};
+
+/** Stable key prefix for authenticated user uploads across storage backends. */
+export const userStoragePrefix = (userId: string) => {
+  validateStorageOwnerId(userId);
+  const root = resolveStoragePrefix();
+  return `${root ? `${root}/` : ""}${userId}/`;
+};
+
+export const isUserStorageKey = (key: string, userId: string) => {
+  try {
+    const normalized = key.replace(/\\/g, "/");
+    return (
+      !normalized.split("/").some((part) => part === "." || part === "..") &&
+      normalized.startsWith(userStoragePrefix(userId))
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const isManagedStorageKey = (key: string) => {
+  const root = resolveStoragePrefix();
+  return root ? key.startsWith(`${root}/`) : true;
+};
+
 export const storageKeyFromUrl = (input: string): string | null => {
   try {
-    const url = new URL(input);
-    return decodeURIComponent(url.pathname.replace(/^\//, ""));
+    // Uploaded local files are served as relative `/api/files/<key>` URLs;
+    // external object stores return absolute URLs. Accept both without ever
+    // fetching the supplied URL itself.
+    if (input.startsWith("//")) return null;
+    if (!input.startsWith("/") && !/^[a-z][a-z\d+.-]*:/i.test(input)) {
+      return null;
+    }
+    // URL parsers normalize encoded dot segments before exposing pathname, so
+    // reject traversal in the raw path before constructing the URL.
+    const rawPath = input.split(/[?#]/, 1)[0] ?? "";
+    if (/(?:^|[\\/])(?:\.|%2e){1,2}(?:[\\/]|$)/i.test(rawPath)) return null;
+    const url = new URL(input, "https://void-agent.invalid");
+    let pathname = url.pathname;
+    const routePrefix = "/api/files/";
+    if (pathname.startsWith(routePrefix)) {
+      pathname = pathname.slice(routePrefix.length);
+    } else {
+      pathname = pathname.replace(/^\//, "");
+    }
+    const key = decodeURIComponent(pathname);
+    const segments = key.replace(/\\/g, "/").split("/");
+    if (
+      !key ||
+      segments.some((segment) => segment === "." || segment === "..") ||
+      /[\u0000-\u001f\u007f]/.test(key)
+    ) {
+      return null;
+    }
+    return key;
   } catch {
     return null;
   }

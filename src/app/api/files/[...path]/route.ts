@@ -1,8 +1,14 @@
-import { NextRequest } from "next/server";
-import { serverFileStorage } from "lib/file-storage";
-import { getContentTypeFromFilename } from "lib/file-storage/storage-utils";
+import { getSession } from "auth/server";
 import { FileNotFoundError } from "lib/errors";
+import { serverFileStorage } from "lib/file-storage";
+import {
+  getContentTypeFromFilename,
+  isUserStorageKey,
+  resolveStoragePrefix,
+} from "lib/file-storage/storage-utils";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import logger from "logger";
+import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -32,9 +38,8 @@ const sniffContentType = (buf: Buffer): string | null => {
 };
 
 /**
- * Public read endpoint for locally-stored files (the "local" file-storage
- * driver). Serves generated images / uploads from disk on the app's own
- * domain so <img> tags resolve without any external storage provider.
+ * Serves generated local assets publicly and authenticated owner-scoped uploads
+ * privately from the local file-storage driver.
  */
 export async function GET(
   _request: NextRequest,
@@ -43,8 +48,48 @@ export async function GET(
   try {
     const { path: segments } = await params;
     const key = (segments ?? []).map((s) => decodeURIComponent(s)).join("/");
-    if (!key) {
+    if (
+      !key ||
+      key.split(/[\\/]/).some((segment) => segment === "." || segment === "..")
+    ) {
       return new Response("Not found", { status: 404 });
+    }
+
+    // User uploads share the public /api/files URL shape with generated assets.
+    // Detect the configured owner prefix and require that owner for uploads;
+    // generated files that have no owner segment retain their public behavior.
+    const configuredPrefix = resolveStoragePrefix();
+    const prefixDepth = configuredPrefix
+      ? configuredPrefix.split("/").length
+      : 0;
+    const ownerId = key.split("/")[prefixDepth];
+    const ownerScoped = Boolean(ownerId && isUserStorageKey(key, ownerId));
+    if (ownerScoped) {
+      const session = await getSession();
+      if (!session?.user.id) {
+        return new Response("Unauthorized", {
+          status: 401,
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      }
+      if (session.user.id !== ownerId) {
+        return new Response("Not found", {
+          status: 404,
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      }
+      const rate = await checkApiRateLimit({
+        kind: "storage-owner-file-read",
+        id: session.user.id,
+        limit: 120,
+        windowMs: 60_000,
+      });
+      if (!rate.allowed) {
+        return new Response("Too many requests", {
+          status: 429,
+          headers: { "Cache-Control": "private, no-store" },
+        });
+      }
     }
 
     const buffer = await serverFileStorage.download(key);
@@ -55,7 +100,9 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": ownerScoped
+          ? "private, no-store"
+          : "public, max-age=31536000, immutable",
         "Content-Length": String(buffer.byteLength),
         // Defense-in-depth: files are untrusted user-uploaded/generated
         // content. These headers neutralize active content (e.g. legacy

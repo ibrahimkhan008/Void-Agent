@@ -1,9 +1,12 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { driveFileApprovalSchema } from "lib/ai/tools/hitl/drive-file-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { driveApprovalRepository } from "lib/db/pg/repositories/drive-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list", "read", "create"]),
@@ -19,6 +22,7 @@ const inputSchema = z.object({
     .string()
     .optional()
     .describe("The text content of the new file (for create action)"),
+  approvalToken: z.string().min(40).max(128).optional(),
   maxResults: z
     .number()
     .min(1)
@@ -32,6 +36,7 @@ interface DriveToolInput {
   fileId?: string;
   name?: string;
   content?: string;
+  approvalToken?: string;
   maxResults?: number;
 }
 
@@ -57,7 +62,7 @@ export function createDriveToolForUser(userId: string): Tool {
 Actions:
 - list: List recent files in the user's Drive (optional: maxResults 1-50).
 - read: Read a file's metadata and text content (requires: fileId from list results).
-- create: Create a new text file (requires: name, content).
+- create: Create a new text file only with the exact single-use approvalToken returned by proposeDriveFile after user review (requires: name, content).
 
 IMPORTANT:
 - User must connect Google Drive first via the Connectors menu.
@@ -109,21 +114,26 @@ IMPORTANT:
         }
 
         if (action === "create") {
-          if (!name || !content) {
-            return { error: "name and content are required for create" };
+          if (name === undefined || content === undefined || !input.approvalToken) {
+            return { error: "name, content, and approvalToken are required for create" };
+          }
+          const approval = driveFileApprovalSchema.safeParse({ name, content });
+          if (!approval.success) return { error: "Invalid approved Drive file name or content." };
+          if (!(await driveApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Drive file creation requires fresh approval for this exact name and content." };
           }
           const metadata = {
-            name,
+            name: approval.data.name,
             mimeType: "text/plain",
           };
-          const boundary = "flare-drive-boundary";
+          const boundary = `void-agent-${randomBytes(18).toString("hex")}`;
           const body =
             `--${boundary}\r\n` +
             `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
             `${JSON.stringify(metadata)}\r\n` +
             `--${boundary}\r\n` +
             `Content-Type: text/plain\r\n\r\n` +
-            `${content}\r\n` +
+            `${approval.data.content}\r\n` +
             `--${boundary}--`;
           const res = await fetch(
             "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",

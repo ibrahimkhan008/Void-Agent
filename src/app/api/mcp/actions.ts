@@ -15,6 +15,7 @@ import { IS_MCP_SERVER_REMOTE_ONLY } from "lib/const";
 import { McpServerTable } from "lib/db/pg/schema.pg";
 import { mcpOAuthRepository, mcpRepository } from "lib/db/repository";
 import { errorToString } from "lib/utils";
+import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
 
 // --- Authorization Helpers ---
 
@@ -270,20 +271,56 @@ export async function callMcpToolAction(
   id: string,
   toolName: string,
   input: unknown,
+  approvalToken: unknown,
 ) {
   await verifyMcpAccess(id);
-  return mcpClientsManager.toolCall(id, toolName, input);
+  const currentUser = await getCurrentUser();
+  const server = await mcpRepository.selectById(id);
+  if (!currentUser || !server) throw new Error("MCP server not found");
+  return executeApprovedMcpTool({
+    userId: currentUser.id,
+    token: approvalToken,
+    approvalPayload: { serverId: id, serverName: server.name, toolName, payload: input },
+    execute: () => mcpClientsManager.toolCall(id, toolName, input),
+  });
 }
 
 export async function callMcpToolByServerNameAction(
   serverName: string,
   toolName: string,
   input: unknown,
+  serverId: string,
+  approvalToken: unknown,
 ) {
-  const server = await mcpRepository.selectByServerName(serverName);
-  if (server) await verifyMcpAccess(server.id);
+  await verifyMcpAccess(serverId);
+  const currentUser = await getCurrentUser();
+  const server = await mcpRepository.selectById(serverId);
+  if (!currentUser || !server || server.name !== serverName) throw new Error("MCP server not found");
+  return executeApprovedMcpTool({
+    userId: currentUser.id,
+    token: approvalToken,
+    approvalPayload: { serverId, serverName: server.name, toolName, payload: input },
+    execute: () => mcpClientsManager.toolCall(serverId, toolName, input),
+  });
+}
 
-  return mcpClientsManager.toolCallByServerName(serverName, toolName, input);
+export async function callApprovedMcpToolAction(
+  id: string,
+  serverName: string,
+  toolName: string,
+  input: unknown,
+  approvalToken: unknown,
+) {
+  await verifyMcpAccess(id);
+  const currentUser = await getCurrentUser();
+  const server = await mcpRepository.selectById(id);
+  if (!currentUser || !server || server.name !== serverName) throw new Error("MCP server not found");
+  return executeApprovedMcpTool({
+    userId: currentUser.id,
+    token: approvalToken,
+    approvalPayload: { serverId: id, serverName: server.name, toolName, payload: input },
+    execute: () => mcpClientsManager.toolCall(id, toolName, input),
+  });
 }
 
 export async function shareMcpServerAction(

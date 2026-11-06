@@ -8,8 +8,10 @@ vi.mock("lib/db/repository", () => ({
   },
 }));
 
+import type { ScheduledJob } from "lib/db/pg/schema.pg";
 import {
   normalizeScheduleCreateInput,
+  normalizeScheduleUpdateInput,
   parseSimpleScheduleText,
 } from "./jobs";
 
@@ -127,5 +129,107 @@ describe("normalizeScheduleCreateInput", () => {
     );
     expect(result.nextRunAt.getTime()).toBeGreaterThan(now.getTime());
     expect(result.payload.scheduleType).toBe("recurring");
+  });
+
+  it("computes recurring schedules in the selected IANA timezone", () => {
+    const result = normalizeScheduleCreateInput(
+      {
+        scheduleType: "recurring",
+        prompt: "x",
+        cron: "30 9 * * *",
+        timezone: "America/New_York",
+      },
+      new Date("2026-03-07T15:00:00.000Z"),
+    );
+    expect(result.timezone).toBe("America/New_York");
+    expect(result.nextRunAt.toISOString()).toBe("2026-03-08T13:30:00.000Z");
+  });
+
+  it("rejects an unknown IANA timezone", () => {
+    expect(() =>
+      normalizeScheduleCreateInput(
+        {
+          scheduleType: "recurring",
+          prompt: "x",
+          cron: "0 9 * * *",
+          timezone: "Mars/Olympus",
+        },
+        now,
+      ),
+    ).toThrow(/valid IANA timezone/);
+  });
+});
+
+describe("normalizeScheduleUpdateInput", () => {
+  const now = new Date("2026-06-02T10:00:00.000Z");
+  const existing = {
+    id: "job-1",
+    userId: "user-1",
+    agentId: "123e4567-e89b-42d3-a456-426614174001",
+    name: "Existing task",
+    cron: "0 9 * * *",
+    timezone: "UTC",
+    claimToken: null,
+    claimExpiresAt: null,
+    payload: {
+      triggerMessage: "old prompt",
+      threadId: "thread-1",
+      createdFrom: "chat-tool",
+    },
+    createdAt: now,
+    updatedAt: now,
+    lastRunAt: null,
+    nextRunAt: new Date(now.getTime() + 60_000),
+    status: "active",
+  } as ScheduledJob;
+
+  it("recomputes a recurring run and retains agent/thread context", () => {
+    const result = normalizeScheduleUpdateInput(
+      {
+        scheduleType: "recurring",
+        prompt: "new prompt",
+        cron: "30 11 * * 1-5",
+        timezone: "Europe/London",
+      },
+      existing,
+      now,
+    );
+
+    expect(result.cron).toBe("30 11 * * 1-5");
+    expect(result.timezone).toBe("Europe/London");
+    expect(result.payload).toMatchObject({
+      scheduleType: "recurring",
+      triggerMessage: "new prompt",
+      threadId: "thread-1",
+      createdFrom: "chat-tool",
+      executionMode: "agent",
+    });
+    expect(result.nextRunAt.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("rejects invalid cron and one-shot times inside the minimum lead window", () => {
+    expect(() =>
+      normalizeScheduleUpdateInput(
+        {
+          scheduleType: "recurring",
+          prompt: "new prompt",
+          cron: "broken",
+          timezone: "UTC",
+        },
+        existing,
+        now,
+      ),
+    ).toThrow(/Invalid cron/);
+    expect(() =>
+      normalizeScheduleUpdateInput(
+        {
+          scheduleType: "once",
+          prompt: "new prompt",
+          runAt: new Date(now.getTime() + 10_000).toISOString(),
+        },
+        existing,
+        now,
+      ),
+    ).toThrow(/at least 30 seconds/);
   });
 });

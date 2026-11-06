@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { taskCreationApprovalSchema } from "lib/ai/tools/hitl/task-creation-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { taskCreationApprovalRepository } from "lib/db/pg/repositories/task-creation-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_products", "list_features", "get_feature", "create_feature"]),
@@ -12,6 +14,7 @@ const inputSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   limit: z.number().min(1).max(100).optional(),
+  approvalToken: z.string().min(40).max(128).optional(),
 });
 
 interface ProductboardToolInput {
@@ -21,6 +24,7 @@ interface ProductboardToolInput {
   name?: string;
   description?: string;
   limit?: number;
+  approvalToken?: string;
 }
 
 const PRODUCTBOARD_API = "https://api.productboard.com";
@@ -48,7 +52,7 @@ Actions:
 - list_products: List products.
 - list_features: List features for a product (requires: productId).
 - get_feature: Read a feature (requires: featureId).
-- create_feature: Create a feature (requires: productId, name).`,
+- create_feature: Create a feature only with the exact approvalToken returned by proposeTaskCreation after user review (requires: productId, name).`,
     inputSchema,
     execute: async (input: ProductboardToolInput) => {
       try {
@@ -86,17 +90,22 @@ Actions:
           return await res.json();
         }
         if (action === "create_feature") {
-          if (!input.productId || !input.name) {
-            return { error: "productId and name required" };
+          if (!input.productId || !input.name || !input.approvalToken) {
+            return { error: "productId, name, and approvalToken required" };
+          }
+          const approval = taskCreationApprovalSchema.safeParse({ provider: "productboard", targetId: input.productId, name: input.name, details: input.description ?? "" });
+          if (!approval.success || approval.data.provider !== "productboard") return { error: "Invalid Productboard feature approval payload." };
+          if (!(await taskCreationApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Productboard feature creation requires fresh approval for these exact fields." };
           }
           const res = await fetch(`${PRODUCTBOARD_API}/features`, {
             method: "POST",
             headers,
             body: JSON.stringify({
               data: {
-                name: input.name,
-                description: input.description,
-                product: { id: input.productId },
+                name: approval.data.name,
+                description: approval.data.details,
+                product: { id: approval.data.targetId },
               },
             }),
           });

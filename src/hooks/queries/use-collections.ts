@@ -18,6 +18,12 @@ export interface Collection {
   updatedAt: string;
 }
 
+export interface CollectionAccess {
+  role: "owner" | "editor" | "viewer";
+  canWrite: boolean;
+  canDelete: boolean;
+}
+
 export interface CollectionItem {
   id: string;
   collectionId: string;
@@ -43,14 +49,14 @@ export function useCollections(options?: SWRConfiguration) {
 }
 
 export function useCollection(id?: string, options?: SWRConfiguration) {
-  return useSWR<{ collection: Collection; items: CollectionItem[] }>(
-    id ? `/api/collections/${id}` : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      errorRetryCount: 0,
-      onError: handleErrorWithToast,
-      ...options,
-    },
-  );
+  return useSWR<{
+    collection: Collection;
+    items: CollectionItem[];
+    access: CollectionAccess;
+  }>(id ? `/api/collections/${id}` : null, fetcher, {
+    revalidateOnFocus: false,
+    errorRetryCount: 0,
+    onError: handleErrorWithToast,
+    ...options,
+  });
 }

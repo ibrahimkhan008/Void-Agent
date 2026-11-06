@@ -1,9 +1,9 @@
 import "server-only";
 
-import { z } from "zod";
 import { customModelProvider } from "lib/ai/models";
-import { generateJsonObject } from "./generate-json";
 import logger from "logger";
+import { z } from "zod";
+import { generateJsonObject } from "./generate-json";
 
 /**
  * Phase 1+#1 — LLM pass that turns a finished chat message into memory
@@ -119,7 +119,7 @@ export const extractMemoryCandidates = async (
   }
 
   try {
-    const model = customModelProvider.getModel({
+    const model = await customModelProvider.getModelAsync({
       // bedrock_mantle/google.gemma-3-12b-it prettified to the registry
       // key "google/gemma-3-12b-it" — cheap, fast, and authorized on
       // this deployment. The zen/gemini-3-flash alias the original

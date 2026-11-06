@@ -1,8 +1,8 @@
 "use client";
+import { authDestination, authLink } from "@/lib/auth/callback-url";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,26 +11,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useTranslations } from "next-intl";
 import { SocialAuthenticationProvider } from "app-types/authentication";
-import SocialProviders from "./social-providers";
 import { authClient } from "auth/client";
-import { toast } from "sonner";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { startTransition } from "react";
-import { TurnstileWidget } from "@/components/auth/turnstile-widget";
-
-const DASHBOARD_PATH = "/dashboard";
+import { toast } from "sonner";
+import SocialProviders from "./social-providers";
 
 export default function SignUpPage({
   socialAuthenticationProviders,
+  callbackUrl,
   isFirstUser,
 }: {
   socialAuthenticationProviders: SocialAuthenticationProvider[];
+  callbackUrl?: string;
   isFirstUser: boolean;
 }) {
   const t = useTranslations();
   const router = useRouter();
+  const redirectTo = authDestination(callbackUrl);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +40,14 @@ export default function SignUpPage({
   const [showPassword, setShowPassword] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileExpired, setTurnstileExpired] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get("desktopProvider");
+    if (provider === "google" || provider === "github" || provider === "microsoft") {
+      void authClient.signIn.social({ provider, callbackURL: authDestination(params.get("callbackUrl")) });
+    }
+  }, []);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +79,7 @@ export default function SignUpPage({
           return;
         }
         toast.success("Account created! Redirecting...");
-        router.push(DASHBOARD_PATH);
+        router.push(redirectTo);
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to sign up");
@@ -79,16 +89,17 @@ export default function SignUpPage({
   };
 
   const handleSocialSignIn = (provider: SocialAuthenticationProvider) => {
-    // Better Auth defaults the social callback to `/` if no
-    // `callbackURL` is given. We want OAuth users to land on the
-    // dashboard, not the marketing page. The dashboard route already
-    // has its own server-side auth check that 307s the user out if
-    // the session never got minted.
+    if (window.desktop?.auth) {
+      void window.desktop.auth.startBrowserSignIn({ page: "sign-up", provider, callbackUrl: redirectTo })
+        .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Could not open browser sign-in"));
+      return;
+    }
+    // Keep the requested in-app destination; default to the original dashboard.
     startTransition(async () => {
       try {
         await authClient.signIn.social({
           provider,
-          callbackURL: DASHBOARD_PATH,
+          callbackURL: redirectTo,
         });
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Unknown error");
@@ -184,7 +195,10 @@ export default function SignUpPage({
         )}
         <div className="my-8 text-center text-sm text-muted-foreground">
           {t("Auth.SignUp.haveAccount")}{" "}
-          <Link href="/sign-in" className="underline-offset-4 text-primary">
+          <Link
+            href={authLink("/sign-in", redirectTo)}
+            className="underline-offset-4 text-primary"
+          >
             {t("Auth.SignUp.signIn")}
           </Link>
         </div>

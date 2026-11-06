@@ -3,9 +3,15 @@ import "server-only";
 import { Buffer } from "node:buffer";
 import { handleError } from "@/app/api/chat/shared.chat";
 import { getSession } from "auth/server";
+import {
+  canWriteCollection,
+  getCollectionAccess,
+} from "lib/collections/access";
 import { collectionRepository } from "lib/db/repository";
+import { enqueueProjectBrainForIngest } from "lib/projects/brain-queue";
 import { ingestFile, ingestText, ingestUrl } from "lib/rag/ingest";
 import { isParseableDocument } from "lib/rag/parse";
+import { hasSameOrigin } from "lib/security/same-origin";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +47,31 @@ const jsonBodySchema = z.union([
 /** PDFs of any substance run past 5MB; OCR is the slow part, not size. */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
+async function includeBrainQueue(
+  result: { itemId: string },
+  userId: string,
+  collectionId: string,
+) {
+  try {
+    const queued = await enqueueProjectBrainForIngest({
+      userId,
+      collectionId,
+      itemId: result.itemId,
+    });
+    return {
+      ...result,
+      projectBrainQueued: queued.queued,
+      projectBrainQueueCapped: queued.capped,
+    };
+  } catch (error) {
+    console.error(
+      "[collection-ingest] could not enqueue project brain analysis",
+      error,
+    );
+    return { ...result, projectBrainQueued: 0, projectBrainQueueCapped: false };
+  }
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -52,13 +83,13 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const collection = await collectionRepository.getCollection(
+    const access = await getCollectionAccess(id, session.user.id);
+    if (!access) return new Response("Not found", { status: 404 });
+
+    const items = await collectionRepository.listAccessibleCollectionItems(
       id,
       session.user.id,
     );
-    if (!collection) return new Response("Not found", { status: 404 });
-
-    const items = await collectionRepository.listCollectionItems(id);
     const counts = await collectionRepository.countChunksForItems(
       items.map((i) => i.id),
     );
@@ -74,6 +105,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!hasSameOrigin(request)) {
+    return new Response("Forbidden", { status: 403 });
+  }
   const session = await getSession();
   if (!session?.user.id) {
     return new Response("Unauthorized", { status: 401 });
@@ -81,12 +115,12 @@ export async function POST(
   const { id } = await params;
 
   // Ownership first — everything below writes through this collection id.
-  const collection = await collectionRepository.getCollection(
-    id,
-    session.user.id,
-  );
-  if (!collection) {
+  const access = await getCollectionAccess(id, session.user.id);
+  if (!access) {
     return new Response("Not found", { status: 404 });
+  }
+  if (!canWriteCollection(access.role)) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   const contentType = request.headers.get("content-type") ?? "";
@@ -121,11 +155,15 @@ export async function POST(
       }
       const result = await ingestFile({
         collectionId: id,
+        actorUserId: session.user.id,
         buffer: Buffer.from(await file.arrayBuffer()),
         filename: file.name,
         mediaType,
       });
-      return Response.json(result, { status: 201 });
+      return Response.json(
+        await includeBrainQueue(result, session.user.id, id),
+        { status: 201 },
+      );
     }
 
     // --- JSON: text or url ----------------------------------------------
@@ -146,17 +184,27 @@ export async function POST(
 
     const result =
       "url" in parsed.data
-        ? await ingestUrl({ collectionId: id, url: parsed.data.url })
+        ? await ingestUrl({
+            collectionId: id,
+            actorUserId: session.user.id,
+            url: parsed.data.url,
+          })
         : await ingestText({
             collectionId: id,
+            actorUserId: session.user.id,
             text: parsed.data.text,
             filename: parsed.data.filename ?? null,
             sourceType: "file",
           });
 
-    return Response.json(result, { status: 201 });
+    return Response.json(await includeBrainQueue(result, session.user.id, id), {
+      status: 201,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message === "Collection access is no longer available") {
+      return new Response("Forbidden", { status: 403 });
+    }
     // Caller-fixable ingest failures (empty, too large, bad URL,
     // unsupported type) are 400s, not 500s.
     if (

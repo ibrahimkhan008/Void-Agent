@@ -55,6 +55,7 @@ import { GrokIcon } from "ui/grok-icon";
 import { MCPIcon } from "ui/mcp-icon";
 import { OpenAIIcon } from "ui/openai-icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { AssemblyAIDictationButton } from "./assemblyai-dictation-button";
 import { ConnectorsPopover } from "./connectors-popover";
 import { DefaultToolIcon } from "./default-tool-icon";
 
@@ -1829,6 +1830,15 @@ export default function PromptInput({
                       </SelectModel>
                     </div>
                   </>
+                )}
+                {!voiceDisabled && (
+                  <AssemblyAIDictationButton
+                    disabled={isLoading || isEditingImage}
+                    onTranscript={(text) => {
+                      const separator = input && !/\s$/.test(input) ? " " : "";
+                      setInput(`${input}${separator}${text}`);
+                    }}
+                  />
                 )}
                 {!isLoading &&
                 !input.length &&

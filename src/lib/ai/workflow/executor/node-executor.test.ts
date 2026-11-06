@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock server-only modules
 vi.mock("server-only", () => ({}));
@@ -21,7 +21,7 @@ vi.mock("ai", () => ({
 
 vi.mock("lib/ai/models", () => ({
   customModelProvider: {
-    getModelWithFailureFallback: () => ({ modelId: "mock-model" }),
+    getModelWithFailureFallbackAsync: async () => ({ modelId: "mock-model" }),
   },
 }));
 
@@ -47,9 +47,9 @@ vi.mock("lib/json-schema-to-zod", () => ({
   jsonSchemaToZod: (s: any) => jsonSchemaToZodMock(s),
 }));
 
-import { llmNodeExecutor } from "./node-executor";
-import { NodeKind, type LLMNodeData } from "../workflow.interface";
 import type { JSONSchema7 } from "json-schema";
+import { type LLMNodeData, NodeKind } from "../workflow.interface";
+import { llmNodeExecutor } from "./node-executor";
 
 const baseNode = (outputSchema: any): LLMNodeData => ({
   id: "n1",

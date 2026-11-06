@@ -1,0 +1,95 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  store: new Map<string, string>(),
+  logs: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+  createContext: vi.fn(() => ({ mock: true })),
+}));
+
+vi.mock("server-only", () => ({}));
+vi.mock("next/server", () => ({ after: () => {} }));
+vi.mock("logger", () => ({ default: { withDefaults: () => mocks.logs } }));
+vi.mock("resumable-stream/ioredis", () => ({
+  createResumableStreamContext: mocks.createContext,
+}));
+vi.mock("ioredis", () => ({
+  default: class {
+    on() {
+      return this;
+    }
+    async set(key: string, value: string) {
+      mocks.store.set(key, value);
+      return "OK";
+    }
+    async get(key: string) {
+      return mocks.store.get(key) ?? null;
+    }
+    async del(key: string) {
+      return mocks.store.delete(key) ? 1 : 0;
+    }
+    async eval(_script: string, _keys: number, key: string, expected: string) {
+      if (mocks.store.get(key) !== expected) return 0;
+      mocks.store.delete(key);
+      return 1;
+    }
+  },
+}));
+
+const originalRedis = process.env.REDIS_URL;
+const originalKv = process.env.KV_URL;
+
+async function loadWithEnv(env: { REDIS_URL?: string; KV_URL?: string }) {
+  vi.resetModules();
+  delete process.env.REDIS_URL;
+  delete process.env.KV_URL;
+  Object.assign(process.env, env);
+  return import("./chat-stream-context");
+}
+
+beforeEach(() => {
+  mocks.store.clear();
+  vi.clearAllMocks();
+});
+afterEach(() => {
+  delete process.env.REDIS_URL;
+  delete process.env.KV_URL;
+  if (originalRedis) process.env.REDIS_URL = originalRedis;
+  if (originalKv) process.env.KV_URL = originalKv;
+});
+
+describe("chat stream context", () => {
+  it("disables resume when Redis is not configured", async () => {
+    const context = await loadWithEnv({});
+    expect(context.getStreamContext()).toBeNull();
+    expect(context.getStreamContext()).toBeNull();
+    expect(mocks.createContext).not.toHaveBeenCalled();
+    expect(mocks.logs.warn).toHaveBeenCalledOnce();
+  });
+
+  it("enables buffering with either supported Redis URL", async () => {
+    const context = await loadWithEnv({ KV_URL: "rediss://cache.test" });
+    expect(context.getStreamContext()).not.toBeNull();
+    expect(mocks.createContext).toHaveBeenCalledOnce();
+  });
+
+  it("scopes active-stream pointers and stop signals by thread", async () => {
+    const context = await loadWithEnv({ REDIS_URL: "redis://cache.test" });
+    await context.setActiveStream("thread-a", "stream-1");
+    expect(await context.getActiveStream("thread-a")).toBe("stream-1");
+    expect(await context.getActiveStream("thread-b")).toBeNull();
+    await context.requestStop("thread-a");
+    expect(await context.isStopRequested("thread-a")).toBe(true);
+    expect(await context.isStopRequested("thread-b")).toBe(false);
+    await context.clearStop("thread-a");
+    await context.clearActiveStream("thread-a");
+    expect(await context.isStopRequested("thread-a")).toBe(false);
+    expect(await context.getActiveStream("thread-a")).toBeNull();
+  });
+
+  it("does not clear a newer stream pointer when an older run finishes", async () => {
+    const context = await loadWithEnv({ REDIS_URL: "redis://cache.test" });
+    await context.setActiveStream("thread-a", "stream-new");
+    await context.clearActiveStream("thread-a", "stream-old");
+    expect(await context.getActiveStream("thread-a")).toBe("stream-new");
+  });
+});

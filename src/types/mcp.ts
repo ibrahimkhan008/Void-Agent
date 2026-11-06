@@ -32,6 +32,7 @@ export type MCPServerConfig = MCPRemoteConfig | MCPStdioConfig;
 export type MCPToolInfo = {
   name: string;
   description: string;
+  annotations?: { readOnlyHint?: boolean };
   inputSchema?: {
     type?: any;
     properties?: Record<string, any>;
@@ -75,12 +76,16 @@ export type McpServerSelect = {
   id: string;
   userId: string;
   visibility: "public" | "private";
+  enabled?: boolean;
 };
 
 export type VercelAIMcpTool = Tool & {
   _mcpServerName: string;
   _mcpServerId: string;
   _originToolName: string;
+  _readOnlyHint?: boolean;
+  _approvalTokenKey?: string;
+  _originalDescription?: string;
 };
 
 export const VercelAIMcpToolTag = tag<VercelAIMcpTool>("mcp");

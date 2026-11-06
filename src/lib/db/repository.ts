@@ -2,8 +2,8 @@ import { pgAgentRepository } from "./pg/repositories/agent-repository.pg";
 import { pgArchiveRepository } from "./pg/repositories/archive-repository.pg";
 import { pgBookmarkRepository } from "./pg/repositories/bookmark-repository.pg";
 import { bugReportRepository as pgBugReportRepository } from "./pg/repositories/bug-bounty-repository.pg";
-import { pgChatExportRepository } from "./pg/repositories/chat-export-repository.pg";
 import { pgCanvasExportRepository } from "./pg/repositories/canvas-export-repository.pg";
+import { pgChatExportRepository } from "./pg/repositories/chat-export-repository.pg";
 import { pgChatRepository } from "./pg/repositories/chat-repository.pg";
 import { pgDodoPaymentsRepository } from "./pg/repositories/dodo-payments-repository.pg";
 import { pgMcpOAuthRepository } from "./pg/repositories/mcp-oauth-repository.pg";
@@ -44,6 +44,8 @@ export { apiKeyRepository } from "./pg/repositories/api-key-repository.pg";
 export { webhookRepository } from "./pg/repositories/webhook-repository.pg";
 export { embedSessionRepository } from "./pg/repositories/embed-session-repository.pg";
 export { apiUsageRepository } from "./pg/repositories/api-usage-repository.pg";
+export { notificationRepository } from "./pg/repositories/notification-repository.pg";
+export { voiceDeviceRepository } from "./pg/repositories/voice-device-repository.pg";
 
 // Phase 4 — Sharing (#14, #15, #19) + Stripe prereq. P4.A-P4.E will
 // import these directly; re-exporting here keeps the

@@ -1,29 +1,33 @@
 "use client";
 import { SidebarMenuButton, useSidebar } from "ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { SidebarMenu, SidebarMenuItem } from "ui/sidebar";
 import { SidebarGroupContent } from "ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
-import { SidebarGroup } from "ui/sidebar";
-import Link from "next/link";
-import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
-import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { WriteIcon } from "ui/write-icon";
-import {
-  Sparkles,
-  SlidersHorizontal,
-  Waypoints,
-  PencilRuler,
-  Users,
-  Library,
-  Hammer,
-  Box,
-} from "lucide-react";
-import { getIsUserAdmin } from "lib/user/utils";
-import { BasicUser } from "app-types/user";
-import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 import { appStore } from "@/app/store";
+import { BasicUser } from "app-types/user";
+import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
+import { getIsUserAdmin } from "lib/user/utils";
+import {
+  AudioLines,
+  Box,
+  Clock3,
+  FolderKanban,
+  Hammer,
+  Library,
+  PencilRuler,
+  SlidersHorizontal,
+  Sparkles,
+  TableProperties,
+  Users,
+  Waypoints,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { SidebarGroup } from "ui/sidebar";
+import { WriteIcon } from "ui/write-icon";
+import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 
 export function AppSidebarMenus({ user }: { user?: BasicUser }) {
   const router = useRouter();
@@ -99,6 +103,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <TooltipTrigger asChild>
+                <Link href="/schedules">
+                  <SidebarMenuButton className="font-semibold">
+                    <Clock3 className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Scheduled tasks</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Scheduled tasks</TooltipContent>}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
                 <Link href="/build">
                   <SidebarMenuButton className="font-semibold">
                     <Hammer className="size-4" />
@@ -162,6 +181,36 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <TooltipTrigger asChild>
+                <Link href="/projects">
+                  <SidebarMenuButton className="font-semibold">
+                    <FolderKanban className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Projects</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Projects</TooltipContent>}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/voice-devices">
+                  <SidebarMenuButton className="font-semibold">
+                    <AudioLines className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Voice devices</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Voice devices</TooltipContent>}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
                 <Link href="/knowledge">
                   <SidebarMenuButton className="font-semibold">
                     <Library className="size-4" />
@@ -176,6 +225,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                   Knowledge
                 </TooltipContent>
               )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/tabular-reviews">
+                  <SidebarMenuButton className="font-semibold">
+                    <TableProperties className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Document reviews</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Document reviews</TooltipContent>}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>

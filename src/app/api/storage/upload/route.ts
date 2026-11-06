@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getSession } from "auth/server";
 import { serverFileStorage, storageDriver } from "lib/file-storage";
+import { NextResponse } from "next/server";
 import { checkStorageAction } from "../actions";
 
 export async function POST(request: Request) {
@@ -78,6 +78,7 @@ export async function POST(request: Request) {
     const result = await serverFileStorage.upload(buffer, {
       filename: file.name,
       contentType,
+      ownerId: session.user.id,
     });
 
     return NextResponse.json({

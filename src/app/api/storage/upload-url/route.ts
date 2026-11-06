@@ -1,9 +1,10 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { NextResponse } from "next/server";
+import { type HandleUploadBody, handleUpload } from "@vercel/blob/client";
 import { getSession } from "auth/server";
-import { serverFileStorage, storageDriver } from "lib/file-storage";
-import globalLogger from "lib/logger";
 import { colorize } from "consola/utils";
+import { serverFileStorage, storageDriver } from "lib/file-storage";
+import { userStoragePrefix } from "lib/file-storage/storage-utils";
+import globalLogger from "lib/logger";
+import { NextResponse } from "next/server";
 import { checkStorageAction } from "../actions";
 
 const logger = globalLogger.withDefaults({
@@ -52,12 +53,41 @@ async function handleVercelBlobUpload(
   request: Request,
   userId: string,
 ) {
+  const ownerPrefix = userStoragePrefix(userId);
   const jsonResponse = await handleUpload({
     body,
     request,
-    onBeforeGenerateToken: async () => {
+    onBeforeGenerateToken: async (pathname) => {
+      if (!pathname.startsWith(ownerPrefix)) {
+        throw new Error(
+          "Upload path is outside the authenticated user's storage area",
+        );
+      }
       return {
-        allowedContentTypes: undefined, // Allow all file types
+        allowedContentTypes: [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+          "application/pdf",
+          "text/csv",
+          "application/csv",
+          "text/plain",
+          "text/markdown",
+          "application/json",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "audio/mpeg",
+          "audio/wav",
+          "audio/ogg",
+          "audio/mp4",
+          "video/mp4",
+          "video/webm",
+          "application/zip",
+        ],
+        maximumSizeInBytes: 15 * 1024 * 1024,
         addRandomSuffix: true, // Prevent filename collisions
         tokenPayload: JSON.stringify({
           userId,
@@ -89,7 +119,10 @@ async function handleVercelBlobUpload(
  * Handles generic upload URL request (S3, Local FS, etc.).
  * Returns presigned URL if supported, otherwise returns fallback response.
  */
-async function handleGenericUpload(request: GenericUploadRequest) {
+async function handleGenericUpload(
+  request: GenericUploadRequest,
+  userId: string,
+) {
   // Check if storage backend supports direct upload
   if (typeof serverFileStorage.createUploadUrl !== "function") {
     logger.info("Storage doesn't support createUploadUrl, using fallback");
@@ -99,6 +132,7 @@ async function handleGenericUpload(request: GenericUploadRequest) {
   const uploadUrl = await serverFileStorage.createUploadUrl({
     filename: request.filename || "file",
     contentType: request.contentType || "application/octet-stream",
+    ownerId: userId,
     expiresInSeconds: DEFAULT_UPLOAD_EXPIRES_SECONDS,
   });
 
@@ -164,7 +198,10 @@ export async function POST(request: Request) {
       return await handleVercelBlobUpload(body, request, session.user.id);
     }
 
-    return await handleGenericUpload(body as GenericUploadRequest);
+    return await handleGenericUpload(
+      body as GenericUploadRequest,
+      session.user.id,
+    );
   } catch (error) {
     logger.error("Upload URL generation failed", error);
     return NextResponse.json(

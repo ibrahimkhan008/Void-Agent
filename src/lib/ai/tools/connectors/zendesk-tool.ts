@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { zendeskCommentApprovalSchema } from "lib/ai/tools/hitl/zendesk-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { zendeskApprovalRepository } from "lib/db/pg/repositories/zendesk-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_tickets", "get_ticket", "search", "add_comment"]),
@@ -11,6 +13,7 @@ const inputSchema = z.object({
   query: z.string().optional(),
   status: z.string().optional().describe("Filter by status (new, open, pending, hold, solved, closed)"),
   comment: z.string().optional().describe("Comment body (for add_comment)"),
+  approvalToken: z.string().min(40).max(128).optional(),
   limit: z.number().min(1).max(100).optional(),
 });
 
@@ -20,6 +23,7 @@ interface ZendeskToolInput {
   query?: string;
   status?: string;
   comment?: string;
+  approvalToken?: string;
   limit?: number;
 }
 
@@ -51,7 +55,7 @@ Actions:
 - list_tickets: List tickets (optional: status).
 - get_ticket: Read a ticket (requires: ticketId).
 - search: Search tickets by query.
-- add_comment: Add a comment to a ticket (requires: ticketId, comment).`,
+- add_comment: Add a comment only with the exact single-use approvalToken returned by proposeZendeskComment after user review (requires: ticketId, comment).`,
     inputSchema,
     execute: async (input: ZendeskToolInput) => {
       try {
@@ -86,13 +90,17 @@ Actions:
           return await res.json();
         }
         if (action === "add_comment") {
-          if (!input.ticketId || !input.comment) {
+          if (input.ticketId === undefined || !input.comment || !input.approvalToken) {
             return { error: "ticketId and comment required" };
           }
-          const res = await fetch(`${base}/tickets/${input.ticketId}.json`, {
+          const approval = zendeskCommentApprovalSchema.safeParse({ ticketId: String(input.ticketId), comment: input.comment });
+          if (!approval.success) return { error: "Invalid Zendesk comment approval payload." };
+          const approved = await zendeskApprovalRepository.consume(userId, input.approvalToken, approval.data);
+          if (!approved) return { error: "Zendesk comment requires a fresh approval for these exact fields." };
+          const res = await fetch(`${base}/tickets/${approval.data.ticketId}.json`, {
             method: "PUT",
             headers,
-            body: JSON.stringify({ ticket: { comment: { body: input.comment } } }),
+            body: JSON.stringify({ ticket: { comment: { body: approval.data.comment } } }),
           });
           return await res.json();
         }

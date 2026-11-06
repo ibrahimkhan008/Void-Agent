@@ -1,30 +1,30 @@
 import "server-only";
 
-import type { Sandbox } from "e2b";
-import { streamText } from "ai";
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
+import { streamText } from "ai";
+import type { Sandbox } from "e2b";
 import { customModelProvider } from "lib/ai/models";
-import { buildJobRepository } from "lib/db/repository";
 import type { BuildJobEntity } from "lib/db/pg/schema.pg";
+import { buildJobRepository } from "lib/db/repository";
 import logger from "logger";
+import { z } from "zod";
 
 import { agentEnvs, getAgent, isAgentAvailable } from "./agents";
 import { publishBuildEvent } from "./build-events";
-import { buildWithVibeSdk, type VibeBehavior } from "./vibesdk";
 import {
-  createBuildSandbox,
   DEV_SERVER_PORT,
+  SANDBOX_LEASE_MS,
+  type WriteFile,
+  createBuildSandbox,
   getPreviewUrl,
   killSandbox,
   listOwnedSandboxes,
   reconnectSandbox,
   runCommand,
-  SANDBOX_LEASE_MS,
   startDevServer,
   writeFiles,
-  type WriteFile,
 } from "./client";
+import { type VibeBehavior, buildWithVibeSdk } from "./vibesdk";
 
 // ---------------------------------------------------------------------------
 // Build runner: prompt -> generated files -> live sandbox -> preview URL.
@@ -138,7 +138,7 @@ export const generateAppFiles = async (
   // streamText (not generateText) so the caller can forward tokens to the
   // browser while the model is still writing.
   const result = streamText({
-    model: customModelProvider.getModel({
+    model: await customModelProvider.getModelAsync({
       provider: "flare",
       model: "deepseek/v3.2",
     }),
@@ -295,7 +295,7 @@ export interface ClarifyResult {
 
 export const clarifyPrompt = async (prompt: string): Promise<ClarifyResult> => {
   const result = streamText({
-    model: customModelProvider.getModel({
+    model: await customModelProvider.getModelAsync({
       provider: "flare",
       model: "deepseek/v3.2",
     }),

@@ -1,56 +1,169 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { getSession } from "auth/server";
+import {
+  ProviderDiscoveryResponseTooLargeError,
+  ProviderDiscoveryTimeoutError,
+  requestProviderDiscovery,
+} from "lib/admin/provider-discovery";
 import { requireAdminPermission } from "lib/auth/permissions";
+import { readBoundedRequestBody } from "lib/http/bounded-request-body";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import { hasSameOrigin } from "lib/security/same-origin";
+import { UrlBlockedError } from "lib/webhooks/url-guard";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 
-// GET ?baseURL=...&apiKey=...
-export async function GET(req: Request) {
+const MAX_BODY_BYTES = 8 * 1024;
+const requestSchema = z
+  .object({
+    baseURL: z.string().trim().url().max(2_048),
+    apiKey: z.string().max(4_096).optional(),
+  })
+  .strict();
+
+const json = (body: unknown, status = 200) =>
+  NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store" },
+  });
+
+export async function POST(request: Request) {
   try {
     await requireAdminPermission("discover provider models");
   } catch {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    return json({ success: false, error: "Unauthorized" }, 401);
   }
 
-  const url = new URL(req.url);
-  const baseURL = url.searchParams.get("baseURL");
-  const apiKey = url.searchParams.get("apiKey");
-
-  if (!baseURL) {
-    return NextResponse.json({ success: false, error: "baseURL is required" }, { status: 400 });
+  const session = await getSession();
+  if (!session?.user.id) {
+    return json({ success: false, error: "Unauthorized" }, 401);
+  }
+  if (!hasSameOrigin(request)) {
+    return json({ success: false, error: "Forbidden" }, 403);
   }
 
   try {
-    const headers: Record<string, string> = {};
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-      headers["api-key"] = apiKey;
-    }
-
-    const response = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
-      headers,
-      signal: AbortSignal.timeout(10000),
+    const rate = await checkApiRateLimit({
+      kind: "admin-provider-model-discovery",
+      id: session.user.id,
+      limit: 20,
+      windowMs: 60_000,
     });
+    if (!rate.allowed) {
+      return json({ success: false, error: "Too many requests" }, 429);
+    }
+  } catch {
+    return json({ success: false, error: "Rate limiting unavailable" }, 503);
+  }
 
-    if (!response.ok) {
-      return NextResponse.json({ success: false, error: `HTTP ${response.status}: ${response.statusText}` }, { status: 200 });
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return json({ success: false, error: "Request too large" }, 413);
+  }
+
+  let boundedBody: Uint8Array | null;
+  try {
+    boundedBody = await readBoundedRequestBody(request, MAX_BODY_BYTES);
+  } catch {
+    return json({ success: false, error: "Invalid JSON body" }, 400);
+  }
+  if (boundedBody === null) {
+    return json({ success: false, error: "Request too large" }, 413);
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(new TextDecoder().decode(boundedBody));
+  } catch {
+    return json({ success: false, error: "Invalid JSON body" }, 400);
+  }
+  const parsed = requestSchema.safeParse(body);
+  if (!parsed.success) {
+    const hasBaseURL =
+      body !== null &&
+      typeof body === "object" &&
+      "baseURL" in body &&
+      typeof body.baseURL === "string" &&
+      body.baseURL.trim().length > 0;
+    return json(
+      {
+        success: false,
+        error: hasBaseURL ? "Invalid discovery request" : "baseURL is required",
+      },
+      400,
+    );
+  }
+
+  const { baseURL, apiKey } = parsed.data;
+  try {
+    const modelsUrl = new URL(`${baseURL.replace(/\/$/, "")}/models`);
+    const response = await requestProviderDiscovery(
+      modelsUrl.toString(),
+      apiKey,
+    );
+
+    if (response.status < 200 || response.status >= 300) {
+      return json({
+        success: false,
+        error: "Provider returned an unsuccessful response",
+      });
     }
 
-    const data = await response.json();
+    let data: unknown;
+    try {
+      data = JSON.parse(response.body);
+    } catch {
+      return json({
+        success: false,
+        error: "Provider returned an invalid response",
+      });
+    }
+    const readModels = (items: unknown[]): string[] =>
+      items
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (!item || typeof item !== "object") return undefined;
+          const model = item as { id?: unknown; name?: unknown };
+          return typeof model.id === "string"
+            ? model.id
+            : typeof model.name === "string"
+              ? model.name
+              : undefined;
+        })
+        .filter((model): model is string => Boolean(model));
 
-    // Handle OpenAI-compatible format: { data: [{ id: "model-id", ... }] }
     let models: string[] = [];
     if (Array.isArray(data)) {
-      models = data.map((m: any) => m.id || m.name).filter(Boolean);
-    } else if (data.data && Array.isArray(data.data)) {
-      models = data.data.map((m: any) => m.id || m.name).filter(Boolean);
-    } else if (data.models && Array.isArray(data.models)) {
-      models = data.models.map((m: any) => typeof m === "string" ? m : (m.id || m.name)).filter(Boolean);
+      models = readModels(data);
+    } else if (data && typeof data === "object") {
+      const responseData = data as {
+        data?: unknown;
+        models?: unknown;
+      };
+      if (Array.isArray(responseData.data)) {
+        models = readModels(responseData.data);
+      } else if (Array.isArray(responseData.models)) {
+        models = readModels(responseData.models);
+      }
     }
 
-    return NextResponse.json({ success: true, models: [...new Set(models)] });
-  } catch (err: any) {
-    if (err?.name === "TimeoutError") {
-      return NextResponse.json({ success: false, error: "Request timed out (10s)" }, { status: 200 });
+    return json({ success: true, models: [...new Set(models)] });
+  } catch (error) {
+    if (error instanceof ProviderDiscoveryTimeoutError) {
+      return json({ success: false, error: "Provider request timed out" });
     }
-    return NextResponse.json({ success: false, error: err?.message || "Discovery failed" }, { status: 200 });
+    if (error instanceof UrlBlockedError) {
+      return json(
+        { success: false, error: "Endpoint must be a public HTTPS URL" },
+        400,
+      );
+    }
+    if (error instanceof ProviderDiscoveryResponseTooLargeError) {
+      return json({
+        success: false,
+        error: "Provider response exceeded the size limit",
+      });
+    }
+    return json({ success: false, error: "Model discovery failed" });
   }
 }

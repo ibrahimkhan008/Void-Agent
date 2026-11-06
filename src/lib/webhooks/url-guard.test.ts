@@ -8,7 +8,11 @@ vi.mock("node:dns/promises", () => ({
   lookup: (...args: unknown[]) => lookupMock(...args),
 }));
 
-import { UrlBlockedError, assertPublicWebhookUrl } from "./url-guard";
+import {
+  UrlBlockedError,
+  assertPublicWebhookUrl,
+  resolvePublicWebhookUrl,
+} from "./url-guard";
 
 describe("assertPublicWebhookUrl", () => {
   beforeEach(() => {
@@ -19,6 +23,16 @@ describe("assertPublicWebhookUrl", () => {
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     const url = await assertPublicWebhookUrl("https://hooks.example.com/x");
     expect(url.hostname).toBe("hooks.example.com");
+  });
+
+  it("returns already-validated addresses for connection pinning", async () => {
+    const addresses = [{ address: "93.184.216.34", family: 4 }];
+    lookupMock.mockResolvedValue(addresses);
+    const resolved = await resolvePublicWebhookUrl(
+      "https://hooks.example.com/x",
+    );
+    expect(resolved.url.hostname).toBe("hooks.example.com");
+    expect(resolved.addresses).toEqual(addresses);
   });
 
   it("rejects non-https schemes", async () => {
@@ -74,10 +88,24 @@ describe("assertPublicWebhookUrl", () => {
   });
 
   it("rejects IPv4-mapped IPv6 pointing at private space", async () => {
-    lookupMock.mockResolvedValue([{ address: "::ffff:10.0.0.1", family: 6 }]);
-    await expect(
-      assertPublicWebhookUrl("https://mapped.example.com/hook"),
-    ).rejects.toThrow(/non-public/i);
+    for (const address of ["::ffff:10.0.0.1", "::ffff:a00:1", "64:ff9b::a00:1"]) {
+      lookupMock.mockResolvedValue([{ address, family: 6 }]);
+      await expect(assertPublicWebhookUrl("https://mapped.example.com/hook")).rejects.toThrow(/non-public/i);
+    }
+  });
+
+  it("allows IPv4-mapped IPv6 when the embedded address is public", async () => {
+    for (const address of ["::ffff:93.184.216.34", "::ffff:5db8:d822", "64:ff9b::5db8:d822"]) {
+      lookupMock.mockResolvedValue([{ address, family: 6 }]);
+      await expect(assertPublicWebhookUrl("https://mapped.example.com/hook")).resolves.toBeInstanceOf(URL);
+    }
+  });
+
+  it("rejects IPv6 multicast and malformed addresses", async () => {
+    for (const address of ["ff02::1", ":::1"]) {
+      lookupMock.mockResolvedValue([{ address, family: 6 }]);
+      await expect(assertPublicWebhookUrl("https://v6.example.com/hook")).rejects.toThrow(/non-public/i);
+    }
   });
 
   it("rejects when ANY resolved address is private", async () => {

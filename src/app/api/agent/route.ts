@@ -1,10 +1,19 @@
-import { agentRepository } from "lib/db/repository";
+import { AgentCreateSchema, AgentQuerySchema } from "app-types/agent";
 import { getSession } from "auth/server";
-import { z } from "zod";
+import {
+  hashAgentApprovalPayload,
+  isValidAgentApprovalRequestKey,
+} from "lib/ai/tools/hitl/agent-approval";
+import { canCreateAgent } from "lib/auth/permissions";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
-import { AgentCreateSchema, AgentQuerySchema } from "app-types/agent";
-import { canCreateAgent } from "lib/auth/permissions";
+import {
+  AgentApprovalIdempotencyConflictError,
+  AgentApprovalReplayUnavailableError,
+  insertApprovedAgentIdempotently,
+} from "lib/db/pg/repositories/agent-repository.pg";
+import { agentRepository } from "lib/db/repository";
+import { z } from "zod";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -70,6 +79,31 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const data = AgentCreateSchema.parse(body);
+    const idempotencyKey = request.headers.get("Idempotency-Key");
+
+    if (
+      idempotencyKey !== null &&
+      !isValidAgentApprovalRequestKey(idempotencyKey)
+    ) {
+      return Response.json(
+        { error: "Invalid idempotency key" },
+        { status: 400 },
+      );
+    }
+
+    if (idempotencyKey) {
+      const result = await insertApprovedAgentIdempotently(
+        { ...data, userId: session.user.id },
+        idempotencyKey,
+        hashAgentApprovalPayload(data),
+      );
+      serverCache.delete(
+        CacheKeys.agentInstructions(result.agent.id, session.user.id),
+      );
+      return Response.json(result.agent, {
+        headers: { "Idempotency-Replayed": String(result.replayed) },
+      });
+    }
 
     const agent = await agentRepository.insertAgent({
       ...data,
@@ -83,6 +117,20 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json(
         { error: "Invalid input", details: error.message },
         { status: 400 },
+      );
+    }
+
+    if (error instanceof AgentApprovalIdempotencyConflictError) {
+      return Response.json(
+        { error: "Approval retry payload did not match the original request" },
+        { status: 409 },
+      );
+    }
+
+    if (error instanceof AgentApprovalReplayUnavailableError) {
+      return Response.json(
+        { error: "This approval already created an agent that was deleted" },
+        { status: 410 },
       );
     }
 

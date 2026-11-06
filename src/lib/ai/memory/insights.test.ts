@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -6,8 +6,10 @@ const generateJsonObjectMock = vi.fn();
 const getModelMock = vi.fn();
 
 vi.mock("ai", () => ({
-  generateText: (...args: any[]) => {
-    throw new Error("generateText should not be called directly by insights.ts");
+  generateText: (..._args: any[]) => {
+    throw new Error(
+      "generateText should not be called directly by insights.ts",
+    );
   },
 }));
 
@@ -18,6 +20,7 @@ vi.mock("./generate-json", () => ({
 vi.mock("lib/ai/models", () => ({
   customModelProvider: {
     getModel: (...args: any[]) => getModelMock(...args),
+    getModelAsync: async (...args: any[]) => getModelMock(...args),
   },
 }));
 

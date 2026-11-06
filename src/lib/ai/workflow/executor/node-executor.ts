@@ -1,38 +1,39 @@
-import { customModelProvider } from "lib/ai/models";
 import {
-  ConditionNodeData,
-  OutputNodeData,
-  LLMNodeData,
-  InputNodeData,
-  WorkflowNodeData,
-  ToolNodeData,
-  HttpNodeData,
-  TemplateNodeData,
-  OutputSchemaSourceKey,
-} from "../workflow.interface";
-import { WorkflowRuntimeState } from "./graph-store";
-import {
+  UIMessage,
   convertToModelMessages,
   generateObject,
   generateText,
-  UIMessage,
 } from "ai";
+import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+import { customModelProvider } from "lib/ai/models";
+import { DefaultToolName } from "lib/ai/tools";
+import {
+  exaContentsToolForWorkflow,
+  exaSearchToolForWorkflow,
+} from "lib/ai/tools/web/web-search";
+import { youtubeSearchToolForWorkflow } from "lib/ai/tools/web/youtube-search";
+import { youtubeTranscriptToolForWorkflow } from "lib/ai/tools/web/youtube-transcript";
+import { AppError } from "lib/errors";
+import { jsonSchemaToZod } from "lib/json-schema-to-zod";
+import { toAny } from "lib/utils";
+import { assertPublicWebhookUrl } from "lib/webhooks/url-guard";
 import { checkConditionBranch } from "../condition";
 import {
   convertTiptapJsonToAiMessage,
   convertTiptapJsonToText,
 } from "../shared.workflow";
-import { jsonSchemaToZod } from "lib/json-schema-to-zod";
-import { toAny } from "lib/utils";
-import { AppError } from "lib/errors";
-import { DefaultToolName } from "lib/ai/tools";
 import {
-  exaSearchToolForWorkflow,
-  exaContentsToolForWorkflow,
-} from "lib/ai/tools/web/web-search";
-import { youtubeSearchToolForWorkflow } from "lib/ai/tools/web/youtube-search";
-import { youtubeTranscriptToolForWorkflow } from "lib/ai/tools/web/youtube-transcript";
-import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+  ConditionNodeData,
+  HttpNodeData,
+  InputNodeData,
+  LLMNodeData,
+  OutputNodeData,
+  OutputSchemaSourceKey,
+  TemplateNodeData,
+  ToolNodeData,
+  WorkflowNodeData,
+} from "../workflow.interface";
+import { WorkflowRuntimeState } from "./graph-store";
 
 /**
  * Interface for node executor functions.
@@ -93,7 +94,9 @@ export const llmNodeExecutor: NodeExecutor<LLMNodeData> = async ({
   node,
   state,
 }) => {
-  const model = customModelProvider.getModelWithFailureFallback(node.model);
+  const model = await customModelProvider.getModelWithFailureFallbackAsync(
+    node.model,
+  );
 
   // Convert TipTap JSON messages to AI SDK format, resolving mentions to actual data
   const messages: Omit<UIMessage, "id">[] = node.messages.map((message) =>
@@ -244,7 +247,9 @@ export const toolNodeExecutor: NodeExecutor<ToolNodeData> = async ({
       : undefined;
 
     const response = await generateText({
-      model: customModelProvider.getModelWithFailureFallback(node.model),
+      model: await customModelProvider.getModelWithFailureFallbackAsync(
+        node.model,
+      ),
       toolChoice: "required", // Force the model to call the tool
       prompt: prompt || "",
       tools: {
@@ -373,6 +378,10 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
     ? `${url}${url.includes("?") ? "&" : "?"}${searchParams.toString()}`
     : url;
 
+  // Workflow definitions are user-authored and execute from the server. Apply
+  // the same public-HTTPS destination guard used for webhook delivery.
+  await assertPublicWebhookUrl(finalUrl);
+
   // Build headers
   const headers: Record<string, string> = {};
   for (const header of node.headers || []) {
@@ -408,14 +417,18 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    const response = await fetch(finalUrl, {
-      method: node.method,
-      headers,
-      body,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
+    let response: Response;
+    try {
+      response = await fetch(finalUrl, {
+        method: node.method,
+        headers,
+        body,
+        signal: controller.signal,
+        redirect: "error",
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // Parse response body as string
     let responseBody: string;

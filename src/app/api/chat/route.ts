@@ -22,12 +22,16 @@ import {
   ChatMetadata,
   chatApiSchemaRequestBodySchema,
 } from "app-types/chat";
+import {
+  clearActiveStream,
+  clearStop,
+  getStreamContext,
+  isStopRequested,
+  setActiveStream,
+} from "lib/ai/chat-stream-context";
+import { buildAgentHarnessCached } from "lib/ai/harness";
 import { embedText } from "lib/ai/memory/embed";
 import { runMemoryExtraction } from "lib/ai/memory/extract-and-store";
-import { TOOLKIT_CATALOG } from "lib/ai/tools/toolkit-catalog";
-import { getEnabledCategories } from "lib/site-config-runtime";
-import { buildAgentHarnessCached } from "lib/ai/harness";
-import { assemblePromptSections } from "lib/ai/system-prompt";
 import {
   buildMcpServerCustomizationsSystemPrompt,
   buildMcpServersPromptSection,
@@ -36,20 +40,31 @@ import {
   buildUserAgentsPromptSection,
   buildUserSystemPromptWithMemory,
 } from "lib/ai/prompts";
+import { assemblePromptSections } from "lib/ai/system-prompt";
+import { TOOLKIT_CATALOG } from "lib/ai/tools/toolkit-catalog";
+import { getCollectionAccess } from "lib/collections/access";
 import {
   agentRepository,
   chatRepository,
   embedSessionRepository,
   userRepository,
 } from "lib/db/repository";
+import {
+  type ProjectAccess,
+  getProjectAccess,
+  getProjectCollectionOwnerIds,
+} from "lib/projects/access";
+import { isProjectCollectionScopeAllowed } from "lib/projects/policy";
 import { type RetrievedChunk, retrieveRelevantChunks } from "lib/rag/retrieve";
+import { getEnabledCategories } from "lib/site-config-runtime";
 import globalLogger from "logger";
 
 import { errorIf, safe } from "ts-safe";
 
 import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
-import { buildPdfIngestionPreviewParts } from "@/lib/ai/ingest/pdf-ingest";
 import { buildKonvOVisionIngestionPreviewParts } from "@/lib/ai/ingest/konvo-vision-ingest";
+import { buildOfficeIngestionPreviewParts } from "@/lib/ai/ingest/office-ingest";
+import { buildPdfIngestionPreviewParts } from "@/lib/ai/ingest/pdf-ingest";
 import { isFreeTier } from "app-types/subscription";
 import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
@@ -58,14 +73,26 @@ import {
   resolveSlashSkillInvocation,
 } from "lib/ai/skills";
 import {
+  SCHEDULE_SKILL_NAME,
+  createScheduledJobFromSkill,
+  parseScheduleArgs,
+} from "lib/ai/skills/schedule";
+import {
   AppDefaultToolkit,
   DefaultToolName,
   ImageToolName,
 } from "lib/ai/tools";
 import { createCodeEngineTool } from "lib/ai/tools/code-engine";
 import { NodeVMExecutor } from "lib/ai/tools/code-engine/executor";
+import { HITL_TOOL_GUIDANCE, loadHitlTools } from "lib/ai/tools/hitl";
 import { createFlareImageTool } from "lib/ai/tools/image";
+import { createProjectKnowledgeGraphTool } from "lib/ai/tools/project-knowledge";
 import { sanitizeToolSchemas } from "lib/ai/tools/sanitize-tool-schemas";
+import {
+  buildAvailableReviewSourcesPrompt,
+  createTabularReviewTool,
+  listAvailableReviewSources,
+} from "lib/ai/tools/tabular-review";
 import {
   applyEmbedSessionQuota,
   isEmbedSessionExpired,
@@ -74,10 +101,16 @@ import {
 import { applyEmbedToolPolicy } from "lib/embed/tool-policy";
 import { serverFileStorage } from "lib/file-storage";
 import {
+  isManagedStorageKey,
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "lib/file-storage/storage-utils";
+import {
   getFreeTierLimitCheck,
   getFreeTierLimits,
   recordFreeTierTokenUsage,
 } from "lib/rate-limit/free-tier-usage";
+import { publicScheduledJob } from "lib/scheduler/jobs";
 import { resolveEncryptedChatRequestBody } from "lib/security/chat-payload-obfuscation.server";
 import {
   resolveChatSecuritySessionId,
@@ -85,12 +118,6 @@ import {
   resolveChatSecuritySessionUserAgent,
   verifyChatRequestGuard,
 } from "lib/security/chat-request-guard.server";
-import {
-  SCHEDULE_SKILL_NAME,
-  createScheduledJobFromSkill,
-  parseScheduleArgs,
-} from "lib/ai/skills/schedule";
-import { publicScheduledJob } from "lib/scheduler/jobs";
 import { generateUUID } from "lib/utils";
 import {
   rememberAgentAction,
@@ -729,8 +756,56 @@ export async function POST(request: Request) {
       allowedMcpServers,
       imageTool,
       mentions = [],
-      attachments = [],
+      attachments: requestedAttachments = [],
+      collectionIds: requestedCollectionIds,
+      projectId: requestedProjectId,
     } = parsedBody;
+
+    // Attachments come from the client message body. Only stored objects below
+    // the authenticated owner's path may be handed to privileged storage reads
+    // or passed to a provider as a stored file. Keep non-storage source links as
+    // links, and retain small inline images sent directly by the user.
+    const attachments = requestedAttachments.filter((attachment) => {
+      const key = storageKeyFromUrl(attachment.url);
+      if (key && isManagedStorageKey(key)) {
+        return isUserStorageKey(key, effectiveUserId);
+      }
+      if (attachment.type === "file") {
+        return /^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(
+          attachment.url,
+        );
+      }
+      return true;
+    });
+    message.parts = message.parts.map((part: any) => {
+      if (
+        (part?.type !== "file" && part?.type !== "source-url") ||
+        typeof part.url !== "string"
+      )
+        return part;
+      const key = storageKeyFromUrl(part.url);
+      if (
+        key &&
+        isManagedStorageKey(key) &&
+        !isUserStorageKey(key, effectiveUserId)
+      ) {
+        return {
+          type: "text",
+          text: "[Attached file was not processed because its storage owner could not be verified.]",
+        };
+      }
+      if (
+        part.type === "file" &&
+        !key &&
+        !/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(part.url)
+      ) {
+        return {
+          type: "text",
+          text: "[Attached file was not processed because its storage owner could not be verified.]",
+        };
+      }
+      return part;
+    });
 
     let effectiveToolChoice = toolChoice;
     let effectiveMentions = mentions;
@@ -754,24 +829,106 @@ export async function POST(request: Request) {
 
     const effectiveChatModel = chatModel;
 
-    const model = customModelProvider.getModel(effectiveChatModel);
+    const model = await customModelProvider.getModelAsync(effectiveChatModel);
     const runtimeModel =
-      customModelProvider.getModelWithFailureFallback(effectiveChatModel);
+      await customModelProvider.getModelWithFailureFallbackAsync(
+        effectiveChatModel,
+      );
 
     let thread = await chatRepository.selectThreadDetails(id);
+    let newThreadProjectAccess: ProjectAccess | null = null;
 
     if (!thread) {
+      if (requestedProjectId) {
+        if (isEmbedMode || isSchedulerRequest) {
+          return new Response("Projects are unavailable for this chat mode", {
+            status: 403,
+          });
+        }
+        newThreadProjectAccess = await getProjectAccess(
+          requestedProjectId,
+          effectiveUserId,
+        );
+        if (!newThreadProjectAccess) {
+          return new Response("Project not found", { status: 404 });
+        }
+      }
+      const requestedScope =
+        requestedCollectionIds ??
+        newThreadProjectAccess?.project.collectionIds ??
+        null;
+      const projectCollectionIds =
+        newThreadProjectAccess?.project.collectionIds ?? [];
+      if (
+        requestedCollectionIds &&
+        newThreadProjectAccess &&
+        !isProjectCollectionScopeAllowed(
+          requestedCollectionIds,
+          projectCollectionIds,
+        )
+      ) {
+        return new Response("Collection is not attached to this project", {
+          status: 403,
+        });
+      }
+      if (requestedCollectionIds && !newThreadProjectAccess) {
+        const accessible = await Promise.all(
+          [...new Set(requestedCollectionIds)].map((collectionId) =>
+            getCollectionAccess(collectionId, effectiveUserId),
+          ),
+        );
+        if (accessible.some((access) => !access)) {
+          return new Response("Invalid knowledge collection selection", {
+            status: 403,
+          });
+        }
+      }
       logger.info(`create chat thread: ${id}`);
       const newThread = await chatRepository.insertThread({
         id,
         title: "",
         userId: effectiveUserId,
+        collectionIds: requestedScope,
+        projectId: newThreadProjectAccess?.project.id ?? null,
       });
       thread = await chatRepository.selectThreadDetails(newThread.id);
     }
 
     if (!isSchedulerRequest && thread!.userId !== effectiveUserId) {
       return new Response("Forbidden", { status: 403 });
+    }
+    const projectAccess = thread!.projectId
+      ? await getProjectAccess(thread!.projectId, effectiveUserId)
+      : null;
+    const projectCollectionOwnerIds = projectAccess
+      ? await getProjectCollectionOwnerIds(projectAccess)
+      : undefined;
+    const effectiveCollectionScope =
+      thread!.collectionIds ??
+      projectAccess?.project.collectionIds ??
+      undefined;
+    let collectionOrgIds: string[] = projectAccess?.project.teamId
+      ? [projectAccess.project.teamId]
+      : [];
+    if (effectiveCollectionScope?.length && !projectAccess) {
+      const collectionAccesses = await Promise.all(
+        effectiveCollectionScope.map((collectionId) =>
+          getCollectionAccess(collectionId, effectiveUserId),
+        ),
+      );
+      if (collectionAccesses.some((access) => !access)) {
+        return new Response(
+          "A selected knowledge collection is no longer available",
+          { status: 403 },
+        );
+      }
+      collectionOrgIds = [
+        ...new Set(
+          collectionAccesses.flatMap((access) =>
+            access?.collection.orgId ? [access.collection.orgId] : [],
+          ),
+        ),
+      ];
     }
     // For trusted scheduler requests, the thread was just created by the
     // worker with job.userId. Trust that and avoid an extra ownership
@@ -791,9 +948,18 @@ export async function POST(request: Request) {
       messages.pop();
     }
     const downloadFile = (key: string) => serverFileStorage.download(key);
-    const [csvParts, konvoVisionParts] = await Promise.all([
-      buildCsvIngestionPreviewParts(attachments, downloadFile),
-      buildKonvOVisionIngestionPreviewParts(attachments, downloadFile),
+    const [csvParts, konvoVisionParts, officeParts] = await Promise.all([
+      buildCsvIngestionPreviewParts(attachments, downloadFile, effectiveUserId),
+      buildKonvOVisionIngestionPreviewParts(
+        attachments,
+        downloadFile,
+        effectiveUserId,
+      ),
+      buildOfficeIngestionPreviewParts(
+        attachments,
+        downloadFile,
+        effectiveUserId,
+      ),
     ]);
     const konvoHandledAttachmentUrls = new Set(
       konvoVisionParts.map((item) => item.attachmentUrl),
@@ -806,12 +972,14 @@ export async function POST(request: Request) {
     const pdfParts = await buildPdfIngestionPreviewParts(
       pdfFallbackAttachments,
       downloadFile,
+      effectiveUserId,
     );
 
     const ingestionPreviewParts = [
       ...csvParts,
       ...konvoVisionParts.map((item) => item.part),
       ...pdfParts,
+      ...officeParts,
     ];
     if (ingestionPreviewParts.length) {
       const baseParts = [...message.parts];
@@ -978,6 +1146,8 @@ export async function POST(request: Request) {
       !useImageTool;
 
     const metadata: ChatMetadata = {
+      runId: message.id,
+      runStatus: "running",
       agentId: agent?.id,
       toolChoice: effectiveToolChoice,
       toolCount: 0,
@@ -991,8 +1161,44 @@ export async function POST(request: Request) {
       id: message.id,
     });
 
+    const streamContext = getStreamContext();
+    const resumeEnabled = streamContext !== null;
+    const streamId = generateUUID();
+    const abortController = new AbortController();
+    let stopRequestedAt: number | null = null;
+    let stopPoll: ReturnType<typeof setInterval> | undefined;
+    const clearStopPoll = () => {
+      if (stopPoll) clearInterval(stopPoll);
+      stopPoll = undefined;
+    };
+
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
+        if (resumeEnabled) {
+          await clearStop(id).catch(() => {});
+          stopPoll = setInterval(() => {
+            void isStopRequested(id)
+              .then((stopped) => {
+                if (!stopped) return;
+                stopRequestedAt = Date.now();
+                abortController.abort();
+                clearStopPoll();
+              })
+              .catch(() => {});
+          }, 1_000);
+        } else if (request.signal.aborted) {
+          stopRequestedAt = Date.now();
+          abortController.abort();
+        } else {
+          request.signal.addEventListener(
+            "abort",
+            () => {
+              stopRequestedAt = Date.now();
+              abortController.abort();
+            },
+            { once: true },
+          );
+        }
         // === Direct image generation bypass ===
         // When the user explicitly selects an image model (Generate/Edit
         // Image dropdown), run the image tool directly instead of routing
@@ -1047,7 +1253,7 @@ export async function POST(request: Request) {
               // image extractors, so the tool can still infer edit mode from
               // an attached image on the current message.
               messages: [{ role: "user", content: message.parts }] as any,
-              abortSignal: request.signal,
+              abortSignal: abortController.signal,
             });
             dataStream.write({
               type: "tool-output-available",
@@ -1103,6 +1309,9 @@ export async function POST(request: Request) {
             ? retrieveRelevantChunks(effectiveUserId, lastUserText, {
                 topK: 5,
                 minScore: 0.5,
+                collectionIds: effectiveCollectionScope,
+                collectionOwnerIds: projectCollectionOwnerIds,
+                collectionOrgIds,
               }).catch((err) => {
                 logger.warn("RAG retrieval failed; skipping", err);
                 return [] as RetrievedChunk[];
@@ -1152,6 +1361,7 @@ export async function POST(request: Request) {
             loadMcpTools({
               mentions: effectiveMentions,
               allowedMcpServers: effectiveAllowedMcpServers,
+              userId: effectiveUserId,
             }),
           )
           .orElse({});
@@ -1162,6 +1372,7 @@ export async function POST(request: Request) {
             loadWorkFlowTools({
               mentions: effectiveMentions,
               dataStream,
+              userId: effectiveUserId,
             }),
           )
           .orElse({});
@@ -1239,6 +1450,7 @@ export async function POST(request: Request) {
                   ...filteredAppDefaultTools,
                   ...codeEngineTool,
                 },
+                effectiveUserId,
                 request.signal,
               );
               part.output = output;
@@ -1290,11 +1502,46 @@ export async function POST(request: Request) {
         // 50 (capabilities) -> 100-199 (tool guidance) -> 200+ (dynamic
         // context). The harness goes first so the model always knows what
         // machinery it runs inside; per-request sections follow in order.
+        const availableReviewSources =
+          !isEmbedMode && isToolCallAllowed
+            ? await listAvailableReviewSources({
+                userId: effectiveUserId,
+                projectId: thread!.projectId,
+                threadCollectionIds: thread!.collectionIds,
+              }).catch((error) => {
+                logger.warn(
+                  "Could not load tabular review document inventory",
+                  error,
+                );
+                return [];
+              })
+            : [];
         const systemPrompt = await assemblePromptSections([
           {
             name: "agent-harness",
             order: -100,
             text: () => buildAgentHarnessCached(),
+          },
+          {
+            name: "project-context",
+            order: -50,
+            text: () => {
+              if (!projectAccess) return "";
+              const { project } = projectAccess;
+              return [
+                "## Current project context",
+                `Name: ${project.name}`,
+                project.description
+                  ? `Description: ${project.description}`
+                  : "",
+                project.goal ? `Goal: ${project.goal}` : "",
+                project.systemPrompt
+                  ? `Project instructions:\n${project.systemPrompt}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n");
+            },
           },
           {
             name: "persona",
@@ -1332,7 +1579,8 @@ export async function POST(request: Request) {
           {
             name: "mcp-servers",
             order: 60,
-            text: () => buildMcpServersPromptSection(effectiveAllowedMcpServers),
+            text: () =>
+              buildMcpServersPromptSection(effectiveAllowedMcpServers),
           },
           {
             name: "tool-inventory",
@@ -1343,6 +1591,17 @@ export async function POST(request: Request) {
                 mcp: Object.keys(MCP_TOOLS ?? {}),
                 workflow: Object.keys(WORKFLOW_TOOLS ?? {}),
               }),
+          },
+          {
+            name: "human-input-tools",
+            order: 105,
+            text: () => (isToolCallAllowed ? HITL_TOOL_GUIDANCE : ""),
+          },
+          {
+            name: "available-review-documents",
+            order: 107,
+            text: () =>
+              buildAvailableReviewSourcesPrompt(availableReviewSources),
           },
           {
             name: "mcp-customizations",
@@ -1392,6 +1651,28 @@ export async function POST(request: Request) {
         const vercelAITooles = safe({
           ...MCP_TOOLS,
           ...WORKFLOW_TOOLS,
+          ...(isToolCallAllowed ? loadHitlTools() : {}),
+          ...(availableReviewSources.length
+            ? {
+                createTabularReview: createTabularReviewTool({
+                  userId: effectiveUserId,
+                  projectId: thread!.projectId,
+                  threadCollectionIds: thread!.collectionIds,
+                  allowedSources: availableReviewSources,
+                }),
+              }
+            : {}),
+          ...(thread!.projectId && projectAccess
+            ? {
+                searchProjectKnowledgeGraph: createProjectKnowledgeGraphTool({
+                  userId: effectiveUserId,
+                  projectId: thread!.projectId,
+                  collectionIds:
+                    thread!.collectionIds ??
+                    projectAccess.project.collectionIds,
+                }),
+              }
+            : {}),
           ...codeEngineTool,
         })
           .map((t) => {
@@ -1531,7 +1812,21 @@ export async function POST(request: Request) {
           tools: hasBoundTools ? sanitizedTools : undefined,
           stopWhen: stepCountIs(10),
           toolChoice: hasBoundTools ? "auto" : undefined,
-          abortSignal: request.signal,
+          abortSignal: abortController.signal,
+          onFinish: ({ finishReason }) => {
+            if (metadata.runStatus === "running") {
+              metadata.runStatus =
+                finishReason === "error" ? "failed" : "completed";
+            }
+          },
+          onAbort: () => {
+            clearStopPoll();
+            metadata.runStatus = stopRequestedAt ? "cancelled" : "incomplete";
+            metadata.error = {
+              code: stopRequestedAt ? "cancelled" : "interrupted",
+              retryable: true,
+            };
+          },
         });
         result.consumeStream();
         // Any tool output the server streams was executed server-side (either
@@ -1577,7 +1872,17 @@ export async function POST(request: Request) {
       },
 
       generateId: generateUUID,
-      onFinish: async ({ responseMessage }) => {
+      onFinish: async ({ responseMessage, isAborted }) => {
+        clearStopPoll();
+        if (isAborted && metadata.runStatus === "running") {
+          metadata.runStatus = stopRequestedAt ? "cancelled" : "incomplete";
+          metadata.error = {
+            code: stopRequestedAt ? "cancelled" : "interrupted",
+            retryable: true,
+          };
+        } else if (!isAborted && metadata.runStatus === "running") {
+          metadata.runStatus = "completed";
+        }
         if (responseMessage.id == message.id) {
           await chatRepository.upsertMessage({
             threadId: thread!.id,
@@ -1592,6 +1897,15 @@ export async function POST(request: Request) {
             role: message.role,
             parts: message.parts.map(convertToSavePart),
             id: message.id,
+            ...(message.role === "user"
+              ? {
+                  metadata: {
+                    runId: message.id,
+                    runStatus: metadata.runStatus,
+                    ...(metadata.error ? { error: metadata.error } : {}),
+                  },
+                }
+              : {}),
           });
           await chatRepository.upsertMessage({
             threadId: thread!.id,
@@ -1601,6 +1915,11 @@ export async function POST(request: Request) {
             metadata,
           });
         }
+        if (resumeEnabled)
+          await Promise.allSettled([
+            clearActiveStream(id, streamId),
+            clearStop(id),
+          ]);
 
         if (agent) {
           agentRepository.updateAgent(agent.id, effectiveUserId, {
@@ -1628,12 +1947,32 @@ export async function POST(request: Request) {
           logger.error("Background memory extraction failed", err);
         });
       },
-      onError: handleError,
+      onError: (error) => {
+        clearStopPoll();
+        if (resumeEnabled)
+          void Promise.allSettled([
+            clearActiveStream(id, streamId),
+            clearStop(id),
+          ]);
+        return handleError(error);
+      },
       originalMessages: messages,
     });
 
     return createUIMessageStreamResponse({
       stream,
+      consumeSseStream: resumeEnabled
+        ? ({ stream: sseStream }) => {
+            streamContext!
+              .createNewResumableStream(streamId, () => sseStream)
+              .catch((error) => {
+                logger.warn("Could not buffer resumable chat stream", error);
+              });
+            setActiveStream(id, streamId).catch((error) =>
+              logger.warn("Could not record active chat stream", error),
+            );
+          }
+        : undefined,
     });
   } catch (error: any) {
     logger.error(error);

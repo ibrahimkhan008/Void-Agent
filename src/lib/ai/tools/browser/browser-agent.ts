@@ -1,20 +1,20 @@
 import "server-only";
 import { tool as createTool, generateObject } from "ai";
 import { JSONSchema7 } from "json-schema";
-import { z } from "zod";
+import { customModelProvider } from "lib/ai/models";
 import { serverCache } from "lib/cache";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
-import { customModelProvider } from "lib/ai/models";
 import { safe } from "ts-safe";
+import { z } from "zod";
+import { isCrawlGatewayEnabled, runViaCrawlGateway } from "./crawl-gateway";
 import {
+  type SteelSession,
   allocateContainer,
   createSteelSession,
   releaseContainerAlloc,
   releaseSteelSession,
   steelBaseUrl,
-  type SteelSession,
 } from "./steel-fleet";
-import { isCrawlGatewayEnabled, runViaCrawlGateway } from "./crawl-gateway";
 
 // The browser Agent drives the self-hosted Steel browser fleet: it allocates a
 // container, opens a live Steel session, connects Playwright over CDP, and runs
@@ -219,7 +219,7 @@ const runActionLoop = async ({
   startUrl: string;
   maxSteps: number;
 }): Promise<{ summary: string; steps: string[] }> => {
-  const model = customModelProvider.getModelWithFailureFallback(
+  const model = await customModelProvider.getModelWithFailureFallbackAsync(
     process.env.STEEL_AGENT_MODEL
       ? ({ provider: "flare", model: process.env.STEEL_AGENT_MODEL } as any)
       : undefined,

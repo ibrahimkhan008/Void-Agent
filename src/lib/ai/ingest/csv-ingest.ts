@@ -1,8 +1,11 @@
 import { Buffer } from "node:buffer";
-import { ChatAttachment } from "app-types/chat";
 import { isIngestSupported } from "@/lib/ai/file-support";
-import { storageKeyFromUrl } from "@/lib/file-storage/storage-utils";
 import { formatCsvPreviewText, parseCsvPreview } from "@/lib/file-ingest/csv";
+import {
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "@/lib/file-storage/storage-utils";
+import { ChatAttachment } from "app-types/chat";
 
 type CsvPreviewPart = {
   type: "text";
@@ -29,6 +32,7 @@ const isCsvLikeAttachment = (attachment: ChatAttachment, key: string) => {
 export const buildCsvIngestionPreviewParts = async (
   attachments: ChatAttachment[],
   download: DownloadFile,
+  userId: string,
 ): Promise<CsvPreviewPart[]> => {
   if (!attachments?.length) return [];
   const results = await Promise.all(
@@ -38,6 +42,7 @@ export const buildCsvIngestionPreviewParts = async (
         return null;
       const key = storageKeyFromUrl(attachment.url);
       if (!key) return null;
+      if (!isUserStorageKey(key, userId)) return null;
       if (!isCsvLikeAttachment(attachment, key)) return null;
 
       try {

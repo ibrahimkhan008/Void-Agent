@@ -1,5 +1,8 @@
 import "server-only";
-import { customModelProvider } from "lib/ai/models";
+import {
+  customModelProvider,
+  ensureDynamicProvidersHydrated,
+} from "lib/ai/models";
 import { siteConfigRepository } from "lib/db/repository";
 
 let cachedConfig: {
@@ -59,6 +62,7 @@ function buildRuntimeConfig(): RuntimeSiteConfig {
         "Canvas",
         "Connectors",
         "Memory",
+        "Notifications",
       ]),
       enabledTools: new Set(),
     },
@@ -178,6 +182,7 @@ export async function getRuntimeSiteConfig(): Promise<RuntimeSiteConfig> {
   }
 
   try {
+    await ensureDynamicProvidersHydrated();
     const dbSettings = await siteConfigRepository.getAll();
     const base = buildRuntimeConfig();
     const config = mergeDbOverrides(base, dbSettings);

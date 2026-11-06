@@ -4,15 +4,16 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import { schedulerRepository } from "lib/db/repository";
 import type { ScheduledJob } from "lib/db/pg/schema.pg";
-import { computeNextRun, validateCron } from "./cron-parser";
+import { schedulerRepository } from "lib/db/repository";
+import { computeNextRun, isValidTimezone, validateCron } from "./cron-parser";
 
 const MIN_LEAD_MS = 30_000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_PROMPT_LENGTH = 8_000;
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+const ISO_DATE_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
 
 export const ScheduleCreateInputSchema = z.object({
   scheduleType: z.enum(["once", "recurring"]),
@@ -27,12 +28,56 @@ export const ScheduleCreateInputSchema = z.object({
     })
     .optional(),
   naturalLanguage: z.string().trim().optional(),
+  timezone: z.string().trim().min(1).max(64).default("UTC"),
   agentId: z.string().uuid().optional(),
   threadId: z.string().optional(),
   createdFrom: z.enum(["chat-tool", "api", "slash"]).default("api"),
 });
 
 export type ScheduleCreateInput = z.infer<typeof ScheduleCreateInputSchema>;
+
+const ScheduleUpdateSchema = z.discriminatedUnion("scheduleType", [
+  z.object({
+    scheduleType: z.literal("once"),
+    prompt: z.string().trim().min(1).max(MAX_PROMPT_LENGTH),
+    runAt: z.string().datetime({ offset: true }),
+    timezone: z.string().trim().min(1).max(64).optional(),
+  }),
+  z.object({
+    scheduleType: z.literal("recurring"),
+    prompt: z.string().trim().min(1).max(MAX_PROMPT_LENGTH),
+    cron: z.string().trim().min(1).max(120),
+    timezone: z.string().trim().min(1).max(64),
+  }),
+]);
+
+/** Re-normalize edited timing and prompt while retaining the job's agent and thread association. */
+export const normalizeScheduleUpdateInput = (
+  raw: unknown,
+  existing: ScheduledJob,
+  now = new Date(),
+) => {
+  const input = ScheduleUpdateSchema.parse(raw);
+  const currentPayload = (existing.payload ?? {}) as SchedulePayload;
+  const normalized = normalizeScheduleCreateInput(
+    {
+      ...input,
+      timezone: input.timezone ?? existing.timezone ?? "UTC",
+      title: existing.name,
+      agentId: existing.agentId ?? undefined,
+      threadId: currentPayload.threadId,
+      createdFrom: currentPayload.createdFrom ?? "api",
+    },
+    now,
+  );
+  return {
+    name: existing.name,
+    cron: normalized.cron,
+    timezone: normalized.timezone,
+    payload: normalized.payload,
+    nextRunAt: normalized.nextRunAt,
+  };
+};
 
 export type SchedulePayload = {
   scheduleType: "once" | "recurring";
@@ -106,10 +151,8 @@ export const parseSimpleScheduleText = (
 };
 
 const titleFromPrompt = (prompt: string): string =>
-  prompt
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_TITLE_LENGTH) || "Scheduled reminder";
+  prompt.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE_LENGTH) ||
+  "Scheduled reminder";
 
 const cronForOneShot = (runAt: Date): string =>
   `${runAt.getUTCMinutes()} ${runAt.getUTCHours()} ${runAt.getUTCDate()} ${
@@ -142,7 +185,9 @@ const resolveRunAt = (input: ScheduleCreateInput, now: Date): Date => {
     return parsed.runAt;
   }
 
-  throw new Error("One-shot schedules require runAt, delay, or naturalLanguage.");
+  throw new Error(
+    "One-shot schedules require runAt, delay, or naturalLanguage.",
+  );
 };
 
 const assertLeadTime = (runAt: Date, now: Date) => {
@@ -154,17 +199,24 @@ const assertLeadTime = (runAt: Date, now: Date) => {
 export const normalizeScheduleCreateInput = (
   raw: unknown,
   now = new Date(),
-): ScheduleCreateInput & { cron: string; nextRunAt: Date; payload: SchedulePayload } => {
+): ScheduleCreateInput & {
+  cron: string;
+  nextRunAt: Date;
+  payload: SchedulePayload;
+} => {
   const input = ScheduleCreateInputSchema.parse(raw);
+  if (!isValidTimezone(input.timezone))
+    throw new Error("Timezone must be a valid IANA timezone.");
 
   if (input.scheduleType === "recurring") {
     if (!input.cron) throw new Error("Recurring schedules require cron.");
-    const validation = validateCron(input.cron);
+    const validation = validateCron(input.cron, input.timezone);
     if (!validation.ok) throw new Error(`Invalid cron: ${validation.error}`);
-    const nextRunAt = computeNextRun(input.cron, now);
+    const nextRunAt = computeNextRun(input.cron, now, input.timezone);
     return {
       ...input,
       cron: input.cron,
+      timezone: input.timezone,
       nextRunAt,
       payload: {
         scheduleType: "recurring",
@@ -182,6 +234,7 @@ export const normalizeScheduleCreateInput = (
   return {
     ...input,
     cron,
+    timezone: input.timezone,
     nextRunAt: runAt,
     payload: {
       scheduleType: "once",
@@ -205,6 +258,7 @@ export const createScheduledJobForUser = async (
       agentId: normalized.agentId,
       name: normalized.title ?? titleFromPrompt(normalized.prompt),
       cron: normalized.cron,
+      timezone: normalized.timezone,
       payload: normalized.payload,
       nextRunAt: normalized.nextRunAt,
       status: "active",
@@ -236,6 +290,7 @@ export const publicScheduledJob = (job: ScheduledJob) => ({
   id: job.id,
   name: job.name,
   cron: job.cron,
+  timezone: job.timezone ?? "UTC",
   payload: job.payload,
   lastRunAt: job.lastRunAt,
   nextRunAt: job.nextRunAt,

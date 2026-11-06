@@ -1,4 +1,3 @@
-import { getSession } from "auth/server";
 import {
   UIMessage,
   convertToModelMessages,
@@ -6,25 +5,26 @@ import {
   streamText,
 } from "ai";
 import { isFreeTier } from "app-types/subscription";
+import { getSession } from "auth/server";
 import { customModelProvider } from "lib/ai/models";
-import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
-import { userRepository } from "lib/db/repository";
-import globalLogger from "logger";
 import { buildUserSystemPrompt } from "lib/ai/prompts";
+import { userRepository } from "lib/db/repository";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import {
   estimateFreeTierTokenReservation,
   getFreeTierLimits,
   reserveFreeTierTokens,
   settleFreeTierTokenUsage,
 } from "lib/rate-limit/free-tier-usage";
-import { getUserPreferences } from "lib/user/server";
+import { resolveEncryptedChatRequestBody } from "lib/security/chat-payload-obfuscation.server";
 import {
-  resolveChatSecuritySessionIpAddress,
   resolveChatSecuritySessionId,
+  resolveChatSecuritySessionIpAddress,
   resolveChatSecuritySessionUserAgent,
   verifyChatRequestGuard,
 } from "lib/security/chat-request-guard.server";
-import { resolveEncryptedChatRequestBody } from "lib/security/chat-payload-obfuscation.server";
+import { getUserPreferences } from "lib/user/server";
+import globalLogger from "logger";
 
 import { colorize } from "consola/utils";
 
@@ -188,7 +188,8 @@ export async function POST(request: Request) {
       : [];
 
     logger.info(`model: ${chatModel?.provider}/${chatModel?.model}`);
-    const model = customModelProvider.getModelWithFailureFallback(chatModel);
+    const model =
+      await customModelProvider.getModelWithFailureFallbackAsync(chatModel);
     const userPreferences =
       (await getUserPreferences(session.user.id)) || undefined;
     const modelMessages = await Promise.resolve(

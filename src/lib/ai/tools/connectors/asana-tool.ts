@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { taskCreationApprovalSchema } from "lib/ai/tools/hitl/task-creation-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { taskCreationApprovalRepository } from "lib/db/pg/repositories/task-creation-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_workspaces", "list_projects", "list_tasks", "get_task", "create_task"]),
@@ -12,6 +14,7 @@ const inputSchema = z.object({
   taskGid: z.string().optional(),
   name: z.string().optional().describe("Task name (for create_task)"),
   notes: z.string().optional(),
+  approvalToken: z.string().min(40).max(128).optional(),
   limit: z.number().min(1).max(100).optional(),
 });
 
@@ -22,6 +25,7 @@ interface AsanaToolInput {
   taskGid?: string;
   name?: string;
   notes?: string;
+  approvalToken?: string;
   limit?: number;
 }
 
@@ -51,7 +55,7 @@ Actions:
 - list_projects: List projects in a workspace (requires: workspaceGid).
 - list_tasks: List tasks in a project (requires: projectGid).
 - get_task: Read a task (requires: taskGid).
-- create_task: Create a task (requires: projectGid, name).
+- create_task: Create a task only with the exact approvalToken returned by proposeTaskCreation after user review (requires: projectGid, name).
 
 User must connect Asana first via the Connectors menu.`,
     inputSchema,
@@ -98,17 +102,22 @@ User must connect Asana first via the Connectors menu.`,
           return await res.json();
         }
         if (action === "create_task") {
-          if (!input.projectGid || !input.name) {
-            return { error: "projectGid and name required" };
+          if (!input.projectGid || !input.name || !input.approvalToken) {
+            return { error: "projectGid, name, and approvalToken required" };
+          }
+          const approval = taskCreationApprovalSchema.safeParse({ provider: "asana", targetId: input.projectGid, name: input.name, details: input.notes ?? "" });
+          if (!approval.success || approval.data.provider !== "asana") return { error: "Invalid Asana task approval payload." };
+          if (!(await taskCreationApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Asana task creation requires fresh approval for these exact fields." };
           }
           const res = await fetch(`${ASANA_API}/tasks`, {
             method: "POST",
             headers,
             body: JSON.stringify({
               data: {
-                name: input.name,
-                notes: input.notes,
-                projects: [input.projectGid],
+                name: approval.data.name,
+                notes: approval.data.details,
+                projects: [approval.data.targetId],
               },
             }),
           });

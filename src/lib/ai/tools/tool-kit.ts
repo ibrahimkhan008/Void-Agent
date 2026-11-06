@@ -1,4 +1,6 @@
 import { Tool } from "ai";
+import type { DynamicTool } from "lib/db/pg/repositories/site-config-repository.pg";
+import { siteConfigRepository } from "lib/db/repository";
 import { AppDefaultToolkit, DefaultToolName } from ".";
 import { artifactCreationTool } from "./artifacts/artifact-creator";
 import {
@@ -9,108 +11,109 @@ import {
   cloakBrowserTool,
   createCloakBrowserToolForUser,
 } from "./browser/cloak-browser";
-import { canvasPptMakerTool } from "./canvas/ppt-maker";
-import { canvasDesignTool } from "./canvas/ecanvas-tool";
 import { buildAppTool } from "./build/build-tool";
-import { sandboxTool } from "./sandbox/sandbox-tool";
+import { canvasDesignTool } from "./canvas/ecanvas-tool";
+import { canvasPptMakerTool } from "./canvas/ppt-maker";
 import { jsExecutionTool } from "./code/js-run-tool";
 import { pythonExecutionTool } from "./code/python-run-tool";
-import { createGmailToolForUser, gmailTool } from "./connectors/gmail-tool";
 import {
-  createConnectorsListToolForUser,
+  calendarTool,
+  createCalendarToolForUser,
+} from "./connectors/calendar-tool";
+import {
   connectorsListTool,
+  createConnectorsListToolForUser,
 } from "./connectors/connectors-list-tool";
 import { createDriveToolForUser, driveTool } from "./connectors/drive-tool";
-import {
-  createCalendarToolForUser,
-  calendarTool,
-} from "./connectors/calendar-tool";
 import { createGitHubToolForUser, githubTool } from "./connectors/github-tool";
+import { createGmailToolForUser, gmailTool } from "./connectors/gmail-tool";
+// 42 new connectors added 2026-06-03 — see ./connectors/index.ts.
+import {
+  airtableTool,
+  asanaTool,
+  axeroTool,
+  bitbucketTool,
+  bookstackTool,
+  canvasLmsTool,
+  clickupTool,
+  codaTool,
+  confluenceTool,
+  createAirtableToolForUser,
+  createAsanaToolForUser,
+  createAxeroToolForUser,
+  createBitbucketToolForUser,
+  createBookstackToolForUser,
+  createCanvasLmsToolForUser,
+  createClickUpToolForUser,
+  createCodaToolForUser,
+  createConfluenceToolForUser,
+  createDiscordToolForUser,
+  createDiscourseToolForUser,
+  createDocument360ToolForUser,
+  createDropboxToolForUser,
+  createDrupalWikiToolForUser,
+  createEgnyteToolForUser,
+  createFirefliesToolForUser,
+  createFreshdeskToolForUser,
+  createGitLabToolForUser,
+  createGitbookToolForUser,
+  createGongToolForUser,
+  createGuruToolForUser,
+  createHighspotToolForUser,
+  createHubSpotToolForUser,
+  createJiraToolForUser,
+  createLinearToolForUser,
+  createLoopioToolForUser,
+  createMediawikiToolForUser,
+  createOutlineToolForUser,
+  createProductboardToolForUser,
+  createSalesforceToolForUser,
+  createSlabToolForUser,
+  createTeamsToolForUser,
+  createTestRailToolForUser,
+  createWikipediaToolForUser,
+  createXenforoToolForUser,
+  createZendeskToolForUser,
+  createZulipToolForUser,
+  discordTool,
+  discourseTool,
+  document360Tool,
+  dropboxTool,
+  drupalWikiTool,
+  egnyteTool,
+  firefliesTool,
+  freshdeskTool,
+  gitbookTool,
+  gitlabTool,
+  gongTool,
+  guruTool,
+  highspotTool,
+  hubspotTool,
+  jiraTool,
+  linearTool,
+  loopioTool,
+  mediawikiTool,
+  outlineTool,
+  productboardTool,
+  salesforceTool,
+  slabTool,
+  teamsTool,
+  testrailTool,
+  wikipediaTool,
+  xenforoTool,
+  zendeskTool,
+  zulipTool,
+} from "./connectors/index";
+import { createNotionToolForUser, notionTool } from "./connectors/notion-tool";
 import {
   createOutlookToolForUser,
   outlookTool,
 } from "./connectors/outlook-tool";
 import { createSlackToolForUser, slackTool } from "./connectors/slack-tool";
-import { createNotionToolForUser, notionTool } from "./connectors/notion-tool";
-// 42 new connectors added 2026-06-03 — see ./connectors/index.ts.
-import {
-  createConfluenceToolForUser,
-  confluenceTool,
-  createJiraToolForUser,
-  jiraTool,
-  createLinearToolForUser,
-  linearTool,
-  createAsanaToolForUser,
-  asanaTool,
-  createClickUpToolForUser,
-  clickupTool,
-  createProductboardToolForUser,
-  productboardTool,
-  createTestRailToolForUser,
-  testrailTool,
-  createCodaToolForUser,
-  codaTool,
-  createOutlineToolForUser,
-  outlineTool,
-  createSlabToolForUser,
-  slabTool,
-  createGuruToolForUser,
-  guruTool,
-  createHighspotToolForUser,
-  highspotTool,
-  createDocument360ToolForUser,
-  document360Tool,
-  createGitLabToolForUser,
-  gitlabTool,
-  createBitbucketToolForUser,
-  bitbucketTool,
-  createDropboxToolForUser,
-  dropboxTool,
-  createZendeskToolForUser,
-  zendeskTool,
-  createFreshdeskToolForUser,
-  freshdeskTool,
-  createSalesforceToolForUser,
-  salesforceTool,
-  createHubSpotToolForUser,
-  hubspotTool,
-  createAirtableToolForUser,
-  airtableTool,
-  createGongToolForUser,
-  gongTool,
-  createEgnyteToolForUser,
-  egnyteTool,
-  createTeamsToolForUser,
-  teamsTool,
-  createDiscordToolForUser,
-  discordTool,
-  createBookstackToolForUser,
-  bookstackTool,
-  createGitbookToolForUser,
-  gitbookTool,
-  createCanvasLmsToolForUser,
-  canvasLmsTool,
-  createLoopioToolForUser,
-  loopioTool,
-  createDiscourseToolForUser,
-  discourseTool,
-  createXenforoToolForUser,
-  xenforoTool,
-  createDrupalWikiToolForUser,
-  drupalWikiTool,
-  createAxeroToolForUser,
-  axeroTool,
-  createZulipToolForUser,
-  zulipTool,
-  createMediawikiToolForUser,
-  mediawikiTool,
-  createFirefliesToolForUser,
-  firefliesTool,
-  createWikipediaToolForUser,
-  wikipediaTool,
-} from "./connectors/index";
-import { httpFetchTool } from "./http/fetch";
+import { createHttpFetchTool, httpFetchTool } from "./http/fetch";
 import { createMemoryTools } from "./memory";
+import { createCockpitPushUpdateToolForUser } from "./notifications/cockpit-update";
+import { sandboxTool } from "./sandbox/sandbox-tool";
 import {
   createSchedulerToolForUser,
   schedulerTool,
@@ -121,11 +124,9 @@ import { createLineChartTool } from "./visualization/create-line-chart";
 import { createPieChartTool } from "./visualization/create-pie-chart";
 import { createTableTool } from "./visualization/create-table";
 import { exaContentsTool, exaSearchTool } from "./web/web-search";
-import { workflowTool } from "./workflow";
 import { youtubeSearchTool } from "./web/youtube-search";
 import { youtubeTranscriptTool } from "./web/youtube-transcript";
-import { siteConfigRepository } from "lib/db/repository";
-import type { DynamicTool } from "lib/db/pg/repositories/site-config-repository.pg";
+import { createWorkflowToolForUser, workflowTool } from "./workflow";
 // Static tools (don't need user context)
 export const APP_DEFAULT_TOOL_KIT: Record<
   AppDefaultToolkit,
@@ -216,6 +217,7 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.ConnectorsList]: connectorsListTool,
   },
   [AppDefaultToolkit.Memory]: {},
+  [AppDefaultToolkit.Notifications]: {},
   [AppDefaultToolkit.Scheduler]: {
     [DefaultToolName.Scheduler]: schedulerTool,
   },
@@ -243,6 +245,9 @@ export function getAppDefaultToolKitForUser(
         userId,
         threadId: threadId ?? "",
       }),
+    },
+    [AppDefaultToolkit.Http]: {
+      [DefaultToolName.Http]: createHttpFetchTool(userId),
     },
     [AppDefaultToolkit.Build]: {
       [DefaultToolName.Build]: buildAppTool({
@@ -309,8 +314,17 @@ export function getAppDefaultToolKitForUser(
       [DefaultToolName.ConnectorsList]: createConnectorsListToolForUser(userId),
     },
     [AppDefaultToolkit.Memory]: createMemoryTools(userId),
+    [AppDefaultToolkit.Notifications]: {
+      [DefaultToolName.CockpitPushUpdate]: createCockpitPushUpdateToolForUser(
+        userId,
+        threadId,
+      ),
+    },
     [AppDefaultToolkit.Scheduler]: {
       [DefaultToolName.Scheduler]: createSchedulerToolForUser(userId, threadId),
+    },
+    [AppDefaultToolkit.Automation]: {
+      [DefaultToolName.Workflow]: createWorkflowToolForUser(userId),
     },
     [AppDefaultToolkit.CodeEngine]: {},
   };

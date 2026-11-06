@@ -138,7 +138,11 @@ export const verifyUpgradeToken = (
   const expectedSig = computeSignature(secret, encoded);
   const a = Buffer.from(sig, "base64url");
   const b = Buffer.from(expectedSig, "base64url");
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+  if (
+    a.toString("base64url") !== sig ||
+    a.length !== b.length ||
+    !timingSafeEqual(a, b)
+  ) {
     return { valid: false, payload: null, reason: "bad-signature" };
   }
 

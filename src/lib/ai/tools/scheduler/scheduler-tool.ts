@@ -16,6 +16,7 @@ const SchedulerToolInputSchema = z.object({
   title: z.string().optional(),
   prompt: z.string().optional(),
   cron: z.string().optional(),
+  timezone: z.string().trim().min(1).max(64).optional(),
   runAt: z.string().optional(),
   delay: z
     .object({
@@ -54,7 +55,13 @@ export const createSchedulerToolForUser = (userId: string, threadId?: string) =>
         },
         cron: {
           type: "string",
-          description: "5-field UTC cron for recurring schedules.",
+          description:
+            "Five-field cron expression for recurring schedules. Pair with an IANA timezone such as America/New_York; defaults to UTC.",
+        },
+        timezone: {
+          type: "string",
+          description:
+            "IANA timezone for recurring cron schedules (for example, Europe/London). Defaults to UTC.",
         },
         runAt: {
           type: "string",
@@ -98,7 +105,8 @@ export const createSchedulerToolForUser = (userId: string, threadId?: string) =>
           userId,
           { status: input.action === "pause" ? "paused" : "active" },
         );
-        if (!job) return { status: "not_found", message: "Schedule not found." };
+        if (!job)
+          return { status: "not_found", message: "Schedule not found." };
         return {
           status: "ok",
           message:
@@ -128,6 +136,7 @@ export const createSchedulerToolForUser = (userId: string, threadId?: string) =>
         title: input.title,
         prompt: input.prompt ?? input.naturalLanguage ?? "Scheduled reminder",
         cron: input.cron,
+        timezone: input.timezone,
         runAt: input.runAt,
         delay: input.delay,
         naturalLanguage: input.naturalLanguage,

@@ -15,8 +15,8 @@ import {
 } from "./openai-realtime-event";
 
 import { useTheme } from "next-themes";
-import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
-import { callMcpToolByServerNameAction } from "@/app/api/mcp/actions";
+import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
+import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 import { appStore } from "@/app/store";
 
 export const OPENAI_VOICE = {
@@ -94,6 +94,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
   const { setTheme } = useTheme();
   const tracks = useRef<RTCRtpSender[]>([]);
+  const toolIdMapRef = useRef<NonNullable<OpenAIRealtimeSession["toolIdMap"]>>({});
 
   const ensureGetUserMedia = useCallback(() => {
     if (typeof navigator === "undefined") {
@@ -227,13 +228,16 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
             break;
         }
       } else {
-        const toolId = extractMCPToolId(toolName);
-
-        toolResult = await callMcpToolByServerNameAction(
-          toolId.serverName,
-          toolId.toolName,
-          toolArgs,
-        );
+        try {
+          const mapped = toolIdMapRef.current[toolName];
+          if (!mapped) throw new Error("MCP tool mapping is unavailable.");
+          const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: toolArgs });
+          toolResult = approvalToken
+            ? await callApprovedMcpToolAction(mapped.serverId, mapped.serverName, mapped.toolName, toolArgs, approvalToken)
+            : { approved: false, reason: "The user rejected this action." };
+        } catch (error) {
+          toolResult = { isError: true, error: error instanceof Error ? error.message : "MCP action failed" };
+        }
       }
       startListening();
       const resultText = JSON.stringify(toolResult).trim();
@@ -398,6 +402,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     setMessages([]);
     try {
       const session = await createSession();
+      toolIdMapRef.current = session.toolIdMap ?? {};
       const sessionToken = session.client_secret.value;
       const pc = new RTCPeerConnection();
       if (!audioElement.current) {

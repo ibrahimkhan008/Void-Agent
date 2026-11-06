@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import { BASE_URL, getBaseUrl } from "lib/const";
 import { schedulerRepository } from "lib/db/pg/repositories/scheduler-repository.pg";
 import { chatRepository } from "lib/db/repository";
+import { notifyScheduledRun } from "lib/notifications/scheduled-run";
+import { processProjectBrainQueue } from "lib/projects/brain-queue";
 import logger from "logger";
 
 import { computeNextRun } from "./cron-parser";
@@ -35,6 +37,8 @@ import { acquireLeaderLock, releaseLeaderLock } from "./leader";
 const LEADER_KEY = "cron-tick-leader";
 const LEADER_TTL_MS = 50_000;
 const CLAIM_BATCH = 10;
+const CLAIM_LEASE_MS = 3 * 60_000;
+const CLAIM_HEARTBEAT_MS = 60_000;
 
 const getOwnerTag = (): string => {
   return `pid-${process.pid}-${Date.now()}`;
@@ -102,16 +106,26 @@ export interface SchedulerTickResult {
   ran: number;
   failed: number;
   skippedAsNotLeader: boolean;
+  projectBrain: { claimed: number; completed: number; failed: number };
 }
 
 export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
   const owner = getOwnerTag();
+  const claimToken = randomUUID();
+  const activeClaimIds = new Set<string>();
+  let claimHeartbeat: ReturnType<typeof setInterval> | undefined;
   const acquired = await acquireLeaderLock(LEADER_KEY, LEADER_TTL_MS, owner);
   if (!acquired) {
     logger.debug(
       `[scheduler] tick skipped — another worker holds the leader lock`,
     );
-    return { claimed: 0, ran: 0, failed: 0, skippedAsNotLeader: true };
+    return {
+      claimed: 0,
+      ran: 0,
+      failed: 0,
+      skippedAsNotLeader: true,
+      projectBrain: { claimed: 0, completed: 0, failed: 0 },
+    };
   }
 
   const result: SchedulerTickResult = {
@@ -119,17 +133,53 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
     ran: 0,
     failed: 0,
     skippedAsNotLeader: false,
+    projectBrain: { claimed: 0, completed: 0, failed: 0 },
   };
 
   try {
+    try {
+      result.projectBrain = await processProjectBrainQueue();
+    } catch (error) {
+      logger.error("[scheduler] project brain queue failed:", error);
+    }
     const dueJobs = await schedulerRepository.claimDueScheduledJobs(
       new Date(),
       CLAIM_BATCH,
+      claimToken,
+      new Date(Date.now() + CLAIM_LEASE_MS),
     );
     result.claimed = dueJobs.length;
     if (dueJobs.length === 0) {
       return result;
     }
+    for (const job of dueJobs) activeClaimIds.add(job.id);
+    let renewingClaims = false;
+    claimHeartbeat = setInterval(() => {
+      if (renewingClaims || activeClaimIds.size === 0) return;
+      renewingClaims = true;
+      void schedulerRepository
+        .renewScheduledJobClaims(
+          [...activeClaimIds],
+          claimToken,
+          new Date(Date.now() + CLAIM_LEASE_MS),
+        )
+        .then((renewedIds) => {
+          const renewed = new Set(renewedIds);
+          for (const id of activeClaimIds) {
+            if (!renewed.has(id)) activeClaimIds.delete(id);
+          }
+        })
+        .catch((error) =>
+          logger.error(
+            "[scheduler] failed to renew scheduled-job claim lease:",
+            error,
+          ),
+        )
+        .finally(() => {
+          renewingClaims = false;
+        });
+    }, CLAIM_HEARTBEAT_MS);
+    claimHeartbeat.unref?.();
 
     const chatUrl = buildChatUrl();
 
@@ -184,6 +234,13 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
             error: `chat-api-${response.status}: ${errorText.slice(0, 500)}`,
           });
           result.failed += 1;
+          await notifyScheduledRun({
+            userId: job.userId,
+            runId: run.id,
+            jobName: job.name,
+            threadId,
+            failed: true,
+          });
         } else {
           await schedulerRepository.updateScheduledRun(run.id, {
             status: "completed",
@@ -194,6 +251,13 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
             },
           });
           result.ran += 1;
+          await notifyScheduledRun({
+            userId: job.userId,
+            runId: run.id,
+            jobName: job.name,
+            threadId,
+            failed: false,
+          });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -204,6 +268,13 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
           error: message.slice(0, 1000),
         });
         result.failed += 1;
+        await notifyScheduledRun({
+          userId: job.userId,
+          runId: run.id,
+          jobName: job.name,
+          threadId,
+          failed: true,
+        });
       }
 
       // Roll the job forward: one-shot jobs disable themselves after the
@@ -213,18 +284,28 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
         const payload = (job.payload ?? {}) as Record<string, unknown>;
         const isOnce = payload.scheduleType === "once";
         if (isOnce) {
-          await schedulerRepository.updateScheduledJob(job.id, job.userId, {
-            lastRunAt: now,
-            nextRunAt: new Date(Date.now() + 365 * 24 * 60 * 60_000),
-            status: "disabled",
-          });
+          const completed = await schedulerRepository.completeScheduledJobClaim(
+            job.id,
+            job.userId,
+            claimToken,
+            {
+              lastRunAt: now,
+              nextRunAt: new Date(Date.now() + 365 * 24 * 60 * 60_000),
+              status: "disabled",
+            },
+          );
+          if (!completed) activeClaimIds.delete(job.id);
         } else {
-          const nextRun = computeNextRun(job.cron, now);
-          await schedulerRepository.updateScheduledJob(job.id, job.userId, {
-            lastRunAt: now,
-            nextRunAt: nextRun,
-          });
+          const nextRun = computeNextRun(job.cron, now, job.timezone ?? "UTC");
+          const completed = await schedulerRepository.completeScheduledJobClaim(
+            job.id,
+            job.userId,
+            claimToken,
+            { lastRunAt: now, nextRunAt: nextRun },
+          );
+          if (!completed) activeClaimIds.delete(job.id);
         }
+        activeClaimIds.delete(job.id);
       } catch (err) {
         logger.error(
           `[scheduler] failed to roll next_run_at for job ${job.id}:`,
@@ -233,6 +314,18 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
       }
     }
   } finally {
+    if (claimHeartbeat) clearInterval(claimHeartbeat);
+    try {
+      await schedulerRepository.releaseScheduledJobClaims(
+        [...activeClaimIds],
+        claimToken,
+      );
+    } catch (error) {
+      logger.error(
+        "[scheduler] failed to release scheduled-job claims:",
+        error,
+      );
+    }
     await releaseLeaderLock(LEADER_KEY, owner);
   }
 

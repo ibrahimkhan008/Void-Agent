@@ -14,6 +14,7 @@ export type OpenAIRealtimeSession = {
     model: string;
   };
   tools: any[];
+  toolIdMap?: Record<string, { serverId: string; serverName: string; toolName: string }>;
   tool_choice: string;
   temperature: number;
   max_response_output_tokens: number;

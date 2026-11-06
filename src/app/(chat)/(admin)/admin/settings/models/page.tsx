@@ -1,39 +1,40 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  BotIcon,
-  Loader2,
-  CheckCircle2Icon,
-  XCircleIcon,
-  AlertCircleIcon,
-  RotateCcwIcon,
-  RotateCcw,
-  Plus,
-  Trash2,
-  X,
-  Eye,
-  EyeOff,
-  Link2,
-  Download,
-  Upload,
-} from "lucide-react";
-import { toast } from "sonner";
-import { Switch } from "ui/switch";
-import { Button } from "ui/button";
-import {
-  ModelSelector,
   FallbackChainSelector,
   FallbackChainValue,
+  ModelSelector,
 } from "@/components/admin/ui/model-selector";
-import {
-  showSaveSuccess,
-  showSaveError,
-} from "@/components/admin/ui/toast-helpers";
 import {
   ShortcutHelpModal,
   useAdminShortcuts,
 } from "@/components/admin/ui/shortcut-help-modal";
+import {
+  showSaveError,
+  showSaveSuccess,
+} from "@/components/admin/ui/toast-helpers";
+import { createProviderDiscoveryRequest } from "lib/admin/provider-discovery-request";
+import {
+  AlertCircleIcon,
+  BotIcon,
+  CheckCircle2Icon,
+  Download,
+  Eye,
+  EyeOff,
+  Link2,
+  Loader2,
+  Plus,
+  RotateCcw,
+  RotateCcwIcon,
+  Trash2,
+  Upload,
+  X,
+  XCircleIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "ui/button";
+import { Switch } from "ui/switch";
 
 interface ProviderInfo {
   enabled: boolean;
@@ -508,9 +509,11 @@ export default function ModelsPage() {
     setDiscovering(true);
     setDiscoveredModels([]);
     try {
-      const params = new URLSearchParams({ baseURL: newProvider.baseURL });
-      if (newProvider.apiKey) params.set("apiKey", newProvider.apiKey);
-      const res = await fetch(`/api/admin/providers/discover?${params}`);
+      const discoveryRequest = createProviderDiscoveryRequest(
+        newProvider.baseURL,
+        newProvider.apiKey,
+      );
+      const res = await fetch(discoveryRequest.url, discoveryRequest.init);
       const data = await res.json();
       if (data.success && Array.isArray(data.models)) {
         setDiscoveredModels(data.models);

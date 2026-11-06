@@ -2,6 +2,10 @@ import "server-only";
 
 import { Buffer } from "node:buffer";
 import { embedBatch } from "lib/ai/memory/embed";
+import {
+  canWriteCollection,
+  getCollectionAccess,
+} from "lib/collections/access";
 import { collectionRepository } from "lib/db/repository";
 import logger from "logger";
 
@@ -31,9 +35,11 @@ export const MAX_INGEST_CHARS = 500_000;
 
 export interface IngestTextInput {
   collectionId: string;
+  actorUserId: string;
   text: string;
   filename?: string | null;
   sourceUrl?: string | null;
+  storageKey?: string | null;
   mediaType?: string | null;
   sourceType?: "file" | "source-url";
   chunkMaxChars?: number;
@@ -44,6 +50,16 @@ export interface IngestResult {
   itemId: string;
   documentId: string;
   chunks: number;
+}
+
+export class IngestError extends Error {
+  readonly collectionItemId: string;
+
+  constructor(message: string, collectionItemId: string) {
+    super(message);
+    this.name = "IngestError";
+    this.collectionItemId = collectionItemId;
+  }
 }
 
 const embedAllChunks = async (chunks: string[]): Promise<number[][]> => {
@@ -75,10 +91,21 @@ export const ingestText = async (
     );
   }
 
+  // Parsing/OCR and URL retrieval can take time after the route's first ACL
+  // check. Re-resolve membership immediately before creating the source row.
+  const access = await getCollectionAccess(
+    input.collectionId,
+    input.actorUserId,
+  );
+  if (!access || !canWriteCollection(access.role)) {
+    throw new Error("Collection access is no longer available");
+  }
+
   const item = await collectionRepository.createCollectionItem({
     collectionId: input.collectionId,
     sourceType: input.sourceType ?? (input.sourceUrl ? "source-url" : "file"),
     sourceUrl: input.sourceUrl ?? null,
+    storageKey: input.storageKey ?? null,
     filename: input.filename ?? null,
     mediaType: input.mediaType ?? "text/plain",
     status: "chunking",
@@ -115,10 +142,10 @@ export const ingestText = async (
     // Record why on the item so a half-ingested source is visible rather
     // than looking like an empty-but-successful upload.
     await collectionRepository
-      .updateItemStatus(item.id, "failed", message)
+      .updateItemStatus(item.id, "failed", message, Boolean(input.storageKey))
       .catch(() => void 0);
     logger.error(`[rag/ingest] item=${item.id} failed: ${message}`);
-    throw err;
+    throw new IngestError(message, item.id);
   }
 };
 
@@ -130,9 +157,11 @@ export const ingestText = async (
  */
 export const ingestFile = async (params: {
   collectionId: string;
+  actorUserId: string;
   buffer: Buffer;
   filename: string;
   mediaType: string | null;
+  storageKey?: string | null;
   chunkMaxChars?: number;
   chunkOverlap?: number;
 }): Promise<IngestResult & { kind: string; pages?: number }> => {
@@ -144,6 +173,7 @@ export const ingestFile = async (params: {
 
   const result = await ingestText({
     collectionId: params.collectionId,
+    actorUserId: params.actorUserId,
     text: parsed.text,
     filename: params.filename,
     // Record what it actually was, not what the browser guessed.
@@ -154,6 +184,7 @@ export const ingestFile = async (params: {
           ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           : (params.mediaType ?? "text/plain"),
     sourceType: "file",
+    storageKey: params.storageKey,
     chunkMaxChars: params.chunkMaxChars,
     chunkOverlap: params.chunkOverlap,
   });
@@ -171,6 +202,7 @@ export const ingestFile = async (params: {
  */
 export const ingestUrl = async (params: {
   collectionId: string;
+  actorUserId: string;
   url: string;
   chunkMaxChars?: number;
   chunkOverlap?: number;
@@ -208,6 +240,7 @@ export const ingestUrl = async (params: {
 
   return ingestText({
     collectionId: params.collectionId,
+    actorUserId: params.actorUserId,
     text: parsedDoc.text,
     sourceUrl: parsed.toString(),
     filename,

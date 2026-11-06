@@ -1,24 +1,25 @@
 "use client";
 
-import { getToolName, isToolUIPart, TextPart } from "ai";
+import { TextPart, getToolName, isToolUIPart } from "ai";
 import { DEFAULT_VOICE_TOOLS, UIMessageWithCompleted } from "lib/ai/speech";
-import { type VoiceChatProviderId } from "lib/ai/speech/providers";
-import { useOpenAIVoiceChat } from "lib/ai/speech/open-ai/use-voice-chat.openai";
 import { useKonvOVoiceChat } from "lib/ai/speech/konvo/use-voice-chat-konvo";
-import { cn, groupBy, isNull } from "lib/utils";
+import { useOpenAIVoiceChat } from "lib/ai/speech/open-ai/use-voice-chat.openai";
+import { type VoiceChatProviderId } from "lib/ai/speech/providers";
+import { cn, generateUUID, groupBy, isNull } from "lib/utils";
 import {
+  ChevronRight,
   Loader,
+  MessageSquareMoreIcon,
+  MessagesSquareIcon,
   MicIcon,
   MicOffIcon,
   PhoneIcon,
   Settings2Icon,
   TriangleAlertIcon,
-  XIcon,
-  MessagesSquareIcon,
-  MessageSquareMoreIcon,
   WrenchIcon,
-  ChevronRight,
+  XIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { safe } from "ts-safe";
@@ -39,16 +40,21 @@ import { MessageLoading } from "ui/message-loading";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { ToolMessagePart } from "./message-parts";
 
-import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
 import { appStore } from "@/app/store";
-import { useShallow } from "zustand/shallow";
-import { useTranslations } from "next-intl";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "ui/dialog";
-import JsonView from "ui/json-view";
-import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { useAgent } from "@/hooks/queries/use-agent";
 import { ChatMention } from "app-types/chat";
+import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
+import { flushVoiceSessionTurns } from "lib/voice/session-thread-client";
+import {
+  VOICE_THREAD_FLUSH_DEBOUNCE_MS,
+  selectVoiceTurnsToPersist,
+} from "lib/voice/session-thread-contract";
+import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "ui/dialog";
+import JsonView from "ui/json-view";
+import { useShallow } from "zustand/shallow";
+import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
 
 const prependTools: EnabledTools[] = [
   {
@@ -171,7 +177,6 @@ export function ChatBotVoice() {
     agentId,
     appStoreMutate,
     voiceChat,
-    model,
     allowedMcpServers,
     mcpList,
   ] = appStore(
@@ -179,7 +184,6 @@ export function ChatBotVoice() {
       state.voiceChat.agentId,
       state.mutate,
       state.voiceChat,
-      state.chatModel,
       state.allowedMcpServers,
       state.mcpList,
     ]),
@@ -256,6 +260,59 @@ export function ChatBotVoice() {
     stopListening,
   } = voiceSession;
 
+  const voicePersistenceRef = useRef<{
+    threadId: string;
+    voiceSessionId: string;
+    agentId?: string;
+    signatures: Map<string, string>;
+    inFlight: boolean;
+  } | null>(null);
+  const voiceMessagesRef = useRef(messages);
+  voiceMessagesRef.current = messages;
+  const voiceFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [savedVoiceThreadId, setSavedVoiceThreadId] = useState<string | null>(null);
+
+  const flushVoiceTurns = useCallback(async () => {
+    const current = voicePersistenceRef.current;
+    if (!current || current.inFlight) return;
+    const { turns, signatures } = selectVoiceTurnsToPersist(
+      voiceMessagesRef.current,
+      current.signatures,
+    );
+    if (!turns.length) return;
+
+    current.inFlight = true;
+    const saved = await flushVoiceSessionTurns({
+      threadId: current.threadId,
+      voiceSessionId: current.voiceSessionId,
+      agentId: current.agentId,
+      turns,
+    });
+    current.inFlight = false;
+    if (!saved) {
+      voiceFlushTimerRef.current = setTimeout(() => void flushVoiceTurns(), 5_000);
+      return;
+    }
+    for (const [id, signature] of signatures) current.signatures.set(id, signature);
+    setSavedVoiceThreadId(current.threadId);
+    const remaining = selectVoiceTurnsToPersist(voiceMessagesRef.current, current.signatures).turns;
+    if (remaining.length) voiceFlushTimerRef.current = setTimeout(() => void flushVoiceTurns(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (!messages.length || !voicePersistenceRef.current) return;
+    if (voiceFlushTimerRef.current) clearTimeout(voiceFlushTimerRef.current);
+    voiceFlushTimerRef.current = setTimeout(() => {
+      voiceFlushTimerRef.current = null;
+      void flushVoiceTurns();
+    }, VOICE_THREAD_FLUSH_DEBOUNCE_MS);
+  }, [messages, flushVoiceTurns]);
+
+  useEffect(() => () => {
+    if (voiceFlushTimerRef.current) clearTimeout(voiceFlushTimerRef.current);
+    void flushVoiceTurns();
+  }, [flushVoiceTurns]);
+
   useEffect(() => {
     if (voiceChat.options.provider !== providerId) {
       appStoreMutate((prev) => ({
@@ -296,17 +353,26 @@ export function ChatBotVoice() {
   }, [appStoreMutate, voiceChat.options.providerOptions]);
 
   const startWithSound = useCallback(() => {
+    voicePersistenceRef.current = {
+      threadId: generateUUID(),
+      voiceSessionId: generateUUID(),
+      agentId,
+      signatures: new Map(),
+      inFlight: false,
+    };
+    setSavedVoiceThreadId(null);
     if (!startAudio.current) {
       startAudio.current = new Audio("/sounds/start_voice.ogg");
     }
     start().then(() => {
       startAudio.current?.play().catch(() => {});
     });
-  }, [start]);
+  }, [agentId, start]);
 
   const endVoiceChat = useCallback(async () => {
     setIsClosing(true);
     await safe(() => stop());
+    void flushVoiceTurns();
     setIsClosing(false);
     appStoreMutate({
       voiceChat: {
@@ -314,7 +380,7 @@ export function ChatBotVoice() {
         isOpen: false,
       },
     });
-  }, [messages, model]);
+  }, [appStoreMutate, flushVoiceTurns, stop, voiceChat]);
 
   const statusMessage = useMemo(() => {
     if (isLoading) {
@@ -521,6 +587,18 @@ export function ChatBotVoice() {
               </Tooltip>
 
               <EnabledToolsDropdown align="start" side="bottom" tools={tools} />
+              {savedVoiceThreadId && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/chat/${savedVoiceThreadId}`}
+                    onClick={() => appStoreMutate((prev) => ({
+                      voiceChat: { ...prev.voiceChat, isOpen: false },
+                    }))}
+                  >
+                    Open saved conversation
+                  </Link>
+                </Button>
+              )}
 
               <DrawerTitle className="ml-auto">
                 <DropdownMenu>

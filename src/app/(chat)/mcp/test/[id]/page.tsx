@@ -1,9 +1,21 @@
 "use client";
 
+import { generateExampleToolSchemaAction } from "@/app/api/chat/actions";
 import {
   callMcpToolAction,
   selectMcpClientAction,
 } from "@/app/api/mcp/actions";
+import { appStore } from "@/app/store";
+import JsonView from "@/components/ui/json-view";
+import { useChatModels } from "@/hooks/queries/use-chat-models";
+import { useObjectState } from "@/hooks/use-object-state";
+import { ChatModel } from "app-types/chat";
+import { MCPToolInfo } from "app-types/mcp";
+import { callMcpToolViaDesktop, isDesktopClient, listMcpToolsViaDesktop } from "lib/ai/mcp/desktop-bridge";
+import { isMaybeStdioConfig } from "lib/ai/mcp/is-mcp-config";
+import { requestVoiceMcpApproval } from "lib/ai/speech/mcp-voice-approval";
+import { sortProvidersFlareFirst } from "lib/ai/sort-providers";
+import { isNull, isString, safeJSONParse } from "lib/utils";
 import {
   ArrowLeft,
   ChevronDown,
@@ -13,30 +25,21 @@ import {
   Search,
   WandSparkles,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import useSWR from "swr";
 import {
   PropsWithChildren,
+  useCallback,
   useEffect,
   useMemo,
   useState,
-  useCallback,
 } from "react";
-import { Input } from "ui/input";
-import { Separator } from "ui/separator";
-import { sortProvidersFlareFirst } from "lib/ai/sort-providers";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "ui/resizable";
-import { Skeleton } from "ui/skeleton";
-import { Button } from "ui/button";
-import { Textarea } from "ui/textarea";
-import JsonView from "@/components/ui/json-view";
+import useSWR from "swr";
+import { safe } from "ts-safe";
 import { Alert, AlertDescription, AlertTitle } from "ui/alert";
-import { safeJSONParse, isNull, isString } from "lib/utils";
+import { Badge } from "ui/badge";
+import { Button } from "ui/button";
 import {
   Dialog,
   DialogClose,
@@ -48,10 +51,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "ui/dialog";
-import { Badge } from "ui/badge";
-import { handleErrorWithToast } from "ui/shared-toast";
-import { generateExampleToolSchemaAction } from "@/app/api/chat/actions";
-import { appStore } from "@/app/store";
+import { Input } from "ui/input";
+import { Label } from "ui/label";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "ui/resizable";
 import {
   Select,
   SelectContent,
@@ -61,13 +67,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "ui/select";
-import { MCPToolInfo } from "app-types/mcp";
-import { Label } from "ui/label";
-import { safe } from "ts-safe";
-import { useObjectState } from "@/hooks/use-object-state";
-import { useTranslations } from "next-intl";
-import { useChatModels } from "@/hooks/queries/use-chat-models";
-import { ChatModel } from "app-types/chat";
+import { Separator } from "ui/separator";
+import { handleErrorWithToast } from "ui/shared-toast";
+import { Skeleton } from "ui/skeleton";
+import { Textarea } from "ui/textarea";
 
 // Type definitions
 type SchemaProperty = {
@@ -396,9 +399,13 @@ export default function Page() {
   const [isCallLoading, setIsCallLoading] = useState(false);
   const [showInputSchema, setShowInputSchema] = useState(false);
 
-  const { data: client, isLoading } = useSWR(`/mcp/${id}`, () =>
-    selectMcpClientAction(id as string),
-  );
+  const { data: client, isLoading } = useSWR(`/mcp/${id}`, async () => {
+    const serverInfo = await selectMcpClientAction(id as string);
+    if (serverInfo.config && isMaybeStdioConfig(serverInfo.config)) {
+      return { ...serverInfo, toolInfo: isDesktopClient() ? await listMcpToolsViaDesktop(serverInfo.config) : [] };
+    }
+    return serverInfo;
+  });
 
   const filteredTools = useMemo(() => {
     const trimmedQuery = searchQuery.trim().toLowerCase();
@@ -450,11 +457,24 @@ export default function Page() {
 
     setIsCallLoading(true);
     try {
-      const result = await callMcpToolAction(
-        id,
-        selectedTool.name,
-        parsedInput.value,
-      );
+      const isLocalDesktop = Boolean(client?.config && isMaybeStdioConfig(client.config) && isDesktopClient());
+      let result;
+      if (isLocalDesktop && client?.config) {
+        result = await callMcpToolViaDesktop(client.config, selectedTool.name, parsedInput.value as Record<string, unknown>);
+      } else {
+        const approvalToken = await requestVoiceMcpApproval({
+          serverId: id,
+          serverName: client?.name ?? "",
+          toolName: selectedTool.name,
+          payload: parsedInput.value as Record<string, unknown>,
+          reviewLabel: "Review this MCP test call before sending it to the configured server.",
+        });
+        if (!approvalToken) {
+          setCallResult({ success: false, error: "MCP call cancelled." });
+          return;
+        }
+        result = await callMcpToolAction(id, selectedTool.name, parsedInput.value, approvalToken);
+      }
 
       setCallResult({
         success: true,
@@ -517,6 +537,8 @@ export default function Page() {
           </h2>
         </header>
       </div>
+
+      {client?.config && isMaybeStdioConfig(client.config) && !isDesktopClient() && <Alert className="mb-3"><AlertTitle>Local MCP server</AlertTitle><AlertDescription>This server runs on your computer. Open this page in the Void-Agent desktop app to test its read-only tools.</AlertDescription></Alert>}
 
       <ResizablePanelGroup direction="horizontal" className="mt-4">
         {/* Tool List Panel */}

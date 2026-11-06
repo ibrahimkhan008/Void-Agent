@@ -1,10 +1,12 @@
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
 import { JSONSchema7 } from "json-schema";
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { emailApprovalPayloadSchema } from "lib/ai/tools/hitl/email-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { emailApprovalRepository } from "lib/db/pg/repositories/email-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 export const gmailToolSchema: JSONSchema7 = {
   type: "object",
@@ -42,6 +44,10 @@ export const gmailToolSchema: JSONSchema7 = {
       type: "string",
       description: "Email body content (supports plain text or HTML)",
     },
+    approvalToken: {
+      type: "string",
+      description: "One-time approval token returned by the user-reviewed email card",
+    },
   },
   required: ["action"],
 };
@@ -72,6 +78,7 @@ const gmailToolZodSchema = z.object({
     .string()
     .optional()
     .describe("Email body content (supports plain text or HTML)"),
+  approvalToken: z.string().min(32).max(128).optional(),
 });
 
 interface GmailToolInput {
@@ -82,6 +89,7 @@ interface GmailToolInput {
   to?: string;
   subject?: string;
   message?: string;
+  approvalToken?: string;
 }
 
 function getHeader(
@@ -151,12 +159,6 @@ function htmlToPlainText(html: string): string {
     .trim();
 }
 
-// Extract email address from "Name <email@example.com>" format
-function extractEmailAddress(fromHeader: string): string {
-  const match = fromHeader.match(/<([^>]+)>/);
-  return match ? match[1] : fromHeader;
-}
-
 // Factory function to create Gmail tool with user context
 export function createGmailToolForUser(userId: string): Tool {
   return createTool({
@@ -165,8 +167,8 @@ export function createGmailToolForUser(userId: string): Tool {
 Actions:
 - inbox: List recent emails from inbox (optional: maxResults 1-10, query for filtering)
 - read: Read a specific email's full content (requires: messageId from inbox results)
-- send: Compose and send a new email (requires: to, subject, message)
-- reply: Reply to an email (requires: messageId, message)
+- send: Send a user-reviewed email (requires: to, subject, message, approvalToken)
+- reply: Send a user-reviewed reply (requires: messageId, to, subject, message, approvalToken)
 
 IMPORTANT: 
 - User must connect Gmail first via Connectors menu.
@@ -185,6 +187,7 @@ IMPORTANT:
           to,
           subject,
           message,
+          approvalToken,
         } = input;
 
         // Get user's Gmail connector
@@ -309,7 +312,7 @@ IMPORTANT:
           }
 
           const msgResponse = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
 
@@ -376,17 +379,42 @@ IMPORTANT:
             };
           }
 
+          const approvedPayload = emailApprovalPayloadSchema.safeParse({
+            action: "send",
+            to: to.trim(),
+            subject: subject.trim(),
+            body: message.trim(),
+          });
+          if (
+            !approvalToken ||
+            !approvedPayload.success ||
+            !(await emailApprovalRepository.consume(
+              userId,
+              approvalToken,
+              approvedPayload.data,
+            ))
+          ) {
+            return {
+              error:
+                "This email was not approved, its approval expired, or reviewed fields changed. Ask the user to review it again.",
+            };
+          }
+
+          const approvedTo = to.trim();
+          const approvedSubject = subject.trim();
+          const approvedMessage = message.trim();
+
           // Build RFC 2822 email
           const emailLines = [
             `From: ${connector.email}`,
-            `To: ${to}`,
-            `Subject: ${subject}`,
+            `To: ${approvedTo}`,
+            `Subject: ${approvedSubject}`,
             "MIME-Version: 1.0",
             "Content-Type: text/html; charset=utf-8",
             "",
-            message.includes("<")
-              ? message
-              : `<p>${message.replace(/\n/g, "<br>")}</p>`,
+            approvedMessage.includes("<")
+              ? approvedMessage
+              : `<p>${approvedMessage.replace(/\n/g, "<br>")}</p>`,
           ];
 
           const rawEmail = Buffer.from(emailLines.join("\r\n"))
@@ -438,10 +466,16 @@ IMPORTANT:
               error: "Missing 'message'. Please provide your reply content.",
             };
           }
+          if (!approvalToken || !to || !subject) {
+            return {
+              error:
+                "Reply sending requires the user-approved recipient, subject, and approval token from proposeEmail.",
+            };
+          }
 
           // Get original message details
           const origResponse = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=Reply-To`,
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Message-ID&metadataHeaders=Reply-To`,
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
 
@@ -462,14 +496,14 @@ IMPORTANT:
           const origData = await origResponse.json();
           const origHeaders = origData.payload?.headers || [];
 
-          const origSubject = getHeader(origHeaders, "Subject");
-          const origFrom = getHeader(origHeaders, "From");
-          const origReplyTo = getHeader(origHeaders, "Reply-To");
+          const origSubject = getHeader(origHeaders, "Subject")
+            .replace(/[\r\n]+/g, " ")
+            .trim();
           const origMessageId = getHeader(origHeaders, "Message-ID");
           const origThreadId = origData.threadId;
 
           // Determine reply recipient
-          const replyTo = to || origReplyTo || extractEmailAddress(origFrom);
+          const replyTo = to.trim();
 
           if (!replyTo) {
             return {
@@ -481,6 +515,32 @@ IMPORTANT:
           const replySubject = origSubject.startsWith("Re:")
             ? origSubject
             : `Re: ${origSubject}`;
+          if (subject.trim() !== replySubject) {
+            return {
+              error:
+                "The approved reply subject no longer matches the original email. Ask the user to review it again.",
+            };
+          }
+          const approvedPayload = emailApprovalPayloadSchema.safeParse({
+            action: "reply",
+            messageId,
+            to: replyTo,
+            subject: replySubject,
+            body: message.trim(),
+          });
+          if (
+            !approvedPayload.success ||
+            !(await emailApprovalRepository.consume(
+              userId,
+              approvalToken,
+              approvedPayload.data,
+            ))
+          ) {
+            return {
+              error:
+                "This reply was not approved, its approval expired, or reviewed fields changed. Ask the user to review it again.",
+            };
+          }
 
           // Build RFC 2822 reply email
           const emailLines = [

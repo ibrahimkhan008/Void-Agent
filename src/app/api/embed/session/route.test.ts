@@ -31,6 +31,7 @@ vi.mock("lib/utils", () => ({
 vi.mock("lib/ai/models", () => ({
   customModelProvider: {
     getModelWithFailureFallback: vi.fn(() => "model"),
+    getModelWithFailureFallbackAsync: vi.fn(async () => "model"),
   },
 }));
 

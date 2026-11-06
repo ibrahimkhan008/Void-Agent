@@ -18,17 +18,21 @@ export interface FileMetadata {
 export interface UploadOptions {
   filename?: string;
   contentType?: string;
+  /** Trusted authenticated owner; user-facing uploads use an owner-scoped key. */
+  ownerId?: string;
 }
 
 export interface UploadResult {
   key: string;
-  sourceUrl: string; // Public URL that anyone can access
+  sourceUrl: string; // Provider URL; accessibility depends on storage access mode
   metadata: FileMetadata;
 }
 
 export interface UploadUrlOptions {
   filename: string;
   contentType: string;
+  /** Trusted authenticated owner; must never be accepted from the client body. */
+  ownerId?: string;
   expiresInSeconds?: number;
 }
 

@@ -76,6 +76,27 @@ describe("Upgrade token", () => {
     expect(result.reason).toBe("bad-signature");
   });
 
+  it("rejects a noncanonical signature that decodes to the same bytes", async () => {
+    const { createUpgradeToken, verifyUpgradeToken } = await import(
+      "./upgrade-token"
+    );
+    const token = createUpgradeToken({ userId: "user_1", nonce: "n" })!;
+    const alphabet =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const last = alphabet.indexOf(token.at(-1)!);
+    const alias = token.slice(0, -1) + alphabet[last ^ 1];
+    expect(Buffer.from(alias.split(".")[1], "base64url")).toEqual(
+      Buffer.from(token.split(".")[1], "base64url"),
+    );
+    expect(
+      verifyUpgradeToken({
+        token: alias,
+        expectedUserId: "user_1",
+        expectedNonce: "n",
+      }).valid,
+    ).toBe(false);
+  });
+
   it("rejects a malformed token", async () => {
     const { verifyUpgradeToken } = await import("./upgrade-token");
     for (const bad of ["", null, "no-dot", ".", "a.", "x.y.z"]) {
@@ -130,9 +151,7 @@ describe("Upgrade token", () => {
   it("returns null token when secret is missing at creation", async () => {
     delete process.env.BETTER_AUTH_SECRET;
     const { createUpgradeToken } = await import("./upgrade-token");
-    expect(
-      createUpgradeToken({ userId: "u", nonce: "n" }),
-    ).toBeNull();
+    expect(createUpgradeToken({ userId: "u", nonce: "n" })).toBeNull();
   });
 
   it("does not verify a token signed with a different secret", async () => {

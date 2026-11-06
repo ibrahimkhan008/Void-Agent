@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { pgDb as db } from "../db.pg";
 import {
   CollectionEntity,
@@ -42,6 +42,7 @@ export interface CreateCollectionItemInput {
   collectionId: string;
   sourceType: CollectionSourceType;
   sourceUrl?: string | null;
+  storageKey?: string | null;
   filename?: string | null;
   mediaType?: string | null;
   status?: CollectionItemStatus;
@@ -80,6 +81,50 @@ export const pgCollectionRepository = {
       .orderBy(desc(CollectionTable.createdAt))) as CollectionEntity[];
   },
 
+  /** Personal collections plus collections in teams the caller currently belongs to. */
+  async listAccessibleCollections(
+    userId: string,
+    teamIds: string[],
+  ): Promise<CollectionEntity[]> {
+    const scopes = [
+      and(eq(CollectionTable.userId, userId), isNull(CollectionTable.orgId)),
+    ];
+    if (teamIds.length) {
+      scopes.push(
+        and(
+          inArray(CollectionTable.orgId, teamIds),
+          sql`(
+            EXISTS (
+              SELECT 1 FROM team_member tm
+              WHERE tm.team_id = ${CollectionTable.orgId}
+                AND tm.user_id = ${userId}
+            )
+            OR EXISTS (
+              SELECT 1 FROM team t
+              WHERE t.id = ${CollectionTable.orgId}
+                AND t.owner_id = ${userId}
+            )
+          )`,
+        ),
+      );
+    }
+    return (await db
+      .select()
+      .from(CollectionTable)
+      .where(or(...scopes))
+      .orderBy(desc(CollectionTable.createdAt))) as CollectionEntity[];
+  },
+
+  /** Internal unscoped lookup; callers must immediately apply collection ACLs. */
+  async getCollectionById(id: string): Promise<CollectionEntity | null> {
+    const [row] = await db
+      .select()
+      .from(CollectionTable)
+      .where(eq(CollectionTable.id, id))
+      .limit(1);
+    return (row as CollectionEntity | undefined) ?? null;
+  },
+
   /** Returns null when the collection does not exist OR is not owned. */
   async getCollection(
     id: string,
@@ -99,7 +144,26 @@ export const pgCollectionRepository = {
     const deleted = await db
       .delete(CollectionTable)
       .where(
-        and(eq(CollectionTable.id, id), eq(CollectionTable.userId, userId)),
+        and(
+          eq(CollectionTable.id, id),
+          eq(CollectionTable.userId, userId),
+          // Shared collection deletion also requires the creator's current
+          // writable membership; a stale route-level check cannot outlive it.
+          sql`(
+            ${CollectionTable.orgId} IS NULL
+            OR EXISTS (
+              SELECT 1 FROM team_member tm
+              WHERE tm.team_id = ${CollectionTable.orgId}
+                AND tm.user_id = ${userId}
+                AND tm.role IN ('admin', 'member')
+            )
+            OR EXISTS (
+              SELECT 1 FROM team t
+              WHERE t.id = ${CollectionTable.orgId}
+                AND t.owner_id = ${userId}
+            )
+          )`,
+        ),
       )
       .returning({ id: CollectionTable.id });
     return deleted.length > 0;
@@ -116,6 +180,7 @@ export const pgCollectionRepository = {
         collectionId: input.collectionId,
         sourceType: input.sourceType,
         sourceUrl: input.sourceUrl ?? null,
+        storageKey: input.storageKey ?? null,
         filename: input.filename ?? null,
         mediaType: input.mediaType ?? null,
         status: input.status ?? "pending",
@@ -134,14 +199,66 @@ export const pgCollectionRepository = {
       .orderBy(desc(CollectionItemTable.createdAt))) as CollectionItemEntity[];
   },
 
+  /** Item metadata read with membership revalidated in the same SQL statement. */
+  async listAccessibleCollectionItems(
+    collectionId: string,
+    userId: string,
+  ): Promise<CollectionItemEntity[]> {
+    const rows = await db
+      .select({ item: CollectionItemTable })
+      .from(CollectionItemTable)
+      .innerJoin(
+        CollectionTable,
+        eq(CollectionTable.id, CollectionItemTable.collectionId),
+      )
+      .where(
+        and(
+          eq(CollectionTable.id, collectionId),
+          sql`(
+            (
+              ${CollectionTable.orgId} IS NULL
+              AND ${CollectionTable.userId} = ${userId}
+            )
+            OR (
+              ${CollectionTable.orgId} IS NOT NULL
+              AND (
+                EXISTS (
+                  SELECT 1 FROM team_member tm
+                  WHERE tm.team_id = ${CollectionTable.orgId}
+                    AND tm.user_id = ${userId}
+                )
+                OR EXISTS (
+                  SELECT 1 FROM team t
+                  WHERE t.id = ${CollectionTable.orgId}
+                    AND t.owner_id = ${userId}
+                )
+              )
+            )
+          )`,
+        ),
+      )
+      .orderBy(desc(CollectionItemTable.createdAt));
+    return rows.map((row) => {
+      const { storageKey: _storageKey, ...item } =
+        row.item as CollectionItemEntity;
+      return item as CollectionItemEntity;
+    });
+  },
+
   async updateItemStatus(
     itemId: string,
     status: CollectionItemStatus,
     error?: string | null,
+    clearStorageKey = false,
   ): Promise<void> {
     await db
       .update(CollectionItemTable)
-      .set({ status, error: error ?? null, updatedAt: new Date() })
+      .set({
+        status,
+        error: error ?? null,
+        ...(clearStorageKey ? { storageKey: null } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(CollectionItemTable.id, itemId));
   },
 

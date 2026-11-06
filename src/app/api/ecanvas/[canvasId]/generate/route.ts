@@ -1,7 +1,7 @@
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { type UIMessage, convertToModelMessages, streamText } from "ai";
+import type { ChatModel } from "app-types/chat";
 import { getSession } from "auth/server";
 import { customModelProvider } from "lib/ai/models";
-import type { ChatModel } from "app-types/chat";
 
 type CanvasMessage = {
   role: "user" | "assistant" | "system";
@@ -99,7 +99,7 @@ export async function POST(
     const modelMessages = await convertToModelMessages(uiMessages);
 
     const result = streamText({
-      model: customModelProvider.getModel(model),
+      model: await customModelProvider.getModelAsync(model),
       messages: modelMessages,
       abortSignal: request.signal,
     });

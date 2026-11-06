@@ -17,7 +17,6 @@ import type { ChatModel, ChatThread } from "app-types/chat";
 
 import { MCPToolInfo, McpServerCustomizationsPrompt } from "app-types/mcp";
 import { getSession } from "auth/server";
-import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { customModelProvider } from "lib/ai/models";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
@@ -28,6 +27,7 @@ import {
   mcpMcpToolCustomizationRepository,
   mcpServerCustomizationRepository,
 } from "lib/db/repository";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { toAny } from "lib/utils";
 import logger from "logger";
 
@@ -35,7 +35,12 @@ import { Agent } from "app-types/agent";
 import { ObjectJsonSchema7 } from "app-types/util";
 import { JSONSchema7 } from "json-schema";
 import { normalizeToolInputSchema } from "lib/ai/tools/sanitize-tool-schemas";
+import { getCollectionAccess } from "lib/collections/access";
+import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
+import { getProjectAccess } from "lib/projects/access";
+import { isProjectCollectionScopeAllowed } from "lib/projects/policy";
+import { getVoiceTranscriptForHandoff } from "lib/voice/handoff";
 import { convertToSavePart } from "./shared.chat";
 
 export async function getUserId() {
@@ -80,8 +85,130 @@ export async function selectThreadWithMessagesAction(threadId: string) {
   if (thread.userId !== session?.user.id) {
     return null;
   }
-  const messages = await chatRepository.selectMessagesByThreadId(threadId);
+  const messages = await chatRepository.selectMessagesByThreadId(threadId, {
+    limit: CHAT_MESSAGE_WINDOW,
+  });
   return { ...thread, messages: messages ?? [] };
+}
+
+export async function loadOlderThreadMessagesAction(
+  threadId: string,
+  beforeMessageId: string,
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+  if (!beforeMessageId || beforeMessageId.length > 128) return [];
+
+  const thread = await chatRepository.selectThread(threadId);
+  if (!thread || thread.userId !== session.user.id) return [];
+
+  return chatRepository.selectMessagesByThreadId(threadId, {
+    limit: CHAT_MESSAGE_WINDOW,
+    beforeMessageId,
+  });
+}
+
+export async function loadVoiceTranscriptForHandoffAction(
+  threadId: string,
+  messageId: string,
+) {
+  const userId = await getUserId();
+  if (
+    !threadId ||
+    threadId.length > 128 ||
+    !messageId ||
+    messageId.length > 128
+  )
+    return null;
+  const [thread, message] = await Promise.all([
+    chatRepository.selectThread(threadId),
+    chatRepository.selectMessage(messageId),
+  ]);
+  return getVoiceTranscriptForHandoff({
+    userId,
+    requestedUserId: thread?.userId ?? "",
+    threadId,
+    messageId,
+    message: message ? { ...message, threadId: message.threadId } : null,
+  });
+}
+
+export async function updateThreadProjectAction(
+  threadId: string,
+  projectId: string | null,
+) {
+  const userId = await getUserId();
+  const thread = await chatRepository.selectThread(threadId);
+  if (thread && thread.userId !== userId) throw new Error("Unauthorized");
+  const projectAccess = projectId
+    ? await getProjectAccess(projectId, userId)
+    : null;
+  if (projectId && !projectAccess) throw new Error("Project not found");
+  if (!thread) return false; // The first POST persists a new thread's selection.
+  await chatRepository.updateThread(threadId, {
+    userId,
+    projectId,
+    collectionIds: projectAccess?.project.collectionIds ?? null,
+  });
+  return true;
+}
+
+/** Persist a conversation's user-owned RAG scope. Null means legacy/all collections. */
+export async function updateThreadCollectionScopeAction(
+  threadId: string,
+  collectionIds: string[] | null,
+) {
+  const userId = await getUserId();
+  if (
+    collectionIds !== null &&
+    (!Array.isArray(collectionIds) || collectionIds.length > 20)
+  ) {
+    throw new Error("Invalid knowledge collection selection");
+  }
+  const ids = collectionIds === null ? null : [...new Set(collectionIds)];
+  if (ids) {
+    if (
+      ids.some(
+        (id) =>
+          typeof id !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            id,
+          ),
+      )
+    ) {
+      throw new Error("Invalid knowledge collection selection");
+    }
+  }
+
+  const thread = await chatRepository.selectThread(threadId);
+  if (thread && thread.userId !== userId) throw new Error("Unauthorized");
+  const projectAccess = thread?.projectId
+    ? await getProjectAccess(thread.projectId, userId)
+    : null;
+  if (thread?.projectId && !projectAccess) throw new Error("Project not found");
+  if (thread?.projectId && ids !== null) {
+    if (
+      !isProjectCollectionScopeAllowed(
+        ids,
+        projectAccess!.project.collectionIds,
+      )
+    ) {
+      throw new Error("Collections must be attached to this project");
+    }
+  } else if (ids) {
+    const accessible = await Promise.all(
+      ids.map((id) => getCollectionAccess(id, userId)),
+    );
+    if (accessible.some((access) => !access)) {
+      throw new Error("One or more knowledge collections are unavailable");
+    }
+  }
+  if (!thread) return false; // New threads persist the scope in the first POST.
+  await chatRepository.updateThread(threadId, {
+    userId,
+    collectionIds: ids,
+  });
+  return true;
 }
 
 export async function deleteMessageAction(messageId: string) {
@@ -150,7 +277,9 @@ export async function generateExampleToolSchemaAction(options: {
   if (!rate.allowed) {
     throw new Error("Too many requests. Please try again shortly.");
   }
-  const model = customModelProvider.getModelWithFailureFallback(options.model);
+  const model = await customModelProvider.getModelWithFailureFallbackAsync(
+    options.model,
+  );
 
   const schema = jsonSchema(
     normalizeToolInputSchema(
@@ -251,7 +380,7 @@ export async function generateObjectAction({
     throw new Error("Too many requests. Please try again shortly.");
   }
   const result = await generateObject({
-    model: customModelProvider.getModelWithFailureFallback(model),
+    model: await customModelProvider.getModelWithFailureFallbackAsync(model),
     system: prompt.system,
     prompt: prompt.user || "",
     schema: jsonSchemaToZod(schema),

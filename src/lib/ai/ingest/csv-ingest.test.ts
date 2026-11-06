@@ -1,12 +1,12 @@
+import type { ChatAttachment } from "app-types/chat";
 import { describe, expect, it, vi } from "vitest";
 import { buildCsvIngestionPreviewParts } from "./csv-ingest";
-import type { ChatAttachment } from "app-types/chat";
 
 const attachmentFactory = (
   overrides: Partial<ChatAttachment> = {},
 ): ChatAttachment => ({
   type: "source-url",
-  url: "https://example.com/uploads/data.csv",
+  url: "/api/files/uploads/user-1/data.csv",
   mediaType: "text/csv",
   filename: "data.csv",
   ...overrides,
@@ -19,7 +19,11 @@ describe("buildCsvIngestionPreviewParts", () => {
       Buffer.from("col1,col2\n1,2\n3,4\n", "utf8"),
     );
 
-    const parts = await buildCsvIngestionPreviewParts(attachments, download);
+    const parts = await buildCsvIngestionPreviewParts(
+      attachments,
+      download,
+      "user-1",
+    );
 
     expect(parts).toHaveLength(1);
     expect(parts[0].type).toBe("text");
@@ -37,7 +41,11 @@ describe("buildCsvIngestionPreviewParts", () => {
     ];
     const download = vi.fn();
 
-    const parts = await buildCsvIngestionPreviewParts(attachments, download);
+    const parts = await buildCsvIngestionPreviewParts(
+      attachments,
+      download,
+      "user-1",
+    );
 
     expect(parts).toHaveLength(0);
     expect(download).not.toHaveBeenCalled();
@@ -47,8 +55,26 @@ describe("buildCsvIngestionPreviewParts", () => {
     const attachments = [attachmentFactory({ url: "not-a-url" })];
     const download = vi.fn();
 
-    const parts = await buildCsvIngestionPreviewParts(attachments, download);
+    const parts = await buildCsvIngestionPreviewParts(
+      attachments,
+      download,
+      "user-1",
+    );
 
+    expect(parts).toHaveLength(0);
+    expect(download).not.toHaveBeenCalled();
+  });
+
+  it("does not download another user's stored file", async () => {
+    const attachments = [
+      attachmentFactory({ url: "/api/files/uploads/user-2/private.csv" }),
+    ];
+    const download = vi.fn();
+    const parts = await buildCsvIngestionPreviewParts(
+      attachments,
+      download,
+      "user-1",
+    );
     expect(parts).toHaveLength(0);
     expect(download).not.toHaveBeenCalled();
   });
@@ -59,7 +85,11 @@ describe("buildCsvIngestionPreviewParts", () => {
       throw new Error("network");
     });
 
-    const parts = await buildCsvIngestionPreviewParts(attachments, download);
+    const parts = await buildCsvIngestionPreviewParts(
+      attachments,
+      download,
+      "user-1",
+    );
 
     expect(parts).toHaveLength(0);
     expect(download).toHaveBeenCalled();

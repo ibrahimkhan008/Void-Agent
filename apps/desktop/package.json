@@ -1,0 +1,34 @@
+{
+  "name": "@void-agent/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "node scripts/build-main.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "node scripts/dev.mjs",
+    "start": "pnpm build && electron .",
+    "dist:win": "node scripts/validate-update-build.mjs win && pnpm build && electron-builder --win --publish never",
+    "dist:mac": "node scripts/validate-update-build.mjs mac && pnpm build && electron-builder --mac --publish never",
+    "dist:linux": "node scripts/validate-update-build.mjs linux && pnpm build && electron-builder --linux --publish never"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "electron-updater": "6.6.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "electron": "^35.7.5",
+    "electron-builder": "26.0.12",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.3"
+  }
+}

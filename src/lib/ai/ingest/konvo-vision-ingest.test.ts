@@ -5,7 +5,7 @@ const attachmentFactory = (
   overrides: Partial<ChatAttachment> = {},
 ): ChatAttachment => ({
   type: "file",
-  url: "https://example.com/uploads/document.pdf",
+  url: "/api/files/uploads/user-1/document.pdf",
   mediaType: "application/pdf",
   filename: "document.pdf",
   ...overrides,
@@ -49,6 +49,7 @@ describe("buildKonvOVisionIngestionPreviewParts", () => {
     const result = await buildKonvOVisionIngestionPreviewParts(
       [attachmentFactory()],
       vi.fn(async () => Buffer.from("file-data")),
+      "user-1",
     );
 
     expect(result).toEqual([]);
@@ -126,16 +127,17 @@ describe("buildKonvOVisionIngestionPreviewParts", () => {
     const result = await buildKonvOVisionIngestionPreviewParts(
       [attachmentFactory()],
       downloadMock,
+      "user-1",
     );
 
     expect(result).toHaveLength(1);
     expect(result[0].attachmentUrl).toBe(
-      "https://example.com/uploads/document.pdf",
+      "/api/files/uploads/user-1/document.pdf",
     );
     expect(result[0].part.type).toBe("text");
     expect(result[0].part.ingestionPreview).toBe(true);
     expect(result[0].part.text).toContain('OCR file: "document.pdf"');
     expect(result[0].part.text).toContain("Invoice total is 1200 INR.");
-    expect(downloadMock).toHaveBeenCalledWith("uploads/document.pdf");
+    expect(downloadMock).toHaveBeenCalledWith("uploads/user-1/document.pdf");
   });
 });

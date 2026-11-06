@@ -1,6 +1,9 @@
 import { Buffer } from "node:buffer";
 import { inflateRawSync } from "node:zlib";
-import { storageKeyFromUrl } from "@/lib/file-storage/storage-utils";
+import {
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "@/lib/file-storage/storage-utils";
 import type { ChatAttachment } from "app-types/chat";
 import { colorize } from "consola/utils";
 import globalLogger from "logger";
@@ -572,6 +575,7 @@ const runOcrForAttachment = async (
 export async function buildKonvOVisionIngestionPreviewParts(
   attachments: ChatAttachment[],
   download: DownloadFile,
+  userId: string,
 ): Promise<KonvOOcrResult[]> {
   const apiKey = process.env.KONVO_OCR_API_KEY || process.env.KONVO_AI_API;
   if (!apiKey) return [];
@@ -590,6 +594,9 @@ export async function buildKonvOVisionIngestionPreviewParts(
     }))
     .filter(({ attachment, storageKey }) =>
       isKonvOOcrCandidate(attachment, storageKey),
+    )
+    .filter(
+      ({ storageKey }) => storageKey && isUserStorageKey(storageKey, userId),
     )
     .slice(0, Math.max(0, MAX_OCR_ATTACHMENTS));
 

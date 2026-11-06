@@ -75,7 +75,7 @@ export const canvasPptMakerTool = tool({
       } catch {
         /* use default */
       }
-      const model = customModelProvider.getModelWithFailureFallback({
+      const model = await customModelProvider.getModelWithFailureFallbackAsync({
         provider: "flare",
         model: canvasModel,
       });

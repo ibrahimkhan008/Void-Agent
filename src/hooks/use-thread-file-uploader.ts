@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
-import { appStore, UploadedFile } from "@/app/store";
+import { UploadedFile, appStore } from "@/app/store";
 import { generateUUID } from "@/lib/utils";
+import { useCallback } from "react";
 import { toast } from "sonner";
 
 // Upload a single file with progress tracking
@@ -50,7 +50,7 @@ export function useThreadFileUploader(threadId?: string) {
   const uploadFiles = useCallback(
     async (files: File[]) => {
       if (!threadId || files.length === 0) return;
-      const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB per file
+      const MAX_SIZE_BYTES = 15 * 1024 * 1024; // Must match /api/storage/upload
 
       // Filter valid files first
       const validFiles = files.filter((file) => {

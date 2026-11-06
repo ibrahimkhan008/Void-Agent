@@ -1,5 +1,5 @@
-import { getSession } from "auth/server";
 import { generateObject } from "ai";
+import { getSession } from "auth/server";
 import { customModelProvider } from "lib/ai/models";
 import { sanitizeSkillName } from "lib/ai/skills";
 import { NextRequest, NextResponse } from "next/server";
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { object } = await generateObject({
-      model: customModelProvider.getModelWithFailureFallback(),
+      model: await customModelProvider.getModelWithFailureFallbackAsync(),
       schema: SkillDraftSchema,
       system:
         "You create reusable markdown skills for an AI assistant. Return concise, practical markdown only. The markdown should include: Goal, When to use, Instructions, Constraints, Output format.",

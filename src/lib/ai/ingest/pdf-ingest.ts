@@ -1,7 +1,10 @@
 import { Buffer } from "node:buffer";
-import { extractText } from "unpdf";
+import {
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "@/lib/file-storage/storage-utils";
 import { ChatAttachment } from "app-types/chat";
-import { storageKeyFromUrl } from "@/lib/file-storage/storage-utils";
+import { extractText } from "unpdf";
 
 type PdfPreviewPart = {
   type: "text";
@@ -57,6 +60,7 @@ const formatPdfPreviewText = (
 export const buildPdfIngestionPreviewParts = async (
   attachments: ChatAttachment[],
   download: DownloadFile,
+  userId: string,
 ): Promise<PdfPreviewPart[]> => {
   if (!attachments?.length) return [];
   const results = await Promise.all(
@@ -66,6 +70,7 @@ export const buildPdfIngestionPreviewParts = async (
         return null;
       const key = storageKeyFromUrl(attachment.url);
       if (!key) return null;
+      if (!isUserStorageKey(key, userId)) return null;
       if (!isPdfAttachment(attachment, key)) return null;
 
       try {

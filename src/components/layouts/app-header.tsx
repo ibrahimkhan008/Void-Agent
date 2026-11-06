@@ -1,6 +1,6 @@
 "use client";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { NotificationsCenter } from "@/components/notifications-center";
 import {
   AudioWaveformIcon,
   ChevronDown,
@@ -10,24 +10,25 @@ import {
 } from "lucide-react";
 import { Button } from "ui/button";
 import { Separator } from "ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
-import { useEffect, useMemo, useState } from "react";
-import { ThreadDropdown } from "../thread-dropdown";
 import { appStore } from "@/app/store";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useShallow } from "zustand/shallow";
-import { getShortcutKeyList, Shortcuts } from "lib/keyboard-shortcuts";
-import { useTranslations } from "next-intl";
-import { TextShimmer } from "ui/text-shimmer";
-import { buildReturnUrl } from "lib/admin/navigation-utils";
 import { BackButton } from "@/components/layouts/back-button";
-import { MobileSidebarSheet } from "./mobile-sidebar-sheet";
-import { BasicUser } from "app-types/user";
 import { UpgradePlanButton } from "@/components/payments/dodo/upgrade-plan-button";
 import {
   normalizeSubscriptionTier,
   subscriptionTiersInfo,
 } from "app-types/subscription";
+import { BasicUser } from "app-types/user";
+import { buildReturnUrl } from "lib/admin/navigation-utils";
+import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
+import { useTranslations } from "next-intl";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { TextShimmer } from "ui/text-shimmer";
+import { useShallow } from "zustand/shallow";
+import { ThreadDropdown } from "../thread-dropdown";
+import { MobileSidebarSheet } from "./mobile-sidebar-sheet";
 
 export function AppHeader({ user }: { user?: BasicUser }) {
   const t = useTranslations();
@@ -109,6 +110,7 @@ export function AppHeader({ user }: { user?: BasicUser }) {
         <>
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
+            <NotificationsCenter compact />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

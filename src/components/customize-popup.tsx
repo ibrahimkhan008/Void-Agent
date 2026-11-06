@@ -1,16 +1,16 @@
 "use client";
 
 import { appStore } from "@/app/store";
+import { BackgroundChatAlertSettings } from "@/components/agent-alerts/background-chat-alert-settings";
 import {
   SavedNotesContent,
   SkillsContent,
   UserInstructionsContent,
 } from "@/components/chat-preferences-content";
+import { Bell, Code2, NotebookPen, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AutoHeight } from "ui/auto-height";
-import { useShallow } from "zustand/shallow";
 import { Button } from "ui/button";
-import { Code2, NotebookPen, SlidersHorizontal, X } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -18,6 +18,7 @@ import {
   DrawerPortal,
   DrawerTitle,
 } from "ui/drawer";
+import { useShallow } from "zustand/shallow";
 
 export function CustomizePopup() {
   const [openCustomize, appStoreMutate] = appStore(
@@ -37,6 +38,10 @@ export function CustomizePopup() {
       {
         label: "Saved Notes",
         icon: <NotebookPen className="w-4 h-4" />,
+      },
+      {
+        label: "Background Alerts",
+        icon: <Bell className="w-4 h-4" />,
       },
     ],
     [],
@@ -125,6 +130,8 @@ export function CustomizePopup() {
                           <SkillsContent />
                         ) : tab === 2 ? (
                           <SavedNotesContent />
+                        ) : tab === 3 ? (
+                          <BackgroundChatAlertSettings />
                         ) : null}
                       </>
                     )}

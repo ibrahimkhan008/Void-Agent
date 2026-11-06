@@ -3,6 +3,7 @@ import { getSession } from "auth/server";
 import { ChatMention } from "app-types/chat";
 import {
   filterMcpServerCustomizations,
+  getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../../../chat/shared.chat";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions });
+    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
     if (toolNames.length > 0) {
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       .map((value) => filterMcpServerCustomizations(allowedMcpTools!, value))
       .orElse({});
 
-    const toolIdMap: Record<string, { serverName: string; toolName: string }> =
+    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> =
       {};
 
     // Convert tools to OpenAI-style function definitions for the Groq API
@@ -84,20 +85,18 @@ export async function POST(request: NextRequest) {
       ([name, tool]) => {
         // Map the sanitized name back to original server/tool names for execution
         toolIdMap[name] = {
+          serverId: tool._mcpServerId,
           serverName: tool._mcpServerName,
           toolName: tool._originToolName,
         };
 
+        const definition = getVoiceMcpToolDefinition(tool);
         return {
           type: "function" as const,
           function: {
             name,
-            description: tool.description,
-            parameters: (tool.inputSchema as any).jsonSchema ?? {
-              type: "object",
-              properties: {},
-              required: [],
-            },
+            description: definition.description,
+            parameters: definition.parameters,
           },
         };
       },

@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { taskCreationApprovalSchema } from "lib/ai/tools/hitl/task-creation-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { taskCreationApprovalRepository } from "lib/db/pg/repositories/task-creation-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_spaces", "list_lists", "list_tasks", "get_task", "create_task"]),
@@ -14,6 +16,7 @@ const inputSchema = z.object({
   description: z.string().optional(),
   status: z.string().optional(),
   limit: z.number().min(1).max(100).optional(),
+  approvalToken: z.string().min(40).max(128).optional(),
 });
 
 interface ClickUpToolInput {
@@ -25,6 +28,7 @@ interface ClickUpToolInput {
   description?: string;
   status?: string;
   limit?: number;
+  approvalToken?: string;
 }
 
 const CLICKUP_API = "https://api.clickup.com/api/v2";
@@ -53,7 +57,7 @@ Actions:
 - list_lists: List lists in a space (requires: spaceId).
 - list_tasks: List tasks in a list (requires: listId, optional: status).
 - get_task: Read a task (requires: taskId).
-- create_task: Create a task (requires: listId, name).`,
+- create_task: Create a task only with the exact approvalToken returned by proposeTaskCreation after user review (requires: listId, name).`,
     inputSchema,
     execute: async (input: ClickUpToolInput) => {
       try {
@@ -106,13 +110,18 @@ Actions:
           return await res.json();
         }
         if (action === "create_task") {
-          if (!input.listId || !input.name) {
-            return { error: "listId and name required" };
+          if (!input.listId || !input.name || !input.approvalToken) {
+            return { error: "listId, name, and approvalToken required" };
           }
-          const res = await fetch(`${CLICKUP_API}/list/${input.listId}/task`, {
+          const approval = taskCreationApprovalSchema.safeParse({ provider: "clickup", targetId: input.listId, name: input.name, details: input.description ?? "" });
+          if (!approval.success || approval.data.provider !== "clickup") return { error: "Invalid ClickUp task approval payload." };
+          if (!(await taskCreationApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "ClickUp task creation requires fresh approval for these exact fields." };
+          }
+          const res = await fetch(`${CLICKUP_API}/list/${approval.data.targetId}/task`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ name: input.name, description: input.description }),
+            body: JSON.stringify({ name: approval.data.name, description: approval.data.details }),
           });
           return await res.json();
         }

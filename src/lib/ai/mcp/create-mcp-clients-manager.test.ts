@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { MCPServerConfig } from "app-types/mcp";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createMCPClientsManager,
   MCPClientsManager,
+  createMCPClientsManager,
 } from "./create-mcp-clients-manager";
 import type { MCPConfigStorage } from "./create-mcp-clients-manager";
-import type { MCPServerConfig } from "app-types/mcp";
 
 // Mock dependencies
 vi.mock("./create-mcp-client", () => ({
@@ -23,6 +23,7 @@ vi.mock("lib/utils", () => ({
     isLocked = false;
   },
   generateUUID: vi.fn(() => "mock-uuid-12345678"),
+  toAny: vi.fn((value) => value),
 }));
 
 vi.mock("ts-safe", () => ({
@@ -94,6 +95,36 @@ describe("MCPClientsManager", () => {
       tools: {
         "test-tool": vi.fn(),
       },
+      client: {
+        toolInfo: [
+          {
+            name: "test-tool",
+            description: "A test tool",
+            inputSchema: { type: "object", properties: {} },
+            annotations: { readOnlyHint: true },
+          },
+          {
+            name: "write-tool",
+            description: "A write tool",
+            inputSchema: { type: "object", properties: {} },
+            annotations: { readOnlyHint: false },
+          },
+        ],
+      },
+      toolInfo: [
+        {
+          name: "test-tool",
+          description: "A test tool",
+          inputSchema: { type: "object", properties: {} },
+          annotations: { readOnlyHint: true },
+        },
+        {
+          name: "write-tool",
+          description: "A write tool",
+          inputSchema: { type: "object", properties: {} },
+          annotations: { readOnlyHint: false },
+        },
+      ],
     };
 
     vi.mocked(mockCreateMCPClient).mockReturnValue(mockClient);
@@ -197,6 +228,20 @@ describe("MCPClientsManager", () => {
 
       expect(firstClient.disconnect).toHaveBeenCalled();
       expect(secondClient.connect).toHaveBeenCalled();
+    });
+  });
+
+  describe("tools", () => {
+    beforeEach(async () => {
+      manager = new MCPClientsManager(mockStorage);
+      await manager.init();
+    });
+
+    it("preserves explicit read-only annotations for downstream security decisions", async () => {
+      await manager.addClient("test-server", "test-server", mockServerConfig);
+      const tools = await manager.tools();
+      expect(tools["test-server:test-tool"]?._readOnlyHint).toBe(true);
+      expect(tools["test-server:write-tool"]?._readOnlyHint).toBe(false);
     });
   });
 
@@ -377,6 +422,8 @@ describe("MCPClientsManager", () => {
     it("should exclude clients with no tools", async () => {
       const clientWithoutTools = {
         ...mockClient,
+        toolInfo: [],
+        client: { ...mockClient.client, toolInfo: [] },
         getInfo: vi.fn(() => ({
           name: "empty-server",
           config: mockServerConfig,

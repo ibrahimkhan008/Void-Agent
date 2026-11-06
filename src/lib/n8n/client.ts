@@ -13,6 +13,17 @@ export type N8nWorkflow = {
   updatedAt: string;
 };
 
+export type N8nWorkflowDefinition = N8nWorkflow & {
+  nodes: Array<{
+    id?: string;
+    name?: string;
+    type?: string;
+    parameters?: Record<string, unknown>;
+  }>;
+  connections: Record<string, unknown>;
+  settings?: Record<string, unknown> | null;
+};
+
 export type N8nUserCreation = {
   user: {
     id: string;
@@ -99,7 +110,10 @@ async function restApi<T>(
   return res.json() as Promise<T>;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, invalidate: () => void): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  invalidate: () => void,
+): Promise<T> {
   try {
     return await fn();
   } catch (err) {
@@ -130,6 +144,16 @@ export function createUserClient(email: string, password: string) {
         const body = await restApi<{ data: N8nWorkflow }>(`/workflows/${id}`, {
           cookie,
         });
+        return body.data;
+      }, invalidate);
+    },
+    async getWorkflowDefinition(id: string): Promise<N8nWorkflowDefinition> {
+      return withRetry(async () => {
+        const cookie = await loginAs(email, password);
+        const body = await restApi<{ data: N8nWorkflowDefinition }>(
+          `/workflows/${id}`,
+          { cookie },
+        );
         return body.data;
       }, invalidate);
     },
@@ -186,13 +210,19 @@ export function createUserClient(email: string, password: string) {
         });
       }, invalidate);
     },
-    async runWorkflow(id: string): Promise<unknown> {
+    async runWorkflow(
+      id: string,
+      triggerToStartFrom?: { name: string; data?: Record<string, unknown> },
+    ): Promise<unknown> {
       return withRetry(async () => {
         const cookie = await loginAs(email, password);
         return restApi(`/workflows/${id}/run`, {
           method: "POST",
           cookie,
-          body: JSON.stringify({ includeData: false }),
+          body: JSON.stringify({
+            includeData: false,
+            ...(triggerToStartFrom ? { triggerToStartFrom } : {}),
+          }),
         });
       }, invalidate);
     },
@@ -202,24 +232,27 @@ export function createUserClient(email: string, password: string) {
 export function createAdminClient() {
   return {
     async createUser(email: string): Promise<N8nUserCreation> {
-      return withRetry(async () => {
-        const cookie = await loginAs(N8N_ADMIN_EMAIL, N8N_ADMIN_PASSWORD);
-        const body = await restApi<{
-          data: Array<N8nUserCreation | { error: string }>;
-        }>("/invitations", {
-          method: "POST",
-          cookie,
-          body: JSON.stringify([{ email, role: "global:member" }]),
-        });
-        const entry = body.data[0];
-        if (!entry || !("user" in entry)) {
-          throw new N8nError(
-            `Invitation failed: ${JSON.stringify(entry)}`,
-            500,
-          );
-        }
-        return entry;
-      }, () => cookieCache.delete(N8N_ADMIN_EMAIL));
+      return withRetry(
+        async () => {
+          const cookie = await loginAs(N8N_ADMIN_EMAIL, N8N_ADMIN_PASSWORD);
+          const body = await restApi<{
+            data: Array<N8nUserCreation | { error: string }>;
+          }>("/invitations", {
+            method: "POST",
+            cookie,
+            body: JSON.stringify([{ email, role: "global:member" }]),
+          });
+          const entry = body.data[0];
+          if (!entry || !("user" in entry)) {
+            throw new N8nError(
+              `Invitation failed: ${JSON.stringify(entry)}`,
+              500,
+            );
+          }
+          return entry;
+        },
+        () => cookieCache.delete(N8N_ADMIN_EMAIL),
+      );
     },
   };
 }

@@ -1,8 +1,10 @@
 import "server-only";
-import { NextResponse } from "next/server";
-import { siteConfigRepository } from "lib/db/repository";
+import { invalidateDynamicProviderHydration } from "lib/ai/models";
 import { requireAdminPermission } from "lib/auth/permissions";
+import { siteConfigRepository } from "lib/db/repository";
 import { encrypt, isEncryptionAvailable } from "lib/security/encryption";
+import { invalidateSiteConfigCache } from "lib/site-config";
+import { NextResponse } from "next/server";
 
 // GET — list all dynamic providers
 export async function GET() {
@@ -135,6 +137,8 @@ export async function POST(req: Request) {
       ...(currentConfig ?? {}),
       dynamicProviders: updated,
     });
+    invalidateDynamicProviderHydration();
+    invalidateSiteConfigCache();
 
     return NextResponse.json({ success: true, id: slug });
   } catch (err: any) {
@@ -200,6 +204,8 @@ export async function DELETE(req: Request) {
       ...(currentConfig ?? {}),
       dynamicProviders: updated,
     });
+    invalidateDynamicProviderHydration();
+    invalidateSiteConfigCache();
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

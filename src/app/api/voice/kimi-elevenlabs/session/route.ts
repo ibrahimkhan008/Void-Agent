@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { getSession } from "auth/server";
-import { VercelAIMcpTool } from "app-types/mcp";
 import { ChatMention } from "app-types/chat";
 import {
   filterMcpServerCustomizations,
+  getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../../../chat/shared.chat";
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
 
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions });
+    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
     if (toolNames.length > 0) {
@@ -84,8 +84,13 @@ export async function POST(request: NextRequest) {
       .map((value) => filterMcpServerCustomizations(allowedMcpTools!, value))
       .orElse({});
 
+    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> = {};
     const openAiStyleTools = Object.entries(allowedMcpTools ?? {}).map(
-      ([name, tool]) => vercelAIToolToOpenAITool(tool, name),
+      ([name, tool]) => {
+        toolIdMap[name] = { serverId: tool._mcpServerId, serverName: tool._mcpServerName, toolName: tool._originToolName };
+        const definition = getVoiceMcpToolDefinition(tool);
+        return { name, type: "function", description: definition.description, parameters: definition.parameters };
+      },
     );
 
     const instructions = mergeSystemPrompt(
@@ -115,6 +120,7 @@ export async function POST(request: NextRequest) {
         voiceId: process.env.ELEVENLABS_VOICE_ID ?? null,
         instructions,
         tools: bindingTools,
+        toolIdMap,
         hasKimiCredentials: hasKimiProviderCredentials(),
       }),
       {
@@ -187,17 +193,4 @@ async function requestElevenLabsToken({
   }
 
   return data.token;
-}
-
-function vercelAIToolToOpenAITool(tool: VercelAIMcpTool, name: string) {
-  return {
-    name,
-    type: "function",
-    description: tool.description,
-    parameters: (tool.inputSchema as any).jsonSchema ?? {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  };
 }

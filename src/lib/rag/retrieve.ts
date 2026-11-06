@@ -1,5 +1,5 @@
 import "server-only";
-import { SQL, and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { SQL, and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { embedText } from "lib/ai/memory/embed";
 import { pgDb as db } from "lib/db/pg/db.pg";
 import { formatEmbeddingForPg } from "lib/db/pg/repositories/memory-helpers";
@@ -52,6 +52,10 @@ export interface RetrieveOptions {
   /** Restrict the search to these collections. Defaults to all of the
    *  user's collections. */
   collectionIds?: string[];
+  /** Additional collection owners authorized by the project access layer. */
+  collectionOwnerIds?: string[];
+  /** Team scopes resolved by the server; membership is rechecked in SQL. */
+  collectionOrgIds?: string[];
   /** Maximum number of chunks to return. Defaults to 5. */
   topK?: number;
   /** Drop chunks with similarity < minScore. Defaults to 0.5. */
@@ -61,6 +65,8 @@ export interface RetrieveOptions {
 export interface BuildRetrieveConditionsInput {
   userId: string;
   collectionIds?: string[];
+  collectionOwnerIds?: string[];
+  collectionOrgIds?: string[];
 }
 
 /**
@@ -73,15 +79,41 @@ export interface BuildRetrieveConditionsInput {
 export function buildRetrieveConditions({
   userId,
   collectionIds,
+  collectionOwnerIds,
+  collectionOrgIds,
 }: BuildRetrieveConditionsInput): SQL[] {
+  const ownerScope = collectionOwnerIds
+    ? collectionOwnerIds.length
+      ? inArray(CollectionTable.userId, collectionOwnerIds)
+      : sql`false`
+    : eq(CollectionTable.userId, userId);
+  const orgScope = collectionOrgIds?.length
+    ? and(
+        inArray(CollectionTable.orgId, collectionOrgIds),
+        sql`(
+          EXISTS (
+            SELECT 1 FROM team_member tm
+            WHERE tm.team_id = ${CollectionTable.orgId}
+              AND tm.user_id = ${userId}
+          )
+          OR EXISTS (
+            SELECT 1 FROM team t
+            WHERE t.id = ${CollectionTable.orgId}
+              AND t.owner_id = ${userId}
+          )
+        )`,
+      )
+    : undefined;
   const conditions: SQL[] = [
-    eq(CollectionTable.userId, userId),
+    orgScope ? or(ownerScope, orgScope)! : ownerScope,
     // Chunks without an embedding can't participate in vector search; the
     // HNSW index won't include them either. Filtering here keeps the
     // query plan simple.
     isNotNull(DocumentChunkTable.embedding),
   ];
-  if (collectionIds && collectionIds.length > 0) {
+  if (collectionIds && collectionIds.length === 0) {
+    conditions.push(sql`false`);
+  } else if (collectionIds) {
     conditions.push(inArray(CollectionItemTable.collectionId, collectionIds));
   }
   return conditions;
@@ -109,6 +141,7 @@ export async function retrieveRelevantChunks(
   if (!query || !query.trim()) {
     throw new Error("retrieveRelevantChunks: query is required");
   }
+  if (options?.collectionIds?.length === 0) return [];
 
   const topK = options?.topK ?? DEFAULT_RETRIEVE_TOP_K;
   const minScore = options?.minScore ?? DEFAULT_RETRIEVE_MIN_SCORE;
@@ -133,6 +166,8 @@ export async function retrieveRelevantChunks(
   const conditions = buildRetrieveConditions({
     userId,
     collectionIds: options?.collectionIds,
+    collectionOwnerIds: options?.collectionOwnerIds,
+    collectionOrgIds: options?.collectionOrgIds,
   });
 
   // Pull one extra row beyond topK so we can drop the worst one if it's

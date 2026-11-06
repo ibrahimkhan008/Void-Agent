@@ -1,16 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import { DesktopUpdateNotifier } from "@/components/desktop/desktop-update-toast";
 import {
   ThemeProvider,
   ThemeStyleProvider,
 } from "@/components/layouts/theme-provider";
-import { Toaster } from "ui/sonner";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale } from "next-intl/server";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
+import { Toaster } from "ui/sonner";
 
 // Vercel-only: the <Analytics /> / <SpeedInsights /> components inject
 // /_vercel/insights/script.js and /_vercel/speed-insights/script.js. Those
@@ -299,6 +300,7 @@ export default async function RootLayout({
               <ServiceWorkerRegistration />
               <div id="root">
                 {children}
+                <DesktopUpdateNotifier />
                 <Toaster richColors />
               </div>
             </NextIntlClientProvider>

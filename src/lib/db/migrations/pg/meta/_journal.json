@@ -239,6 +239,195 @@
       "when": 1787489772640,
       "tag": "0032_build_jobs_restore",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793894400000,
+      "tag": "0033_chat_thread_knowledge_collections",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793894401000,
+      "tag": "0034_agent_approval_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793894402000,
+      "tag": "0035_project_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793894403000,
+      "tag": "0036_project_brain_facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793894404000,
+      "tag": "0037_tabular_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793894405000,
+      "tag": "0038_notifications_and_push",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793894406000,
+      "tag": "0039_voice_device_pairing",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793894407000,
+      "tag": "0040_project_brain_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793905200000,
+      "tag": "0041_project_brain_source_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793924880000,
+      "tag": "0042_project_brain_typed_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793930400000,
+      "tag": "0043_voice_device_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793934900000,
+      "tag": "0044_project_brain_content_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793936627000,
+      "tag": "0045_project_brain_todos",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793940000000,
+      "tag": "0046_project_brain_mcp_connectors",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793943600000,
+      "tag": "0047_project_brain_composio_connectors",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793970000000,
+      "tag": "0048_project_brain_contradictions",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793973600000,
+      "tag": "0049_voice_device_ota_registration",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793977200000,
+      "tag": "0050_project_brain_active_source_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793977201000,
+      "tag": "0051_project_brain_fact_source_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793977202000,
+      "tag": "0052_project_brain_page_salience",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793977203000,
+      "tag": "0053_project_brain_page_pair_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793977204000,
+      "tag": "0054_project_brain_status_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793977205000,
+      "tag": "0055_scheduler_timezone",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793977206000,
+      "tag": "0056_scheduler_claim_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793977207000,
+      "tag": "0057_collection_org_scope_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793977208000,
+      "tag": "0058_project_document_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793977209000,
+      "tag": "0059_project_collaborator_access",
+      "breakpoints": true
     }
   ]
 }

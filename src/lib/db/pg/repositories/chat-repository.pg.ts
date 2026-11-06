@@ -2,14 +2,16 @@ import { ChatMessage, ChatRepository, ChatThread } from "app-types/chat";
 
 import { pgDb as db } from "../db.pg";
 import {
+  ArchiveItemTable,
   ChatMessageTable,
   ChatThreadTable,
   UserTable,
-  ArchiveItemTable,
 } from "../schema.pg";
 
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { and, asc, desc, eq, gte, lt, or, sql } from "drizzle-orm";
+import { MAX_CONVERSATION_ARCHIVE_MESSAGES } from "lib/chat/conversation-archive";
+import { CHAT_MESSAGE_WINDOW } from "lib/const";
 
 export const pgChatRepository: ChatRepository = {
   insertThread: async (
@@ -21,6 +23,8 @@ export const pgChatRepository: ChatRepository = {
         title: thread.title,
         userId: thread.userId,
         id: thread.id,
+        collectionIds: thread.collectionIds,
+        projectId: thread.projectId,
       })
       .returning()) as ChatThread[];
     return result;
@@ -72,6 +76,8 @@ export const pgChatRepository: ChatRepository = {
       title: thread.chat_thread.title,
       userId: thread.chat_thread.userId,
       createdAt: thread.chat_thread.createdAt,
+      collectionIds: thread.chat_thread.collectionIds,
+      projectId: thread.chat_thread.projectId,
       userPreferences: thread.user?.preferences ?? undefined,
       messages,
     };
@@ -79,12 +85,60 @@ export const pgChatRepository: ChatRepository = {
 
   selectMessagesByThreadId: async (
     threadId: string,
+    opts?: { limit?: number; beforeMessageId?: string },
   ): Promise<ChatMessage[]> => {
+    const { limit, beforeMessageId } = opts ?? {};
+    if (limit !== undefined && (!Number.isSafeInteger(limit) || limit <= 0)) {
+      return [];
+    }
+
+    const baseFilter = eq(ChatMessageTable.threadId, threadId);
+    // Keep timestamp comparison inside Postgres. Converting the cursor to a JS
+    // Date loses sub-millisecond precision and can skip rows at page edges.
+    const cursorTimestamp = beforeMessageId
+      ? sql`(select ${ChatMessageTable.createdAt} from ${ChatMessageTable} where ${ChatMessageTable.id} = ${beforeMessageId} and ${ChatMessageTable.threadId} = ${threadId})`
+      : undefined;
+    const beforeFilter =
+      beforeMessageId && cursorTimestamp
+        ? or(
+            lt(ChatMessageTable.createdAt, cursorTimestamp),
+            and(
+              eq(ChatMessageTable.createdAt, cursorTimestamp),
+              lt(ChatMessageTable.id, beforeMessageId),
+            ),
+          )
+        : undefined;
+    const filter = beforeFilter ? and(baseFilter, beforeFilter) : baseFilter;
+
+    if (!limit) {
+      const result = await db
+        .select()
+        .from(ChatMessageTable)
+        .where(filter)
+        .orderBy(asc(ChatMessageTable.createdAt), asc(ChatMessageTable.id));
+      return result as ChatMessage[];
+    }
+
+    const result = await db
+      .select()
+      .from(ChatMessageTable)
+      .where(filter)
+      .orderBy(desc(ChatMessageTable.createdAt), desc(ChatMessageTable.id))
+      .limit(Math.min(limit, CHAT_MESSAGE_WINDOW));
+    return (result as ChatMessage[]).reverse();
+  },
+
+  selectMessagesForExport: async (
+    threadId: string,
+    limit: number,
+  ): Promise<ChatMessage[]> => {
+    if (!Number.isSafeInteger(limit) || limit <= 0) return [];
     const result = await db
       .select()
       .from(ChatMessageTable)
       .where(eq(ChatMessageTable.threadId, threadId))
-      .orderBy(ChatMessageTable.createdAt);
+      .orderBy(asc(ChatMessageTable.createdAt), asc(ChatMessageTable.id))
+      .limit(Math.min(limit, MAX_CONVERSATION_ARCHIVE_MESSAGES + 1));
     return result as ChatMessage[];
   },
 
@@ -166,6 +220,10 @@ export const pgChatRepository: ChatRepository = {
       .update(ChatThreadTable)
       .set({
         title: thread.title,
+        ...(thread.collectionIds !== undefined
+          ? { collectionIds: thread.collectionIds }
+          : {}),
+        ...(thread.projectId !== undefined ? { projectId: thread.projectId } : {}),
       })
       .where(eq(ChatThreadTable.id, id))
       .returning()) as ChatThread[];
@@ -174,9 +232,23 @@ export const pgChatRepository: ChatRepository = {
   upsertThread: async (
     thread: Omit<ChatThread, "createdAt">,
   ): Promise<ChatThread> => {
+    const values = {
+      ...thread,
+      ...(thread.decisions
+        ? {
+            decisions: thread.decisions.map((decision) => ({
+              text: decision.text,
+              at:
+                "at" in decision && typeof decision.at === "string"
+                  ? decision.at
+                  : new Date().toISOString(),
+            })),
+          }
+        : {}),
+    };
     const [result] = (await db
       .insert(ChatThreadTable)
-      .values(thread)
+      .values(values as typeof ChatThreadTable.$inferInsert)
       .onConflictDoUpdate({
         target: [ChatThreadTable.id],
         set: {

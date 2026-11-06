@@ -1,5 +1,8 @@
 import { getSession } from "auth/server";
-import { customModelProvider } from "lib/ai/models";
+import {
+  customModelProvider,
+  ensureDynamicProvidersHydrated,
+} from "lib/ai/models";
 import { sortProvidersFlareFirst } from "lib/ai/sort-providers";
 
 export const GET = async () => {
@@ -10,6 +13,7 @@ export const GET = async () => {
   if (!session?.user.id) {
     return new Response("Unauthorized", { status: 401 });
   }
+  await ensureDynamicProvidersHydrated();
   const providers = customModelProvider.modelsInfo.sort((a, b) => {
     if (a.hasAPIKey && !b.hasAPIKey) return -1;
     if (!a.hasAPIKey && b.hasAPIKey) return 1;

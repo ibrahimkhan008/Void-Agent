@@ -1,17 +1,21 @@
 "use server";
 
-import { storageDriver } from "lib/file-storage";
+import { getSession } from "auth/server";
 import { IS_VERCEL_ENV } from "lib/const";
+import { storageDriver } from "lib/file-storage/storage-driver";
+import { userStoragePrefix } from "lib/file-storage/storage-utils";
 
 /**
  * Get storage configuration info.
  * Used by clients to determine upload strategy.
  */
 export async function getStorageInfoAction() {
+  const session = await getSession();
   return {
     type: storageDriver,
     supportsDirectUpload:
       storageDriver === "vercel-blob" || storageDriver === "s3",
+    uploadPrefix: session?.user.id ? userStoragePrefix(session.user.id) : null,
   };
 }
 
@@ -28,6 +32,14 @@ interface StorageCheckResult {
 export async function checkStorageAction(): Promise<StorageCheckResult> {
   // 1. Check Vercel Blob configuration
   if (storageDriver === "vercel-blob") {
+    const blobAccess = process.env.VERCEL_BLOB_ACCESS?.trim().toLowerCase();
+    if (blobAccess && blobAccess !== "public" && blobAccess !== "private") {
+      return {
+        isValid: false,
+        error: "VERCEL_BLOB_ACCESS must be either 'public' or 'private'",
+        solution: "Set VERCEL_BLOB_ACCESS to public or private.",
+      };
+    }
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return {
         isValid: false,
@@ -40,7 +52,10 @@ export async function checkStorageAction(): Promise<StorageCheckResult> {
           "4. Connect it to your project\n" +
           (IS_VERCEL_ENV
             ? "5. Redeploy your application"
-            : "5. Run 'vercel env pull' to get the token locally"),
+            : "5. Run 'vercel env pull' to get the token locally") +
+          (blobAccess === "private"
+            ? "\nFor private mode, select a Private Blob store and connect its read-write token."
+            : ""),
       };
     }
   }
@@ -48,6 +63,15 @@ export async function checkStorageAction(): Promise<StorageCheckResult> {
   // 2. Check S3 configuration
   if (storageDriver === "s3") {
     const missing: string[] = [];
+    const privateMode =
+      process.env.FILE_STORAGE_S3_PRIVATE?.trim().toLowerCase();
+    if (privateMode && !["1", "0", "true", "false"].includes(privateMode)) {
+      return {
+        isValid: false,
+        error: "FILE_STORAGE_S3_PRIVATE must be true or false",
+        solution: "Set FILE_STORAGE_S3_PRIVATE to true or false.",
+      };
+    }
     if (!process.env.FILE_STORAGE_S3_BUCKET)
       missing.push("FILE_STORAGE_S3_BUCKET");
     if (!process.env.FILE_STORAGE_S3_REGION && !process.env.AWS_REGION) {

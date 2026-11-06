@@ -1,9 +1,9 @@
-import { generateText, tool } from "ai";
 import { randomUUID } from "node:crypto";
-import z from "zod";
-import { customModelProvider } from "lib/ai/models";
+import { generateText, tool } from "ai";
 import { getSession } from "auth/server";
+import { customModelProvider } from "lib/ai/models";
 import { setCanvasContent } from "lib/ecanvas/content-store";
+import z from "zod";
 
 export const canvasDesignTool = tool({
   description:
@@ -33,7 +33,7 @@ export const canvasDesignTool = tool({
         "Output ONLY valid HTML inside a single ```html code fence. Nothing before or after.";
 
       const result = await generateText({
-        model: customModelProvider.getModel({
+        model: await customModelProvider.getModelAsync({
           provider: "flare",
           model: "deepseek/v3.2",
         }),

@@ -1,15 +1,15 @@
 import { smoothStream, streamText } from "ai";
 
-import { customModelProvider } from "lib/ai/models";
-import { CREATE_THREAD_TITLE_PROMPT } from "lib/ai/prompts";
-import globalLogger from "logger";
 import { ChatModel } from "app-types/chat";
 import { isFreeTier } from "app-types/subscription";
-import { chatRepository, userRepository } from "lib/db/repository";
 import { getSession } from "auth/server";
+import { colorize } from "consola/utils";
+import { customModelProvider } from "lib/ai/models";
+import { CREATE_THREAD_TITLE_PROMPT } from "lib/ai/prompts";
+import { chatRepository, userRepository } from "lib/db/repository";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { getFreeTierLimitCheck } from "lib/rate-limit/free-tier-usage";
-import { colorize } from "consola/utils";
+import globalLogger from "logger";
 import { handleError } from "../shared.chat";
 
 const logger = globalLogger.withDefaults({
@@ -83,7 +83,8 @@ export async function POST(request: Request) {
     );
 
     const result = streamText({
-      model: customModelProvider.getModelWithFailureFallback(chatModel),
+      model:
+        await customModelProvider.getModelWithFailureFallbackAsync(chatModel),
       system: CREATE_THREAD_TITLE_PROMPT,
       experimental_transform: smoothStream({ chunking: "word" }),
       prompt: message,

@@ -1,8 +1,13 @@
 import { Agent, AgentRepository, AgentSummary } from "app-types/agent";
-import { pgDb as db } from "../db.pg";
-import { AgentTable, BookmarkTable, UserTable } from "../schema.pg";
 import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
+import { pgDb as db } from "../db.pg";
+import {
+  AgentApprovalRequestTable,
+  AgentTable,
+  BookmarkTable,
+  UserTable,
+} from "../schema.pg";
 
 export const pgAgentRepository: AgentRepository = {
   async insertAgent(agent) {
@@ -251,3 +256,114 @@ export const pgAgentRepository: AgentRepository = {
     return false;
   },
 };
+
+export class AgentApprovalIdempotencyConflictError extends Error {
+  constructor() {
+    super(
+      "The approval request key was already used for different agent data.",
+    );
+    this.name = "AgentApprovalIdempotencyConflictError";
+  }
+}
+
+export class AgentApprovalReplayUnavailableError extends Error {
+  constructor() {
+    super("The agent from this approval was deleted; start a new proposal.");
+    this.name = "AgentApprovalReplayUnavailableError";
+  }
+}
+
+/**
+ * Insert a user-approved agent exactly once per user/request key. The unique
+ * request index serializes concurrent retries; the payload hash prevents a
+ * caller from reusing a key to retrieve an agent created from different data.
+ */
+export async function insertApprovedAgentIdempotently(
+  agent: Parameters<AgentRepository["insertAgent"]>[0],
+  requestKey: string,
+  requestHash: string,
+) {
+  const id = generateUUID();
+  return db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(AgentTable)
+      .values({
+        id,
+        name: agent.name,
+        description: agent.description,
+        icon: agent.icon,
+        userId: agent.userId,
+        instructions: agent.instructions,
+        visibility: agent.visibility || "private",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!inserted) throw new Error("Could not create the approved agent.");
+
+    const [reservation] = await tx
+      .insert(AgentApprovalRequestTable)
+      .values({ userId: agent.userId, requestKey, requestHash, agentId: id })
+      .onConflictDoNothing()
+      .returning();
+
+    if (reservation) {
+      return {
+        agent: {
+          ...inserted,
+          description: inserted.description ?? undefined,
+          icon: inserted.icon ?? undefined,
+          instructions: inserted.instructions ?? {},
+        },
+        replayed: false,
+      };
+    }
+
+    const [existingRequest] = await tx
+      .select()
+      .from(AgentApprovalRequestTable)
+      .where(
+        and(
+          eq(AgentApprovalRequestTable.userId, agent.userId),
+          eq(AgentApprovalRequestTable.requestKey, requestKey),
+        ),
+      )
+      .for("update");
+    if (!existingRequest) {
+      throw new Error("Agent approval retry could not be resolved.");
+    }
+
+    await tx
+      .delete(AgentTable)
+      .where(and(eq(AgentTable.id, id), eq(AgentTable.userId, agent.userId)));
+
+    if (existingRequest.requestHash !== requestHash) {
+      throw new AgentApprovalIdempotencyConflictError();
+    }
+    if (!existingRequest.agentId) {
+      throw new AgentApprovalReplayUnavailableError();
+    }
+
+    const [existing] = await tx
+      .select()
+      .from(AgentTable)
+      .where(
+        and(
+          eq(AgentTable.userId, agent.userId),
+          eq(AgentTable.id, existingRequest.agentId),
+        ),
+      )
+      .for("update");
+    if (!existing) throw new Error("The approved agent no longer exists.");
+
+    return {
+      agent: {
+        ...existing,
+        description: existing.description ?? undefined,
+        icon: existing.icon ?? undefined,
+        instructions: existing.instructions ?? {},
+      },
+      replayed: true,
+    };
+  });
+}

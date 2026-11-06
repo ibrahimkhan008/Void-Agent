@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { ModelMessage, tool as createTool } from "ai";
 import { generateText } from "ai";
+import { isFreeTier } from "app-types/subscription";
 import { editImageWithFlare } from "lib/ai/image/edit-image";
 import {
   DEFAULT_IMAGE_EDIT_MODEL,
@@ -24,7 +25,6 @@ import logger from "logger";
 import { safe, watchError } from "ts-safe";
 import z from "zod";
 import { ImageToolName } from "..";
-import { isFreeTier } from "app-types/subscription";
 
 export type ImageToolResult = {
   images: {
@@ -299,6 +299,7 @@ const fetchImageAsBase64 = async (image: LatestUserImage) => {
 
 const uploadGeneratedImages = async (
   images: { base64: string; mimeType?: string; originalUrl?: string }[],
+  ownerId?: string,
 ) => {
   return safe(images)
     .map((values) =>
@@ -308,6 +309,7 @@ const uploadGeneratedImages = async (
             Buffer.from(image.base64, "base64"),
             {
               contentType: image.mimeType,
+              ownerId,
             },
           );
           return {
@@ -334,6 +336,7 @@ const uploadGeneratedImages = async (
 
 const uploadEditedImages = async (
   images: { url: string; base64?: string; mimeType?: string }[],
+  ownerId?: string,
 ) => {
   return safe(images)
     .map((values) =>
@@ -350,6 +353,7 @@ const uploadEditedImages = async (
             Buffer.from(image.base64, "base64"),
             {
               contentType: image.mimeType,
+              ownerId,
             },
           );
           return {
@@ -511,7 +515,10 @@ export function createFlareImageTool(
             abortSignal,
           });
 
-          const resultImages = await uploadEditedImages(editResult.images);
+          const resultImages = await uploadEditedImages(
+            editResult.images,
+            userId,
+          );
           if (enforceFreeLimits && userId && resultImages.length > 0) {
             await recordFreeTierImageEditSuccess(userId);
           }
@@ -576,7 +583,7 @@ export function createFlareImageTool(
           abortSignal,
         });
 
-        const resultImages = await uploadGeneratedImages(result.images);
+        const resultImages = await uploadGeneratedImages(result.images, userId);
         if (enforceFreeLimits && userId && resultImages.length > 0) {
           await recordFreeTierImageGenerationSuccess(userId);
         }

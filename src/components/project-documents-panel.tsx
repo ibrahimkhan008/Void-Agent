@@ -1,0 +1,344 @@
+"use client";
+
+import { useCollections } from "@/hooks/queries/use-collections";
+import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "ui/button";
+import { Textarea } from "ui/textarea";
+
+type ProjectDocument = {
+  id: string;
+  collectionId: string;
+  filename: string | null;
+  mediaType: string | null;
+  status: string;
+  createdAt: string;
+};
+type AnalysisResult = {
+  answer: string;
+  filename: string;
+  citations: { source: string; quote: string }[];
+};
+
+export function ProjectDocumentsPanel({
+  projectId,
+  collectionIds,
+  canEdit,
+}: {
+  projectId: string;
+  collectionIds: string[];
+  canEdit: boolean;
+}) {
+  const { data: collectionData } = useCollections();
+  const [collectionId, setCollectionId] = useState("");
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [writableCollectionIds, setWritableCollectionIds] = useState<string[]>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [activeAnalysisItemId, setActiveAnalysisItemId] = useState<
+    string | null
+  >(null);
+  const [question, setQuestion] = useState("");
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const analysisRequestId = useRef(0);
+  const availableCollections = useMemo(
+    () =>
+      (collectionData?.collections ?? []).filter(
+        (collection) =>
+          collectionIds.includes(collection.id) &&
+          writableCollectionIds.includes(collection.id),
+      ),
+    [collectionData?.collections, collectionIds, writableCollectionIds],
+  );
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/documents`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Could not load project documents");
+      const result = (await response.json()) as {
+        documents: ProjectDocument[];
+        writableCollectionIds?: string[];
+      };
+      setDocuments(result.documents);
+      setWritableCollectionIds(result.writableCollectionIds ?? []);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const upload = async (file?: File) => {
+    if (!file) return;
+    if (!collectionId)
+      return toast.error("Choose an attached knowledge collection");
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set("collectionId", collectionId);
+      form.set("file", file);
+      const response = await fetch(`/api/projects/${projectId}/documents`, {
+        method: "POST",
+        body: form,
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) throw new Error(result.error ?? "Upload failed");
+      toast.success("Document added to project");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const ask = async (itemId: string) => {
+    if (!question.trim()) return toast.error("Enter a question");
+    const requestId = ++analysisRequestId.current;
+    setAnalyzing(true);
+    setAnalysis(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents/${itemId}/analyze`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as
+        | AnalysisResult
+        | { error?: string };
+      if (!response.ok || !("answer" in result)) {
+        throw new Error("error" in result ? result.error : "Analysis failed");
+      }
+      if (analysisRequestId.current === requestId) setAnalysis(result);
+    } catch (error) {
+      if (analysisRequestId.current === requestId)
+        toast.error(error instanceof Error ? error.message : "Analysis failed");
+    } finally {
+      if (analysisRequestId.current === requestId) setAnalyzing(false);
+    }
+  };
+
+  const removeFromProject = async (itemId: string) => {
+    setRemovingItemId(itemId);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents/${itemId}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok)
+        throw new Error("Could not remove document from project");
+      if (activeAnalysisItemId === itemId) {
+        analysisRequestId.current += 1;
+        setActiveAnalysisItemId(null);
+        setAnalysis(null);
+      }
+      toast.success("Document removed from project");
+      await refresh();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not remove document from project",
+      );
+    } finally {
+      setRemovingItemId(null);
+    }
+  };
+
+  return (
+    <section
+      className="mt-4 rounded-md border p-3"
+      aria-label="Project documents"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Project documents</h3>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Knowledge collection for document"
+              className="h-8 max-w-56 rounded-md border bg-background px-2 text-xs"
+              value={collectionId}
+              onChange={(event) => setCollectionId(event.target.value)}
+              disabled={uploading || availableCollections.length === 0}
+            >
+              <option value="">Choose collection</option>
+              {availableCollections.map((collection) => (
+                <option value={collection.id} key={collection.id}>
+                  {collection.name}
+                </option>
+              ))}
+            </select>
+            <label className="inline-flex cursor-pointer">
+              <input
+                className="sr-only"
+                type="file"
+                accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv,.tsv,.yaml,.yml,.log"
+                disabled={
+                  uploading || !collectionId || !availableCollections.length
+                }
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  void upload(file);
+                }}
+              />
+              <span className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-3 text-xs text-primary-foreground">
+                {uploading ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Upload className="size-3" />
+                )}
+                Add file
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+      {canEdit && availableCollections.length === 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Attach a writable knowledge collection to this project before adding
+          files. Collections shared with you as read-only cannot accept project
+          documents.
+        </p>
+      )}
+      {loading ? (
+        <p className="mt-3 text-xs text-muted-foreground">Loading documents…</p>
+      ) : loadError ? (
+        <div className="mt-3 flex items-center gap-2 text-xs text-destructive">
+          <span>Could not load project documents.</span>
+          <Button variant="outline" size="sm" onClick={() => void refresh()}>
+            Retry
+          </Button>
+        </div>
+      ) : documents.length === 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No project documents yet.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {documents.map((document) => (
+            <li key={document.id} className="rounded-md border p-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2 truncate">
+                  <FileText className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">
+                    {document.filename ?? "Document"}
+                  </span>
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      analysisRequestId.current += 1;
+                      setAnalyzing(false);
+                      setActiveAnalysisItemId(
+                        activeAnalysisItemId === document.id
+                          ? null
+                          : document.id,
+                      );
+                      setQuestion("");
+                      setAnalysis(null);
+                    }}
+                    aria-expanded={activeAnalysisItemId === document.id}
+                    aria-controls={`project-document-analysis-${document.id}`}
+                  >
+                    Ask
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    disabled={document.status !== "ready"}
+                  >
+                    <a
+                      href={`/api/projects/${projectId}/documents/${document.id}/download`}
+                    >
+                      <Download className="mr-1 size-3" /> Download
+                    </a>
+                  </Button>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${document.filename ?? "document"} from project`}
+                      onClick={() => void removeFromProject(document.id)}
+                      disabled={removingItemId === document.id}
+                    >
+                      {removingItemId === document.id ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-3" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {document.status !== "ready" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Document status: {document.status}
+                </p>
+              )}
+              {activeAnalysisItemId === document.id && (
+                <div
+                  id={`project-document-analysis-${document.id}`}
+                  className="mt-3 space-y-2 border-t pt-3"
+                >
+                  <Textarea
+                    aria-label={`Question about ${document.filename ?? "document"}`}
+                    maxLength={2000}
+                    placeholder="Ask a question about this document"
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => void ask(document.id)}
+                    disabled={analyzing || document.status !== "ready"}
+                  >
+                    {analyzing ? (
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                    ) : null}
+                    Ask document
+                  </Button>
+                  {analysis && (
+                    <div className="space-y-2 rounded-md bg-muted/50 p-3">
+                      <p className="whitespace-pre-wrap">{analysis.answer}</p>
+                      {analysis.citations.length > 0 && (
+                        <ul className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                          {analysis.citations.map((citation, index) => (
+                            <li key={`${index}:${citation.quote}`}>
+                              {citation.source}: “{citation.quote}”
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

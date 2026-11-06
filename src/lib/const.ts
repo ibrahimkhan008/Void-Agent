@@ -6,6 +6,10 @@ export const IS_EDGE_RUNTIME = typeof EdgeRuntime !== "undefined";
 
 export const PROMPT_PASTE_MAX_LENGTH = 1000;
 
+// Keep chat page reads bounded. Full-history repository reads remain available
+// for exports and offline processing; the UI pages older messages on demand.
+export const CHAT_MESSAGE_WINDOW = 50;
+
 export const IS_VERCEL_ENV = process.env.VERCEL === "1";
 export const IS_DOCKER_ENV = process.env.DOCKER_BUILD === "1";
 

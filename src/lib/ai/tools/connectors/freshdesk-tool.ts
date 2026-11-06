@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { freshdeskEffectApprovalSchema } from "lib/ai/tools/hitl/freshdesk-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { freshdeskApprovalRepository } from "lib/db/pg/repositories/freshdesk-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_tickets", "get_ticket", "create_ticket", "add_reply"]),
@@ -12,6 +14,10 @@ const inputSchema = z.object({
   subject: z.string().optional().describe("Ticket subject (for create_ticket)"),
   description: z.string().optional().describe("Ticket description (for create_ticket)"),
   body: z.string().optional().describe("Reply body (for add_reply)"),
+  requesterName: z.string().optional(),
+  requesterEmail: z.string().optional(),
+  priority: z.number().int().min(1).max(4).optional(),
+  approvalToken: z.string().min(40).max(128).optional(),
   limit: z.number().min(1).max(100).optional(),
 });
 
@@ -22,6 +28,10 @@ interface FreshdeskToolInput {
   subject?: string;
   description?: string;
   body?: string;
+  requesterName?: string;
+  requesterEmail?: string;
+  priority?: number;
+  approvalToken?: string;
   limit?: number;
 }
 
@@ -52,8 +62,8 @@ export function createFreshdeskToolForUser(userId: string): Tool {
 Actions:
 - list_tickets: List tickets (optional: status).
 - get_ticket: Read a ticket (requires: ticketId).
-- create_ticket: Create a ticket (requires: subject, description).
-- add_reply: Add a reply to a ticket (requires: ticketId, body).`,
+- create_ticket: Create a ticket only with the exact single-use approvalToken returned by proposeFreshdeskAction after user review (requires: subject, description, requesterName, requesterEmail).
+- add_reply: Add a reply only with the exact single-use approvalToken returned by proposeFreshdeskAction after user review (requires: ticketId, body).`,
     inputSchema,
     execute: async (input: FreshdeskToolInput) => {
       try {
@@ -80,32 +90,45 @@ Actions:
           return await res.json();
         }
         if (action === "create_ticket") {
-          if (!input.subject || !input.description) {
-            return { error: "subject and description required" };
+          if (!input.subject || !input.description || !input.requesterName || !input.requesterEmail || !input.approvalToken) {
+            return { error: "subject, description, requesterName, requesterEmail, and approvalToken required" };
+          }
+          const approval = freshdeskEffectApprovalSchema.safeParse({
+            action: "create_ticket", subject: input.subject, description: input.description, requesterName: input.requesterName,
+            requesterEmail: input.requesterEmail, status: input.status ?? 2, priority: input.priority ?? 1,
+          });
+          if (!approval.success || approval.data.action !== "create_ticket") return { error: "Invalid Freshdesk ticket approval payload." };
+          if (!(await freshdeskApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Freshdesk ticket creation requires a fresh approval for these exact fields." };
           }
           const res = await fetch(`${base}/tickets`, {
             method: "POST",
             headers,
             body: JSON.stringify({
-              name: "Flare User",
-              email: "flare@users.noreply",
-              subject: input.subject,
-              description: input.description,
-              status: input.status ?? 2,
-              priority: 1,
+              name: approval.data.requesterName,
+              email: approval.data.requesterEmail,
+              subject: approval.data.subject,
+              description: approval.data.description,
+              status: approval.data.status,
+              priority: approval.data.priority,
               source: 2,
             }),
           });
           return await res.json();
         }
         if (action === "add_reply") {
-          if (!input.ticketId || !input.body) {
-            return { error: "ticketId and body required" };
+          if (input.ticketId === undefined || !input.body || !input.approvalToken) {
+            return { error: "ticketId, body, and approvalToken required" };
           }
-          const res = await fetch(`${base}/tickets/${input.ticketId}/reply`, {
+          const approval = freshdeskEffectApprovalSchema.safeParse({ action: "add_reply", ticketId: String(input.ticketId), body: input.body });
+          if (!approval.success || approval.data.action !== "add_reply") return { error: "Invalid Freshdesk reply approval payload." };
+          if (!(await freshdeskApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Freshdesk reply requires a fresh approval for these exact fields." };
+          }
+          const res = await fetch(`${base}/tickets/${approval.data.ticketId}/reply`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ body: input.body }),
+            body: JSON.stringify({ body: approval.data.body }),
           });
           return await res.json();
         }

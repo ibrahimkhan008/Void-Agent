@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { getSession } from "auth/server";
-import { VercelAIMcpTool } from "app-types/mcp";
 import {
   filterMcpServerCustomizations,
+  getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../shared.chat";
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
 
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions });
+    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
 
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
@@ -103,9 +103,12 @@ export async function POST(request: NextRequest) {
       .map((v) => filterMcpServerCustomizations(allowedMcpTools!, v))
       .orElse({});
 
+    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> = {};
     const openAITools = Object.entries(allowedMcpTools ?? {}).map(
       ([name, tool]) => {
-        return vercelAIToolToOpenAITool(tool, name);
+        toolIdMap[name] = { serverId: tool._mcpServerId, serverName: tool._mcpServerName, toolName: tool._originToolName };
+        const definition = getVoiceMcpToolDefinition(tool);
+        return { name, type: "function", description: definition.description, parameters: definition.parameters };
       },
     );
 
@@ -142,12 +145,11 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    return new Response(r.body, {
-      status: r.ok ? 200 : 502,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const sessionResponse = await r.json().catch(() => null);
+    if (!r.ok || !sessionResponse || typeof sessionResponse !== "object") {
+      return Response.json({ error: "Realtime voice session could not be created" }, { status: 502 });
+    }
+    return Response.json({ ...sessionResponse, toolIdMap }, { status: 200 });
   } catch (error: any) {
     // Log details server-side; return a generic message so upstream
     // provider errors are never reflected to clients.
@@ -159,17 +161,4 @@ export async function POST(request: NextRequest) {
       },
     );
   }
-}
-
-function vercelAIToolToOpenAITool(tool: VercelAIMcpTool, name: string) {
-  return {
-    name,
-    type: "function",
-    description: tool.description,
-    parameters: (tool.inputSchema as any).jsonSchema ?? {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  };
 }

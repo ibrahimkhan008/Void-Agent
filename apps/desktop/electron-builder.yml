@@ -1,0 +1,28 @@
+appId: com.voidagent.desktop
+productName: Void-Agent
+directories:
+  output: out
+files:
+  - dist/**/*
+  - package.json
+protocols:
+  - name: Void-Agent
+    schemes:
+      - voidagent
+win:
+  target:
+    - nsis
+  forceCodeSigning: true
+  publisherName: ${env.VOID_AGENT_WINDOWS_PUBLISHER_NAME}
+mac:
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  forceCodeSigning: true
+linux:
+  target:
+    - AppImage
+publish:
+  provider: generic
+  url: ${env.DESKTOP_UPDATE_FEED_URL}

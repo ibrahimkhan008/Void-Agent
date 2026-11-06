@@ -10,8 +10,8 @@ import {
 } from "lib/ai/speech";
 import { generateUUID } from "lib/utils";
 import { useTheme } from "next-themes";
-import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
-import { callMcpToolByServerNameAction } from "@/app/api/mcp/actions";
+import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
+import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 import { appStore } from "@/app/store";
 
 // -- Types --
@@ -30,7 +30,7 @@ interface SessionConfig {
   instructions: string;
   tools: any[];
   groqModel: string;
-  toolIdMap?: Record<string, { serverName: string; toolName: string }>;
+  toolIdMap?: Record<string, { serverId: string; serverName: string; toolName: string }>;
 }
 
 type SupportedSpeechLanguage = "en-IN" | "hi-IN";
@@ -628,24 +628,15 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         } else {
           // MCP tool execution
           try {
-            let serverName = "";
-            let mcpToolName = "";
-
             if (sessionRef.current?.toolIdMap?.[toolName]) {
               const mapped = sessionRef.current.toolIdMap[toolName];
-              serverName = mapped.serverName;
-              mcpToolName = mapped.toolName;
+              const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: toolArgs });
+              result = approvalToken
+                ? await callApprovedMcpToolAction(mapped.serverId, mapped.serverName, mapped.toolName, toolArgs, approvalToken)
+                : { approved: false, reason: "The user rejected this action." };
             } else {
-              const toolId = extractMCPToolId(toolName);
-              serverName = toolId.serverName;
-              mcpToolName = toolId.toolName;
+              throw new Error("MCP tool mapping is unavailable; the action was not run.");
             }
-
-            result = await callMcpToolByServerNameAction(
-              serverName,
-              mcpToolName,
-              toolArgs,
-            );
           } catch (toolError) {
             console.error("Tool execution failed:", toolError);
             result = {

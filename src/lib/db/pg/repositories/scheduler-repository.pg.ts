@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { pgDb as db } from "../db.pg";
 import {
   NewScheduledJob,
@@ -20,8 +20,8 @@ import {
 //   * createScheduledJob / listScheduledJobs / getScheduledJob — basic CRUD,
 //     always scoped to a user.
 //   * updateScheduledJob / deleteScheduledJob — owner-scoped patches.
-//   * claimDueScheduledJobs — the worker-facing atomic claim: returns any
-//     rows whose status='active' and next_run_at <= now.
+//   * claimDueScheduledJobs — worker-facing transactional row-lock + lease
+//     claim; each claim is recoverable after expiry and completion is fenced.
 //   * createScheduledRun / updateScheduledRun / listScheduledRuns — runs
 //     are an append-only audit trail of attempts.
 // ---------------------------------------------------------------------------
@@ -30,6 +30,7 @@ export interface CreateScheduledJobInput {
   agentId?: string | null;
   name: string;
   cron: string;
+  timezone?: string;
   payload?: Record<string, unknown>;
   nextRunAt: Date;
   status?: "active" | "paused" | "disabled";
@@ -38,6 +39,7 @@ export interface CreateScheduledJobInput {
 export interface UpdateScheduledJobInput {
   name?: string;
   cron?: string;
+  timezone?: string;
   payload?: Record<string, unknown>;
   nextRunAt?: Date;
   lastRunAt?: Date | null;
@@ -63,6 +65,7 @@ export const schedulerRepository = {
         agentId: input.agentId ?? null,
         name: input.name,
         cron: input.cron,
+        timezone: input.timezone ?? "UTC",
         payload: input.payload ?? {},
         nextRunAt: input.nextRunAt,
         status: input.status ?? "active",
@@ -102,6 +105,7 @@ export const schedulerRepository = {
       .set({
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.cron !== undefined ? { cron: patch.cron } : {}),
+        ...(patch.timezone !== undefined ? { timezone: patch.timezone } : {}),
         ...(patch.payload !== undefined ? { payload: patch.payload } : {}),
         ...(patch.nextRunAt !== undefined
           ? { nextRunAt: patch.nextRunAt }
@@ -110,6 +114,12 @@ export const schedulerRepository = {
           ? { lastRunAt: patch.lastRunAt }
           : {}),
         ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.status === "paused" ||
+        patch.status === "disabled" ||
+        patch.cron !== undefined ||
+        patch.nextRunAt !== undefined
+          ? { claimToken: null, claimExpiresAt: null }
+          : {}),
         updatedAt: new Date(),
       })
       .where(
@@ -130,28 +140,115 @@ export const schedulerRepository = {
   },
 
   /**
-   * Worker-facing atomic claim. Returns active jobs whose `next_run_at`
-   * is at or before `now`, ordered by `next_run_at` ascending. The
-   * caller is responsible for actually executing the run and updating
-   * `last_run_at` / `next_run_at` — this method does NOT mutate either.
-   * (Mutating during select would require a `FOR UPDATE SKIP LOCKED` and
-   * a leader-election boundary; that's P3.1's concern.)
+   * Worker-facing claim. FOR UPDATE SKIP LOCKED serializes concurrent
+   * claimers; a persisted token/expiry fences completion and lets another
+   * worker reclaim rows after a process crash.
    */
   async claimDueScheduledJobs(
     now: Date,
     limit: number,
+    claimToken: string,
+    leaseUntil: Date,
   ): Promise<ScheduledJob[]> {
-    return (await db
-      .select()
-      .from(ScheduledJobTable)
+    if (!Number.isFinite(limit) || limit <= 0) return [];
+
+    return db.transaction(async (tx) => {
+      const due = await tx
+        .select()
+        .from(ScheduledJobTable)
+        .where(
+          and(
+            eq(ScheduledJobTable.status, "active"),
+            lte(ScheduledJobTable.nextRunAt, now),
+            or(
+              isNull(ScheduledJobTable.claimExpiresAt),
+              lte(ScheduledJobTable.claimExpiresAt, now),
+            ),
+          ),
+        )
+        .orderBy(ScheduledJobTable.nextRunAt)
+        .limit(Math.min(100, Math.floor(limit)))
+        .for("update", { skipLocked: true });
+
+      if (due.length === 0) return [];
+      const claimedIds = due.map((job) => job.id);
+      const claimed = await tx
+        .update(ScheduledJobTable)
+        .set({ claimToken, claimExpiresAt: leaseUntil, updatedAt: now })
+        .where(inArray(ScheduledJobTable.id, claimedIds))
+        .returning();
+      return claimed as ScheduledJob[];
+    });
+  },
+
+  async renewScheduledJobClaims(
+    jobIds: string[],
+    claimToken: string,
+    leaseUntil: Date,
+  ): Promise<string[]> {
+    if (jobIds.length === 0) return [];
+    const rows = await db
+      .update(ScheduledJobTable)
+      .set({ claimExpiresAt: leaseUntil, updatedAt: new Date() })
       .where(
         and(
-          eq(ScheduledJobTable.status, "active"),
-          lte(ScheduledJobTable.nextRunAt, now),
+          inArray(ScheduledJobTable.id, jobIds),
+          eq(ScheduledJobTable.claimToken, claimToken),
         ),
       )
-      .orderBy(ScheduledJobTable.nextRunAt)
-      .limit(limit)) as ScheduledJob[];
+      .returning({ id: ScheduledJobTable.id });
+    return rows.map((row) => row.id);
+  },
+
+  async completeScheduledJobClaim(
+    id: string,
+    userId: string,
+    claimToken: string,
+    patch: UpdateScheduledJobInput,
+  ): Promise<ScheduledJob | null> {
+    const [row] = await db
+      .update(ScheduledJobTable)
+      .set({
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.cron !== undefined ? { cron: patch.cron } : {}),
+        ...(patch.timezone !== undefined ? { timezone: patch.timezone } : {}),
+        ...(patch.payload !== undefined ? { payload: patch.payload } : {}),
+        ...(patch.nextRunAt !== undefined
+          ? { nextRunAt: patch.nextRunAt }
+          : {}),
+        ...(patch.lastRunAt !== undefined
+          ? { lastRunAt: patch.lastRunAt }
+          : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        claimToken: null,
+        claimExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(ScheduledJobTable.id, id),
+          eq(ScheduledJobTable.userId, userId),
+          eq(ScheduledJobTable.claimToken, claimToken),
+        ),
+      )
+      .returning();
+    return (row as ScheduledJob | undefined) ?? null;
+  },
+
+  async releaseScheduledJobClaims(
+    jobIds: string[],
+    claimToken: string,
+  ): Promise<void> {
+    if (jobIds.length === 0) return;
+    await db
+      .update(ScheduledJobTable)
+      .set({ claimToken: null, claimExpiresAt: null, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(ScheduledJobTable.id, jobIds),
+          eq(ScheduledJobTable.claimToken, claimToken),
+        ),
+      );
   },
 
   async createScheduledRun(jobId: string): Promise<ScheduledRun> {

@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import {
+  executeReviewedN8nWorkflow,
+  previewN8nWorkflow,
+} from "lib/n8n/browser-approval";
+import { notify } from "lib/notify";
 import { useTranslations } from "next-intl";
-import { Button } from "ui/button";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "ui/button";
 
 const EDITOR_URL =
   process.env.NEXT_PUBLIC_N8N_EDITOR_URL ?? "https://n8n.flare-sh.tech";
@@ -45,13 +50,28 @@ export default function N8nWorkflowEmbed({
   const run = async () => {
     setIsRunning(true);
     try {
-      const res = await fetch(`/api/workflow/${workflowId}/execute`, {
-        method: "POST",
+      const review = await previewN8nWorkflow(workflowId);
+      const approved = await notify.confirm({
+        title: `Review ${review.workflowName}`,
+        description: (
+          <div className="space-y-2">
+            <p>The run will use the workflow&apos;s saved configuration.</p>
+            <ul className="list-disc pl-5">
+              {review.effects.map((effect, index) => (
+                <li key={`${index}-${effect}`}>{effect}</li>
+              ))}
+            </ul>
+          </div>
+        ),
+        okText: "Approve and run",
       });
-      if (!res.ok) throw new Error("Failed to run");
-      toast.success(t("Workflow.runSuccess"));
-    } catch {
-      toast.error(t("Workflow.runError"));
+      if (!approved) return;
+      await executeReviewedN8nWorkflow({ id: workflowId, review, query: {} });
+      toast.success("Workflow run request accepted by n8n");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("Workflow.runError"),
+      );
     } finally {
       setIsRunning(false);
     }
@@ -71,7 +91,12 @@ export default function N8nWorkflowEmbed({
         >
           {isActive ? t("Workflow.active") : t("Workflow.inactive")}
         </Button>
-        <Button variant="secondary" size="sm" onClick={run} disabled={isRunning}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={run}
+          disabled={isRunning}
+        >
           {t("Workflow.run")}
         </Button>
         <Button variant="ghost" size="sm" asChild>

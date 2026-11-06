@@ -18,6 +18,21 @@ describe("parseScheduleArgs", () => {
     expect(result.triggerMessage).toBe("morning standup");
   });
 
+  it("parses an explicit IANA timezone for recurring schedules", () => {
+    const result = parseScheduleArgs(
+      "--timezone America/New_York 0 9 * * 1-5 weekday summary",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.timezone).toBe("America/New_York");
+    expect(result.cron).toBe("0 9 * * 1-5");
+  });
+
+  it("rejects an invalid IANA timezone", () => {
+    const result = parseScheduleArgs("--timezone Mars/Olympus 0 9 * * * run");
+    expect(result.ok).toBe(false);
+  });
+
   it("parses 'in N minutes' as a one-shot timer", () => {
     const before = Date.now();
     const result = parseScheduleArgs("in 5 minutes check deploy");

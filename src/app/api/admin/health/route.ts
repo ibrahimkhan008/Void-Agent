@@ -1,10 +1,13 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { sql } from "drizzle-orm";
+import {
+  customModelProvider,
+  ensureDynamicProvidersHydrated,
+} from "lib/ai/models";
 import { requireAdminPermission } from "lib/auth/permissions";
 import { pgDb } from "lib/db/pg/db.pg";
-import { sql } from "drizzle-orm";
 import { getEnabledProviders } from "lib/site-config-runtime";
-import { customModelProvider } from "lib/ai/models";
+import { NextResponse } from "next/server";
 
 interface ProviderProbe {
   name: string;
@@ -15,13 +18,20 @@ interface ProviderProbe {
 
 interface HealthResult {
   db: { status: "ok" | "error"; latencyMs?: number; error?: string };
-  redis: { status: "ok" | "disabled" | "error"; latencyMs?: number; error?: string };
+  redis: {
+    status: "ok" | "disabled" | "error";
+    latencyMs?: number;
+    error?: string;
+  };
   providers: ProviderProbe[];
   checkedAt: string;
 }
 
 // Providers we can actively probe with a real HTTP call
-const PROBEABLE_PROVIDERS: Record<string, { url: string; getKey: () => string | undefined }> = {
+const PROBEABLE_PROVIDERS: Record<
+  string,
+  { url: string; getKey: () => string | undefined }
+> = {
   flare: {
     url: "https://api.flare-sh.tech/v1/models",
     getKey: () => process.env.FLARE_API_KEY || process.env.KORE_API_KEY,
@@ -57,10 +67,20 @@ async function probeProvider(
     const latencyMs = Date.now() - start;
 
     if (res.status === 429) {
-      return { name: providerKey, status: "rate_limited", latencyMs, error: "Rate limited (429)" };
+      return {
+        name: providerKey,
+        status: "rate_limited",
+        latencyMs,
+        error: "Rate limited (429)",
+      };
     }
     if (!res.ok) {
-      return { name: providerKey, status: "error", latencyMs, error: `HTTP ${res.status}` };
+      return {
+        name: providerKey,
+        status: "error",
+        latencyMs,
+        error: `HTTP ${res.status}`,
+      };
     }
     return { name: providerKey, status: "ok", latencyMs };
   } catch (e: any) {
@@ -68,7 +88,9 @@ async function probeProvider(
     return {
       name: providerKey,
       status: isTimeout ? "error" : "error",
-      error: isTimeout ? "Request timed out after 5s" : e?.message ?? "Connection failed",
+      error: isTimeout
+        ? "Request timed out after 5s"
+        : (e?.message ?? "Connection failed"),
     };
   }
 }
@@ -98,6 +120,7 @@ async function checkProviderHealth(
 export async function GET() {
   try {
     await requireAdminPermission("access health checks");
+    await ensureDynamicProvidersHydrated();
 
     const [enabledProviders, modelsInfo] = await Promise.all([
       getEnabledProviders(),

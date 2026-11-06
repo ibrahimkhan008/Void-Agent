@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { upload as uploadToVercelBlob } from "@vercel/blob/client";
-import useSWR from "swr";
-import { toast } from "sonner";
 import { getStorageInfoAction } from "@/app/api/storage/actions";
+import { upload as uploadToVercelBlob } from "@vercel/blob/client";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
 
 // Types
 interface StorageInfo {
   type: "local" | "vercel-blob" | "s3";
   supportsDirectUpload: boolean;
+  uploadPrefix: string | null;
 }
 
 interface UploadOptions {
@@ -39,6 +40,7 @@ function useStorageInfo() {
   return {
     storageType: data?.type,
     supportsDirectUpload: data?.supportsDirectUpload ?? false,
+    uploadPrefix: data?.uploadPrefix ?? null,
     isLoading,
   };
 }
@@ -69,6 +71,7 @@ export function useFileUpload() {
   const {
     storageType,
     supportsDirectUpload,
+    uploadPrefix,
     isLoading: isLoadingStorageInfo,
   } = useStorageInfo();
   const [isUploading, setIsUploading] = useState(false);
@@ -97,11 +100,24 @@ export function useFileUpload() {
       try {
         // Vercel Blob direct upload
         if (storageType === "vercel-blob") {
-          const blob = await uploadToVercelBlob(filename, file, {
-            access: "public",
-            handleUploadUrl: "/api/storage/upload-url",
-            contentType,
-          });
+          if (!uploadPrefix) {
+            toast.error("Sign in again before uploading files.");
+            return;
+          }
+          const safeFilename =
+            filename
+              .split(/[\\/]/)
+              .pop()
+              ?.replace(/[^a-zA-Z0-9._-]/g, "_") || "file";
+          const blob = await uploadToVercelBlob(
+            `${uploadPrefix}${safeFilename}`,
+            file,
+            {
+              access: "public",
+              handleUploadUrl: "/api/storage/upload-url",
+              contentType,
+            },
+          );
 
           return {
             pathname: blob.pathname,

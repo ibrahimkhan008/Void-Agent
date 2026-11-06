@@ -1,12 +1,14 @@
 import path from "node:path";
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { FileNotFoundError } from "lib/errors";
+import { generateUUID } from "lib/utils";
 import type {
   FileMetadata,
   FileStorage,
@@ -18,23 +20,41 @@ import {
   resolveStoragePrefix,
   sanitizeFilename,
   toBuffer,
+  validateStorageOwnerId,
 } from "./storage-utils";
-import { FileNotFoundError } from "lib/errors";
-import { generateUUID } from "lib/utils";
-
-const STORAGE_PREFIX = resolveStoragePrefix();
 
 const required = (name: string, value: string | undefined) => {
   if (!value) throw new Error(`Missing required env: ${name}`);
   return value;
 };
 
-const buildKey = (filename: string) => {
+const buildKey = (filename: string, ownerId?: string) => {
   const safeName = sanitizeFilename(filename || "file");
   const id = generateUUID();
-  const prefix = STORAGE_PREFIX ? `${STORAGE_PREFIX}/` : "";
-  return path.posix.join(prefix, `${id}-${safeName}`);
+  const configuredPrefix = resolveStoragePrefix();
+  const prefix = configuredPrefix ? `${configuredPrefix}/` : "";
+  const owner = ownerId ? validateStorageOwnerId(ownerId) : null;
+  return path.posix.join(
+    prefix,
+    ...(owner ? [owner] : []),
+    `${id}-${safeName}`,
+  );
 };
+
+const isPrivateS3Mode = () =>
+  /^(1|true)$/i.test(process.env.FILE_STORAGE_S3_PRIVATE || "");
+
+const getOwnerFromKey = (key: string): string | null => {
+  const root = resolveStoragePrefix();
+  const prefix = root ? `${root}/` : "";
+  const relative = key.startsWith(prefix) ? key.slice(prefix.length) : key;
+  if (!relative.includes("/")) return null;
+  const ownerId = relative.split("/", 1)[0];
+  return ownerId && /^[A-Za-z0-9_-]{1,128}$/u.test(ownerId) ? ownerId : null;
+};
+
+const buildAuthenticatedFileUrl = (key: string) =>
+  `/api/files/${key.split("/").map(encodeURIComponent).join("/")}`;
 
 const buildPublicUrl = (
   bucket: string,
@@ -62,6 +82,27 @@ const buildPublicUrl = (
 
   // AWS standard virtual-hosted–style URL
   return `https://${bucket}.s3.${region}.amazonaws.com/${encodeURI(key)}`;
+};
+
+const buildSourceUrl = (
+  bucket: string,
+  region: string,
+  key: string,
+  publicBaseUrl?: string,
+  endpoint?: string,
+  forcePathStyle?: boolean,
+) => {
+  if (isPrivateS3Mode() && getOwnerFromKey(key)) {
+    return buildAuthenticatedFileUrl(key);
+  }
+  return buildPublicUrl(
+    bucket,
+    region,
+    key,
+    publicBaseUrl,
+    endpoint,
+    forcePathStyle,
+  );
 };
 
 export const createS3FileStorage = (): FileStorage => {
@@ -101,7 +142,7 @@ export const createS3FileStorage = (): FileStorage => {
     async upload(content, options: UploadOptions = {}) {
       const buffer = await toBuffer(content);
       const filename = options.filename ?? "file";
-      const key = buildKey(filename);
+      const key = buildKey(filename, options.ownerId);
 
       await s3.send(
         new PutObjectCommand({
@@ -121,7 +162,7 @@ export const createS3FileStorage = (): FileStorage => {
         uploadedAt: new Date(),
       };
 
-      const sourceUrl = buildPublicUrl(
+      const sourceUrl = buildSourceUrl(
         bucket,
         region,
         key,
@@ -142,7 +183,7 @@ export const createS3FileStorage = (): FileStorage => {
         return null;
       }
 
-      const key = buildKey(options.filename);
+      const key = buildKey(options.filename, options.ownerId);
       const command = new PutObjectCommand({
         Bucket: bucket,
         Key: key,
@@ -224,7 +265,7 @@ export const createS3FileStorage = (): FileStorage => {
     },
 
     async getSourceUrl(key) {
-      return buildPublicUrl(
+      return buildSourceUrl(
         bucket,
         region,
         key,

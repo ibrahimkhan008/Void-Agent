@@ -72,6 +72,7 @@ import { TextShimmer } from "ui/text-shimmer";
 
 import { SavedNoteCitation } from "app-types/user";
 import { forkThread as forkThreadRequest } from "lib/chat/fork-thread";
+import { getAttachmentPreviewIdentity } from "lib/file-ingest/attachment-preview";
 import {
   buildSavedNoteMarkdown,
   downloadMarkdownFile,
@@ -82,6 +83,8 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "ui/dialog";
 import { Input } from "ui/input";
+import { HitlToolCard } from "./tool-invocation/hitl-tool-cards";
+import { TabularReviewToolCard } from "./tool-invocation/tabular-review-tool";
 import { WorkflowInvocation } from "./tool-invocation/workflow-invocation";
 
 type MessagePart = UIMessage["parts"][number];
@@ -1470,6 +1473,31 @@ export const ToolMessagePart = memo(
 
     const CustomToolComponent = useMemo(() => {
       if (
+        toolName === "askForPlanApproval" ||
+        toolName === "requestInput" ||
+        toolName === "proposeEmail" ||
+        toolName === "proposeCalendarChange" ||
+        toolName === "proposeLinearIssue" ||
+        toolName === "proposeJiraComment" ||
+        toolName === "proposeZendeskComment" ||
+        toolName === "proposeFreshdeskAction" ||
+        toolName === "proposeExternalMessage" ||
+        toolName === "proposeTaskCreation" ||
+        toolName === "proposeDriveFile" ||
+        toolName === "proposeSlackMessage" ||
+        toolName === "proposeWorkflowRun" ||
+        toolName === "proposeMcpToolCall" ||
+        toolName === "proposeHttpRequest" ||
+        toolName === "createAgent"
+      ) {
+        return <HitlToolCard part={part} addToolResult={addToolResult} />;
+      }
+
+      if (toolName === "createTabularReview") {
+        return <TabularReviewToolCard part={part} />;
+      }
+
+      if (
         toolName === DefaultToolName.WebSearch ||
         toolName === DefaultToolName.WebContent
       ) {
@@ -1530,11 +1558,17 @@ export const ToolMessagePart = memo(
         switch (toolName) {
           case DefaultToolName.CreatePieChart:
             return (
-              <PieChart key={`${toolCallId}-${toolName}`} {...(resolvedInput as any)} />
+              <PieChart
+                key={`${toolCallId}-${toolName}`}
+                {...(resolvedInput as any)}
+              />
             );
           case DefaultToolName.CreateBarChart:
             return (
-              <BarChart key={`${toolCallId}-${toolName}`} {...(resolvedInput as any)} />
+              <BarChart
+                key={`${toolCallId}-${toolName}`}
+                {...(resolvedInput as any)}
+              />
             );
           case DefaultToolName.CreateLineChart:
             return (
@@ -1820,6 +1854,13 @@ export const FileMessagePart = memo(
       part.mediaType?.split("/").pop()?.toUpperCase() ||
       "FILE";
     const fileUrl = part.url;
+    const isOwnerUpload = Boolean(fileUrl && isOwnerScopedUploadUrl(fileUrl));
+    const displayUrl = isOwnerUpload
+      ? `/api/storage/download?url=${encodeURIComponent(fileUrl!)}&disposition=inline`
+      : fileUrl;
+    const downloadUrl = isOwnerUpload
+      ? `/api/storage/download?url=${encodeURIComponent(fileUrl!)}&disposition=attachment`
+      : fileUrl;
     const filename =
       part.filename || part.url?.split("/").pop() || "Attachment";
     const secondaryLabel =
@@ -1827,7 +1868,7 @@ export const FileMessagePart = memo(
         ? part.mediaType
         : undefined;
 
-    if (isImage && fileUrl) {
+    if (isImage && displayUrl) {
       return (
         <>
           <div
@@ -1839,7 +1880,7 @@ export const FileMessagePart = memo(
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={fileUrl}
+              src={displayUrl}
               alt={part.filename || "Uploaded image"}
               className="w-full h-auto max-h-[200px] object-cover"
             />
@@ -1860,7 +1901,7 @@ export const FileMessagePart = memo(
               <DialogTitle className="sr-only">{filename}</DialogTitle>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={fileUrl}
+                src={displayUrl}
                 alt={part.filename || "Uploaded image"}
                 className="w-auto h-auto max-w-full max-h-[85vh] mx-auto rounded-lg"
               />
@@ -1958,7 +1999,7 @@ export const FileMessagePart = memo(
                       : "text-muted-foreground",
                   )}
                 >
-                  <a href={fileUrl} download={part.filename ?? filename}>
+                  <a href={downloadUrl} download={part.filename ?? filename}>
                     <Download className="size-4" />
                     <span className="sr-only">Download {filename}</span>
                   </a>
@@ -1983,12 +2024,100 @@ export function SourceUrlMessagePart({
   part: { type: "source-url"; url: string; title?: string; mediaType?: string };
   isUserMessage: boolean;
 }) {
-  const name = part.title || part.url?.split("/").pop() || "attachment";
-  const ext = name.split(".").pop()?.toUpperCase() || "FILE";
+  const { name, extension: ext } = getAttachmentPreviewIdentity(
+    part.title,
+    part.url,
+  );
+  const isSpreadsheet = ext === "CSV" || ext === "XLSX";
+  const isDocument = ["DOCX", "PPTX", "TXT", "MD", "JSON"].includes(ext);
+  const isOwnerUpload = isOwnerScopedUploadUrl(part.url);
+  const downloadHref = isOwnerUpload
+    ? `/api/storage/download?url=${encodeURIComponent(part.url)}`
+    : part.url;
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [workbook, setWorkbook] = useState<{
+    totalSheets: number;
+    sheets: Array<{
+      name: string;
+      header: string[];
+      rows: string[][];
+      totalRows: number;
+      totalColumns: number;
+      truncated: boolean;
+    }>;
+  } | null>(null);
+  const [activeSheet, setActiveSheet] = useState(0);
+  const [documentPreview, setDocumentPreview] = useState<{
+    text: string;
+    truncated: boolean;
+    partial: boolean;
+  } | null>(null);
   const mediaType =
     part.mediaType && part.mediaType !== "application/octet-stream"
       ? part.mediaType
       : undefined;
+  const openPreview = async () => {
+    setPreviewOpen(true);
+    if (workbook || previewLoading) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const response = await fetch(
+        `/api/storage/sheet?url=${encodeURIComponent(part.url)}`,
+        { cache: "no-store" },
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          typeof result?.error === "string"
+            ? result.error
+            : "This spreadsheet cannot be previewed.",
+        );
+      }
+      setWorkbook(result);
+      setActiveSheet(0);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error
+          ? error.message
+          : "This spreadsheet cannot be previewed.",
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+  const selectedSheet = workbook?.sheets[activeSheet];
+  const openDocumentPreview = async () => {
+    setPreviewOpen(true);
+    if (documentPreview || previewLoading) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const response = await fetch(
+        `/api/storage/document?url=${encodeURIComponent(part.url)}`,
+        { cache: "no-store" },
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(
+          typeof result?.error === "string"
+            ? result.error
+            : "This document cannot be previewed.",
+        );
+      }
+      setDocumentPreview(result);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error
+          ? error.message
+          : "This document cannot be previewed.",
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
   return (
     <div
       className={cn(
@@ -2016,7 +2145,7 @@ export function SourceUrlMessagePart({
         </div>
         <div className="flex-1 min-w-0 space-y-1 pr-3">
           <a
-            href={part.url}
+            href={downloadHref}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
@@ -2065,7 +2194,7 @@ export function SourceUrlMessagePart({
                   : "text-muted-foreground",
               )}
             >
-              <a href={part.url} target="_blank" rel="noopener noreferrer">
+              <a href={downloadHref} target="_blank" rel="noopener noreferrer">
                 <Download className="size-4" />
                 <span className="sr-only">Open attachment</span>
               </a>
@@ -2074,6 +2203,162 @@ export function SourceUrlMessagePart({
           <TooltipContent>Open attachment</TooltipContent>
         </Tooltip>
       </div>
+      {isSpreadsheet && isOwnerUpload && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void openPreview()}
+          >
+            Preview spreadsheet
+          </Button>
+        </div>
+      )}
+      {isDocument && isOwnerUpload && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void openDocumentPreview()}
+          >
+            Preview document
+          </Button>
+        </div>
+      )}
+      {isDocument && isOwnerUpload && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="flex max-h-[85vh] max-w-[min(94vw,900px)] flex-col overflow-hidden">
+            <DialogTitle>{name}</DialogTitle>
+            {previewLoading ? (
+              <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+                <Loader className="size-4 animate-spin" /> Reading document…
+              </div>
+            ) : previewError ? (
+              <p role="alert" className="py-6 text-sm text-destructive">
+                {previewError}
+              </p>
+            ) : documentPreview ? (
+              <>
+                <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded border bg-muted/30 p-4 text-sm leading-6">
+                  {documentPreview.text ||
+                    "This document contains no readable text."}
+                </pre>
+                {(documentPreview.truncated || documentPreview.partial) && (
+                  <p className="text-xs text-muted-foreground">
+                    {documentPreview.truncated && "Preview is truncated. "}
+                    {documentPreview.partial &&
+                      "This is a text-only or partial preview."}
+                  </p>
+                )}
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      )}
+      {isSpreadsheet && isOwnerUpload && (
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="flex max-h-[85vh] max-w-[min(94vw,1100px)] flex-col overflow-hidden">
+            <DialogTitle>{name}</DialogTitle>
+            {previewLoading ? (
+              <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+                <Loader className="size-4 animate-spin" /> Reading spreadsheet…
+              </div>
+            ) : previewError ? (
+              <p role="alert" className="py-6 text-sm text-destructive">
+                {previewError}
+              </p>
+            ) : workbook && selectedSheet ? (
+              <>
+                {workbook.sheets.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto border-b pb-2">
+                    {workbook.sheets.map((sheet, index) => (
+                      <Button
+                        key={`${sheet.name}-${index}`}
+                        size="sm"
+                        variant={index === activeSheet ? "default" : "outline"}
+                        onClick={() => setActiveSheet(index)}
+                      >
+                        {sheet.name || `Sheet ${index + 1}`}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                <div className="min-h-0 overflow-auto rounded border">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead className="sticky top-0 bg-muted">
+                      <tr>
+                        <th className="border-b px-2 py-1 text-xs text-muted-foreground">
+                          #
+                        </th>
+                        {selectedSheet.header.map((cell, index) => (
+                          <th
+                            key={index}
+                            className="border-b px-3 py-2 font-medium"
+                          >
+                            {cell || `Column ${index + 1}`}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedSheet.rows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="odd:bg-muted/30">
+                          <td className="border-b px-2 py-1 text-xs text-muted-foreground">
+                            {rowIndex + 2}
+                          </td>
+                          {selectedSheet.header.map((_, columnIndex) => (
+                            <td
+                              key={columnIndex}
+                              className="max-w-80 border-b px-3 py-2 align-top"
+                            >
+                              {row[columnIndex] ?? ""}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {selectedSheet.name || `Sheet ${activeSheet + 1}`} ·{" "}
+                  {selectedSheet.totalRows} rows · {selectedSheet.totalColumns}{" "}
+                  columns
+                  {selectedSheet.truncated &&
+                    " · Preview limited to the first 100 rows and 40 columns"}
+                  {workbook.totalSheets > workbook.sheets.length &&
+                    " · Additional sheets omitted"}
+                </p>
+              </>
+            ) : workbook ? (
+              <p className="py-6 text-sm text-muted-foreground">
+                This spreadsheet contains no readable sheets.
+              </p>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
+}
+
+function isOwnerScopedUploadUrl(rawUrl: string) {
+  try {
+    const pathname = new URL(rawUrl, "https://void-agent.invalid").pathname;
+    const parts = pathname
+      .split("/")
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+    const name = parts.at(-1) ?? "";
+    const ownerId = parts.at(-2) ?? "";
+    return (
+      /^[A-Za-z0-9_-]{1,128}$/.test(ownerId) &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}-/i.test(
+        name,
+      )
+    );
+  } catch {
+    return false;
+  }
 }

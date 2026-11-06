@@ -206,7 +206,8 @@ async function POST_EMBED_CHAT(request: Request) {
 
     const chatModel = ((body as { chatModel?: ChatModel })?.chatModel ??
       DEFAULT_EMBED_MODEL) as ChatModel;
-    const model = customModelProvider.getModelWithFailureFallback(chatModel);
+    const model =
+      await customModelProvider.getModelWithFailureFallbackAsync(chatModel);
     const modelMessages = await Promise.resolve(
       convertToModelMessages(messages, { ignoreIncompleteToolCalls: true }),
     );

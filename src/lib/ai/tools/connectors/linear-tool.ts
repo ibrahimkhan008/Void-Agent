@@ -1,9 +1,11 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { linearIssueApprovalSchema } from "lib/ai/tools/hitl/linear-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { linearApprovalRepository } from "lib/db/pg/repositories/linear-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_teams", "list_issues", "get_issue", "create_issue"]),
@@ -13,6 +15,7 @@ const inputSchema = z.object({
   description: z.string().optional().describe("Issue description"),
   state: z.string().optional().describe("Filter by state name"),
   limit: z.number().min(1).max(100).optional(),
+  approvalToken: z.string().min(40).max(128).optional(),
 });
 
 interface LinearToolInput {
@@ -23,6 +26,7 @@ interface LinearToolInput {
   description?: string;
   state?: string;
   limit?: number;
+  approvalToken?: string;
 }
 
 const LINEAR_API = "https://api.linear.app/graphql";
@@ -51,6 +55,7 @@ Actions:
 - list_issues: List issues for a team (requires: teamId, optional: state).
 - get_issue: Read an issue (requires: issueId).
 - create_issue: Create a new issue (requires: teamId, title).
+- create_issue requires the exact single-use approvalToken returned by proposeLinearIssue after the user approves the review card.
 
 User must connect Linear first via the Connectors menu.`,
     inputSchema,
@@ -91,13 +96,10 @@ User must connect Linear first via the Connectors menu.`,
           if (!input.teamId) {
             return { error: "teamId is required for list_issues" };
           }
-          const filter = input.state
-            ? `, filter: { state: { name: { eq: "${input.state}" } } }`
-            : "";
-          const data = (await gql(
-            `query($teamId: String!) { issues(first: ${limit}, filter: { team: { id: { eq: $teamId } } ${filter} }) { nodes { id identifier title state { name } } } }`,
-            { teamId: input.teamId },
-          )) as any;
+          const query = input.state
+            ? `query($teamId: String!, $state: String!) { issues(first: ${limit}, filter: { team: { id: { eq: $teamId } }, state: { name: { eq: $state } } }) { nodes { id identifier title state { name } } } }`
+            : `query($teamId: String!) { issues(first: ${limit}, filter: { team: { id: { eq: $teamId } } }) { nodes { id identifier title state { name } } } }`;
+          const data = (await gql(query, { teamId: input.teamId, ...(input.state ? { state: input.state } : {}) })) as any;
           return { issues: data?.data?.issues?.nodes || [] };
         }
 
@@ -116,6 +118,16 @@ User must connect Linear first via the Connectors menu.`,
           if (!input.teamId || !input.title) {
             return { error: "teamId and title are required for create_issue" };
           }
+          const approval = linearIssueApprovalSchema.safeParse({
+            teamId: input.teamId,
+            title: input.title,
+            ...(input.description !== undefined ? { description: input.description } : {}),
+          });
+          if (!approval.success || !input.approvalToken) {
+            return { error: "Linear issue creation requires a user-reviewed approval." };
+          }
+          const consumed = await linearApprovalRepository.consume(userId, input.approvalToken, approval.data);
+          if (!consumed) return { error: "This issue draft was not approved, has expired, or was already used." };
           const data = (await gql(
             `mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier title } } }`,
             {

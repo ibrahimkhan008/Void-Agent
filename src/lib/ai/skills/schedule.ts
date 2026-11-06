@@ -1,8 +1,8 @@
 import "server-only";
 
 import type { UserSkill } from "app-types/user";
-import { createScheduledJobForUser } from "lib/scheduler/jobs";
 import { validateCron } from "lib/scheduler";
+import { createScheduledJobForUser } from "lib/scheduler/jobs";
 
 // ---------------------------------------------------------------------------
 // P3.1 — #11 scheduled agents. The /schedule slash skill.
@@ -38,6 +38,8 @@ Schedule the current agent to run on a cron schedule.
   - day-of-week: 0-6 (Sun=0)
   - Supports \`*\`, \`,\`, \`-\`, \`/\`. Example: \`0 9 * * 1-5\` = weekdays at 9am.
 - **message** — the trigger message that gets sent to the assistant on every run.
+- Optional timezone: add \`--timezone <IANA timezone>\` before the cron, for example
+  \`/schedule --timezone America/New_York 0 9 * * 1-5 weekday summary\`. Defaults to UTC.
 
 One-shot timer shorthand is also supported:
 
@@ -73,6 +75,7 @@ export type ParsedScheduleArgs =
       ok: true;
       scheduleType: "once" | "recurring";
       cron?: string;
+      timezone?: string;
       runAt?: Date;
       triggerMessage: string;
       name: string;
@@ -122,6 +125,16 @@ export const parseScheduleArgs = (text: string): ParsedScheduleArgs => {
   }
 
   const tokens = cleaned.split(/\s+/);
+  let timezone = "UTC";
+  if (tokens[0] === "--timezone") {
+    if (!tokens[1])
+      return { ok: false, error: "Timezone is required after --timezone." };
+    timezone = tokens[1];
+    tokens.splice(0, 2);
+  }
+  if (!validateCron("0 0 * * *", timezone).ok) {
+    return { ok: false, error: "Timezone must be a valid IANA timezone." };
+  }
   if (tokens.length < CRON_TOKENS + 1) {
     return {
       ok: false,
@@ -133,7 +146,7 @@ export const parseScheduleArgs = (text: string): ParsedScheduleArgs => {
   if (!triggerMessage) {
     return { ok: false, error: "Trigger message is required." };
   }
-  const validation = validateCron(cron);
+  const validation = validateCron(cron, timezone);
   if (!validation.ok) {
     return { ok: false, error: `Invalid cron: ${validation.error}` };
   }
@@ -141,6 +154,7 @@ export const parseScheduleArgs = (text: string): ParsedScheduleArgs => {
     ok: true,
     scheduleType: "recurring",
     cron,
+    timezone,
     triggerMessage,
     name: slugify(triggerMessage),
   };
@@ -161,6 +175,7 @@ export const createScheduledJobFromSkill = async (
     title: parsed.name,
     prompt: parsed.triggerMessage,
     cron: parsed.cron,
+    timezone: parsed.timezone,
     runAt: parsed.runAt,
     agentId,
     threadId,

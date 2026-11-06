@@ -801,6 +801,15 @@ export function registerDynamicProvider(
   apiKey: string,
   models: { name: string; apiModelId: string }[],
 ): void {
+  const reservedProvider = [
+    ...Object.keys(staticModels),
+    ...Object.keys(openaiCompatibleModels),
+  ].find((providerId) => providerId.toLowerCase() === id.toLowerCase());
+  if (reservedProvider) {
+    throw new Error(
+      `Dynamic provider ID conflicts with built-in provider: ${id}`,
+    );
+  }
   dynamicProviderRegistry.set(id, { baseURL, apiKey, models });
 
   const customProvider = createOpenAICompatible({
@@ -825,8 +834,19 @@ export function registerDynamicProvider(
 
 /** Remove a previously registered dynamic provider. */
 export function unregisterDynamicProvider(id: string): void {
+  if (!dynamicProviderRegistry.has(id)) return;
   dynamicProviderRegistry.delete(id);
-  delete allModels[id];
+  const reservedProvider = [
+    ...Object.keys(staticModels),
+    ...Object.keys(openaiCompatibleModels),
+  ].find((providerId) => providerId.toLowerCase() === id.toLowerCase());
+  if (reservedProvider) {
+    allModels[reservedProvider] =
+      staticModels[reservedProvider] ??
+      openaiCompatibleModels[reservedProvider]!;
+  } else {
+    delete allModels[id];
+  }
 }
 
 /** Returns the model list for a registered dynamic provider, or undefined. */
@@ -902,6 +922,8 @@ function decryptProviderApiKey(encryptedBase64: string): string | null {
 const DYNAMIC_HYDRATION_TTL_MS = 30_000;
 let dynamicHydratedAt = 0;
 let dynamicHydrationInFlight: Promise<void> | null = null;
+let dynamicHydrationGeneration = 0;
+const hydratedDynamicProviderIds = new Set<string>();
 
 async function hydrateDynamicProvidersFromSiteConfig(): Promise<void> {
   // Skip entirely when DB / repo is not available (e.g., during build).
@@ -923,20 +945,42 @@ async function hydrateDynamicProvidersFromSiteConfig(): Promise<void> {
   const dynamicProviders = cfg?.dynamicProviders as
     | Record<string, any>
     | undefined;
-  if (!dynamicProviders || typeof dynamicProviders !== "object") return;
+  const configuredProviders =
+    dynamicProviders && typeof dynamicProviders === "object"
+      ? dynamicProviders
+      : {};
+  const activeIds = new Set<string>();
+  const reservedProviderIds = new Set(
+    [
+      ...Object.keys(staticModels),
+      ...openaiCompatibleProviders.map((provider) => provider.provider),
+    ].map((providerId) => providerId.toLowerCase()),
+  );
 
-  for (const [id, dyn] of Object.entries(dynamicProviders)) {
+  for (const [id, dyn] of Object.entries(configuredProviders)) {
     if (!dyn || typeof dyn !== "object") continue;
-    if (dynamicProviderRegistry.has(id)) continue;
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(id)) continue;
+    if (dyn.enabled === false || reservedProviderIds.has(id.toLowerCase())) {
+      unregisterDynamicProvider(id);
+      hydratedDynamicProviderIds.delete(id);
+      continue;
+    }
     const baseURL = dyn.baseURL;
     const encryptedKey = dyn.apiKey;
     if (!baseURL || typeof baseURL !== "string") continue;
     const modelList = Array.isArray(dyn.models)
-      ? (dyn.models as string[]).filter(
-          (m) => typeof m === "string" && m.length > 0,
-        )
+      ? (dyn.models as string[])
+          .filter(
+            (m) =>
+              typeof m === "string" && m.trim().length > 0 && m.length <= 200,
+          )
+          .slice(0, 100)
       : [];
-    if (modelList.length === 0) continue;
+    if (modelList.length === 0) {
+      unregisterDynamicProvider(id);
+      hydratedDynamicProviderIds.delete(id);
+      continue;
+    }
 
     let apiKey: string | undefined;
     if (encryptedKey && typeof encryptedKey === "string") {
@@ -954,26 +998,48 @@ async function hydrateDynamicProvidersFromSiteConfig(): Promise<void> {
           apiModelId: name,
         })),
       );
+      activeIds.add(id);
     } catch {
-      /* skip providers that fail to register */
+      unregisterDynamicProvider(id);
+      hydratedDynamicProviderIds.delete(id);
     }
   }
+  for (const id of hydratedDynamicProviderIds) {
+    if (!activeIds.has(id)) unregisterDynamicProvider(id);
+  }
+  hydratedDynamicProviderIds.clear();
+  for (const id of activeIds) hydratedDynamicProviderIds.add(id);
 }
 
-async function ensureDynamicProvidersHydrated(): Promise<void> {
+export async function ensureDynamicProvidersHydrated(): Promise<void> {
   const now = Date.now();
   if (now - dynamicHydratedAt < DYNAMIC_HYDRATION_TTL_MS) return;
   if (dynamicHydrationInFlight) {
-    await dynamicHydrationInFlight;
+    const inFlight = dynamicHydrationInFlight;
+    await inFlight;
+    if (now - dynamicHydratedAt >= DYNAMIC_HYDRATION_TTL_MS) {
+      return ensureDynamicProvidersHydrated();
+    }
     return;
   }
+  const generation = dynamicHydrationGeneration;
   dynamicHydrationInFlight = hydrateDynamicProvidersFromSiteConfig()
     .catch(() => undefined)
     .finally(() => {
-      dynamicHydratedAt = Date.now();
+      dynamicHydratedAt =
+        generation === dynamicHydrationGeneration ? Date.now() : 0;
       dynamicHydrationInFlight = null;
     });
   await dynamicHydrationInFlight;
+  if (generation !== dynamicHydrationGeneration) {
+    return ensureDynamicProvidersHydrated();
+  }
+}
+
+/** Refresh cached provider configuration immediately after an admin mutation. */
+export function invalidateDynamicProviderHydration(): void {
+  dynamicHydrationGeneration += 1;
+  dynamicHydratedAt = 0;
 }
 
 const isClaudeOpusModel = (modelId: string) => modelId.includes("claude-opus");
@@ -1257,13 +1323,18 @@ const resolveModel = (model?: ChatModel): LanguageModel => {
     // Check dynamic providers
     const dp = dynamicProviderRegistry.get(model.provider);
     if (dp) {
-      const p = createOpenAICompatible({
-        name: model.provider,
-        apiKey: dp.apiKey,
-        baseURL: dp.baseURL,
-        fetch: normalizeToolCallsFetch,
-      });
-      return p(model.model);
+      const configuredModel = dp.models.find(
+        (candidate) => candidate.name === model.model,
+      );
+      if (configuredModel) {
+        const p = createOpenAICompatible({
+          name: model.provider,
+          apiKey: dp.apiKey,
+          baseURL: dp.baseURL,
+          fetch: normalizeToolCallsFetch,
+        });
+        return p(configuredModel.apiModelId);
+      }
     }
 
     // Unknown provider/model: log loudly. The hidden fallback keeps the app
@@ -1298,13 +1369,17 @@ function resolveModelByProviderModel(
     // Check dynamic providers
     const dp = dynamicProviderRegistry.get(providerId);
     if (dp) {
+      const configuredModel = dp.models.find(
+        (candidate) => candidate.name === modelName,
+      );
+      if (!configuredModel) return null;
       const p = createOpenAICompatible({
         name: providerId,
         apiKey: dp.apiKey,
         baseURL: dp.baseURL,
         fetch: normalizeToolCallsFetch,
       });
-      return p(modelName) as unknown as LanguageModelV2;
+      return p(configuredModel.apiModelId) as unknown as LanguageModelV2;
     }
 
     return null;
@@ -1336,7 +1411,9 @@ export const customModelProvider = {
         deduped[key] = {
           provider,
           models: [],
-          hasAPIKey: checkProviderAPIKey(provider as keyof typeof staticModels),
+          hasAPIKey:
+            checkProviderAPIKey(provider as keyof typeof staticModels) ||
+            Boolean(dynamicProviderRegistry.get(provider)?.apiKey),
         };
       }
       // Merge models, avoid duplicates by name
@@ -1362,6 +1439,18 @@ export const customModelProvider = {
       );
     }
     return Object.values(deduped);
+  },
+  /** Resolve after admin-managed providers have been hydrated from PostgreSQL. */
+  getModelAsync: async (model?: ChatModel): Promise<LanguageModel> => {
+    await ensureDynamicProvidersHydrated();
+    return resolveModel(model);
+  },
+  /** Build the fallback chain only after the dynamic registry is current. */
+  getModelWithFailureFallbackAsync: async (
+    model?: ChatModel,
+  ): Promise<LanguageModel> => {
+    await ensureDynamicProvidersHydrated();
+    return withFailureFallback(resolveModel(model));
   },
   getModel: resolveModel,
   getModelWithFailureFallback: (model?: ChatModel): LanguageModel =>

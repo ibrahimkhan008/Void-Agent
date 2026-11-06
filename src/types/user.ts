@@ -1,9 +1,9 @@
-import { z } from "zod";
 import { passwordSchema } from "lib/validations/password";
 import { userNameSchema } from "lib/validations/user-name";
+import { z } from "zod";
 
-import { UserEntity } from "lib/db/pg/schema.pg";
 import { getSession } from "auth/server";
+import { UserEntity } from "lib/db/pg/schema.pg";
 
 export type UserPreferences = {
   displayName?: string;
@@ -12,6 +12,9 @@ export type UserPreferences = {
   botName?: string; // Name of the bot
   savedNotes?: SavedNote[];
   skills?: UserSkill[];
+  notifications?: {
+    backgroundChatAlerts?: boolean;
+  };
 };
 
 export type SavedNoteCitation = {
@@ -120,4 +123,7 @@ export const UserPreferencesZodSchema = z.object({
   profession: z.string().optional(),
   responseStyleExample: z.string().optional(),
   botName: z.string().optional(),
+  notifications: z
+    .object({ backgroundChatAlerts: z.boolean().optional() })
+    .optional(),
 });

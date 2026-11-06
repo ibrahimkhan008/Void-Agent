@@ -1,9 +1,12 @@
-import { NextResponse } from "next/server";
 import { getSession } from "auth/server";
-import { extractText } from "unpdf";
+import { formatCsvPreviewText, parseCsvPreview } from "lib/file-ingest/csv";
 import { serverFileStorage } from "lib/file-storage";
-import { parseCsvPreview, formatCsvPreviewText } from "lib/file-ingest/csv";
-import { storageKeyFromUrl } from "lib/file-storage/storage-utils";
+import {
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "lib/file-storage/storage-utils";
+import { NextResponse } from "next/server";
+import { extractText } from "unpdf";
 
 type Body = {
   key?: string; // storage key (preferred)
@@ -34,6 +37,9 @@ export async function POST(req: Request) {
       { error: "Missing 'key' or 'url'" },
       { status: 400 },
     );
+  }
+  if (!isUserStorageKey(key, session.user.id)) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
   // Infer type from extension when auto

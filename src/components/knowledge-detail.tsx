@@ -2,6 +2,18 @@
 
 import { useCollection } from "@/hooks/queries/use-collections";
 import {
+  ArrowLeft,
+  FileText,
+  Link2,
+  Loader2,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -18,18 +30,6 @@ import { Label } from "ui/label";
 import { Skeleton } from "ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "ui/tabs";
 import { Textarea } from "ui/textarea";
-import {
-  ArrowLeft,
-  FileText,
-  Link2,
-  Loader2,
-  Trash2,
-  Upload,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
 
 // Ingest is synchronous server-side (chunk -> embed -> store), so the
 // submit buttons stay in a pending state until the API returns a chunk
@@ -54,6 +54,8 @@ export default function KnowledgeDetail({ id }: { id: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const items = data?.items ?? [];
+  const canWrite = data?.access?.canWrite ?? false;
+  const canDelete = data?.access?.canDelete ?? false;
 
   const post = async (body: BodyInit, headers?: HeadersInit) => {
     setBusy(true);
@@ -167,104 +169,112 @@ export default function KnowledgeDetail({ id }: { id: string }) {
             </p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground hover:text-destructive shrink-0"
-          onClick={() => setConfirmOpen(true)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive shrink-0"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        )}
       </div>
 
-      <Tabs defaultValue="text" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="text">Paste text</TabsTrigger>
-          <TabsTrigger value="file">Upload file</TabsTrigger>
-          <TabsTrigger value="url">From URL</TabsTrigger>
-        </TabsList>
+      {canWrite ? (
+        <Tabs defaultValue="text" className="mt-6">
+          <TabsList>
+            <TabsTrigger value="text">Paste text</TabsTrigger>
+            <TabsTrigger value="file">Upload file</TabsTrigger>
+            <TabsTrigger value="url">From URL</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="text" className="flex flex-col gap-3 pt-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kb-title">Title (optional)</Label>
+          <TabsContent value="text" className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="kb-title">Title (optional)</Label>
+              <Input
+                id="kb-title"
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                placeholder="release-notes.md"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="kb-text">Content</Label>
+              <Textarea
+                id="kb-text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Paste notes, documentation, meeting minutes…"
+                rows={8}
+              />
+            </div>
+            <Button onClick={addText} disabled={busy} className="w-fit">
+              {busy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileText className="size-4" />
+              )}
+              Add to collection
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="file" className="flex flex-col gap-3 pt-4">
             <Input
-              id="kb-title"
-              value={filename}
-              onChange={(e) => setFilename(e.target.value)}
-              placeholder="release-notes.md"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kb-text">Content</Label>
-            <Textarea
-              id="kb-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste notes, documentation, meeting minutes…"
-              rows={8}
-            />
-          </div>
-          <Button onClick={addText} disabled={busy} className="w-fit">
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <FileText className="size-4" />
-            )}
-            Add to collection
-          </Button>
-        </TabsContent>
-
-        <TabsContent value="file" className="flex flex-col gap-3 pt-4">
-          <Input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv,.tsv,.yaml,.yml,.log,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*"
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) addFile(f);
-            }}
-          />
-          <p className="text-muted-foreground text-xs">
-            PDF, DOCX, and text files (txt, md, json, csv, yaml), up to
-            20&nbsp;MB. Scanned PDFs are read with OCR, which takes longer.
-            Legacy .doc isn&apos;t supported — save as .docx.
-          </p>
-          {busy && (
-            <p className="text-muted-foreground text-sm flex items-center gap-2">
-              <Loader2 className="size-4 animate-spin" />
-              Parsing, chunking and embedding…
-            </p>
-          )}
-        </TabsContent>
-
-        <TabsContent value="url" className="flex flex-col gap-3 pt-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kb-url">URL</Label>
-            <Input
-              id="kb-url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/docs.md"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !busy) addUrl();
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv,.tsv,.yaml,.yml,.log,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*"
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) addFile(f);
               }}
             />
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Fetches the raw response — best for plain text, Markdown, or JSON.
-            JavaScript-rendered pages won&apos;t extract cleanly.
-          </p>
-          <Button onClick={addUrl} disabled={busy} className="w-fit">
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Link2 className="size-4" />
+            <p className="text-muted-foreground text-xs">
+              PDF, DOCX, and text files (txt, md, json, csv, yaml), up to
+              20&nbsp;MB. Scanned PDFs are read with OCR, which takes longer.
+              Legacy .doc isn&apos;t supported — save as .docx.
+            </p>
+            {busy && (
+              <p className="text-muted-foreground text-sm flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Parsing, chunking and embedding…
+              </p>
             )}
-            Fetch and add
-          </Button>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+
+          <TabsContent value="url" className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="kb-url">URL</Label>
+              <Input
+                id="kb-url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/docs.md"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !busy) addUrl();
+                }}
+              />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Fetches the raw response — best for plain text, Markdown, or JSON.
+              JavaScript-rendered pages won&apos;t extract cleanly.
+            </p>
+            <Button onClick={addUrl} disabled={busy} className="w-fit">
+              {busy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
+              Fetch and add
+            </Button>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <p className="mt-6 rounded-md border p-3 text-sm text-muted-foreground">
+          You have read-only access to this team collection.
+        </p>
+      )}
 
       <div className="mt-10">
         <h2 className="font-medium text-sm text-muted-foreground">
@@ -275,7 +285,9 @@ export default function KnowledgeDetail({ id }: { id: string }) {
             <div className="border border-dashed rounded-lg py-10 flex flex-col items-center text-center">
               <Upload className="size-6 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
-                Nothing indexed yet. Add your first source above.
+                {canWrite
+                  ? "Nothing indexed yet. Add your first source above."
+                  : "This collection has no indexed sources yet."}
               </p>
             </div>
           ) : (

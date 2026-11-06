@@ -187,6 +187,18 @@ export const TOOLKIT_CATALOG: ToolkitInfo[] = [
     defaultOn: false,
   },
   {
+    id: AppDefaultToolkit.Notifications,
+    configKey: "Notifications",
+    label: "Notifications",
+    icon: "🔔",
+    description:
+      "Post a concise update to the user's notification inbox and browser push subscription",
+    capability:
+      "Post a concise, useful update to the user's own notification inbox and, when configured, their browser push subscription. Use only for meaningful completions or important anomalies; never include sensitive details in lock-screen copy.",
+    tools: ["Post User Update"],
+    defaultOn: true,
+  },
+  {
     id: AppDefaultToolkit.Build,
     configKey: "Build",
     label: "App Builder",

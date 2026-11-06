@@ -1,14 +1,17 @@
-import { tool as createTool, Tool } from "ai";
-import { z } from "zod";
-import { pgDb as db } from "lib/db/pg/db.pg";
-import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { Tool, tool as createTool } from "ai";
+import { and, eq } from "drizzle-orm";
+import { messagingApprovalSchema } from "lib/ai/tools/hitl/messaging-approval";
 import { refreshConnectorToken } from "lib/connectors/refresh";
+import { pgDb as db } from "lib/db/pg/db.pg";
+import { messagingApprovalRepository } from "lib/db/pg/repositories/messaging-approval-repository.pg";
+import { UserConnectorTable } from "lib/db/pg/schema.pg";
+import { z } from "zod";
 
 const inputSchema = z.object({
   action: z.enum(["list_chats", "list_chat_messages", "send_chat_message"]),
   chatId: z.string().optional().describe("Microsoft Teams chat ID"),
-  body: z.string().optional().describe("Message body (for send_chat_message)"),
+  body: z.string().max(4000).optional().describe("Message body (for send_chat_message)"),
+  approvalToken: z.string().min(40).max(128).optional(),
   limit: z.number().min(1).max(100).optional(),
 });
 
@@ -16,6 +19,7 @@ interface TeamsToolInput {
   action: "list_chats" | "list_chat_messages" | "send_chat_message";
   chatId?: string;
   body?: string;
+  approvalToken?: string;
   limit?: number;
 }
 
@@ -43,7 +47,7 @@ export function createTeamsToolForUser(userId: string): Tool {
 Actions:
 - list_chats: List the user's Teams chats.
 - list_chat_messages: List messages in a chat (requires: chatId).
-- send_chat_message: Send a message to a chat (requires: chatId, body).
+- send_chat_message: Send a message only with the exact approvalToken from proposeExternalMessage after user review (requires: chatId, body).
 
 User must connect Teams first via the Connectors menu. Uses the same Microsoft
 tenant as the Outlook connector.`,
@@ -71,15 +75,20 @@ tenant as the Outlook connector.`,
           return await res.json();
         }
         if (action === "send_chat_message") {
-          if (!input.chatId || !input.body) {
-            return { error: "chatId and body required" };
+          if (!input.chatId || !input.body || !input.approvalToken) {
+            return { error: "chatId, body, and approvalToken required" };
+          }
+          const approval = messagingApprovalSchema.safeParse({ provider: "teams", destination: input.chatId, content: input.body });
+          if (!approval.success || approval.data.provider !== "teams") return { error: "Invalid Teams message approval payload." };
+          if (!(await messagingApprovalRepository.consume(userId, input.approvalToken, approval.data))) {
+            return { error: "Teams message requires a fresh approval for this exact chat and text." };
           }
           const res = await fetch(
-            `${GRAPH_API}/chats/${input.chatId}/messages`,
+            `${GRAPH_API}/chats/${encodeURIComponent(approval.data.destination)}/messages`,
             {
               method: "POST",
               headers,
-              body: JSON.stringify({ body: { content: input.body } }),
+              body: JSON.stringify({ body: { content: approval.data.content } }),
             },
           );
           return await res.json();

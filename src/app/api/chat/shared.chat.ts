@@ -16,7 +16,7 @@ import {
   ChatMetadata,
   ManualToolConfirmTag,
 } from "app-types/chat";
-import { errorToString, exclude, objectFlow } from "lib/utils";
+import { errorToString, exclude, objectFlow, toAny } from "lib/utils";
 import logger from "logger";
 import {
   AllowedMCPServer,
@@ -45,6 +45,12 @@ import {
 } from "lib/ai/tools/tool-kit";
 import { AppDefaultToolkit } from "lib/ai/tools";
 import { getEnabledCategories } from "lib/site-config-runtime";
+import { getMcpApprovalTokenKey, mcpToolApprovalSchema } from "lib/ai/tools/hitl/mcp-tool-approval";
+import { mcpToolApprovalRepository } from "lib/db/pg/repositories/mcp-tool-approval-repository.pg";
+import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
+import { getWorkflowApprovalTokenField } from "lib/ai/tools/hitl/workflow-run-approval";
+import { loadApprovedWorkflow } from "lib/ai/workflow/load-approved-workflow";
+import { stripMcpApprovalField } from "lib/ai/speech/mcp-voice-approval";
 
 export function filterMCPToolsByMentions(
   tools: Record<string, VercelAIMcpTool>,
@@ -119,6 +125,7 @@ export function mergeSystemPrompt(
 export function manualToolExecuteByLastMessage(
   part: ToolUIPart,
   tools: Record<string, VercelAIMcpTool | VercelAIWorkflowTool | Tool>,
+  userId: string,
   abortSignal?: AbortSignal,
 ) {
   const { input } = part;
@@ -141,10 +148,20 @@ export function manualToolExecuteByLastMessage(
           messages: [],
         });
       } else if (VercelAIMcpToolTag.isMaybe(tool)) {
-        return mcpClientsManager.toolCall(
-          tool._mcpServerId,
-          tool._originToolName,
-          input,
+        const approvalTokenKey = tool._approvalTokenKey ?? "voidAgentApprovalToken";
+        const { [approvalTokenKey]: _approvalToken, ...toolPayload } = input as Record<string, unknown>;
+        const approval = mcpToolApprovalSchema.parse({
+          serverId: tool._mcpServerId,
+          serverName: tool._mcpServerName,
+          toolName: tool._originToolName,
+          payload: toolPayload,
+        });
+        return mcpToolApprovalRepository.issue(userId, approval).then((approvalToken) =>
+          tool.execute!({ ...toolPayload, [approvalTokenKey]: approvalToken }, {
+            toolCallId: part.toolCallId,
+            abortSignal: abortSignal ?? new AbortController().signal,
+            messages: [],
+          }),
         );
       }
       return tool.execute!(input, {
@@ -318,12 +335,14 @@ export const workflowToVercelAITool = ({
   schema,
   dataStream,
   name,
+  userId,
 }: {
   id: string;
   name: string;
   description?: string;
   schema: ObjectJsonSchema7;
   dataStream: UIMessageStreamWriter;
+  userId: string;
 }): VercelAIWorkflowTool => {
   const rawToolName = name
     .replace(/[^a-zA-Z0-9\s]/g, "")
@@ -332,10 +351,20 @@ export const workflowToVercelAITool = ({
     .toUpperCase();
   const toolName = rawToolName.length ? rawToolName : `WORKFLOW_${id}`;
 
+  const approvalTokenField = getWorkflowApprovalTokenField(schema.properties ?? {});
+  const toolSchema = jsonSchema({
+    ...schema,
+    properties: {
+      ...(schema.properties ?? {}),
+      [approvalTokenField]: { type: "string", minLength: 40, maxLength: 128, description: "One-use approval token from proposeWorkflowRun" },
+    },
+    required: [...(schema.required ?? []), approvalTokenField],
+  });
   const tool = createTool({
-    description: `${name} ${description?.trim().slice(0, 50)}`,
-    inputSchema: jsonSchema(schema),
-    execute(query, { toolCallId, abortSignal }) {
+    description: `${name} (workflowId ${id}). Before running, use proposeWorkflowRun with platform saved-workflow, target ${id}, workflowName ${name}, the exact input payload, and approvalTokenField ${approvalTokenField}. Then pass the returned token under ${approvalTokenField}; execution checks current publication/access. ${description?.trim().slice(0, 50) ?? ""}`,
+    inputSchema: toolSchema,
+    async execute(query, { toolCallId, abortSignal }) {
+      const { [approvalTokenField]: approvalToken, ...workflowInput } = query as Record<string, unknown>;
       const history: VercelAIWorkflowToolStreaming[] = [];
       const toolResult = VercelAIWorkflowToolStreamingResultTag.create({
         toolCallId,
@@ -348,13 +377,15 @@ export const workflowToVercelAITool = ({
         status: "running",
       });
       return safe(id)
-        .map((id) =>
-          workflowRepository.selectStructureById(id, {
-            ignoreNote: true,
-          }),
-        )
+        .map(() => loadApprovedWorkflow({
+          userId,
+          workflowId: id,
+          workflowName: name,
+          approvalTokenField,
+          approvalToken,
+          payload: workflowInput,
+        }))
         .map((workflow) => {
-          if (!workflow) throw new Error("Not Found Workflow");
           const executor = createWorkflowExecutor({
             nodes: workflow.nodes,
             edges: workflow.edges,
@@ -474,12 +505,14 @@ export const workflowToVercelAITools = (
     schema: ObjectJsonSchema7;
   }[],
   dataStream: UIMessageStreamWriter,
+  userId: string,
 ) => {
   return workflows
     .map((v) =>
       workflowToVercelAITool({
         ...v,
         dataStream,
+        userId,
       }),
     )
     .reduce(
@@ -494,6 +527,7 @@ export const workflowToVercelAITools = (
 export const loadMcpTools = (opt?: {
   mentions?: ChatMention[];
   allowedMcpServers?: Record<string, AllowedMCPServer>;
+  userId?: string;
 }) =>
   safe(() => mcpClientsManager.tools())
     .map((tools) => {
@@ -502,11 +536,57 @@ export const loadMcpTools = (opt?: {
       }
       return filterMCPToolsByAllowedMCPServers(tools, opt?.allowedMcpServers);
     })
+    .map((tools) => Object.fromEntries(Object.entries(tools).map(([id, mcpTool]) => {
+      const schema = toAny(mcpTool.inputSchema) as ObjectJsonSchema7;
+      const required = Array.isArray(schema.required) ? schema.required : [];
+      const properties = schema.properties ?? {};
+      const approvalTokenKey = getMcpApprovalTokenKey(properties);
+      const inputSchema = jsonSchema({
+        ...schema,
+        properties: {
+          ...properties,
+          [approvalTokenKey]: { type: "string", minLength: 40, maxLength: 128, description: "One-use token from the MCP review card" },
+        },
+        required: [...required.filter((key) => key !== approvalTokenKey), approvalTokenKey],
+      });
+      return [id, VercelAIMcpToolTag.create({
+        ...mcpTool,
+        _approvalTokenKey: approvalTokenKey,
+        _originalDescription: mcpTool.description,
+        inputSchema,
+        description: `${mcpTool.description ?? ""}\nRequires explicit approval of the exact arguments via proposeMcpToolCall before execution; pass the token in ${approvalTokenKey}.`,
+        execute: async (input, _options) => {
+          const { [approvalTokenKey]: approvalToken, ...toolPayload } = input as Record<string, unknown>;
+          return executeApprovedMcpTool({
+            userId: opt?.userId,
+            token: approvalToken,
+            approvalPayload: {
+              serverId: mcpTool._mcpServerId,
+              serverName: mcpTool._mcpServerName,
+              toolName: mcpTool._originToolName,
+              payload: toolPayload,
+            },
+            execute: () => mcpClientsManager.toolCall(mcpTool._mcpServerId, mcpTool._originToolName, toolPayload),
+          });
+        },
+      })];
+    })))
     .orElse({} as Record<string, VercelAIMcpTool>);
+
+export function getVoiceMcpToolDefinition(tool: VercelAIMcpTool) {
+  const schema = toAny(tool.inputSchema) as ObjectJsonSchema7;
+  const voiceSchema = stripMcpApprovalField(schema, tool._approvalTokenKey);
+  const { jsonSchema: openAiSchema } = jsonSchema(voiceSchema);
+  return {
+    description: tool._originalDescription ?? tool.description,
+    parameters: openAiSchema,
+  };
+}
 
 export const loadWorkFlowTools = (opt: {
   mentions?: ChatMention[];
   dataStream: UIMessageStreamWriter;
+  userId: string;
 }) =>
   safe(() =>
     opt?.mentions?.length
@@ -520,7 +600,7 @@ export const loadWorkFlowTools = (opt: {
         )
       : [],
   )
-    .map((tools) => workflowToVercelAITools(tools, opt.dataStream))
+    .map((tools) => workflowToVercelAITools(tools, opt.dataStream, opt.userId))
     .orElse({} as Record<string, VercelAIWorkflowTool>);
 
 export const loadAppDefaultTools = async (opt?: {

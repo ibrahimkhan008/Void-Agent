@@ -16,11 +16,15 @@ import {
   type AnyPgColumn,
   bigint,
   boolean,
+  check,
+  date,
+  foreignKey,
   index,
   integer,
   json,
   jsonb,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -42,6 +46,9 @@ export const ChatThreadTable = pgTable("chat_thread", {
   // and non-null as team-owned (and additionally checks team_member
   // for the calling user).
   orgId: uuid("org_id"),
+  projectId: uuid("project_id").references(() => ProjectTable.id, {
+    onDelete: "set null",
+  }),
   // Phase 1+#7 — thread branching. A thread is either a root
   // (parentThreadId null) or a fork of another thread, with the assistant
   // message the user forked from preserved for navigation.
@@ -62,6 +69,9 @@ export const ChatThreadTable = pgTable("chat_thread", {
   decisions: jsonb("decisions").$type<Array<{ text: string; at: string }>>(),
   actionItems:
     jsonb("action_items").$type<Array<{ text: string; done: boolean }>>(),
+  // null keeps the legacy behavior of searching all of the user's knowledge
+  // collections; an explicit array scopes retrieval to this conversation.
+  collectionIds: uuid("collection_ids").array(),
   insightsGeneratedAt: timestamp("insights_generated_at"),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -107,6 +117,34 @@ export const AgentTable = pgTable("agent", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+// Private replay records for explicit agent-creation approvals. Kept separate
+// from AgentTable so request keys and prompt hashes never appear in agent API
+// projections. The write and this reservation are committed atomically.
+export const AgentApprovalRequestTable = pgTable(
+  "agent_approval_request",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    requestKey: text("request_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    agentId: uuid("agent_id").references(() => AgentTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("agent_approval_request_user_key_unique").on(
+      table.userId,
+      table.requestKey,
+    ),
+    index("agent_approval_request_created_at_idx").on(table.createdAt),
+  ],
+);
 
 export const BookmarkTable = pgTable(
   "bookmark",
@@ -953,7 +991,12 @@ export const COLLECTION_ITEM_STATUSES = [
 ] as const;
 export type CollectionItemStatus = (typeof COLLECTION_ITEM_STATUSES)[number];
 
-export const COLLECTION_SOURCE_TYPES = ["file", "source-url"] as const;
+export const COLLECTION_SOURCE_TYPES = [
+  "file",
+  "source-url",
+  "mcp-sync",
+  "composio-sync",
+] as const;
 export type CollectionSourceType = (typeof COLLECTION_SOURCE_TYPES)[number];
 
 export const CollectionTable = pgTable(
@@ -975,7 +1018,10 @@ export const CollectionTable = pgTable(
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [index("collection_user_id_idx").on(table.userId)],
+  (table) => [
+    index("collection_user_id_idx").on(table.userId),
+    index("collection_org_id_idx").on(table.orgId),
+  ],
 );
 
 export const CollectionItemTable = pgTable(
@@ -991,6 +1037,8 @@ export const CollectionItemTable = pgTable(
     // URL to the underlying blob (Vercel Blob / S3) for uploaded files,
     // or the canonical source URL for `source-url` items.
     sourceUrl: text("source_url"),
+    // Opaque private storage key for the original bytes; never a public URL.
+    storageKey: text("storage_key"),
     filename: text("filename"),
     mediaType: text("media_type"),
     status: varchar("status", { enum: COLLECTION_ITEM_STATUSES })
@@ -1060,6 +1108,94 @@ export type CollectionItemEntity = typeof CollectionItemTable.$inferSelect;
 export type DocumentEntity = typeof DocumentTable.$inferSelect;
 export type DocumentChunkEntity = typeof DocumentChunkTable.$inferSelect;
 
+// Multi-document tabular reviews. Sources use the existing knowledge-base
+// item/document pipeline so review access inherits collection ownership.
+export const TabularReviewTable = pgTable(
+  "tabular_review",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 160 }).notNull(),
+    columns: jsonb("columns").notNull().$type<
+      Array<{
+        id: string;
+        label: string;
+        type: "text" | "date" | "boolean" | "list" | "score" | "citation";
+        prompt: string;
+      }>
+    >(),
+    status: varchar("status", {
+      enum: ["pending", "generating", "done", "error"],
+    })
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("tabular_review_user_id_idx").on(table.userId)],
+);
+
+export const TabularReviewItemTable = pgTable(
+  "tabular_review_item",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => TabularReviewTable.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    rowIndex: integer("row_index").notNull(),
+  },
+  (table) => [
+    index("tabular_review_item_review_idx").on(table.reviewId),
+    unique("tabular_review_item_unique").on(table.reviewId, table.itemId),
+  ],
+);
+
+export const TabularReviewCellTable = pgTable(
+  "tabular_review_cell",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => TabularReviewTable.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    columnId: varchar("column_id", { length: 64 }).notNull(),
+    value: text("value"),
+    status: varchar("status", {
+      enum: ["pending", "generating", "done", "error"],
+    })
+      .notNull()
+      .default("pending"),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("tabular_review_cell_review_idx").on(table.reviewId),
+    unique("tabular_review_cell_unique").on(
+      table.reviewId,
+      table.itemId,
+      table.columnId,
+    ),
+  ],
+);
+
+export type TabularReviewEntity = typeof TabularReviewTable.$inferSelect;
+export type TabularReviewItemEntity =
+  typeof TabularReviewItemTable.$inferSelect;
+export type TabularReviewCellEntity =
+  typeof TabularReviewCellTable.$inferSelect;
+
 // ============================================================================
 // Phase 3 — Automation: Scheduler + Triggers + Webhooks (#11, #12, #24)
 // ============================================================================
@@ -1071,9 +1207,9 @@ export type DocumentChunkEntity = typeof DocumentChunkTable.$inferSelect;
 // ----------------------------------------------------------------------------
 
 // #11 — Scheduled agents. A `scheduled_job` is a user-owned cron-bound
-// trigger for an agent or the default assistant. The worker claims rows where
-// status='active' and next_run_at <= now (see migration 0023). `payload`
-// carries the per-run inputs (e.g. `{"triggerMessage": "Summarize my day"}`).
+// trigger for an agent or the default assistant. The worker transactionally
+// leases due rows and fences completion by claim token. `payload` carries
+// per-run inputs (e.g. `{"triggerMessage": "Summarize my day"}`).
 export const ScheduledJobTable = pgTable(
   "scheduled_job",
   {
@@ -1086,6 +1222,9 @@ export const ScheduledJobTable = pgTable(
     }),
     name: text("name").notNull(),
     cron: text("cron").notNull(),
+    timezone: text("timezone").notNull().default("UTC"),
+    claimToken: uuid("claim_token"),
+    claimExpiresAt: timestamp("claim_expires_at"),
     payload: jsonb("payload").$type<Record<string, unknown>>().default({}),
     lastRunAt: timestamp("last_run_at"),
     nextRunAt: timestamp("next_run_at").notNull(),
@@ -1138,6 +1277,225 @@ export const ScheduledRunTable = pgTable(
 
 export type ScheduledRun = typeof ScheduledRunTable.$inferSelect;
 export type NewScheduledRun = typeof ScheduledRunTable.$inferInsert;
+
+// User-visible alerts and browser push endpoints. Push key material is
+// encrypted by the repository before it reaches these columns.
+export const NotificationTable = pgTable(
+  "notification",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 64 }).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    body: varchar("body", { length: 500 }).notNull(),
+    href: varchar("href", { length: 512 }),
+    dedupeKey: varchar("dedupe_key", { length: 160 }),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("notification_user_created_idx").on(table.userId, table.createdAt),
+    index("notification_user_unread_idx").on(table.userId, table.readAt),
+    uniqueIndex("notification_user_dedupe_idx").on(
+      table.userId,
+      table.dedupeKey,
+    ),
+  ],
+);
+
+export const PushSubscriptionTable = pgTable(
+  "push_subscription",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dhEncrypted: text("p256dh_encrypted").notNull(),
+    authEncrypted: text("auth_encrypted").notNull(),
+    userAgent: varchar("user_agent", { length: 512 }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("push_subscription_user_endpoint_unique").on(
+      table.userId,
+      table.endpoint,
+    ),
+    index("push_subscription_user_idx").on(table.userId),
+  ],
+);
+
+export type Notification = typeof NotificationTable.$inferSelect;
+export type PushSubscription = typeof PushSubscriptionTable.$inferSelect;
+
+export const VoiceDeviceTable = pgTable(
+  "voice_device",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id"),
+    deviceType: varchar("device_type", { length: 64 }).notNull(),
+    displayName: varchar("display_name", { length: 80 }).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    status: varchar("status", { length: 16 }).notNull().default("active"),
+    firmwareVersion: varchar("firmware_version", { length: 40 }),
+    lastSeenAt: timestamp("last_seen_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("voice_device_user_idx").on(table.userId),
+    index("voice_device_status_idx").on(table.status),
+  ],
+);
+
+export const VoiceDevicePairingCodeTable = pgTable(
+  "voice_device_pairing_code",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id"),
+    deviceType: varchar("device_type", { length: 64 }).notNull(),
+    displayName: varchar("display_name", { length: 80 }),
+    codeHash: text("code_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("voice_pairing_user_idx").on(table.userId),
+    index("voice_pairing_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const VoiceDeviceRegistrationTable = pgTable(
+  "voice_device_registration",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    codeHash: text("code_hash").notNull().unique(),
+    bootstrapSecretHash: text("bootstrap_secret_hash").notNull(),
+    deviceType: varchar("device_type", { length: 64 }).notNull(),
+    firmwareVersion: varchar("firmware_version", { length: 40 }),
+    hardwareId: varchar("hardware_id", { length: 64 }),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    userId: uuid("user_id").references(() => UserTable.id, {
+      onDelete: "cascade",
+    }),
+    organizationId: text("organization_id"),
+    deviceId: uuid("device_id").references(() => VoiceDeviceTable.id, {
+      onDelete: "set null",
+    }),
+    displayName: varchar("display_name", { length: 80 }),
+    encryptedDeviceToken: text("encrypted_device_token"),
+    expiresAt: timestamp("expires_at").notNull(),
+    claimedAt: timestamp("claimed_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("voice_device_registration_user_idx").on(table.userId),
+    index("voice_device_registration_expiry_idx").on(table.expiresAt),
+    index("voice_device_registration_hardware_idx").on(table.hardwareId),
+  ],
+);
+
+export const VoiceDeviceSessionTable = pgTable(
+  "voice_device_session",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => VoiceDeviceTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    sessionId: varchar("session_id", { length: 120 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("active"),
+    segmentCount: integer("segment_count").notNull().default(0),
+    startedAt: timestamp("started_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    lastSegmentAt: timestamp("last_segment_at"),
+    finalizedAt: timestamp("finalized_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("voice_device_session_device_session_unique").on(
+      table.deviceId,
+      table.sessionId,
+    ),
+    index("voice_device_session_user_started_idx").on(
+      table.userId,
+      table.startedAt,
+    ),
+  ],
+);
+
+export const VoiceDeviceTranscriptSegmentTable = pgTable(
+  "voice_device_transcript_segment",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    sessionPk: uuid("session_pk")
+      .notNull()
+      .references(() => VoiceDeviceSessionTable.id, { onDelete: "cascade" }),
+    eventId: varchar("event_id", { length: 200 }).notNull(),
+    sequenceNumber: integer("sequence_number").notNull(),
+    text: varchar("text", { length: 8_000 }).notNull(),
+    language: varchar("language", { length: 32 }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("voice_device_segment_session_event_unique").on(
+      table.sessionPk,
+      table.eventId,
+    ),
+    uniqueIndex("voice_device_segment_session_sequence_unique").on(
+      table.sessionPk,
+      table.sequenceNumber,
+    ),
+    index("voice_device_segment_session_created_idx").on(
+      table.sessionPk,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type VoiceDevice = typeof VoiceDeviceTable.$inferSelect;
+export type VoiceDevicePairingCode =
+  typeof VoiceDevicePairingCodeTable.$inferSelect;
+export type VoiceDeviceRegistration =
+  typeof VoiceDeviceRegistrationTable.$inferSelect;
+export type VoiceDeviceSession = typeof VoiceDeviceSessionTable.$inferSelect;
+export type VoiceDeviceTranscriptSegment =
+  typeof VoiceDeviceTranscriptSegmentTable.$inferSelect;
 
 // #12 — Inbound triggers. An `inbound_endpoint` is a user-owned URL token
 // (e.g. `/api/inbound/[token]`) that the platform calls when something
@@ -1672,6 +2030,746 @@ export const TeamMemberTable = pgTable(
 
 export type TeamMember = typeof TeamMemberTable.$inferSelect;
 export type NewTeamMember = typeof TeamMemberTable.$inferInsert;
+
+// Project workspace adapted to Void-Agent's Team/TeamMember model. A null
+// teamId is personal; teamId makes access follow current team membership.
+export const ProjectTable = pgTable(
+  "project",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => TeamTable.id, {
+      onDelete: "cascade",
+    }),
+    // Existing team projects retain inherited team access. Owners may opt in
+    // to a selected-member allowlist without changing legacy project access.
+    accessMode: text("access_mode")
+      .$type<"team" | "selected">()
+      .notNull()
+      .default("team"),
+    name: text("name").notNull(),
+    description: text("description"),
+    goal: text("goal"),
+    systemPrompt: text("system_prompt"),
+    collectionIds: uuid("collection_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_user_id_idx").on(table.userId),
+    index("project_team_id_idx").on(table.teamId),
+  ],
+);
+
+export type ProjectEntity = typeof ProjectTable.$inferSelect;
+
+/** Explicit project collaborators used only when accessMode is `selected`. */
+export const ProjectMemberTable = pgTable(
+  "project_member",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    role: text("role").$type<"viewer" | "editor">().notNull().default("viewer"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_member_project_id_user_id_unique").on(
+      table.projectId,
+      table.userId,
+    ),
+    index("project_member_project_id_idx").on(table.projectId),
+    index("project_member_user_id_idx").on(table.userId),
+  ],
+);
+
+export type ProjectMemberEntity = typeof ProjectMemberTable.$inferSelect;
+
+/** Links a ready knowledge source to the project file-management surface. */
+export const ProjectDocumentTable = pgTable(
+  "project_document",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    collectionItemId: uuid("collection_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    uploadedByUserId: uuid("uploaded_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("project_document_project_item_idx").on(
+      table.projectId,
+      table.collectionItemId,
+    ),
+    index("project_document_project_id_idx").on(table.projectId),
+  ],
+);
+
+/** Project-scoped MCP connections only retain explicitly read-only tool names. */
+export const ProjectBrainMcpConnectorTable = pgTable(
+  "project_brain_mcp_connector",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    credentialOwnerUserId: uuid("credential_owner_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    mcpServerId: uuid("mcp_server_id")
+      .notNull()
+      .references(() => McpServerTable.id, { onDelete: "cascade" }),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => CollectionTable.id, { onDelete: "cascade" }),
+    displayName: varchar("display_name", { length: 160 }).notNull(),
+    toolNames: jsonb("tool_names")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    lastSyncAt: timestamp("last_sync_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_mcp_connector_project_server_unique").on(
+      table.projectId,
+      table.mcpServerId,
+    ),
+    index("project_brain_mcp_connector_project_idx").on(table.projectId),
+  ],
+);
+
+export const ProjectBrainMcpSyncRunTable = pgTable(
+  "project_brain_mcp_sync_run",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    connectorId: uuid("connector_id")
+      .notNull()
+      .references(() => ProjectBrainMcpConnectorTable.id, {
+        onDelete: "cascade",
+      }),
+    requestedByUserId: uuid("requested_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("running"),
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "set null" },
+    ),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_mcp_sync_idempotency_unique").on(
+      table.connectorId,
+      table.idempotencyKey,
+    ),
+    index("project_brain_mcp_sync_run_connector_idx").on(
+      table.connectorId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const ProjectBrainMcpSyncSourceTable = pgTable(
+  "project_brain_mcp_sync_source",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    connectorId: uuid("connector_id")
+      .notNull()
+      .references(() => ProjectBrainMcpConnectorTable.id, {
+        onDelete: "cascade",
+      }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .unique()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    sourceFingerprint: varchar("source_fingerprint", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_brain_mcp_sync_source_connector_idx").on(table.connectorId),
+    unique("project_brain_mcp_sync_source_fingerprint_unique").on(
+      table.connectorId,
+      table.sourceFingerprint,
+    ),
+  ],
+);
+
+export const ProjectBrainComposioConnectorTable = pgTable(
+  "project_brain_composio_connector",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    credentialOwnerUserId: uuid("credential_owner_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    collectionId: uuid("collection_id")
+      .notNull()
+      .references(() => CollectionTable.id, { onDelete: "cascade" }),
+    toolkitSlug: varchar("toolkit_slug", { length: 128 }).notNull(),
+    connectedAccountId: varchar("connected_account_id", {
+      length: 256,
+    }).notNull(),
+    displayName: varchar("display_name", { length: 160 }).notNull(),
+    readActionSlugs: jsonb("read_action_slugs")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    lastSyncAt: timestamp("last_sync_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_composio_connector_identity_unique").on(
+      table.projectId,
+      table.connectedAccountId,
+    ),
+    index("project_brain_composio_connector_project_idx").on(table.projectId),
+  ],
+);
+
+export const ProjectBrainComposioSyncRunTable = pgTable(
+  "project_brain_composio_sync_run",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    connectorId: uuid("connector_id")
+      .notNull()
+      .references(() => ProjectBrainComposioConnectorTable.id, {
+        onDelete: "cascade",
+      }),
+    requestedByUserId: uuid("requested_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("running"),
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "set null" },
+    ),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_composio_sync_idempotency_unique").on(
+      table.connectorId,
+      table.idempotencyKey,
+    ),
+    index("project_brain_composio_sync_run_connector_idx").on(
+      table.connectorId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const ProjectBrainComposioSyncSourceTable = pgTable(
+  "project_brain_composio_sync_source",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    connectorId: uuid("connector_id")
+      .notNull()
+      .references(() => ProjectBrainComposioConnectorTable.id, {
+        onDelete: "cascade",
+      }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .unique()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    sourceFingerprint: varchar("source_fingerprint", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_brain_composio_sync_source_connector_idx").on(
+      table.connectorId,
+    ),
+    unique("project_brain_composio_sync_source_fingerprint_unique").on(
+      table.connectorId,
+      table.sourceFingerprint,
+    ),
+  ],
+);
+
+/** Immutable metadata for one exact source-content revision analyzed by a project. */
+export const ProjectBrainSourceVersionTable = pgTable(
+  "project_brain_source_version",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    sourceFingerprint: text("source_fingerprint").notNull(),
+    contentSnapshot: text("content_snapshot"),
+    contentLength: integer("content_length").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_source_version_revision_unique").on(
+      table.projectId,
+      table.sourceItemId,
+      table.sourceFingerprint,
+    ),
+    unique("project_brain_source_version_identity_unique").on(
+      table.id,
+      table.projectId,
+      table.sourceItemId,
+    ),
+    index("project_brain_source_version_item_created_idx").on(
+      table.projectId,
+      table.sourceItemId,
+      table.createdAt,
+    ),
+  ],
+);
+
+/** Latest explicitly analyzed revision for each project/source pair. */
+export const ProjectBrainSourceStateTable = pgTable(
+  "project_brain_source_state",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    sourceVersionId: uuid("source_version_id")
+      .notNull()
+      .references(() => ProjectBrainSourceVersionTable.id, {
+        onDelete: "cascade",
+      }),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.sourceItemId] }),
+    index("project_brain_source_state_version_idx").on(table.sourceVersionId),
+  ],
+);
+
+export const ProjectBrainRunTable = pgTable(
+  "project_brain_run",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    requestedByUserId: uuid("requested_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    sourceVersionId: uuid("source_version_id")
+      .notNull()
+      .references(() => ProjectBrainSourceVersionTable.id, {
+        onDelete: "cascade",
+      }),
+    sourceFingerprint: text("source_fingerprint").notNull(),
+    status: text("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    factCount: integer("fact_count").notNull().default(0),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_run_project_fingerprint_unique").on(
+      table.projectId,
+      table.sourceFingerprint,
+    ),
+    index("project_brain_run_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+  ],
+);
+
+/** Stable project-scoped identity records backed by reviewed fact claims. */
+export const ProjectBrainPageTable = pgTable(
+  "project_brain_page",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    entityType: varchar("entity_type", { length: 32 }).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    normalizedTitle: varchar("normalized_title", { length: 160 }).notNull(),
+    salience: real("salience").notNull().default(0),
+    mergedIntoPageId: uuid("merged_into_page_id").references(
+      (): AnyPgColumn => ProjectBrainPageTable.id,
+      { onDelete: "set null" },
+    ),
+    archivedAt: timestamp("archived_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_page_project_type_title_unique").on(
+      table.projectId,
+      table.entityType,
+      table.normalizedTitle,
+    ),
+    index("project_brain_page_project_idx").on(table.projectId),
+    index("project_brain_page_project_title_idx").on(
+      table.projectId,
+      table.normalizedTitle,
+    ),
+  ],
+);
+
+/** A project editor's durable decision that two page IDs are distinct identities. */
+export const ProjectBrainPagePairReviewTable = pgTable(
+  "project_brain_page_pair_review",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    firstPageId: uuid("first_page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" }),
+    secondPageId: uuid("second_page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "project_brain_page_pair_review_sorted_check",
+      sql`${table.firstPageId} < ${table.secondPageId}`,
+    ),
+    check(
+      "project_brain_page_pair_review_distinct_check",
+      sql`${table.firstPageId} <> ${table.secondPageId}`,
+    ),
+    unique("project_brain_page_pair_review_pair_unique").on(
+      table.firstPageId,
+      table.secondPageId,
+    ),
+    index("project_brain_page_pair_review_first_idx").on(table.firstPageId),
+    index("project_brain_page_pair_review_second_idx").on(table.secondPageId),
+  ],
+);
+
+export const ProjectBrainFactTable = pgTable(
+  "project_brain_fact",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
+    sourceVersionId: uuid("source_version_id").notNull(),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    subjectPageId: uuid("subject_page_id").references(
+      () => ProjectBrainPageTable.id,
+      { onDelete: "set null" },
+    ),
+    objectPageId: uuid("object_page_id").references(
+      () => ProjectBrainPageTable.id,
+      { onDelete: "set null" },
+    ),
+    subject: varchar("subject", { length: 160 }).notNull(),
+    predicate: varchar("predicate", { length: 160 }).notNull(),
+    object: varchar("object", { length: 500 }).notNull(),
+    evidence: varchar("evidence", { length: 1200 }).notNull(),
+    confidence: real("confidence").notNull().default(0.5),
+    reviewStatus: text("review_status").notNull().default("proposed"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    reviewedAt: timestamp("reviewed_at"),
+  },
+  (table) => [
+    foreignKey({
+      name: "project_brain_fact_source_revision_fk",
+      columns: [table.sourceVersionId, table.projectId, table.sourceItemId],
+      foreignColumns: [
+        ProjectBrainSourceVersionTable.id,
+        ProjectBrainSourceVersionTable.projectId,
+        ProjectBrainSourceVersionTable.sourceItemId,
+      ],
+    }).onDelete("cascade"),
+    index("project_brain_fact_project_status_idx").on(
+      table.projectId,
+      table.reviewStatus,
+    ),
+    index("project_brain_fact_source_idx").on(table.sourceItemId),
+    index("project_brain_fact_source_version_idx").on(table.sourceVersionId),
+  ],
+);
+
+/** Cross-source claim comparisons and their human review lifecycle. */
+export const ProjectBrainContradictionTable = pgTable(
+  "project_brain_contradiction",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id").references(() => ProjectBrainPageTable.id, {
+      onDelete: "set null",
+    }),
+    factIdA: uuid("fact_id_a")
+      .notNull()
+      .references(() => ProjectBrainFactTable.id, { onDelete: "cascade" }),
+    factIdB: uuid("fact_id_b")
+      .notNull()
+      .references(() => ProjectBrainFactTable.id, { onDelete: "cascade" }),
+    verdict: varchar("verdict", { length: 20 }).notNull().default("potential"),
+    explanation: varchar("explanation", { length: 1200 }),
+    status: varchar("status", { length: 20 }).notNull().default("open"),
+    resolvedByUserId: uuid("resolved_by_user_id").references(
+      () => UserTable.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    keptFactId: uuid("kept_fact_id").references(
+      () => ProjectBrainFactTable.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_contradiction_fact_pair_unique").on(
+      table.factIdA,
+      table.factIdB,
+    ),
+    index("project_brain_contradiction_project_status_idx").on(
+      table.projectId,
+      table.status,
+    ),
+  ],
+);
+
+/** Project brain task candidates remain proposals until an editor reviews them. */
+export const ProjectBrainTodoTable = pgTable(
+  "project_brain_todo",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 200 }).notNull(),
+    details: varchar("details", { length: 1200 }).notNull().default(""),
+    evidence: varchar("evidence", { length: 1200 }).notNull(),
+    dueDate: date("due_date"),
+    dedupeKey: varchar("dedupe_key", { length: 64 }).notNull(),
+    status: text("status").notNull().default("proposed"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    reviewedAt: timestamp("reviewed_at"),
+  },
+  (table) => [
+    unique("project_brain_todo_run_dedupe_unique").on(
+      table.runId,
+      table.dedupeKey,
+    ),
+    index("project_brain_todo_project_status_idx").on(
+      table.projectId,
+      table.status,
+    ),
+    index("project_brain_todo_source_idx").on(table.sourceItemId),
+  ],
+);
+
+/** Project-level status summaries are tied to the exact visible source revisions. */
+export const ProjectBrainStatusSnapshotTable = pgTable(
+  "project_brain_status_snapshot",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    generatedByUserId: uuid("generated_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    inputFingerprint: varchar("input_fingerprint", { length: 64 }).notNull(),
+    sourceRefs: jsonb("source_refs")
+      .$type<Array<{ sourceItemId: string; sourceVersionId: string }>>()
+      .notNull(),
+    health: varchar("health", { length: 20 }).notNull(),
+    progressPct: real("progress_pct"),
+    summary: varchar("summary", { length: 600 }).notNull().default(""),
+    blockers: jsonb("blockers").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_brain_status_snapshot_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index("project_brain_status_snapshot_fingerprint_idx").on(
+      table.projectId,
+      table.inputFingerprint,
+    ),
+  ],
+);
+
+/** Alias rows retain provenance; consumers must honor the source fact's review status. */
+export const ProjectBrainAliasTable = pgTable(
+  "project_brain_alias",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" }),
+    sourceFactId: uuid("source_fact_id")
+      .notNull()
+      .references(() => ProjectBrainFactTable.id, { onDelete: "cascade" }),
+    alias: varchar("alias", { length: 160 }).notNull(),
+    normalizedAlias: varchar("normalized_alias", { length: 160 }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_alias_source_identity_unique").on(
+      table.projectId,
+      table.pageId,
+      table.normalizedAlias,
+      table.sourceFactId,
+    ),
+    index("project_brain_alias_project_normalized_idx").on(
+      table.projectId,
+      table.normalizedAlias,
+    ),
+    index("project_brain_alias_page_idx").on(table.pageId),
+  ],
+);
+
+/** Immutable actor and endpoint history for human-reviewed page merges. */
+export const ProjectBrainPageMergeTable = pgTable(
+  "project_brain_page_merge",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    survivorPageId: uuid("survivor_page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" }),
+    mergedPageId: uuid("merged_page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" })
+      .unique(),
+    actorUserId: uuid("actor_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    entityType: varchar("entity_type", { length: 32 }).notNull(),
+    survivorTitle: varchar("survivor_title", { length: 160 }).notNull(),
+    mergedTitle: varchar("merged_title", { length: 160 }).notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_brain_page_merge_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type ProjectBrainRunEntity = typeof ProjectBrainRunTable.$inferSelect;
+export type ProjectBrainPageEntity = typeof ProjectBrainPageTable.$inferSelect;
+export type ProjectBrainFactEntity = typeof ProjectBrainFactTable.$inferSelect;
+export type ProjectBrainAliasEntity =
+  typeof ProjectBrainAliasTable.$inferSelect;
+export type ProjectBrainPageMergeEntity =
+  typeof ProjectBrainPageMergeTable.$inferSelect;
 
 // Stripe prereq (#19) — `subscription` table for the webhook P4.B
 // authors. `stripe_subscription_id` is the natural key (UNIQUE) so

@@ -10,7 +10,8 @@ import {
 } from "lib/ai/speech";
 import { generateUUID } from "lib/utils";
 import { useTheme } from "next-themes";
-import { callMcpToolByServerNameAction } from "@/app/api/mcp/actions";
+import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
+import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 import { appStore } from "@/app/store";
 
 const ELEVENLABS_ORIGIN = "wss://api.elevenlabs.io";
@@ -23,6 +24,7 @@ interface ElevenLabsSessionResponse {
   tools: unknown[];
   voiceId: string | null;
   hasKimiCredentials: boolean;
+  toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }>;
 }
 
 type ConversationMessage = Parameters<NonNullable<Callbacks["onMessage"]>>[0];
@@ -97,6 +99,7 @@ export function useElevenLabsVoiceChat(
   const conversationRef = useRef<Conversation | null>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
   const toolMessageMap = useRef(new Map<string, string>());
+  const toolIdMapRef = useRef<ElevenLabsSessionResponse["toolIdMap"]>({});
   const vadTimeoutRef = useRef<number | null>(null);
   // Track if connection was ever established to prevent premature disconnect handling
   const connectionEstablishedRef = useRef<boolean>(false);
@@ -304,10 +307,18 @@ export function useElevenLabsVoiceChat(
       });
 
       try {
-        const result = await callMcpToolByServerNameAction(
-          awaitingPayload.service_id,
-          awaitingPayload.tool_name,
+        const mapped = toolIdMapRef.current[awaitingPayload.tool_name];
+        if (!mapped || mapped.serverName !== awaitingPayload.service_id) {
+          throw new Error("MCP tool mapping is unavailable; the action was not run.");
+        }
+        const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: awaitingPayload.parameters });
+        if (!approvalToken) throw new Error("The user rejected this action.");
+        const result = await callApprovedMcpToolAction(
+          mapped.serverId,
+          mapped.serverName,
+          mapped.toolName,
           awaitingPayload.parameters,
+          approvalToken,
         );
         conversationRef.current?.sendMCPToolApprovalResult(
           awaitingPayload.tool_call_id,
@@ -402,6 +413,7 @@ export function useElevenLabsVoiceChat(
 
     try {
       const session = await createSession();
+      toolIdMapRef.current = session.toolIdMap ?? {};
       const clientTools = {
         changeBrowserTheme: async ({ theme }: { theme?: "light" | "dark" }) => {
           if (theme === "light" || theme === "dark") {
