@@ -29,7 +29,7 @@ full suite passes with limited workers and explicit 30s timeout. Initial full li
 unused bindings were baseline findings, now corrected. No ignored failure remains
 in the recorded final full unit invocation.
 
-## Checkpoint 2 — bounded history
+## Checkpoint 2 ï¿½ bounded history
 
 - `src/lib/db/pg/repositories/chat-repository.pagination.test.ts`: 2/2 pass.
 - `pnpm check-types`: pass after normalizing the thread-decision JSON write shape to the database `{text, at}` representation.
@@ -738,7 +738,7 @@ The accepted project-brain entity page list now sorts by salience so the refresh
 - Final `pnpm build` passed after this UI change and generated 192/192 static pages. Existing warnings remain: E2B/unpdf critical-dependency traces, `<img>` optimization warnings, dynamic-session prerender diagnostics, optional Redis/E2B config, memory-rate-limit multi-instance notice, PostgreSQL SSL-mode notice, and Next workspace root inferred from multiple lockfiles. Scoped voice tests 23/23, TypeScript and Biome passed. No live browser/device/PostgreSQL verification.
 
 ### F018 stored-document preview verification (2026-11-06 20:30:13 +05:30)
-- Focused command: pnpm test -- src/app/api/storage/document/route.test.ts src/lib/file-ingest/docx.test.ts src/lib/file-ingest/pptx.test.ts — 3 files, 30 tests passed.
+- Focused command: pnpm test -- src/app/api/storage/document/route.test.ts src/lib/file-ingest/docx.test.ts src/lib/file-ingest/pptx.test.ts ï¿½ 3 files, 30 tests passed.
 - pnpm check-types passed; scoped Biome formatting/check passed; pnpm db:check passed.
 - pnpm build passed; Next generated 192/192 static pages. Existing workspace-root, dependency-analysis, optional Redis/E2B, PostgreSQL SSL, <img>, and dynamic-session diagnostics remain.
 - Not verified: live PostgreSQL/storage, object-store ACL, browser attachment journey, external model/provider behavior.
@@ -803,4 +803,4 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - `pnpm build` passed; Next generated all **193/193** pages. Existing warnings include workspace-root inference from multiple lockfiles, E2B/unpdf bundler warnings, optional Redis/E2B configuration, dynamic-session diagnostics during page collection, image lint warnings, and PostgreSQL SSL-mode compatibility notice.
 - Focused batches also passed their own tests: selected-project collaboration (20/20), CSRF and notification URL hardening (30/30), voice transcript/summary workflows (24/24), conversation archive API (7/7), table review (14/14), CreateAgent tools (17/17), notification producer/subscription tests (as recorded in prior batch), and desktop consent IPC (4/4).
 - `pnpm db:check` passed for journaled migrations. Migrations 0058/0059 and earlier feature migrations remain unapplied; no live PostgreSQL migration or database-backed concurrency test was run. External provider, browser, device hardware, push-delivery and desktop package-signing checks remain unverified.
-- No deployment occurred. The user has now authorized a push of verified changes; release commit preparation is in progress.
+- No deployment occurred. Verified code and migration documentation were pushed to the private Void-Agent GitHub repository as commit `23589b8` on `main`. No deployment occurred.

@@ -1,4 +1,4 @@
-﻿# Integration checkpoint 2 - primary-first migration
+# Integration checkpoint 2 - primary-first migration
 
 This is a saved, incomplete engineering checkpoint. Full inventory semantics and
 feature parity are NOT complete. No production or database changes or push.
@@ -787,3 +787,6 @@ Completed and verified since the previous checkpoint: project selected-member ac
 Verification: full `pnpm check` passed (1,666 tests / 283 files); production build passed (193 pages). Focused results and limitations are in `docs/testing-report.md` and the relevant family addenda above. Migrations are local and unapplied. Overall parity remains incomplete; no final completion percentage is claimed from the family-level matrix.
 
 Next: reconcile these entries against every reference route/page/tool surface, prioritize remaining major families (including provider quotas, desktop bridges, voice gateway modes, and event coverage), run database-backed/browser journeys when configured, and only then revise per-feature completion status.
+
+### GitHub checkpoint (2026-11-07 00:15 +05:30)
+Verified migration snapshot pushed to private ibrahimkhan008/Void-Agent as commit 23589b8 on main. The local workspace retains only the two unrelated untracked CognixAI specification files; no code changes remain unpushed. No deployment or production database migration was performed.
