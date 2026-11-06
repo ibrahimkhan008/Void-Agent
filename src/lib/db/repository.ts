@@ -11,6 +11,7 @@ import { pgMcpRepository } from "./pg/repositories/mcp-repository.pg";
 import { pgMcpServerCustomizationRepository } from "./pg/repositories/mcp-server-customization-repository.pg";
 import { pgMcpMcpToolCustomizationRepository } from "./pg/repositories/mcp-tool-customization-repository.pg";
 import { pgMemoryRepository } from "./pg/repositories/memory-repository.pg";
+import { pgPublishedPageRepository } from "./pg/repositories/published-page-repository.pg";
 import { pgUserRepository } from "./pg/repositories/user-repository.pg";
 import { pgWorkflowRepository } from "./pg/repositories/workflow-repository.pg";
 
@@ -30,6 +31,7 @@ export const bookmarkRepository = pgBookmarkRepository;
 export const chatExportRepository = pgChatExportRepository;
 export const canvasExportRepository = pgCanvasExportRepository;
 export const memoryRepository = pgMemoryRepository;
+export const publishedPageRepository = pgPublishedPageRepository;
 export const dodoPaymentsRepository = pgDodoPaymentsRepository;
 export const bugReportRepository = pgBugReportRepository;
 export { siteConfigRepository } from "./pg/repositories/site-config-repository.pg";

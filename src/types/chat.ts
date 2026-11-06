@@ -8,7 +8,14 @@ import { UserPreferences } from "./user";
 
 export type ChatMetadata = {
   runId?: string;
-  runStatus?: "running" | "queued" | "completed" | "incomplete" | "failed" | "cancelled" | "timed_out";
+  runStatus?:
+    | "running"
+    | "queued"
+    | "completed"
+    | "incomplete"
+    | "failed"
+    | "cancelled"
+    | "timed_out";
   error?: { code: string; retryable?: boolean };
   source?: "voice_realtime" | "voice_device";
   voiceSessionId?: string;
@@ -47,6 +54,7 @@ export type ChatThread = {
   title: string;
   userId: string;
   createdAt: Date;
+  orgId?: string | null;
   // Phase 1+#7 — thread branching. A thread is a root when
   // `parentThreadId` is null. A fork copies the source thread's
   // messages up to and including `forkFromMessageId` into a new
@@ -208,7 +216,10 @@ export type ChatRepository = {
     opts?: { limit?: number; beforeMessageId?: string },
   ): Promise<ChatMessage[]>;
 
-  selectMessagesForExport(threadId: string, limit: number): Promise<ChatMessage[]>;
+  selectMessagesForExport(
+    threadId: string,
+    limit: number,
+  ): Promise<ChatMessage[]>;
 
   selectLatestChatModelByUserId(
     userId: string,

@@ -14,6 +14,10 @@ import {
 import { registerDesktopDownloads } from "./downloads.js";
 import { classifyDesktopNavigation } from "./external-links.js";
 import { configureMcpIpc, registerMcpIpcHandlers } from "./mcp-ipc.js";
+import {
+  configureDesktopNotifications,
+  registerDesktopNotificationHandlers,
+} from "./notifications.js";
 
 const targetValue =
   process.env.VOID_AGENT_WEB_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "";
@@ -122,6 +126,8 @@ else {
       configureDesktopAuth(window, appTarget);
       configureMcpIpc(window, appTarget.origin);
       registerMcpIpcHandlers();
+      configureDesktopNotifications(window, appTarget.origin);
+      registerDesktopNotificationHandlers();
       registerDesktopDownloads(window.webContents.session, appTarget.origin);
       window.webContents.setWindowOpenHandler(({ url }) => {
         const action = classifyDesktopNavigation(url, appTarget.origin);

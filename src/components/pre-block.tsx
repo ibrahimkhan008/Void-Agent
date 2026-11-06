@@ -1,28 +1,29 @@
 "use client";
 
-import type { JSX } from "react";
-import {
-  bundledLanguages,
-  codeToHast,
-  type BundledLanguage,
-} from "shiki/bundle/web";
-import { Fragment, useLayoutEffect, useState } from "react";
-import { jsx, jsxs } from "react/jsx-runtime";
+import { useCopy } from "@/hooks/use-copy";
 import { toJsxRuntime } from "hast-util-to-jsx-runtime";
-import { safe } from "ts-safe";
 import { cn } from "lib/utils";
-import { useTheme } from "next-themes";
-import { Button } from "ui/button";
 import {
   CheckIcon,
-  CopyIcon,
-  DownloadIcon,
   ChevronDown,
   ChevronUp,
+  CopyIcon,
+  DownloadIcon,
 } from "lucide-react";
-import JsonView from "ui/json-view";
-import { useCopy } from "@/hooks/use-copy";
+import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
+import type { JSX } from "react";
+import { Fragment, useContext, useLayoutEffect, useState } from "react";
+import { jsx, jsxs } from "react/jsx-runtime";
+import {
+  type BundledLanguage,
+  bundledLanguages,
+  codeToHast,
+} from "shiki/bundle/web";
+import { safe } from "ts-safe";
+import { Button } from "ui/button";
+import JsonView from "ui/json-view";
+import { MarkdownStreamingContext } from "./markdown-streaming-context";
 
 // Dynamically import MermaidDiagram component
 const MermaidDiagram = dynamic(
@@ -200,6 +201,7 @@ export async function Highlight(
 
 export function PreBlock({ children }: { children: any }) {
   const code = children.props.children;
+  const isStreaming = useContext(MarkdownStreamingContext);
   const { theme } = useTheme();
   const language = children.props.className?.split("-")?.[1] || "bash";
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,9 @@ export function PreBlock({ children }: { children: any }) {
   );
 
   useLayoutEffect(() => {
+    // Code in the live tail changes with every token; defer Shiki until the
+    // block is settled, then highlight the final content once.
+    if (isStreaming) return;
     safe()
       .map(() =>
         Highlight(
@@ -220,7 +225,17 @@ export function PreBlock({ children }: { children: any }) {
       )
       .ifOk(setComponent)
       .watch(() => setLoading(false));
-  }, [theme, language, code]);
+  }, [theme, language, code, isStreaming]);
+
+  if (isStreaming) {
+    return (
+      <div className="text-sm flex bg-secondary/40 shadow border flex-col rounded relative my-4 overflow-hidden">
+        <PurePre code={code} lang={language}>
+          {children}
+        </PurePre>
+      </div>
+    );
+  }
 
   // For other code blocks, render as before
   return (

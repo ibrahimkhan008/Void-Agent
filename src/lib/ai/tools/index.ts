@@ -92,6 +92,7 @@ export enum DefaultToolName {
   Scheduler = "scheduler",
   CockpitPushUpdate = "cockpit_push_update",
   CodeEngine = "code-engine",
+  PublishPage = "publish-page",
 }
 
 export const ImageToolName = "image-manager";

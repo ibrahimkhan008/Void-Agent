@@ -10,6 +10,7 @@ vi.mock("lib/db/repository", () => ({
 
 import type { ScheduledJob } from "lib/db/pg/schema.pg";
 import {
+  createScheduledJobForUser,
   normalizeScheduleCreateInput,
   normalizeScheduleUpdateInput,
   parseSimpleScheduleText,
@@ -157,6 +158,75 @@ describe("normalizeScheduleCreateInput", () => {
         now,
       ),
     ).toThrow(/valid IANA timezone/);
+  });
+});
+
+describe("createScheduledJobForUser approval idempotency", () => {
+  it("uses a stable hash across retries of a recurring schedule", async () => {
+    const { schedulerRepository } = await import("lib/db/repository");
+    vi.mocked(schedulerRepository.createScheduledJob).mockResolvedValue({
+      id: "job-1",
+    } as ScheduledJob);
+    const raw = {
+      scheduleType: "recurring",
+      prompt: "Review the daily report",
+      cron: "0 9 * * 1-5",
+      timezone: "UTC",
+      agentId: "00000000-0000-4000-8000-000000000001",
+    };
+    await createScheduledJobForUser(
+      "user-1",
+      raw,
+      new Date("2026-11-01T00:00:00Z"),
+      "request-1",
+    );
+    await createScheduledJobForUser(
+      "user-1",
+      raw,
+      new Date("2026-11-02T00:00:00Z"),
+      "request-1",
+    );
+    const first = vi
+      .mocked(schedulerRepository.createScheduledJob)
+      .mock.calls.at(-2)?.[2];
+    const retry = vi
+      .mocked(schedulerRepository.createScheduledJob)
+      .mock.calls.at(-1)?.[2];
+    expect(first?.requestKey).toBe("request-1");
+    expect(first?.requestHash).toHaveLength(64);
+    expect(retry).toEqual(first);
+  });
+
+  it("binds the schedule approval hash to prompt, agent, and exact run time", async () => {
+    const { schedulerRepository } = await import("lib/db/repository");
+    vi.mocked(schedulerRepository.createScheduledJob).mockResolvedValue({
+      id: "job-1",
+    } as ScheduledJob);
+    const base = {
+      scheduleType: "once",
+      prompt: "Review report",
+      runAt: "2026-11-07T10:00:00Z",
+      agentId: "00000000-0000-4000-8000-000000000001",
+    };
+    await createScheduledJobForUser(
+      "user-1",
+      base,
+      new Date("2026-11-07T09:00:00Z"),
+      "request-2",
+    );
+    await createScheduledJobForUser(
+      "user-1",
+      { ...base, prompt: "Send report" },
+      new Date("2026-11-07T09:00:00Z"),
+      "request-2",
+    );
+    const first = vi
+      .mocked(schedulerRepository.createScheduledJob)
+      .mock.calls.at(-2)?.[2];
+    const changed = vi
+      .mocked(schedulerRepository.createScheduledJob)
+      .mock.calls.at(-1)?.[2];
+    expect(first?.requestHash).not.toBe(changed?.requestHash);
   });
 });
 

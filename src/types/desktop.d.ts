@@ -26,6 +26,14 @@ declare global {
         listTools(config: MCPServerConfig): Promise<MCPToolInfo[]>;
         callTool(input: { config: MCPServerConfig; toolName: string; params?: Record<string, unknown> }): Promise<unknown>;
       };
+      notifications?: {
+        show(input: {
+          kind: "complete" | "needs_approval" | "needs_input" | "error";
+          threadId: string;
+        }): Promise<boolean>;
+        getPermissionStatus(): Promise<NotificationPermission | "granted" | "unsupported">;
+        requestPermission(): Promise<NotificationPermission | "granted" | "unsupported">;
+      };
     };
   }
 }

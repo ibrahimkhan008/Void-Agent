@@ -6,12 +6,16 @@ const mocks = vi.hoisted(() => ({
   insertApprovedAgentIdempotently: vi.fn(),
   insertAgent: vi.fn(),
   cacheDelete: vi.fn(),
+  isEnabledAgentModel: vi.fn(),
   ConflictError: class AgentApprovalIdempotencyConflictError extends Error {},
 }));
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/auth/permissions", () => ({
   canCreateAgent: mocks.canCreateAgent,
+}));
+vi.mock("lib/ai/agent/pinned-model", () => ({
+  isEnabledAgentModel: mocks.isEnabledAgentModel,
 }));
 vi.mock("lib/db/repository", () => ({
   agentRepository: { insertAgent: mocks.insertAgent },
@@ -39,6 +43,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getSession.mockResolvedValue({ user: { id: "authenticated-user" } });
   mocks.canCreateAgent.mockResolvedValue(true);
+  mocks.isEnabledAgentModel.mockResolvedValue(true);
   mocks.insertApprovedAgentIdempotently.mockResolvedValue({
     agent: { id: "agent-id", name: "Research helper" },
     replayed: false,
@@ -80,6 +85,28 @@ describe("POST /api/agent approval idempotency", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mocks.insertApprovedAgentIdempotently).not.toHaveBeenCalled();
+  });
+
+  it("rejects stale or disabled pinned models before writing the agent", async () => {
+    mocks.isEnabledAgentModel.mockResolvedValue(false);
+    const response = await POST(
+      new Request("http://localhost/api/agent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "toolcall_abc123",
+        },
+        body: JSON.stringify({
+          ...payload,
+          instructions: {
+            ...payload.instructions,
+            model: "old-provider/deleted-model",
+          },
+        }),
+      }),
+    );
+    expect(response.status).toBe(409);
     expect(mocks.insertApprovedAgentIdempotently).not.toHaveBeenCalled();
   });
 

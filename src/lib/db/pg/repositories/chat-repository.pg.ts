@@ -23,6 +23,7 @@ export const pgChatRepository: ChatRepository = {
         title: thread.title,
         userId: thread.userId,
         id: thread.id,
+        orgId: thread.orgId ?? null,
         collectionIds: thread.collectionIds,
         projectId: thread.projectId,
       })
@@ -76,6 +77,7 @@ export const pgChatRepository: ChatRepository = {
       title: thread.chat_thread.title,
       userId: thread.chat_thread.userId,
       createdAt: thread.chat_thread.createdAt,
+      orgId: thread.chat_thread.orgId,
       collectionIds: thread.chat_thread.collectionIds,
       projectId: thread.chat_thread.projectId,
       userPreferences: thread.user?.preferences ?? undefined,
@@ -223,7 +225,9 @@ export const pgChatRepository: ChatRepository = {
         ...(thread.collectionIds !== undefined
           ? { collectionIds: thread.collectionIds }
           : {}),
-        ...(thread.projectId !== undefined ? { projectId: thread.projectId } : {}),
+        ...(thread.projectId !== undefined
+          ? { projectId: thread.projectId }
+          : {}),
       })
       .where(eq(ChatThreadTable.id, id))
       .returning()) as ChatThread[];

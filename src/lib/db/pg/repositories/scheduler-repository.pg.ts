@@ -5,6 +5,7 @@ import { pgDb as db } from "../db.pg";
 import {
   NewScheduledJob,
   NewScheduledRun,
+  ScheduledJobCreationRequestTable,
   ScheduledJob,
   ScheduledJobTable,
   ScheduledRun,
@@ -36,6 +37,25 @@ export interface CreateScheduledJobInput {
   status?: "active" | "paused" | "disabled";
 }
 
+export interface ScheduledJobIdempotency {
+  requestKey: string;
+  requestHash: string;
+}
+
+export class ScheduledJobIdempotencyConflictError extends Error {
+  constructor() {
+    super("The schedule approval key was already used for different data.");
+    this.name = "ScheduledJobIdempotencyConflictError";
+  }
+}
+
+export class ScheduledJobReplayUnavailableError extends Error {
+  constructor() {
+    super("The schedule from this approval was deleted; start a new proposal.");
+    this.name = "ScheduledJobReplayUnavailableError";
+  }
+}
+
 export interface UpdateScheduledJobInput {
   name?: string;
   cron?: string;
@@ -57,7 +77,86 @@ export const schedulerRepository = {
   async createScheduledJob(
     input: CreateScheduledJobInput,
     userId: string,
+    idempotency?: ScheduledJobIdempotency,
   ): Promise<ScheduledJob> {
+    if (idempotency) {
+      return db.transaction(async (tx) => {
+        const [reservation] = await tx
+          .insert(ScheduledJobCreationRequestTable)
+          .values({
+            userId,
+            requestKey: idempotency.requestKey,
+            requestHash: idempotency.requestHash,
+          })
+          .onConflictDoNothing()
+          .returning();
+
+        if (!reservation) {
+          const [existingRequest] = await tx
+            .select()
+            .from(ScheduledJobCreationRequestTable)
+            .where(
+              and(
+                eq(ScheduledJobCreationRequestTable.userId, userId),
+                eq(
+                  ScheduledJobCreationRequestTable.requestKey,
+                  idempotency.requestKey,
+                ),
+              ),
+            )
+            .for("update");
+          if (!existingRequest) {
+            throw new Error("Schedule approval retry could not be resolved.");
+          }
+          if (existingRequest.requestHash !== idempotency.requestHash) {
+            throw new ScheduledJobIdempotencyConflictError();
+          }
+          if (!existingRequest.scheduledJobId) {
+            throw new ScheduledJobReplayUnavailableError();
+          }
+          const [existingJob] = await tx
+            .select()
+            .from(ScheduledJobTable)
+            .where(
+              and(
+                eq(ScheduledJobTable.id, existingRequest.scheduledJobId),
+                eq(ScheduledJobTable.userId, userId),
+              ),
+            );
+          if (!existingJob) throw new ScheduledJobReplayUnavailableError();
+          return existingJob as ScheduledJob;
+        }
+
+        const [job] = await tx
+          .insert(ScheduledJobTable)
+          .values({
+            userId,
+            agentId: input.agentId ?? null,
+            name: input.name,
+            cron: input.cron,
+            timezone: input.timezone ?? "UTC",
+            payload: input.payload ?? {},
+            nextRunAt: input.nextRunAt,
+            status: input.status ?? "active",
+          } satisfies NewScheduledJob)
+          .returning();
+        if (!job) throw new Error("Could not create the approved schedule.");
+        await tx
+          .update(ScheduledJobCreationRequestTable)
+          .set({ scheduledJobId: job.id })
+          .where(
+            and(
+              eq(ScheduledJobCreationRequestTable.userId, userId),
+              eq(
+                ScheduledJobCreationRequestTable.requestKey,
+                idempotency.requestKey,
+              ),
+            ),
+          );
+        return job as ScheduledJob;
+      });
+    }
+
     const [row] = await db
       .insert(ScheduledJobTable)
       .values({

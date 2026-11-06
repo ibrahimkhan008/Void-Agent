@@ -13,6 +13,7 @@ import {
   Box,
   Clock3,
   FolderKanban,
+  Globe2,
   Hammer,
   Library,
   PencilRuler,
@@ -96,6 +97,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                   {t("Layout.workflow")}
                 </TooltipContent>
               )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/published-pages">
+                  <SidebarMenuButton className="font-semibold">
+                    <Globe2 className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Published pages</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Published pages</TooltipContent>}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>

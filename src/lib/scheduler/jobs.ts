@@ -1,11 +1,12 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
 import type { ScheduledJob } from "lib/db/pg/schema.pg";
 import { schedulerRepository } from "lib/db/repository";
+import type { ScheduledJobIdempotency } from "lib/db/pg/repositories/scheduler-repository.pg";
 import { computeNextRun, isValidTimezone, validateCron } from "./cron-parser";
 
 const MIN_LEAD_MS = 30_000;
@@ -251,8 +252,34 @@ export const createScheduledJobForUser = async (
   userId: string,
   raw: unknown,
   now = new Date(),
+  requestKey?: string,
 ): Promise<ScheduledJob> => {
   const normalized = normalizeScheduleCreateInput(raw, now);
+  let idempotency: ScheduledJobIdempotency | undefined;
+  if (requestKey !== undefined) {
+    if (!/^[A-Za-z0-9._:-]{1,200}$/.test(requestKey)) {
+      throw new Error("Invalid schedule approval key.");
+    }
+    const canonicalInput = {
+      userId,
+      agentId: normalized.agentId ?? null,
+      name: normalized.title ?? titleFromPrompt(normalized.prompt),
+      cron: normalized.cron,
+      timezone: normalized.timezone,
+      payload: normalized.payload,
+      // Recurring nextRunAt depends on retry time; the cron + timezone fully
+      // identify that schedule. One-shot payload includes its exact runAt.
+      ...(normalized.scheduleType === "once"
+        ? { nextRunAt: normalized.nextRunAt.toISOString() }
+        : {}),
+    };
+    idempotency = {
+      requestKey,
+      requestHash: createHash("sha256")
+        .update(JSON.stringify(canonicalInput))
+        .digest("hex"),
+    };
+  }
   return schedulerRepository.createScheduledJob(
     {
       agentId: normalized.agentId,
@@ -264,6 +291,7 @@ export const createScheduledJobForUser = async (
       status: "active",
     },
     userId,
+    idempotency,
   );
 };
 

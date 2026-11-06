@@ -46,17 +46,32 @@ export const requestInputTool = tool({
   inputSchema: requestInputInputSchema,
 });
 
-export const proposeEmailInputSchema = z.object({
-  action: z.enum(["send", "reply"]).default("send"),
-  messageId: z.string().trim().regex(/^[A-Za-z0-9_-]{1,256}$/).optional(),
-  to: z.string().trim().email().max(320),
-  subject: z.string().trim().min(1).max(500).refine((value) => !/[\r\n]/.test(value)),
-  body: z.string().trim().min(1).max(12000),
-}).superRefine((input, ctx) => {
-  if (input.action === "reply" && !input.messageId) {
-    ctx.addIssue({ code: "custom", path: ["messageId"], message: "A reply must identify the message being replied to." });
-  }
-});
+export const proposeEmailInputSchema = z
+  .object({
+    action: z.enum(["send", "reply"]).default("send"),
+    messageId: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{1,256}$/)
+      .optional(),
+    to: z.string().trim().email().max(320),
+    subject: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .refine((value) => !/[\r\n]/.test(value)),
+    body: z.string().trim().min(1).max(12000),
+  })
+  .superRefine((input, ctx) => {
+    if (input.action === "reply" && !input.messageId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["messageId"],
+        message: "A reply must identify the message being replied to.",
+      });
+    }
+  });
 
 export const proposeEmailTool = tool({
   description:
@@ -131,7 +146,8 @@ export const proposeMcpToolCallTool = tool({
 });
 
 export const proposeHttpRequestTool = tool({
-  description: "Before making any outbound HTTP request, show the user the exact HTTPS URL, method, headers, body, and timeout. Wait for explicit approval. The review card returns a short-lived one-use token bound to those exact values; pass the token and identical request fields to httpFetch. Never send an unreviewed or modified request.",
+  description:
+    "Before making any outbound HTTP request, show the user the exact HTTPS URL, method, headers, body, and timeout. Wait for explicit approval. The review card returns a short-lived one-use token bound to those exact values; pass the token and identical request fields to httpFetch. Never send an unreviewed or modified request.",
   inputSchema: httpRequestApprovalSchema,
 });
 
@@ -141,11 +157,25 @@ export const createAgentInputSchema = z.object({
   role: z.string().trim().max(200).optional(),
   systemPrompt: z.string().trim().min(1).max(12000),
   tools: z.array(z.nativeEnum(DefaultToolName)).max(20).optional(),
+  model: z
+    .string()
+    .trim()
+    .min(3)
+    .max(120)
+    .regex(/^[A-Za-z0-9][A-Za-z0-9 _-]*\/.+$/)
+    .optional(),
+  schedule: z
+    .object({
+      cronExpression: z.string().trim().min(1).max(120),
+      timezone: z.string().trim().min(1).max(64),
+      inputPrompt: z.string().trim().min(1).max(8000),
+    })
+    .optional(),
 });
 
 export const createAgentTool = tool({
   description:
-    "Propose saving the current work as a reusable agent when the user asks for one. Include only relevant built-in tools from the available tool list. The user reviews and edits the name, description, role, instructions, and tools before an authenticated API creates it. Never claim it is saved until the user confirms.",
+    'Propose saving the current work as a reusable agent when the user asks for one. Include only relevant built-in tools from the available tool list. If the user explicitly asks to pin a model, provide its exact "provider/model" value from the available model catalog; otherwise omit model so the agent inherits the chat selection. If the user asks for recurring runs, include a valid five-field cronExpression, IANA timezone, and exact inputPrompt. The user reviews and edits the agent and optional schedule; an authenticated API creates the agent and schedule only after explicit approval. Never claim either was saved until confirmed.',
   inputSchema: createAgentInputSchema,
 });
 

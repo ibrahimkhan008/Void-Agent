@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   store: new Map<string, string>(),
+  mgetError: false,
   logs: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
   createContext: vi.fn(() => ({ mock: true })),
 }));
@@ -23,6 +24,10 @@ vi.mock("ioredis", () => ({
     }
     async get(key: string) {
       return mocks.store.get(key) ?? null;
+    }
+    async mget(...keys: string[]) {
+      if (mocks.mgetError) throw new Error("redis unavailable");
+      return keys.map((key) => mocks.store.get(key) ?? null);
     }
     async del(key: string) {
       return mocks.store.delete(key) ? 1 : 0;
@@ -48,6 +53,7 @@ async function loadWithEnv(env: { REDIS_URL?: string; KV_URL?: string }) {
 
 beforeEach(() => {
   mocks.store.clear();
+  mocks.mgetError = false;
   vi.clearAllMocks();
 });
 afterEach(() => {
@@ -91,5 +97,31 @@ describe("chat stream context", () => {
     await context.setActiveStream("thread-a", "stream-new");
     await context.clearActiveStream("thread-a", "stream-old");
     expect(await context.getActiveStream("thread-a")).toBe("stream-new");
+  });
+
+  it("lists active stream pointers for a bounded set of threads", async () => {
+    const context = await loadWithEnv({ REDIS_URL: "redis://cache.test" });
+    await context.setActiveStream("thread-a", "stream-1");
+    await context.setActiveStream("thread-c", "stream-2");
+    expect(
+      await context.getActiveStreamThreadIds([
+        "thread-a",
+        "thread-b",
+        "thread-c",
+      ]),
+    ).toEqual(new Set(["thread-a", "thread-c"]));
+    expect(await context.getActiveStreamThreadIds([])).toEqual(new Set());
+  });
+
+  it("fails closed to an empty set when active-pointer lookup fails", async () => {
+    const context = await loadWithEnv({ REDIS_URL: "redis://cache.test" });
+    mocks.mgetError = true;
+    expect(await context.getActiveStreamThreadIds(["thread-a"])).toEqual(
+      new Set(),
+    );
+    expect(mocks.logs.warn).toHaveBeenCalledWith(
+      "active-stream lookup failed",
+      expect.any(Error),
+    );
   });
 });

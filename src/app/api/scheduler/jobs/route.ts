@@ -4,7 +4,11 @@ import { handleError } from "@/app/api/chat/shared.chat";
 import { getSession } from "auth/server";
 import { z } from "zod";
 
-import { schedulerRepository } from "lib/db/repository";
+import { agentRepository, schedulerRepository } from "lib/db/repository";
+import {
+  ScheduledJobIdempotencyConflictError,
+  ScheduledJobReplayUnavailableError,
+} from "lib/db/pg/repositories/scheduler-repository.pg";
 import {
   createScheduledJobForUser,
   publicScheduledJob,
@@ -80,13 +84,44 @@ export async function POST(request: Request) {
     return new Response(errorFromZod(parsed.error), { status: 400 });
   }
 
+  const idempotencyKey = request.headers.get("Idempotency-Key");
+  if (
+    idempotencyKey !== null &&
+    !/^[A-Za-z0-9._:-]{1,200}$/.test(idempotencyKey)
+  ) {
+    return new Response("Invalid idempotency key", { status: 400 });
+  }
+
+  if (parsed.data.agentId) {
+    const agent = await agentRepository.selectAgentById(
+      parsed.data.agentId,
+      session.user.id,
+    );
+    // A public/read-only agent is not sufficient: scheduled runs execute with
+    // the caller's authority and must target an agent owned by that caller.
+    if (!agent || agent.userId !== session.user.id) {
+      return new Response("Agent not found", { status: 404 });
+    }
+  }
+
   try {
-    const job = await createScheduledJobForUser(session.user.id, {
-      ...parsed.data,
-      createdFrom: "api",
-    });
+    const job = await createScheduledJobForUser(
+      session.user.id,
+      {
+        ...parsed.data,
+        createdFrom: "api",
+      },
+      new Date(),
+      idempotencyKey ?? undefined,
+    );
     return Response.json({ job: publicScheduledJob(job) });
   } catch (err) {
+    if (err instanceof ScheduledJobIdempotencyConflictError) {
+      return Response.json({ error: err.message }, { status: 409 });
+    }
+    if (err instanceof ScheduledJobReplayUnavailableError) {
+      return Response.json({ error: err.message }, { status: 410 });
+    }
     const message =
       err instanceof Error ? err.message : "Failed to create schedule.";
     return new Response(message, { status: 400 });

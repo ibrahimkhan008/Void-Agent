@@ -3,6 +3,10 @@
 Void-Agent is the only implementation target. Reference hashes are captured in
 repository-discovery.json; do not modify the reference or replace the primary tree.
 
+## F032 streaming markdown performance adaptation (2026-11-07)
+
+Reuse Void-Agent's renderer and keep its existing GFM, KaTeX, Shiki, Mermaid, JSON, citation/table, link and ReactMarkdown URL-safety behavior. Split only at stable top-level blank-line boundaries, with fence/display-math guards; memoize blocks by source text and streaming state. Preserve GFM loose lists while collapsing arbitrarily long blank runs to one retained separator. Propagate the chat's active generation state only to the last text block and defer syntax highlighting/word splitting until that block settles. Test mounted rerenders directly so unchanged earlier blocks must not invoke ReactMarkdown again. Keep the family PARTIAL until the integrated typecheck and production build pass.
+
 Use direct adaptation only for isolated compatible behavior. Rewrite features tied
 to AI SDK 7, postgres.js, organization tables or workspace packages around existing
 AI SDK 5, node-postgres, Team and site_config interfaces. Reuse existing memory,
@@ -496,3 +500,18 @@ Source queries use the project's exact collection attachment list plus owner IDs
 - **Tests:** Full pnpm test passed: 1,598 tests across 268 files. Focused tests for this work passed (48 tests across 13 files). pnpm check-types passed with a 6 GB Node heap; pnpm db:check, scoped Biome lint/import check, formatting checks for new files, and git diff --check passed.
 - **Build:** The latest production build after these parallel slices is pending. A preceding build passed 192/192 pages before the provider/notification/voice changes; do not use that earlier build as current verification.
 - **Known gaps:** No live PostgreSQL/migration application or browser/device/provider service journey was run. Migration 0058 remains unapplied. Overall migration, F037 document workflows, CreateAgent feature parity, project-specific collaboration, per-user local models, and other remaining matrix entries are still incomplete.
+
+## CreateAgent schedule adaptation (2026-11-07)
+Keep the existing agent approval transaction and the existing scheduler subsystem. The approval UI performs the agent create first, then calls the scheduler API with the same stable tool-call idempotency key in a separate idempotency namespace. The scheduler reservation/hash/job are transactional; retries after network uncertainty resolve to the existing job or a payload conflict instead of creating duplicates. The endpoint verifies current ownership of any target agent before scheduling. Do not store artifact URLs or accept arbitrary files as an agent binding without a complete owner-checked staging/runtime contract. Model pinning similarly requires routing changes before model resolution, outside this batch.
+
+## F015 published pages (2026-11-07)
+Adapt the reference shareable-page feature using append-only version records and stable unlisted slugs. Keep publishing and revocation owner-authenticated and same-origin; public serving uses an isolated sandbox CSP and no-store response. Treat URLs as bearer links. Migration 0060 is local and must be applied before database-backed use; retain PARTIAL status until a browser and disposable PostgreSQL publish/republish/revoke test passes.
+
+## F025 model pin design (2026-11-07)
+Use the existing `Agent.instructions` JSON to avoid a schema migration. The review UI consumes a server-authenticated enabled model catalog and submits only a user-reviewed `provider/model` value. Server create/update validation remains authoritative. Chat resolves the selected agent through the same user-scoped owner/public visibility helper already used for agent instructions; only that returned authorized agent may select a model. Validate persisted pins against the current catalog and return a clear conflict when a model was disabled or removed. Feed the effective model through all downstream model identity, budget/pricing, and usage paths. Preserve the requested model exactly when the agent is unauthorized, absent, or has no pin.
+
+Remaining CreateAgent migration work includes reference file-binding parity and integrated build/type verification; this pin slice alone does not complete the family.
+
+## F023 evidence-based scope decision (2026-11-07)
+- Do not invent a managed GitHub-source-to-container workflow builder from schema columns alone. The checked V2 community generator is an explicit null stub; dashboard provisioning/session/hosting has no executable route, UI, worker, or implementation.
+- Record this hosted-only surface as EXCLUDED. Preserve standard workflow CRUD/editor/execution parity tracking separately; primary n8n integration and internal graph workflow execution remain supported, with their existing auth/review boundaries.

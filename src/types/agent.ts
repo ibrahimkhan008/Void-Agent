@@ -12,6 +12,8 @@ export const AgentInstructionsSchema = z.object({
   role: z.string().optional(),
   systemPrompt: z.string().optional(),
   mentions: z.array(ChatMentionSchema).optional(),
+  /** Optional provider/model pin for agent chat; absent/null inherits the chat model. */
+  model: z.string().trim().max(120).nullable().optional(),
 });
 
 export const AgentCreateSchema = z

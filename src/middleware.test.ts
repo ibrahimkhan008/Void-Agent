@@ -47,4 +47,12 @@ describe("middleware session cookie prefixes", () => {
     );
     expect(response.status).toBe(200);
   });
+
+  it("allows unlisted published-page links without an account cookie", async () => {
+    const response = await middleware(
+      new NextRequest(`http://localhost/p/launch-${"a".repeat(24)}`),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
 });

@@ -12,11 +12,13 @@ import {
   buildDefaultSecurityConfig,
 } from "lib/admin/site-config-defaults";
 import { invalidateAdminConfigCache } from "lib/admin/site-config-reader";
+import { validateModelPricingMap } from "lib/ai/model-pricing.server";
 import {
   customModelProvider,
   ensureDynamicProvidersHydrated,
   setAdminFallbackChain,
 } from "lib/ai/models";
+import { isValidTeamMemberBudgetRolloutValue } from "lib/ai/team-member-ai-budget-gate";
 import { requireAdminPermission } from "lib/auth/permissions";
 import { getSession } from "lib/auth/server";
 import { siteConfigRepository } from "lib/db/repository";
@@ -130,6 +132,8 @@ export async function GET(req: Request) {
 
     const modelsConfig = {
       providers: mergedProviders,
+      modelPricing: validateModelPricingMap(dbModels.modelPricing ?? {}) ?? {},
+      teamMemberBudgetsEnabled: dbModels.teamMemberBudgetsEnabled === true,
       ...(dbModels.globalFallback
         ? { globalFallback: dbModels.globalFallback }
         : {}),
@@ -254,6 +258,29 @@ export async function POST(req: Request) {
             { status: 400 },
           );
         }
+        if (
+          config.models?.modelPricing !== undefined &&
+          !validateModelPricingMap(config.models.modelPricing)
+        ) {
+          return NextResponse.json(
+            { success: false, error: "Invalid model pricing map" },
+            { status: 400 },
+          );
+        }
+        if (
+          config.models?.teamMemberBudgetsEnabled !== undefined &&
+          !isValidTeamMemberBudgetRolloutValue(
+            config.models.teamMemberBudgetsEnabled,
+          )
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Invalid team member budget rollout flag",
+            },
+            { status: 400 },
+          );
+        }
         let count = 0;
         for (const key of KEYS) {
           if (config[key] !== undefined) {
@@ -299,8 +326,40 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    let validatedSettings = settings ?? {};
+    if (key === "models") {
+      // Older model-settings clients submit only the fields they understand.
+      // Merge section fields so they cannot erase model pricing or provider
+      // configuration maintained by another admin workflow.
+      const existingModels = await siteConfigRepository.getConfig("models");
+      validatedSettings = { ...existingModels, ...validatedSettings };
+    }
+    if (key === "models" && validatedSettings.modelPricing !== undefined) {
+      const modelPricing = validateModelPricingMap(
+        validatedSettings.modelPricing,
+      );
+      if (!modelPricing) {
+        return NextResponse.json(
+          { success: false, error: "Invalid model pricing map" },
+          { status: 400 },
+        );
+      }
+      validatedSettings = { ...validatedSettings, modelPricing };
+    }
+    if (
+      key === "models" &&
+      validatedSettings.teamMemberBudgetsEnabled !== undefined &&
+      !isValidTeamMemberBudgetRolloutValue(
+        validatedSettings.teamMemberBudgetsEnabled,
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Invalid team member budget rollout flag" },
+        { status: 400 },
+      );
+    }
     try {
-      await siteConfigRepository.upsert(key, settings ?? {}, userId);
+      await siteConfigRepository.upsert(key, validatedSettings, userId);
       invalidateAdminConfigCache();
 
       // Sync admin fallback chains into the runtime model registry

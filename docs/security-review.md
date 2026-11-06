@@ -592,3 +592,22 @@ Shared access is opt-in via a user-selected team. The API resolves current membe
 - Conversation archive export/import was reviewed: authenticated ownership, bounded body/rows/message lengths, strict text-only schema, new owner-bound IDs, same-origin import, and partial-import cleanup are present. No major issue found in the reviewed path.
 - `cockpit_push_update` is bound to the current user, validates local hrefs, rate-limits and deduplicates events, and pushes only to that user's subscriptions. Push endpoint SSRF checks remain active.
 - Full `pnpm check` and production build passed. No external live delivery, PostgreSQL, browser, or device tests were run; migration files remain unapplied.
+
+## CreateAgent schedule approval review (2026-11-07)
+- Approval boundary remains explicit: model output is only a proposal; the user reviews the recurring schedule before agent creation and scheduler POST. There is no autonomous creation from the model proposal.
+- The schedule API requires a current authenticated session, same-origin request, bounded body/schema, and exact ownership of any referenced agent. It does not permit scheduling a publicly visible agent owned by another user.
+- The durable idempotency hash binds user, agent, name, cron, timezone, trigger prompt, thread context, and exact one-shot time where applicable. On a lost response, same-key/same-payload returns the stored job; altered payload is 409; deleted job replay is 410 with a persistent tombstone. Migration 0061 must be applied before this path is usable.
+- No new secrets or public credentials are introduced. No live PostgreSQL transaction/concurrency test or schedule worker execution was performed.
+
+## F015 published-page security and data boundary (2026-11-07)
+- Publishing requires same-origin authenticated POST, a per-user rate limit, bounded request/HTML bytes, strict input schema, validated slug, and ownership confirmation for republishing. Dashboard listing is owner-scoped; revocation is owner-scoped and does not disclose another user's page existence.
+- Public page response is no-store and served from an unlisted opaque slug; `Content-Security-Policy` applies `sandbox allow-scripts` without same-origin, blocks network fetch/XHR, forms, frames, plugins and base URL changes, and disallows framing. `nosniff` and no-referrer are set.
+- Remaining evidence gap: migration 0060 is not applied; no live PostgreSQL or browser security journey was run. The public URL is an unlisted bearer-style link and can be shared by anyone who has it; users must revoke to disable access.
+
+## F025 model pin checkpoint (2026-11-07)
+Model selection is implemented in the CreateAgent HITL proposal and runtime. The catalog endpoint is authenticated/permission-gated, no-store, and filters to enabled providers with runtime keys. Agent create/update APIs reject unavailable pins. Runtime uses only the access-scoped selected agent, applies its validated pin before provider resolution, records the effective model, and routes it through the team budget price gate. Stale pins receive a clear 409; unpinned/unauthorized selections preserve the requested model. The CreateAgent family remains PARTIAL due reference file bindings and integrated checks.
+
+## F015 published-page storage quota follow-up (2026-11-07)
+- Authenticated publishers are bounded to 50 stored snapshots per owner (approximately 100 MiB maximum HTML at the existing 2 MiB snapshot bound); each slug retains at most its newest 10 versions. Owner-scoped advisory lock precedes slug lock so concurrent publishes to different slugs cannot race the quota check. Existing active pages are never pruned; revoked snapshots may be reclaimed. A full owner quota returns HTTP 409.
+- Upstream page-generation instructions explicitly require absolute HTTPS image URLs, so the public CSP continues to allow HTTPS/data images and HTTPS font/media assets. `no-referrer`, `connect-src 'none'`, and opaque-origin sandbox remain. Remote asset hosts can nevertheless observe viewer IP/request metadata; this is documented privacy behavior, not presented as hidden.
+- Focused mocks verify quota/retention selection, route/tool errors, and lock use. No PostgreSQL concurrency test or public browser security journey was run; migration 0060 remains unapplied.

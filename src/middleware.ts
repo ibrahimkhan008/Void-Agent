@@ -63,6 +63,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/users", request.url));
   }
 
+  // Published pages are unlisted capability links; visitors do not need an
+  // account, and the route handler applies no-store sandboxed-page headers.
+  if (pathname.startsWith("/p/")) return NextResponse.next();
+
   // 301 redirect /landing to / for canonical consolidation
   if (pathname === "/landing" || pathname === "/landing/") {
     return NextResponse.redirect(new URL("/", request.url), 301);

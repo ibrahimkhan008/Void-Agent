@@ -506,3 +506,29 @@ Source readers and the ingest queue now support exact project-attached same-team
 - **Tests:** Full pnpm test passed: 1,598 tests across 268 files. Focused tests for this work passed (48 tests across 13 files). pnpm check-types passed with a 6 GB Node heap; pnpm db:check, scoped Biome lint/import check, formatting checks for new files, and git diff --check passed.
 - **Build:** The latest production build after these parallel slices is pending. A preceding build passed 192/192 pages before the provider/notification/voice changes; do not use that earlier build as current verification.
 - **Known gaps:** No live PostgreSQL/migration application or browser/device/provider service journey was run. Migration 0058 remains unapplied. Overall migration, F037 document workflows, CreateAgent feature parity, project-specific collaboration, per-user local models, and other remaining matrix entries are still incomplete.
+
+## 2026-11-07 Addendum: CreateAgent schedule parity
+- Completed a bounded end-to-end optional recurring schedule workflow in the existing CreateAgent HITL card. Schedule cron, IANA timezone, and run prompt are editable and included in explicit approval.
+- Added migration 0061 durable idempotency reservations (after published pages 0060 and before team-member budget 0062). The database migration must be applied before persistent retries work in an environment using this code.
+- Remaining in this CreateAgent family: reference model pinning and file bindings; this batch did not mark either complete because the primary agent execution path lacks a validated model-override lifecycle and a verified owned-file staging consumer. Full CreateAgent family remains PARTIAL.
+
+## 2026-11-07 F015 follow-up
+Published-page storage/lifecycle has an initial verified implementation (migration 0060 and owner management/public reader), but the live database/browser journey and integrated type/build remain pending. Keep F015 PARTIAL; no release readiness claim until migration application and public-view/revocation journeys are verified.
+
+### F032 streaming markdown performance (2026-11-07)
+
+- [x] Reconcile the reference block splitter/memoized renderer with the primary GFM/KaTeX/code/table/citation/security behavior.
+- [x] Test mounted component rerenders to prove stable blocks bail out while the live tail changes; test the streaming-to-settled transition.
+- [x] Defer Shiki highlighting and word splitting for the active streaming tail.
+- [ ] Root integrated typecheck and production build; only then consider marking this individual slice COMPLETE. No browser workload benchmark has been run.
+- Follow-up hardening: changed separator buffering to a boolean and retain at most one loose-list blank separator; a 50,000-line blank-run regression test passes.
+
+## F025 CreateAgent follow-up (2026-11-07)
+- [x] Persist reviewed model pin in existing agent instruction JSON; validate against enabled catalog on create/update.
+- [x] Apply authorized agent pin to runtime effective model and team budget gate; reject stale pins with 409; preserve ordinary unpinned behavior.
+- [ ] Integrate reference file bindings if an owner-checked staging/consumption workflow can be verified.
+- [ ] Complete root integrated typecheck/build and broader CreateAgent parity verification.
+
+## F023 managed workflow generation/dashboard (2026-11-07)
+- Closed this reference-source audit as EXCLUDED for the hosted-only generation/dashboard layer: the community generator returns `null`, and the dashboard's schema-only fields have no corresponding provisioning/runtime/UI path.
+- Continue standard workflow parity independently. The next integration work should target executable reference capability families, not speculative hosted infrastructure.

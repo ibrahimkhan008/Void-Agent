@@ -18,6 +18,16 @@ export interface ModelProviderConfig {
 export interface ModelsConfig {
   providers: Record<string, ModelProviderConfig>;
   globalFallback?: string;
+  /** Explicit rollout switch for per-team-member monthly model cost budgets. */
+  teamMemberBudgetsEnabled?: boolean;
+  modelPricing?: Record<
+    string,
+    {
+      inputMicrosPerMillion: number;
+      outputMicrosPerMillion: number;
+      currency: string;
+    }
+  >;
 }
 
 // Tool configuration

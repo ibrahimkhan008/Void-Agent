@@ -43,6 +43,18 @@ export function findPendingUserAction(messages: UIMessage[]): {
 
 function notify(alert: ChatBackgroundAlert): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
+  const desktopNotifications = window.desktop?.notifications;
+  if (document.hidden && desktopNotifications) {
+    if (deduper.claim(alert)) {
+      void desktopNotifications
+        .show({
+          kind: alert.kind,
+          threadId: alert.threadId,
+        })
+        .catch(() => undefined);
+    }
+    return;
+  }
   if (
     !shouldSendChatBackgroundAlert({
       enabled: true,

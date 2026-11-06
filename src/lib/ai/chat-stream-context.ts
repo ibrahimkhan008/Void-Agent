@@ -57,6 +57,21 @@ export async function getActiveStream(threadId: string) {
   return (await getKeyClient()?.get(activeKey(threadId))) ?? null;
 }
 
+/** Return recently-active threads that currently have an active stream pointer. */
+export async function getActiveStreamThreadIds(
+  threadIds: string[],
+): Promise<Set<string>> {
+  const client = getKeyClient();
+  if (!client || threadIds.length === 0) return new Set();
+  try {
+    const values = await client.mget(...threadIds.map(activeKey));
+    return new Set(threadIds.filter((_, index) => values[index] != null));
+  } catch (error) {
+    logger.warn("active-stream lookup failed", error);
+    return new Set();
+  }
+}
+
 export async function clearActiveStream(
   threadId: string,
   expectedStreamId?: string,

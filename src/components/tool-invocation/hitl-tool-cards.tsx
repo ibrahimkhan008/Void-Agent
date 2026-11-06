@@ -436,7 +436,11 @@ export function HitlToolCard({
           description: String(input.description ?? ""),
           role: String(input.role ?? ""),
           systemPrompt: String(input.systemPrompt ?? ""),
+          model: typeof input.model === "string" ? input.model : "",
           tools: normalizeDefaultToolNames(input.tools),
+          schedule: input.schedule && typeof input.schedule === "object"
+            ? input.schedule as { cronExpression: string; timezone: string; inputPrompt: string }
+            : undefined,
         }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
@@ -959,16 +963,28 @@ function CreateAgentApprovalCard({
     description: string;
     role: string;
     systemPrompt: string;
+    model: string;
     tools: string[];
+    schedule?: { cronExpression: string; timezone: string; inputPrompt: string };
   };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
   onSubmit: (result: Record<string, unknown>) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(initialDraft);
+  const [modelOptions, setModelOptions] = useState<Array<{ value: string; provider: string; model: string }>>([]);
+  const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
+  const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
+  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean(initialDraft.schedule));
+  const [scheduleDraft, setScheduleDraft] = useState(() => initialDraft.schedule ?? {
+    cronExpression: "0 9 * * 1-5",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    inputPrompt: "Run the task described in the agent instructions.",
+  });
+  const [scheduleSubmission, setScheduleSubmission] = useState<Record<string, string> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string } | null>(
+  const [created, setCreated] = useState<{ id: string; name: string; scheduleId?: string } | null>(
     submitted?.created === true && typeof submitted.agentId === "string"
       ? {
           id: submitted.agentId,
@@ -979,9 +995,71 @@ function CreateAgentApprovalCard({
   const update = (key: keyof typeof draft, value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/agent/models", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load available models.");
+        const payload = await response.json() as { models?: unknown };
+        if (!Array.isArray(payload.models)) throw new Error("Invalid model catalog response.");
+        const models = payload.models.filter((entry): entry is { value: string; provider: string; model: string } =>
+          Boolean(entry) && typeof entry === "object" &&
+          typeof (entry as { value?: unknown }).value === "string" &&
+          typeof (entry as { provider?: unknown }).provider === "string" &&
+          typeof (entry as { model?: unknown }).model === "string",
+        );
+        if (active) setModelOptions(models);
+      })
+      .catch((error) => {
+        if (active) setModelCatalogError(error instanceof Error ? error.message : "Could not load available models.");
+      })
+      .finally(() => {
+        if (active) setModelCatalogLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   const finish = async (result: Record<string, unknown>) => {
     if (disabled) return;
     await onSubmit(result);
+  };
+
+  const createSchedule = async (agentId: string) => {
+    const requestBody = scheduleSubmission ?? {
+      scheduleType: "recurring",
+      title: `${draft.name.trim()} schedule`.slice(0, 120),
+      prompt: scheduleDraft.inputPrompt.trim(),
+      cron: scheduleDraft.cronExpression.trim(),
+      timezone: scheduleDraft.timezone.trim(),
+      agentId,
+    };
+    setScheduleSubmission(requestBody);
+    const response = await fetch("/api/scheduler/jobs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": requestKey,
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const result = await response.json().catch(() => null) as { job?: { id?: unknown }; error?: unknown } | null;
+    if (!response.ok) {
+      if (response.status === 400) setScheduleSubmission(null);
+      if (response.status === 409) throw new Error("This schedule approval key was used for different schedule details. Start a new agent proposal to change it.");
+      if (response.status === 410) throw new Error("The schedule from this approval was deleted. Start a new proposal to schedule again.");
+      throw new Error(typeof result?.error === "string" ? result.error : "Could not create the recurring schedule. Retry safely.");
+    }
+    if (typeof result?.job?.id !== "string") throw new Error("Invalid schedule response");
+    return result.job.id;
+  };
+
+  const returnCreatedResult = async (id: string, name: string, scheduleId?: string) => {
+    await finish({
+      created: true,
+      agentId: id,
+      agentName: name,
+      ...(scheduleId ? { scheduledJobId: scheduleId } : {}),
+    });
   };
 
   const create = async () => {
@@ -989,11 +1067,14 @@ function CreateAgentApprovalCard({
       isCreating ||
       created ||
       !draft.name.trim() ||
-      !draft.systemPrompt.trim()
+      !draft.systemPrompt.trim() ||
+      modelCatalogLoading ||
+      Boolean(draft.model && !modelOptions.some((option) => option.value === draft.model))
     )
       return;
     setIsCreating(true);
     let writeSucceeded = false;
+    let scheduleSaved = false;
     try {
       const response = await fetch("/api/agent", {
         method: "POST",
@@ -1009,11 +1090,16 @@ function CreateAgentApprovalCard({
           instructions: {
             role: draft.role.trim() || undefined,
             systemPrompt: draft.systemPrompt.trim(),
+            model: draft.model || undefined,
             mentions: defaultToolMentionsFromNames(draft.tools),
           },
         }),
       });
       if (response.status === 409) {
+        const conflict = await response.json().catch(() => null) as { code?: unknown } | null;
+        if (conflict?.code === "agent-model-unavailable") {
+          throw new Error("The selected model is no longer enabled. Choose another model or inherit the current chat model.");
+        }
         throw new Error(
           "This approval key was already used for a different draft. Restore the approved draft to retry safely.",
         );
@@ -1030,11 +1116,20 @@ function CreateAgentApprovalCard({
       }
       setCreated({ id: agent.id, name: agent.name });
       writeSucceeded = true;
-      await finish({ created: true, agentId: agent.id, agentName: agent.name });
+      if (scheduleEnabled) {
+        const scheduleId = await createSchedule(agent.id);
+        scheduleSaved = true;
+        setCreated({ id: agent.id, name: agent.name, scheduleId });
+        await returnCreatedResult(agent.id, agent.name, scheduleId);
+      } else {
+        await returnCreatedResult(agent.id, agent.name);
+      }
     } catch (error) {
       toast.error(
-        writeSucceeded
-          ? "Agent was created, but its result could not be returned. Retry below."
+        writeSucceeded && scheduleEnabled && !scheduleSaved
+          ? "Agent was created, but its schedule was not confirmed. Retry schedule creation below; it is safe to retry."
+          : writeSucceeded
+            ? "Agent was created, but its result could not be returned. Retry below."
           : error instanceof Error
             ? error.message
             : "Could not create the agent. Check your access and try again.",
@@ -1050,6 +1145,7 @@ function CreateAgentApprovalCard({
   if (created || submitted?.created === true) {
     const id = created?.id ?? String(submitted?.agentId ?? "");
     const name = created?.name ?? String(submitted?.agentName ?? "Agent");
+    const scheduleId = created?.scheduleId ?? (typeof submitted?.scheduledJobId === "string" ? submitted.scheduledJobId : undefined);
     return (
       <section className="my-3 rounded-lg border bg-background p-4">
         <p className="font-medium">Agent created</p>
@@ -1059,12 +1155,33 @@ function CreateAgentApprovalCard({
         >
           {name}
         </Link>
-        {created && !submitted && (
+        {scheduleEnabled && (
+          <div className="mt-3 space-y-2 text-sm">
+            {scheduleId ? (
+              <p>Recurring schedule created: <span className="font-mono">{scheduleId}</span></p>
+            ) : (
+              <>
+                <p>The agent exists. The recurring schedule still needs confirmation.</p>
+                <label className="block space-y-1"><span>Cron schedule</span><Input disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={120} value={scheduleDraft.cronExpression} onChange={(event) => setScheduleDraft((current) => ({ ...current, cronExpression: event.target.value }))} /></label>
+                <label className="block space-y-1"><span>Time zone</span><Input disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={64} value={scheduleDraft.timezone} onChange={(event) => setScheduleDraft((current) => ({ ...current, timezone: event.target.value }))} /></label>
+                <label className="block space-y-1"><span>Run prompt</span><Textarea disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={8000} value={scheduleDraft.inputPrompt} onChange={(event) => setScheduleDraft((current) => ({ ...current, inputPrompt: event.target.value }))} /></label>
+                {created && <Button disabled={disabled || isCreating || !scheduleDraft.inputPrompt.trim()} onClick={() => {
+                  setIsCreating(true);
+                  void createSchedule(id).then(async (jobId) => {
+                    setCreated({ id, name, scheduleId: jobId });
+                    await returnCreatedResult(id, name, jobId);
+                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not create the schedule.")).finally(() => setIsCreating(false));
+                }}>{isCreating ? "Saving schedule…" : "Retry schedule creation"}</Button>}
+              </>
+            )}
+          </div>
+        )}
+        {created && !submitted && (!scheduleEnabled || scheduleId) && (
           <div className="mt-3">
             <Button
               disabled={disabled}
               onClick={() =>
-                void finish({ created: true, agentId: id, agentName: name })
+                void returnCreatedResult(id, name, scheduleId)
               }
               size="sm"
             >
@@ -1124,6 +1241,25 @@ function CreateAgentApprovalCard({
           onChange={(event) => update("systemPrompt", event.target.value)}
         />
       </label>
+      <label className="block space-y-1 text-sm">
+        <span>Model</span>
+        <select
+          aria-label="Agent model"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          disabled={disabled || isCreating || modelCatalogLoading}
+          value={draft.model}
+          onChange={(event) => update("model", event.target.value)}
+        >
+          <option value="">Inherit current chat model</option>
+          {modelOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.provider} / {option.model}</option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">{modelCatalogLoading ? "Loading enabled models…" : modelCatalogError ?? "Choose an enabled model, or inherit the current chat model."}</span>
+        {!modelCatalogLoading && draft.model && !modelOptions.some((option) => option.value === draft.model) && (
+          <span role="alert" className="block text-xs text-destructive">This proposed model is unavailable. Choose an enabled model or inherit the chat model.</span>
+        )}
+      </label>
       <div className="space-y-1.5">
         <p className="text-sm">Built-in tools</p>
         <p className="text-xs text-muted-foreground">
@@ -1179,6 +1315,17 @@ function CreateAgentApprovalCard({
           </ul>
         )}
       </div>
+      <div className="space-y-2 rounded-md border p-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={scheduleEnabled} disabled={disabled || isCreating} onChange={(event) => setScheduleEnabled(event.target.checked)} />
+          Add a recurring schedule (optional)
+        </label>
+        {scheduleEnabled && <div className="space-y-2">
+          <label className="block space-y-1 text-sm"><span>Cron schedule</span><Input disabled={disabled || isCreating} maxLength={120} value={scheduleDraft.cronExpression} onChange={(event) => setScheduleDraft((current) => ({ ...current, cronExpression: event.target.value }))} placeholder="0 9 * * 1-5" /></label>
+          <label className="block space-y-1 text-sm"><span>Time zone</span><Input disabled={disabled || isCreating} maxLength={64} value={scheduleDraft.timezone} onChange={(event) => setScheduleDraft((current) => ({ ...current, timezone: event.target.value }))} /></label>
+          <label className="block space-y-1 text-sm"><span>Run prompt</span><Textarea disabled={disabled || isCreating} maxLength={8000} value={scheduleDraft.inputPrompt} onChange={(event) => setScheduleDraft((current) => ({ ...current, inputPrompt: event.target.value }))} /></label>
+        </div>}
+      </div>
       <div className="flex justify-end gap-2">
         <Button
           disabled={disabled || isCreating}
@@ -1192,7 +1339,9 @@ function CreateAgentApprovalCard({
             disabled ||
             isCreating ||
             !draft.name.trim() ||
-            !draft.systemPrompt.trim()
+            !draft.systemPrompt.trim() ||
+            modelCatalogLoading ||
+            Boolean(draft.model && !modelOptions.some((option) => option.value === draft.model))
           }
           onClick={() => void create()}
         >

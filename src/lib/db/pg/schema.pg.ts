@@ -541,6 +541,35 @@ export const CanvasExportTable = pgTable(
   ],
 );
 
+// Public page snapshots use an unguessable slug as a bearer capability. Each
+// publish appends a version so the URL remains stable; revoking the slug takes
+// every version offline.
+export const PublishedPageTable = pgTable(
+  "published_page",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    slug: text("slug").notNull(),
+    version: integer("version").notNull().default(1),
+    title: text("title").notNull(),
+    html: text("html").notNull(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id"),
+    threadId: uuid("thread_id"),
+    publishedAt: timestamp("published_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => [
+    unique("published_page_slug_version_unique").on(table.slug, table.version),
+    index("published_page_slug_idx").on(table.slug),
+    index("published_page_owner_idx").on(table.ownerId),
+  ],
+);
+
 export type ArchiveEntity = typeof ArchiveTable.$inferSelect;
 export type ArchiveItemEntity = typeof ArchiveItemTable.$inferSelect;
 export type BookmarkEntity = typeof BookmarkTable.$inferSelect;
@@ -1247,6 +1276,37 @@ export const ScheduledJobTable = pgTable(
 
 export type ScheduledJob = typeof ScheduledJobTable.$inferSelect;
 export type NewScheduledJob = typeof ScheduledJobTable.$inferInsert;
+
+// Idempotency tombstones for approved agent schedules. Keeping the request
+// separate from scheduled_job means a deleted schedule cannot be recreated by
+// replaying an old approval after a lost response.
+export const ScheduledJobCreationRequestTable = pgTable(
+  "scheduled_job_creation_request",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    requestKey: varchar("request_key", { length: 200 }).notNull(),
+    requestHash: varchar("request_hash", { length: 64 }).notNull(),
+    scheduledJobId: uuid("scheduled_job_id").references(
+      () => ScheduledJobTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({
+      name: "scheduled_job_creation_request_pk",
+      columns: [table.userId, table.requestKey],
+    }),
+    index("scheduled_job_creation_request_job_idx").on(table.scheduledJobId),
+  ],
+);
+
+export type ScheduledJobCreationRequest =
+  typeof ScheduledJobCreationRequestTable.$inferSelect;
 
 // One row per attempted run. Status moves running -> completed | failed |
 // skipped. `output` captures the LLM response / final message id when the
@@ -2030,6 +2090,84 @@ export const TeamMemberTable = pgTable(
 
 export type TeamMember = typeof TeamMemberTable.$inferSelect;
 export type NewTeamMember = typeof TeamMemberTable.$inferInsert;
+
+/** Per-team-seat monthly spend policy, reservation ledger and finalized usage. */
+export const TeamMemberAiPolicyTable = pgTable("team_member_ai_policy", {
+  memberId: uuid("member_id")
+    .primaryKey()
+    .references(() => TeamMemberTable.id, { onDelete: "cascade" }),
+  monthlyCapMicros: bigint("monthly_cap_micros", { mode: "number" }),
+  currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
+  hardStop: boolean("hard_stop").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const TeamMemberAiUsagePeriodTable = pgTable(
+  "team_member_ai_usage_period",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => TeamMemberTable.id, { onDelete: "cascade" }),
+    periodStart: timestamp("period_start").notNull(),
+    periodEnd: timestamp("period_end").notNull(),
+    finalizedMicros: bigint("finalized_micros", { mode: "number" })
+      .notNull()
+      .default(0),
+    reservedMicros: bigint("reserved_micros", { mode: "number" })
+      .notNull()
+      .default(0),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("team_member_ai_usage_period_member_start_unique").on(
+      table.memberId,
+      table.periodStart,
+    ),
+    index("team_member_ai_usage_period_member_idx").on(table.memberId),
+  ],
+);
+
+export const TeamMemberAiReservationTable = pgTable(
+  "team_member_ai_reservation",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    usagePeriodId: uuid("usage_period_id")
+      .notNull()
+      .references(() => TeamMemberAiUsagePeriodTable.id, {
+        onDelete: "cascade",
+      }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => TeamTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    modelKey: text("model_key").notNull(),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    estimateMicros: bigint("estimate_micros", { mode: "number" }).notNull(),
+    actualMicros: bigint("actual_micros", { mode: "number" }),
+    status: varchar("status", { length: 16 }).notNull().default("reserved"),
+    expiresAt: timestamp("expires_at").notNull(),
+    finalizedAt: timestamp("finalized_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("team_member_ai_reservation_period_idx").on(table.usagePeriodId),
+    index("team_member_ai_reservation_expiry_idx").on(
+      table.status,
+      table.expiresAt,
+    ),
+  ],
+);
 
 // Project workspace adapted to Void-Agent's Team/TeamMember model. A null
 // teamId is personal; teamId makes access follow current team membership.

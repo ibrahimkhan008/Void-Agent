@@ -1,5 +1,13 @@
 # Integration checkpoint 2 - primary-first migration
 
+## F032 markdown streaming rendering (2026-11-07)
+
+- Adapted reference block-level markdown rendering in `src/components/markdown.tsx` with a fenced-code/display-math-aware splitter, memoized blocks, and a per-block streaming context.
+- Main assistant and reasoning markdown mark only their active final block as streaming. Settled blocks bypass word splitting; code blocks defer Shiki until the streaming tail settles.
+- Preserved existing ReactMarkdown GFM/KaTeX plugins, table/citation renderers, Shiki/Mermaid/JSON support, raw-HTML-disabled behavior and default URL protocol filtering.
+- Verification: 9 focused tests passed across parser and mounted React renderer suites; a 50,000-line blank-run test checks bounded loose-list handling. Scoped Biome and `git diff --check` passed. Integrated typecheck/build pending. F032 remains PARTIAL until root verification.
+- No runtime dependency, backend/API, database, migration, push or deployment change. Added `jsdom` as a dev dependency to mount component behavior tests.
+
 This is a saved, incomplete engineering checkpoint. Full inventory semantics and
 feature parity are NOT complete. No production or database changes or push.
 
@@ -790,3 +798,51 @@ Next: reconcile these entries against every reference route/page/tool surface, p
 
 ### GitHub checkpoint (2026-11-07 00:15 +05:30)
 Verified migration snapshot pushed to private ibrahimkhan008/Void-Agent as commit 23589b8 on main. The local workspace retains only the two unrelated untracked CognixAI specification files; no code changes remain unpushed. No deployment or production database migration was performed.
+
+## F015 published page implementation checkpoint (2026-11-07)
+- Added append-only `published_page` version storage in migration 0060. Owners can publish/republish an HTML snapshot under an unlisted slug, manage their pages, and revoke them; the tool card links the published version.
+- Public reads at `/p/[slug]` return uncached HTML with a restrictive CSP sandbox (opaque origin, scripts allowed for static interactivity, network/form/frame/object access blocked). Publish requests are same-origin, authenticated, rate-limited, bounded, strict-schema parsed, and owner-checked when republishing an existing slug.
+- Evidence files: `src/app/api/published-page/route.ts`, `src/app/api/published-pages/route.ts`, `src/app/p/[slug]/route.ts`, `src/components/published-pages-dashboard.tsx`, `src/components/tool-invocation/published-page-tool.tsx`, `src/lib/published-page/schema.ts`, `src/lib/published-page/slug.ts`, `src/lib/published-page/slug-validation.ts`, `src/lib/db/pg/repositories/published-page-repository.pg.ts`, `src/lib/db/pg/schema.pg.ts`, migration `0060_published_pages.sql`.
+- Agent-reported verification: focused tests 20/20 across 7 files; `pnpm db:check`, scoped Biome, and `git diff --check` passed. Typecheck/build and live database/browser workflow are pending; migration 0060 remains unapplied. F015 stays PARTIAL.
+
+## 2026-11-07 status addendum
+- **F024 / CreateAgent schedule:** Optional recurring schedule review now feeds the existing scheduler. Durable idempotency and exact agent owner check are implemented; 38 focused tests pass. Migration 0061 is local/unapplied, and typecheck currently has two unrelated shared-work errors; no build/live scheduler test. F024 and CreateAgent remain PARTIAL.
+- **F015 / published pages:** Versioned HTML publishing, owner management, revoke and CSP-sandboxed public reader are implemented in 0060 with 20 reported focused tests. Integrated type/build and live database/browser checks remain pending. F015 remains PARTIAL.
+
+## F008 team-member monthly AI budget implementation (2026-11-07)
+- Added explicit admin-managed provider/model input and output rates in the `models.modelPricing` config section, stored as EUR micros per million tokens. No model prices are guessed. A capped member selecting a missing or wrong-currency rate fails closed before chat generation; uncapped users retain current model behavior.
+  - Added default €15 monthly hard-stop policies for non-owner team memberships, with owners/personal teams uncapped, plus persistent UTC monthly usage periods and per-run idempotent reservations. Enforcement is opt-in through admin model config `teamMemberBudgetsEnabled` (default false), preserving existing chat behavior until enabled. Configure trusted model rates before enabling. The main chat path derives scope from the authenticated thread/project, verifies team membership, reserves before model execution, finalizes from provider token usage, releases on abort/error, and expires orphan reservations after 15 minutes.
+- Files: `src/lib/ai/model-pricing.ts`, `model-pricing.server.ts`, `team-member-ai-budget.ts`, `team-member-ai-budget-core.ts`, `src/app/api/admin/config/route.ts`, `src/app/api/chat/route.ts`, `src/lib/db/pg/schema.pg.ts`, `src/lib/db/pg/repositories/team-repository.pg.ts`, `src/lib/db/pg/repositories/chat-repository.pg.ts`, `src/types/chat.ts`, migration `0062_team_member_ai_budget.sql`, and the two focused test files.
+- Verification: focused pricing/budget tests 8/8; scoped Biome passed; `pnpm check-types` passed with a 6 GB Node heap. No PostgreSQL test URL was configured, so migration execution, advisory-lock concurrency, and DB-backed authorization were not exercised. Migration 0062 remains unapplied.
+- F008 remains PARTIAL. The admin Models page now includes explicit opt-in and trusted per-model EUR rate controls. No per-member cap editor exists in the reference; it seeds the fixed €15 monthly cap for members and leaves owners uncapped. Current cost enforcement covers main `/api/chat` team-scoped threads/projects only; temporary chat, titles, agent generation, embeds, skills, canvas/artifacts/browser helper calls, tabular review calls and direct image generation remain outside this ledger. Their actual route/model pricing and team scope need separate adaptations before whole-product cost parity can be claimed.
+
+### F008 final rollout-gate build verification (2026-11-07)
+- Post-gate focused checks: rollout/pricing/budget tests passed 13/13; scoped Biome passed; 6 GB `pnpm check-types` exited 0.
+- Post-gate production build exited 0 and generated 193/193 pages; log: `.audit/build-20261107-rollout.log`. The integrated 1,699-test / 291-file suite was run before the rollout-gate correction and must not be attributed to this final gate state.
+- Migration 0062 remains unapplied; live PostgreSQL concurrency/migration verification remains pending. F008 remains PARTIAL for lack of admin pricing/cap UI, DB-backed verification, and route coverage outside main team-scoped `/api/chat`. No push or deploy.
+
+## F025 model-pin integration checkpoint (2026-11-07)
+- Adapted the optional reference provider/model pin without changing the agent table: store it in existing instructions JSON, validate against the authenticated enabled-model catalog at create/update time, and bind the reviewed value into approval idempotency hashing.
+- The chat route resolves the mentioned agent through the existing authorized lookup before resolving the model. It uses the agent pin as the effective model, rejects stale pins with HTTP 409, and preserves request-selected behavior for unauthorized/no-pin agents. Existing model fallback continues for normal runtime failures; it is not used to hide a disabled stored pin.
+- Verification: 27 focused tests across 5 files passed; scoped Biome checks for the seven isolated/new helper and API test files passed; scoped `git diff --check` passed. Shared `chat/route.ts` and HITL card have broader concurrent changes; whole-file formatting checks report existing formatting deltas and were not auto-applied. Integrated typecheck/build is pending with root.
+
+### F015 bounded publication storage (2026-11-07)
+- Added transactional storage bounds using existing rows only: 50 snapshots per owner and 10 versions per slug. Republish removes oldest version history first; new-page publication can reclaim revoked snapshots. If no safe prune can make room, route returns 409 and the tool reports the snapshot quota.
+- Owner lock is acquired before slug lock to serialize quota checks across concurrent different-slug publishes. Active pages are not deleted to satisfy quota. No schema change or migration application.
+- HTTPS remote assets remain allowed as required by the upstream page-generation instructions; referrer is omitted, but remote asset servers can still see requests/viewer IPs. F015 remains PARTIAL pending live PostgreSQL concurrency and browser testing.
+
+## Integrated verification checkpoint (2026-11-07)
+- Root integrated `pnpm check-types` exited 0. Full Vitest suite passed 1,743 tests across 299 files.
+- First two production build attempts failed during the compile stage with `undefined.length` and no stack/module attribution. The generated `.next` directory was preserved recoverably at ignored `.audit/next-failed-20261107-0130`; it was not destructively deleted. A clean production build (session 42765) then exited 0 and generated 194/194 pages.
+- The successful build still emitted known warnings: inferred workspace root, dependency critical-dependency diagnostics, existing `<img>` lint warnings, caught dynamic-server/session diagnostics during static generation, optional Redis/Upstash and E2B configuration warnings, and PostgreSQL SSL-mode warning. These did not fail the build.
+- No source changes in this checkpoint; no production DB operation/migration application, push, or deployment. F008 and F015 remain PARTIAL pending DB-backed/live journeys and migration application. CreateAgent remains PARTIAL pending file-binding parity; model-pin and optional schedule slices have focused test evidence. F032 implementation/build/type evidence is complete; retain PARTIAL only if a browser performance workload is required for acceptance.
+
+## 2026-11-07 integrated quality gate
+- Root integrated `pnpm check-types` exited 0; full test suite passed 1,743/1,743 across 299 files.
+- Two production build runs failed in compile with `undefined.length` and no stack. The generated `.next` tree was moved recoverably to ignored `.audit/next-failed-20261107-0130` for investigation. Clean build session 42765 passed and generated 194/194 pages. Non-fatal known warning categories are recorded in the testing report.
+- Status review: F032 implementation is complete under code/type/build verification; keep PARTIAL only if browser performance benchmarking is an explicit acceptance requirement. F008 remains PARTIAL (unapplied 0062, DB journey and broader route coverage). F015 remains PARTIAL (unapplied 0060 and no browser/Postgres lifecycle test). CreateAgent remains PARTIAL because file bindings and full end-to-end journeys are incomplete, despite model pin/schedule slices.
+- No source changes, migration application, production DB operation, push, or deployment in this verification batch.
+
+## F023 managed generator/dashboard adjudication (2026-11-07)
+- The reference community source has no executable hosted workflow generator or dashboard. Its registered `generate_workflow` tool calls a stub that explicitly returns `null`; dashboard URL/database fields exist only in schema and migration 0064, with no provisioning, session route, UI, or worker.
+- Classification: managed generator/dashboard EXCLUDED as source-incomplete/hosted-only. Ordinary workflow list/create/editor/execute remains a separate implemented capability in both projects. Primary additionally retains internal graph workflows and its authenticated n8n integration. No live deployment/provider workflow was run.

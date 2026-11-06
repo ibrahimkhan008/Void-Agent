@@ -1,5 +1,6 @@
 "use client";
 
+import { TeamMemberBudgetSettings } from "@/components/admin/team-member-budget-settings";
 import {
   FallbackChainSelector,
   FallbackChainValue,
@@ -729,6 +730,7 @@ export default function ModelsPage() {
   return (
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+      <TeamMemberBudgetSettings />
 
       {/* Add Dynamic Provider Modal */}
       {showAddModal && (

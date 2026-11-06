@@ -7,6 +7,7 @@ import {
   NewTeamMember,
   Team,
   TeamMember,
+  TeamMemberAiPolicyTable,
   TeamMemberTable,
   TeamTable,
   UserTable,
@@ -70,6 +71,12 @@ export const teamRepository = {
       userId: ownerId,
       role: "owner",
     } satisfies NewTeamMember);
+    await db.insert(TeamMemberAiPolicyTable).values({
+      memberId: (await teamRepository.getTeamMember(team!.id, ownerId))!.id,
+      monthlyCapMicros: null,
+      currency: "EUR",
+      hardStop: false,
+    });
 
     return team as Team;
   },
@@ -178,6 +185,22 @@ export const teamRepository = {
         set: { role },
       })
       .returning();
+    if (row) {
+      const [team] = await db
+        .select({ ownerId: TeamTable.ownerId })
+        .from(TeamTable)
+        .where(eq(TeamTable.id, teamId));
+      const owner = team?.ownerId === userId || role === "owner";
+      await db
+        .insert(TeamMemberAiPolicyTable)
+        .values({
+          memberId: row.id,
+          monthlyCapMicros: owner ? null : 15_000_000,
+          currency: "EUR",
+          hardStop: !owner,
+        })
+        .onConflictDoNothing();
+    }
     return row as TeamMember;
   },
 
@@ -274,6 +297,30 @@ export const teamRepository = {
         ),
       )
       .returning();
+    if (row) {
+      const owner = role === "owner";
+      await db
+        .insert(TeamMemberAiPolicyTable)
+        .values({
+          memberId: row.id,
+          monthlyCapMicros: owner ? null : 15_000_000,
+          currency: "EUR",
+          hardStop: !owner,
+        })
+        .onConflictDoUpdate({
+          target: TeamMemberAiPolicyTable.memberId,
+          set: {
+            ...(owner
+              ? { monthlyCapMicros: null, hardStop: false }
+              : {
+                  monthlyCapMicros: 15_000_000,
+                  currency: "EUR",
+                  hardStop: true,
+                }),
+            updatedAt: new Date(),
+          },
+        });
+    }
     return (row as TeamMember | undefined) ?? null;
   },
 };

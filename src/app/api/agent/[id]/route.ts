@@ -2,6 +2,7 @@ import { agentRepository } from "lib/db/repository";
 import { getSession } from "auth/server";
 import { z } from "zod";
 import { AgentUpdateSchema } from "app-types/agent";
+import { isEnabledAgentModel } from "lib/ai/agent/pinned-model";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
 import { canEditAgent, canDeleteAgent } from "lib/auth/permissions";
@@ -50,11 +51,23 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const data = AgentUpdateSchema.parse(body);
-
     // Check access for write operations
     const hasAccess = await agentRepository.checkAccess(id, session.user.id);
     if (!hasAccess) {
       return new Response("Unauthorized", { status: 401 });
+    }
+
+    if (
+      data.instructions?.model &&
+      !(await isEnabledAgentModel(data.instructions.model))
+    ) {
+      return Response.json(
+        {
+          code: "agent-model-unavailable",
+          error: "Choose a model from the currently enabled model catalog.",
+        },
+        { status: 409 },
+      );
     }
 
     // For non-owners of public agents, preserve original visibility

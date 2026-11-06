@@ -428,6 +428,27 @@
       "when": 1793977209000,
       "tag": "0059_project_collaborator_access",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793977210000,
+      "tag": "0060_published_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793977211000,
+      "tag": "0061_scheduled_job_creation_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793977212000,
+      "tag": "0062_team_member_ai_budget",
+      "breakpoints": true
     }
   ]
 }

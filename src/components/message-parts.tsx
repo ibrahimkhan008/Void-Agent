@@ -84,6 +84,7 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "ui/dialog";
 import { Input } from "ui/input";
 import { HitlToolCard } from "./tool-invocation/hitl-tool-cards";
+import { PublishedPageToolCard } from "./tool-invocation/published-page-tool";
 import { TabularReviewToolCard } from "./tool-invocation/tabular-review-tool";
 import { WorkflowInvocation } from "./tool-invocation/workflow-invocation";
 
@@ -519,6 +520,8 @@ UserMessagePart.displayName = "UserMessagePart";
 
 export const AssistMessagePart = memo(function AssistMessagePart({
   part,
+  isLast: isLastMessagePart,
+  isLoading: isMessageLoading,
   showActions,
   message,
   prevMessage,
@@ -807,7 +810,13 @@ export const AssistMessagePart = memo(function AssistMessagePart({
             isThinking={isStreaming}
           />
         )}
-        {shouldRenderAnswer && <Markdown>{renderedAnswerText}</Markdown>}
+        {shouldRenderAnswer && (
+          <Markdown
+            isStreaming={Boolean(isLastMessagePart && isMessageLoading)}
+          >
+            {renderedAnswerText}
+          </Markdown>
+        )}
         {ragChunks.length > 0 && <CitationList chunks={ragChunks} />}
         {usedCitations.length > 0 && (
           <div className="mt-1 rounded-xl border border-border/70 bg-muted/35 p-3 space-y-2.5">
@@ -1186,7 +1195,9 @@ export const ReasoningPart = memo(function ReasoningPart({
               style={{ overflow: "hidden" }}
               className="pl-6 text-muted-foreground border-l flex flex-col gap-4"
             >
-              <Markdown>{reasoningText}</Markdown>
+              <Markdown isStreaming={Boolean(isThinking)}>
+                {reasoningText}
+              </Markdown>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1495,6 +1506,10 @@ export const ToolMessagePart = memo(
 
       if (toolName === "createTabularReview") {
         return <TabularReviewToolCard part={part} />;
+      }
+
+      if (toolName === DefaultToolName.PublishPage) {
+        return <PublishedPageToolCard part={part} />;
       }
 
       if (

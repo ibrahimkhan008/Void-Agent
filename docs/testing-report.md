@@ -804,3 +804,68 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Focused batches also passed their own tests: selected-project collaboration (20/20), CSRF and notification URL hardening (30/30), voice transcript/summary workflows (24/24), conversation archive API (7/7), table review (14/14), CreateAgent tools (17/17), notification producer/subscription tests (as recorded in prior batch), and desktop consent IPC (4/4).
 - `pnpm db:check` passed for journaled migrations. Migrations 0058/0059 and earlier feature migrations remain unapplied; no live PostgreSQL migration or database-backed concurrency test was run. External provider, browser, device hardware, push-delivery and desktop package-signing checks remain unverified.
 - No deployment occurred. Verified code and migration documentation were pushed to the private Void-Agent GitHub repository as commit `23589b8` on `main`. No deployment occurred.
+
+## 2026-11-07 CreateAgent schedule and published-page verification addendum
+
+### F024 optional recurring schedule from CreateAgent
+- Focused test command: `pnpm exec vitest run src/lib/ai/tools/hitl/index.test.ts src/lib/scheduler/jobs.test.ts src/lib/db/pg/repositories/scheduler-repository.pg.test.ts src/app/api/scheduler/jobs/route.test.ts` — passed, 4 files / 38 tests.
+- Covers tool proposal bounds, schedule hash stability for recurring retries, exact schedule payload hash binding, transactional reservation insertion/replay, key payload conflict, deleted-job tombstone, caller-owned agent check, and key propagation.
+- `pnpm db:check` passed with 0061 in the journal; scoped `biome lint` passed; `git diff --check` passed. `pnpm check-types` did not pass because of two errors in concurrent files outside this batch: `src/app/api/chat/route.ts:1830` (`orgId` absent on `ChatThread`) and `src/lib/ai/team-member-ai-budget.ts:13` unused `TeamBudgetAuthorizationError` import. No production build, PostgreSQL migration application, browser workflow, or live recurring execution was run.
+
+### F015 published page checkpoint (parallel tabular/page agent)
+- The primary has an additive versioned slug store (migration 0060), owner-scoped publish/republish/revoke and page-management APIs/UI, and a public unlisted `/p/[slug]` reader. The public response is no-store and uses a CSP sandbox with opaque origin, blocked form/network/frame/object capabilities, and bounded publishing input. No signing in is required to read an unlisted page.
+- Evidence: `src/app/api/published-page/route.ts`, `src/app/api/published-pages/route.ts`, `src/app/p/[slug]/route.ts`, `src/components/published-pages-dashboard.tsx`, `src/components/tool-invocation/published-page-tool.tsx`, `src/lib/published-page/*`, migration `0060_published_pages.sql`.
+- Agent-reported focused verification: 20/20 tests across 7 files; `pnpm db:check`, scoped Biome, and `git diff --check` passed. Integrated typecheck/build are pending; migration 0060 is unapplied. F015 remains PARTIAL until disposable PostgreSQL and browser lifecycle tests pass.
+
+## F008 team-member monthly cost budget verification (2026-11-07)
+- Focused command: `pnpm exec vitest run src/lib/ai/model-pricing.test.ts src/lib/ai/team-member-ai-budget.test.ts` passed 2 files / 8 tests. Coverage includes explicit trusted pricing parsing, case-insensitive model lookup, missing/invalid price rejection, cost math, membership/team authorization matching, owner exemption, missing-policy fail-closed behavior, serialized concurrent capacity decisions, settlement/release counters, and UTC monthly boundaries.
+- Scoped `pnpm exec biome check` passed for pricing/budget modules, chat route, admin config route, team/chat repositories, schema and chat types. `pnpm db:check` passed. `git diff --check` passed with only existing LF/CRLF notices.
+- `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`. An initial default-heap invocation ran out of memory near 2 GB without diagnostics; the 6 GB rerun passed after correcting temporary import issues.
+- Integrated root suite passed 1,699 tests across 291 files. Production build is running; result pending.
+- No PostgreSQL test URL was configured. Migration execution, advisory-lock concurrency, actual membership queries, and stream settlement/release have not been exercised against PostgreSQL. Migration `0062_team_member_ai_budget.sql` is journaled but unapplied.
+- Admin rate configuration has no UI yet; it uses the authenticated `/api/admin/config` models section with `modelPricing` entries. No default model prices are shipped. Only main `/api/chat` team-scoped text generation is charged; other model routes/calls are listed under F008 explicit exclusions in the parity matrix.
+
+## F008 explicit rollout gate verification (2026-11-07)
+- Added admin-managed `models.teamMemberBudgetsEnabled`, strict boolean validation, and default-off behavior. Missing/false/invalid values do not load member policy or pricing and do not reserve budget; once explicitly enabled, capped members still fail closed for unpriced models. Admins should configure trusted prices before enabling.
+- Focused command: `pnpm exec vitest run src/lib/ai/model-pricing.test.ts src/lib/ai/team-member-ai-budget.test.ts src/lib/ai/team-member-ai-budget-gate.test.ts` passed 3 files / 13 tests. Scoped Biome check passed for six changed source/test files. `pnpm check-types` with a 6 GB Node heap exited 0.
+- Production build passed 193/193 pages before this rollout-gate correction; a fresh build after this correction remains pending. Migration 0062 remains unapplied; no live PostgreSQL verification. No push/deploy.
+
+## Final post-gate integrated verification (2026-11-07)
+- Rollout-gate focused tests: 13/13 across 3 files. Scoped Biome passed. `pnpm check-types` with a 6 GB Node heap exited 0.
+- Production build after the rollout-gate correction exited 0; Next generated 193/193 pages. Evidence: `.audit/build-20261107-rollout.log` (root reported build session 54975 exit 0).
+- The integrated 1,699-test / 291-file suite passed before the rollout-gate correction; it was not rerun for this final gate change. Migration 0062 remains unapplied; no live PostgreSQL verification. No push/deploy.
+
+## F032 streaming markdown rendering (2026-11-07)
+
+- Command: `pnpm test -- src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx` — 2 files, 9 tests passed.
+- Mounted React component test verifies the settled paragraph is not re-rendered as the tail changes, then verifies the tail re-renders when streaming completes. Parser coverage also verifies a 50,000-line blank run is collapsed without large variadic argument expansion while loose-list boundaries remain intact. Captured ReactMarkdown props assert GFM/remark-math and KaTeX remain configured and no raw-HTML or custom URL-transform plugin was added.
+- `pnpm exec biome check` passed on the seven affected source/test files; scoped `git diff --check` passed with only the repository's existing LF/CRLF notices.
+- Integrated typecheck/build intentionally not run in this batch; parent is coordinating integrated checks. F032 remains PARTIAL until these pass. No browser benchmark or live external integration applies to this render-only slice.
+
+## F008 budget administration UI (2026-11-07)
+- Added a section to the admin Models page for the default-off rollout switch and explicit EUR input/output rates per provider/model per million tokens. Rates are parsed as decimal strings into integer micros without floating-point rounding. The save request contains only the `models.modelPricing` and `models.teamMemberBudgetsEnabled` fields; the existing admin config endpoint authorizes the write and merges these into existing model settings, preserving providers and unrelated config.
+- Reference review found only a fixed default EUR 15 monthly cap policy and uncapped owners; no per-member cap editing API or UI exists upstream. No custom cap editor was introduced.
+- Focused UI/pricing/budget tests passed 24/24 across 5 files. Coverage includes default-off, exact decimal conversion, empty-price removal, preventing opt-in with no prices, server save errors, partial settings payload, rate validation, and backend rollout-gate behavior. Scoped Biome and `git diff --check` passed.
+- Whole-project typecheck/build are deferred while the parallel chat-route change is in progress. No PostgreSQL verification, migration application, push, or deployment.
+
+## 2026-11-07 F025 model pin tests
+- Focused Vitest: 27/27 passed across 5 files (`pinned-model`, HITL schema, approval hashing, agent create API, and model catalog API). Coverage includes provider/model parsing, enabled/keyed catalog filtering, unauthorized/no-pin inheritance, user pin overriding request model, stale pin rejection, effective model reaching team budget pricing, stale creation rejection before writes, authenticated permission gate, and approval hash binding.
+- Scoped Biome check passed for seven isolated/new helper/API test files. `git diff --check` passed for the touched batch paths. A broader check over shared chat/HITL source surfaced existing whole-file formatting deltas; no formatter churn was applied.
+- Integrated typecheck, production build, component browser journey, and live PostgreSQL verification were not run in this batch; root coordinates integrated checks. No migration was added or applied, no push/deployment occurred.
+
+## F015 quota and version retention verification (2026-11-07)
+- Focused command: `pnpm exec vitest run src/lib/published-page/quota.test.ts src/lib/db/pg/repositories/published-page-repository.pg.test.ts src/app/api/published-page/route.test.ts src/lib/ai/tools/publish-page.test.ts` passed 4 files / 17 tests.
+- Tests cover owner-before-slug advisory lock ordering, shared owner lock identity for concurrent different-slug publishes, exact oldest-version pruning to retain 10, oldest revoked-row reclamation without touching active rows, rejection at a full active-page quota without deletion, and clear 409/tool quota errors.
+- Scoped Biome and `git diff --check` passed. Whole-project typecheck/build were not run per root coordination; live PostgreSQL/migration/browser checks remain pending. No schema migration was added or applied.
+
+## Integrated verification checkpoint (2026-11-07)
+- `pnpm check-types`: exit 0 (root-run integrated check).
+- Full Vitest suite: 1,743 tests passed across 299 files.
+- Production build attempts 1 and 2 failed in the compile stage with `undefined.length`; neither emitted a stack trace or module path. Root preserved the generated `.next` tree recoverably at ignored `.audit/next-failed-20261107-0130` for diagnosis. A clean production build, session 42765, exited 0 and generated 194/194 pages.
+- Build warnings remain non-fatal: workspace root inference; dependency critical-dependency notices; existing `<img>` warnings; dynamic-server/session diagnostics caught during static generation; missing optional Redis/Upstash and E2B configuration; PostgreSQL SSL-mode warning.
+- No DB migration was applied, no live PostgreSQL/browser test was performed in this checkpoint, and no push/deployment occurred.
+
+## F023 managed workflow generation/dashboard source review (2026-11-07)
+- Verified source paths: V2 `lib/voice/workflow-draft.ts` always returns `null` with a hosted-edition explanation; `lib/navigator-tools/tools/workflows.ts` reports unavailable generation; migration `0064_navigator_workflows_dashboard.sql` and the schema declare fields, but no dashboard/session/provisioning implementation exists.
+- Standard workflow list/create/editor/execution is present in both codebases. Primary n8n and internal workflow paths remain distinct and are not marked excluded.
+- No tests were run because there is no executable managed generator/dashboard path to exercise. No source changes or external calls were made for this adjudication.

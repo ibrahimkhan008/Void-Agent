@@ -37,4 +37,26 @@ describe("agent approval idempotency inputs", () => {
       hashAgentApprovalPayload(changed),
     );
   });
+
+  it("binds a pinned model to the approved agent payload", () => {
+    const base = {
+      userId: "ignored-user",
+      name: "Research",
+      instructions: { role: "Analyst", systemPrompt: "Use primary sources." },
+    };
+    const pinned = AgentCreateSchema.parse({
+      ...base,
+      instructions: {
+        ...base.instructions,
+        model: "flare/openai/gpt-oss-120b",
+      },
+    });
+    const changed = AgentCreateSchema.parse({
+      ...base,
+      instructions: { ...base.instructions, model: "google/Gemini 2.5 Flash" },
+    });
+    expect(hashAgentApprovalPayload(pinned)).not.toBe(
+      hashAgentApprovalPayload(changed),
+    );
+  });
 });

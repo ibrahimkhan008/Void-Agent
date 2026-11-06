@@ -1,22 +1,24 @@
 "use client";
 
-import React, { memo, PropsWithChildren } from "react";
+import { parseMarkdownIntoBlocks } from "lib/markdown-blocks";
+import { isJson, isString, toAny, truncateString } from "lib/utils";
+import { LinkIcon } from "lucide-react";
+import React, { memo, PropsWithChildren, useContext, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import { PreBlock } from "./pre-block";
-import { isJson, isString, toAny, truncateString } from "lib/utils";
 import JsonView from "ui/json-view";
-import { LinkIcon } from "lucide-react";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "ui/table";
+import { MarkdownStreamingContext } from "./markdown-streaming-context";
+import { PreBlock } from "./pre-block";
 
 // No animation wrapper. Even a tiny CSS fade-in (300ms) creates a
 // visible gap that the user perceives as "not streaming" — the LLM
@@ -30,6 +32,9 @@ const FadeIn = memo(({ children }: PropsWithChildren) => {
 FadeIn.displayName = "FadeIn";
 
 export const WordByWordFadeIn = memo(({ children }: PropsWithChildren) => {
+  const isStreaming = useContext(MarkdownStreamingContext);
+  if (!isStreaming) return <>{children}</>;
+
   const childrens = [children]
     .flat()
     .flatMap((child) => (isString(child) ? child.split(" ") : child));
@@ -220,19 +225,48 @@ const components: Partial<Components> = {
   },
 };
 
-const NonMemoizedMarkdown = ({ children }: { children: string }) => {
+const MarkdownBlock = memo(
+  ({ content, isStreaming }: { content: string; isStreaming: boolean }) => (
+    <MarkdownStreamingContext.Provider value={isStreaming}>
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
+        {content}
+      </ReactMarkdown>
+    </MarkdownStreamingContext.Provider>
+  ),
+  (previous, next) =>
+    previous.content === next.content &&
+    previous.isStreaming === next.isStreaming,
+);
+MarkdownBlock.displayName = "MarkdownBlock";
+
+const NonMemoizedMarkdown = ({
+  children,
+  isStreaming = false,
+}: {
+  children: string;
+  isStreaming?: boolean;
+}) => {
+  const blocks = useMemo(
+    () => (isJson(children) ? null : parseMarkdownIntoBlocks(children)),
+    [children],
+  );
+
   return (
     <article className="w-full h-full relative">
-      {isJson(children) ? (
+      {blocks === null ? (
         <JsonView data={children} />
       ) : (
-        <ReactMarkdown
-          components={components}
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
-        >
-          {children}
-        </ReactMarkdown>
+        blocks.map((block, index) => (
+          <MarkdownBlock
+            key={index}
+            content={block}
+            isStreaming={isStreaming && index === blocks.length - 1}
+          />
+        ))
       )}
     </article>
   );
@@ -240,5 +274,7 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
 
 export const Markdown = memo(
   NonMemoizedMarkdown,
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children &&
+    prevProps.isStreaming === nextProps.isStreaming,
 );

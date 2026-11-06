@@ -1,5 +1,6 @@
 import { AgentCreateSchema, AgentQuerySchema } from "app-types/agent";
 import { getSession } from "auth/server";
+import { isEnabledAgentModel } from "lib/ai/agent/pinned-model";
 import {
   hashAgentApprovalPayload,
   isValidAgentApprovalRequestKey,
@@ -79,6 +80,18 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const data = AgentCreateSchema.parse(body);
+    if (
+      data.instructions.model &&
+      !(await isEnabledAgentModel(data.instructions.model))
+    ) {
+      return Response.json(
+        {
+          code: "agent-model-unavailable",
+          error: "Choose a model from the currently enabled model catalog.",
+        },
+        { status: 409 },
+      );
+    }
     const idempotencyKey = request.headers.get("Idempotency-Key");
 
     if (

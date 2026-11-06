@@ -113,17 +113,14 @@ Integration checkpoint: implemented in the original architecture; focused tests 
 ## F008 ? Organization/member model budgets
 
 - Category/status/priority: PARTIAL, P1.
-- Reference evidence: `lib/db/pg/schema.pg.ts` under `apps/web/src` unless prefixed `apps/` or `.github/`; resolve full paths through the source census.
-- Primary evidence: `src/lib/db/pg/schema.pg.ts`.
-- Implementation and missing components: Map Organization to existing Team; compare reservation atomicity.
-- Strategy: architectural adaptation.
-- Dependencies: Existing auth/user scoping, current database and AI SDK 5 contracts; additional requirements must be justified per implementation batch.
-- API/backend changes: None authorized by this row alone; define scoped contracts and failure paths before implementation.
-- Database changes: No schema copied or applied; append-only migration design required where persistence changes.
-- Frontend changes: Preserve current navigation, design and providers; add only missing affordances.
-- Security: Enforce per-user/team ownership, validate untrusted input, redact secrets and bound external execution.
-- Complexity/performance: Not estimated until per-surface semantic review; benchmark DB reads, stream work or job concurrency as applicable.
-- Verification: Unit failure cases plus integration/authorization tests and relevant existing journeys. Environment-dependent delivery/model calls remain explicitly unverified.
+- Reference evidence: `Void-Agent-V2/apps/web/src/lib/ai/routing/budget.ts`, `apps/web/src/lib/db/pg/schema.pg.ts`, `apps/web/src/lib/auth/auth-instance.ts`, and `apps/web/src/app/api/chat/route.ts`. Reference seeds a €15/month hard cap for non-owner organization members, estimates input plus 4096 output tokens, reserves atomically, finalizes actual cost, and releases on abort/error.
+- Primary evidence: `src/lib/ai/team-member-ai-budget.ts`, `src/lib/ai/team-member-ai-budget-core.ts`, `src/lib/ai/model-pricing.ts`, `src/lib/ai/model-pricing.server.ts`, `src/app/api/chat/route.ts`, `src/app/api/admin/config/route.ts`, `src/lib/db/pg/schema.pg.ts`, and `src/lib/db/pg/repositories/team-repository.pg.ts`.
+  - Implementation: Added per-team-seat policy, monthly usage period, and idempotent reservation records in append-only migration `0062_team_member_ai_budget.sql`. Existing and new non-owner members receive the reference €15 hard cap; personal/team owners remain uncapped. Reservations serialize on a Postgres transaction advisory lock, recheck current membership/policy, count concurrent reservations, expire abandoned reservations after 15 minutes, and settle or release exactly once. Enforcement is explicitly opt-in: `models.teamMemberBudgetsEnabled` defaults to `false`; existing chats retain their prior behavior until an admin enables it.
+  - Pricing: Added admin-managed `models.modelPricing` entries keyed by `provider/model`, with explicit input/output EUR micros per million tokens. No provider prices are invented or defaulted. Admin config POST validates the map and rollout flag and merges partial model-section updates so older settings clients cannot erase either. Configure trusted prices before setting `teamMemberBudgetsEnabled: true`. Once enabled, a capped member selecting an unpriced model fails closed before generation; uncapped users retain existing provider/fallback behavior. Capped requests run the selected priced model directly so fallback cannot silently use a different rate. With the flag absent/false, chat performs no budget policy/pricing lookup or reservation.
+- Enforcement: Main `/api/chat` applies the cap only to authenticated team-scoped threads/projects, derives team scope from the persisted thread/project, and rechecks user membership in the budget service. It reserves before generation, finalizes with reported input/output token usage (estimate fallback if the provider omits breakdown), and releases on cancellation/errors. Existing per-user daily limits remain in force.
+- Explicitly outside current enforcement: `/api/chat/temporary` has its existing per-user free-tier token reservation only; `/api/chat/title`, `/api/agent/ai`, `/api/embed/session`, agent/skill generation APIs, canvas/artifact/browser subcalls, tabular-review model calls, and direct image generation are not charged to this team monthly cost ledger. These routes do not currently resolve a trusted team member budget plus priced model usage. They require separate route-by-route adaptations before claiming whole-product model-cost parity.
+- Security/limitations: Team policy cannot be bypassed by client-supplied prices or team IDs; prices come from admin-only config and membership is checked against `team_member`. Admins can configure rates and explicitly enable the default-off rollout in the Models settings page. The reference seeds a fixed €15 member cap and has no per-member cap editing API/UI, so no custom cap editor was added. A live PostgreSQL concurrency/migration journey was unavailable; migration 0062 is local and unapplied. F008 remains PARTIAL pending live DB verification and coverage for other model routes.
+- Verification: `src/lib/ai/model-pricing.test.ts` and `src/lib/ai/team-member-ai-budget.test.ts` passed 8/8; scoped Biome passed; `pnpm check-types` passed with a 6 GB Node heap. Concurrent-cap behavior and authorization decision logic have unit coverage; no PostgreSQL test URL was configured.
 
 ## F009 ? Project-scoped documents and threads
 
@@ -339,7 +336,7 @@ Integration checkpoint: implemented in the original architecture; focused tests 
 
 ## F023 ? Connected workflow generation/dashboard
 
-- Category/status/priority: PARTIAL, P2.
+- Category/status/priority: EXCLUDED for managed source-to-container generation and dashboard hosting, P2. Standard workflow CRUD/editor/execution is tracked separately and is implemented in both projects.
 - Reference evidence: `lib/navigator-workflows` under `apps/web/src` unless prefixed `apps/` or `.github/`; resolve full paths through the source census.
 - Primary evidence: `src/lib/n8n`.
 - Implementation and missing components: Retain current n8n integration; require reversible credential handling.
@@ -351,6 +348,12 @@ Integration checkpoint: implemented in the original architecture; focused tests 
 - Security: Enforce per-user/team ownership, validate untrusted input, redact secrets and bound external execution.
 - Complexity/performance: Not estimated until per-surface semantic review; benchmark DB reads, stream work or job concurrency as applicable.
 - Verification: Unit failure cases plus integration/authorization tests and relevant existing journeys. Environment-dependent delivery/model calls remain explicitly unverified.
+
+### F023 source-completeness adjudication (2026-11-07)
+- The V2 checkout has no executable managed generator or dashboard route, page, worker, or UI. `apps/web/src/lib/voice/workflow-draft.ts` explicitly identifies drafting as hosted-only and always returns `null`; `apps/web/src/lib/navigator-tools/tools/workflows.ts` reports that unavailable result to callers. `dashboard_url` and `workflow_db_name` occur in the `navigator_workflows` schema and migration `0064_navigator_workflows_dashboard.sql`, but no dashboard-session route, provisioning code, or dashboard UI exists in the repository.
+- Therefore managed source-to-container generation and dashboard hosting are EXCLUDED as source-incomplete/hosted-only; implementing the fields alone would create an ungrounded system with no reusable behavior. Do not count this as standard workflow parity being absent.
+- Executable equivalent evidence for standard workflows: V2 and primary both have authenticated workflow list/create/editor/structure-save/execute paths (`apps/web/src/app/(chat)/workflow`, `apps/web/src/app/api/workflow`; primary `src/app/(chat)/workflow`, `src/app/api/workflow`). Primary also retains n8n list/create/embed/run support and now reviews app Run actions, but that separate integration is not a substitute for the missing hosted generator/dashboard.
+- Verification is source-level only. No managed deployment or dashboard journey could be run because those features are not implemented in this checkout. The reference remains unchanged.
 
 ## F024 ? Scheduling and outbox
 
@@ -467,18 +470,15 @@ Integration checkpoint: implemented in the original architecture; focused tests 
 
 ## F032 ? Streaming markdown performance
 
-- Category/status/priority: PARTIAL, P1.
-- Reference evidence: `components/markdown` under `apps/web/src` unless prefixed `apps/` or `.github/`; resolve full paths through the source census.
-- Primary evidence: `src/components`.
-- Implementation and missing components: Inspect memoization, render cost and cancellation; retain renderer features.
-- Strategy: architectural adaptation.
-- Dependencies: Existing auth/user scoping, current database and AI SDK 5 contracts; additional requirements must be justified per implementation batch.
-- API/backend changes: None authorized by this row alone; define scoped contracts and failure paths before implementation.
-- Database changes: No schema copied or applied; append-only migration design required where persistence changes.
-- Frontend changes: Preserve current navigation, design and providers; add only missing affordances.
-- Security: Enforce per-user/team ownership, validate untrusted input, redact secrets and bound external execution.
-- Complexity/performance: Not estimated until per-surface semantic review; benchmark DB reads, stream work or job concurrency as applicable.
-- Verification: Unit failure cases plus integration/authorization tests and relevant existing journeys. Environment-dependent delivery/model calls remain explicitly unverified.
+- Category/status/priority: PARTIAL pending integrated typecheck and production build, P1.
+- Reference evidence: `apps/web/src/components/markdown.tsx`, `markdown-streaming-context.ts`, `pre-block.tsx`, and `apps/web/src/lib/markdown-blocks.ts`.
+- Primary evidence: `src/components/markdown.tsx`, `markdown-streaming-context.ts`, `pre-block.tsx`, `message-parts.tsx`, and `src/lib/markdown-blocks.ts`.
+- Implemented: Split markdown at stable top-level blank-line boundaries while protecting fenced code and display math; memoize each rendered block; mark only the active final assistant/reasoning block as streaming; skip word splitting and Shiki highlighting on settled blocks and defer highlighting of the streaming code tail until it settles. Existing GFM, remark-math/KaTeX, code/mermaid/JSON, table, citation/link rendering remain wired. Raw HTML remains disabled and ReactMarkdown's default unsafe-protocol URL filtering is unchanged.
+- Strategy: architectural adaptation; preserve Void-Agent's renderer components and default URL sanitizer while applying the reference's block-level memoization and streaming context.
+- Dependencies: Added `jsdom` as a development dependency for the component-level React render behavior test. No runtime dependencies, API/backend changes, database changes, or migration.
+- Security: The optimization does not enable raw HTML or add a URL transform; ReactMarkdown default protocol filtering remains active. Existing external links retain `target=_blank` with `rel=noreferrer`.
+- Complexity/performance: Parsing work inside ReactMarkdown is now limited to the changed tail block per token; earlier stable blocks bail out via `React.memo`. Markdown splitting still scans the accumulated text on each update.
+- Verification: Focused parser and mounted-component tests pass (9/9). The component test asserts settled ReactMarkdown blocks are not called again as the tail grows, and the tail is rendered once more when streaming ends. A 50,000-line blank-run case verifies loose-list separation is preserved without spread/argument amplification. Scoped Biome and `git diff --check` pass. Integrated typecheck/build are pending; keep family PARTIAL until they pass.
 
 ## F033 ? Password/session/account management
 
@@ -1198,3 +1198,34 @@ The current code checkpoint adds these independently verified workflows; the ori
 - **Additional Void-Agent improvements:** user-scoped project docs, storage privacy, connector approvals, project brain/RAG, scheduling, file previews, and prior security patches are tracked in earlier entries and remain covered by this checkpoint's suite/build.
 
 These additions do not imply the overall migration is complete. The 36-family matrix is not a per-surface 206-row behavioral inventory; every remaining PARTIAL/OPTIONAL/EXCLUDED/DEPRECATED family still requires evidence-based disposition.
+
+## F024 CreateAgent recurring schedule approval (2026-11-07 00:30 IST)
+- Reference CreateAgent proposes an optional `{cronExpression, timezone, inputPrompt}` and writes the schedule after the user reviews the agent configuration. Void-Agent now exposes an optional recurring schedule in its CreateAgent approval card and sends it only after the same explicit user approval that creates the agent.
+- The agent remains created through the existing authenticated/idempotent `/api/agent` workflow. Schedule creation uses the existing authenticated, same-origin `/api/scheduler/jobs` endpoint and scheduler worker. When `agentId` is supplied, the API confirms that the current user owns that agent; public/read-only access is not enough.
+- Schedule POST accepts an optional bounded `Idempotency-Key`. A durable `(user_id, request_key)` reservation with a canonical SHA-256 hash is committed transactionally with the schedule. Identical retries return the same job; changed payloads conflict; deletion leaves a null-job tombstone so replay cannot recreate a removed schedule. The card freezes an ambiguous attempted payload for safe retry.
+- Evidence: `src/lib/ai/tools/hitl/index.ts`, `src/components/tool-invocation/hitl-tool-cards.tsx`, `src/app/api/scheduler/jobs/route.ts`, `src/lib/scheduler/jobs.ts`, `src/lib/db/pg/repositories/scheduler-repository.pg.ts`, `src/lib/db/pg/schema.pg.ts`, migration `0061_scheduled_job_creation_requests.sql`.
+- Verification: 38 focused tests passed across 4 files, covering proposal bounds, stable recurring retry hashes, payload conflicts, deleted-schedule tombstones, and agent-owner enforcement. `pnpm db:check`, scoped Biome lint, and `git diff --check` passed. Whole-project typecheck currently reports two unrelated concurrent errors: `src/app/api/chat/route.ts:1830` (`ChatThread.orgId`) and `src/lib/ai/team-member-ai-budget.ts:13` (unused import). No build or live PostgreSQL run was performed; migration 0061 is authored/journaled but unapplied. F024 remains PARTIAL pending database/browser validation and other scheduler parity.
+
+## F015 published page lifecycle implementation checkpoint (2026-11-07)
+- Status remains PARTIAL. Migration 0060 adds versioned published page snapshots by slug. Owner-authenticated management supports publish/republish/revoke/list; an unlisted public reader serves the current live version under a restrictive sandbox CSP.
+- Primary evidence: `src/app/api/published-page/route.ts`, `src/app/api/published-pages/route.ts`, `src/app/p/[slug]/route.ts`, `src/components/published-pages-dashboard.tsx`, `src/components/tool-invocation/published-page-tool.tsx`, `src/lib/published-page/*`, `src/lib/db/pg/repositories/published-page-repository.pg.ts`, and migration `0060_published_pages.sql`.
+- Agent-reported focused verification: 20 tests across 7 files; Drizzle journal, scoped Biome, and diff whitespace checks passed. Integrated type/build and live Postgres/browser verification pending; 0060 unapplied. Public unlisted links are bearer capabilities and require revocation to disable.
+
+## F025 CreateAgent model pinning (2026-11-07)
+- Capability status: model-pin subfeature COMPLETE under focused mocked verification; CreateAgent family remains PARTIAL because reference file bindings and integrated type/build verification remain outstanding.
+- The review card now offers only the authenticated endpoint's enabled, configured provider/model catalog, with an explicit inherit-current-chat option. The approval payload stores the reviewed selection in existing agent `instructions.model` JSON; no schema migration was required. Create/update APIs reject stale or disabled selections with HTTP 409.
+- Runtime resolves the mentioned agent using the existing owner/public access-bound `rememberAgentAction` lookup. Only that authorized agent's pin can override the client-requested model; unauthorized/no-pin agents leave the requested model unchanged. A stale/disabled pin returns a clear 409 before model execution rather than falling back. Budget pricing/reservation receives the effective pinned model; ordinary unpinned chats preserve the prior selected-model path.
+- Evidence: `src/lib/ai/agent/pinned-model.ts`, `src/app/api/agent/models/route.ts`, `src/app/api/chat/route.ts`, `src/components/tool-invocation/hitl-tool-cards.tsx`, `src/types/agent.ts`, `src/lib/ai/tools/hitl/index.ts`, and agent create/update routes.
+
+### F015 storage quota and version retention addendum (2026-11-07)
+- Publishing is now transactionally bounded without a schema migration: at most 50 stored snapshots per owner (2 MiB per snapshot, approximately 100 MiB maximum HTML storage) and at most 10 versions per slug. Owner advisory lock is acquired before slug lock so concurrent writes to distinct slugs share quota serialization.
+- Republish prunes oldest same-slug snapshots first while retaining the newest 10. Creating a new slug at owner capacity reclaims oldest revoked snapshots; if the cap is still full of active pages, the API returns HTTP 409 with a snapshot quota message. Active pages are never automatically deleted. The publish tool returns the same clear quota reason.
+- HTTPS images/fonts/media remain permitted because upstream page instructions explicitly require externally hosted HTTPS images. `no-referrer` is set and network fetch/XHR remains blocked, but asset hosts can still observe viewer requests/IPs; disclose this privacy behavior.
+- Focused tests passed 17/17 across repository/quota/API/tool tests; scoped Biome and diff checks passed. No migration was applied or changed; live PostgreSQL concurrency remains unverified.
+
+## Final integrated verification and family status (2026-11-07)
+- **F032 markdown streaming:** renderer implementation and regression coverage are complete; focused parser/component tests, integrated typecheck, full suite, and clean 194/194-page build passed. The family can be marked COMPLETE for implemented/code-level behavior. A browser workload/performance benchmark has not been run; if that is required for the parity acceptance bar, keep the family PARTIAL until measured.
+- **F008 team-member budget:** integrated typecheck, full suite and clean build passed. Keep PARTIAL: migration 0062 is unapplied, no PostgreSQL authorization/reservation concurrency journey was run, and budget enforcement remains narrower than the full app route/model surface.
+- **CreateAgent (F025):** integrated checks pass; the reviewed model pin and optional schedule slices have focused evidence. Keep PARTIAL because reference file bindings and complete browser/live scheduler/database journeys are not yet verified.
+- **F015 published pages:** integrated checks pass; keep PARTIAL because migration 0060 is unapplied and publish/republish/revoke/public-view behavior has not been exercised against PostgreSQL and a browser.
+- Build evidence: two attempts failed at compile with `undefined.length` and no stack; failed `.next` output was preserved at ignored `.audit/next-failed-20261107-0130`. Clean build session 42765 passed, 194/194 pages. See `docs/testing-report.md` for non-fatal warnings and limits.

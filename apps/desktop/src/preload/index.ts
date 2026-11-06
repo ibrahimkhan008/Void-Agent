@@ -36,6 +36,20 @@ contextBridge.exposeInMainWorld("desktop", {
       params?: Record<string, unknown>;
     }) => ipcRenderer.invoke("mcp:tool-call", input),
   },
+  notifications: {
+    show: (input: {
+      kind: "complete" | "needs_approval" | "needs_input" | "error";
+      threadId: string;
+    }) => ipcRenderer.invoke("notifications:show", input) as Promise<boolean>,
+    getPermissionStatus: () =>
+      ipcRenderer.invoke("notifications:get-permission") as Promise<
+        NotificationPermission | "granted" | "unsupported"
+      >,
+    requestPermission: () =>
+      ipcRenderer.invoke("notifications:request-permission") as Promise<
+        NotificationPermission | "granted" | "unsupported"
+      >,
+  },
   updates: {
     getState: () =>
       ipcRenderer.invoke("updates:get-state") as Promise<DesktopUpdateState>,

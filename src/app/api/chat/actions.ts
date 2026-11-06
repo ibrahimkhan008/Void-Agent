@@ -91,6 +91,13 @@ export async function selectThreadWithMessagesAction(threadId: string) {
   return { ...thread, messages: messages ?? [] };
 }
 
+/** Load the newest persisted transcript after a detached stream recovers. */
+export async function loadLatestThreadMessagesAction(threadId: string) {
+  if (!threadId || threadId.length > 128) return [];
+  const thread = await selectThreadWithMessagesAction(threadId);
+  return thread?.messages ?? [];
+}
+
 export async function loadOlderThreadMessagesAction(
   threadId: string,
   beforeMessageId: string,
