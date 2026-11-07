@@ -126,3 +126,8 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Only existing build warnings remain: E2B/unpdf dynamic dependency analysis, image lint, optional Redis/Upstash/E2B config, dynamic session probing, workspace lockfile root, and PostgreSQL SSL mode.
 - This verifies build/type/unit behavior, not live production-sized PostgreSQL query latency or an authenticated browser chat. No schema migration, deployment, production DB or V2 changes.
 - Final diff/staged-path review and push remain pending.
+### Automatic project-brain context publication - 2026-11-07 23:18:54 +05:30
+- Published e4ada90c5c54a877c412d9a26aec10cc95e9f147 to origin/main as a fast-forward from 506d96684c7c78f5bdb14eaec25953159138ae93; verified remote main resolves to the same commit.
+- The batch adds query-matched accepted project facts/events as separately labeled untrusted evidence for eligible interactive project chats. Retrieval rechecks current project/collection/source-owner access and active source revision; failures/timeouts omit this optional context. No database schema or citation marker behavior changed.
+- Verification: focused suites 20/20, scoped Biome, pnpm check-types, pnpm build (206/206), and staged diff check passed. Live PostgreSQL query-plan/latency and authenticated browser verification remain outstanding. No DB apply/deploy.
+- The two CognixAI spec files remain untracked and excluded. F010 remains PARTIAL pending broader workflows and related voice/scheduler consumers. Continue with the next substantial feature gap; no overall parity percentage claimed.
