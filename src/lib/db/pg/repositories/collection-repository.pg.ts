@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { isUserStorageKey } from "lib/file-storage/storage-utils";
 import { pgDb as db } from "../db.pg";
 import {
   CollectionEntity,
@@ -12,6 +13,19 @@ import {
   DocumentChunkTable,
   DocumentEntity,
   DocumentTable,
+  FileCleanupOutboxTable,
+  ProjectBrainComposioSyncRunTable,
+  ProjectBrainComposioSyncSourceTable,
+  ProjectBrainFactTable,
+  ProjectBrainMcpSyncRunTable,
+  ProjectBrainMcpSyncSourceTable,
+  ProjectBrainRunTable,
+  ProjectBrainSourceStateTable,
+  ProjectBrainSourceVersionTable,
+  ProjectBrainTodoTable,
+  ProjectDocumentTable,
+  TabularReviewCellTable,
+  TabularReviewItemTable,
 } from "../schema.pg";
 import { formatEmbeddingForPg } from "./memory-helpers";
 
@@ -174,17 +188,48 @@ export const pgCollectionRepository = {
   async createCollectionItem(
     input: CreateCollectionItemInput,
   ): Promise<CollectionItemEntity> {
+    const values = {
+      collectionId: input.collectionId,
+      sourceType: input.sourceType,
+      sourceUrl: input.sourceUrl ?? null,
+      storageKey: input.storageKey ?? null,
+      filename: input.filename ?? null,
+      mediaType: input.mediaType ?? null,
+      status: input.status ?? "pending",
+    };
+    if (input.storageKey) {
+      return db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${input.storageKey}, 0))`,
+        );
+        const [existing] = await tx
+          .select({ id: CollectionItemTable.id })
+          .from(CollectionItemTable)
+          .where(eq(CollectionItemTable.storageKey, input.storageKey!))
+          .limit(1);
+        if (existing)
+          throw new Error(
+            "Storage object is already attached to a collection item",
+          );
+        const [queued] = await tx
+          .select({ id: FileCleanupOutboxTable.id })
+          .from(FileCleanupOutboxTable)
+          .where(eq(FileCleanupOutboxTable.storageKey, input.storageKey!))
+          .limit(1);
+        if (queued)
+          throw new Error(
+            "Storage object is pending deletion and cannot be reused",
+          );
+        const [row] = await tx
+          .insert(CollectionItemTable)
+          .values(values)
+          .returning();
+        return row as CollectionItemEntity;
+      });
+    }
     const [row] = await db
       .insert(CollectionItemTable)
-      .values({
-        collectionId: input.collectionId,
-        sourceType: input.sourceType,
-        sourceUrl: input.sourceUrl ?? null,
-        storageKey: input.storageKey ?? null,
-        filename: input.filename ?? null,
-        mediaType: input.mediaType ?? null,
-        status: input.status ?? "pending",
-      })
+      .values(values)
       .returning();
     return row as CollectionItemEntity;
   },
@@ -286,13 +331,141 @@ export const pgCollectionRepository = {
     return (row?.item as CollectionItemEntity | undefined) ?? null;
   },
 
-  async deleteCollectionItem(itemId: string, userId: string): Promise<boolean> {
-    const owned = await this.assertItemOwned(itemId, userId);
-    if (!owned) return false;
-    await db
-      .delete(CollectionItemTable)
-      .where(eq(CollectionItemTable.id, itemId));
-    return true;
+  async deleteCollectionItem(
+    itemId: string,
+    collectionId: string,
+    userId: string,
+  ): Promise<
+    | { status: "not-found" | "unsafe-key" | "shared-object" | "referenced" }
+    | { status: "deleted" }
+    | { status: "queued"; outboxId: string }
+  > {
+    const outcome = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ item: CollectionItemTable, collection: CollectionTable })
+        .from(CollectionItemTable)
+        .innerJoin(
+          CollectionTable,
+          eq(CollectionTable.id, CollectionItemTable.collectionId),
+        )
+        .where(
+          and(
+            eq(CollectionItemTable.id, itemId),
+            eq(CollectionItemTable.collectionId, collectionId),
+            eq(CollectionTable.userId, userId),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (!row || row.collection.orgId || row.item.sourceType !== "file")
+        return "not-found" as const;
+      const key = row.item.storageKey;
+      if (key && !isUserStorageKey(key, userId)) return "unsafe-key" as const;
+      if (key) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`,
+        );
+        const [duplicate] = await tx
+          .select({ id: CollectionItemTable.id })
+          .from(CollectionItemTable)
+          .where(
+            and(
+              eq(CollectionItemTable.storageKey, key),
+              sql`${CollectionItemTable.id} <> ${itemId}`,
+            ),
+          )
+          .limit(1);
+        if (duplicate) return "shared-object" as const;
+      }
+
+      const referenceChecks = await Promise.all([
+        tx
+          .select({ id: ProjectDocumentTable.projectId })
+          .from(ProjectDocumentTable)
+          .where(eq(ProjectDocumentTable.collectionItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: TabularReviewItemTable.id })
+          .from(TabularReviewItemTable)
+          .where(eq(TabularReviewItemTable.itemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: TabularReviewCellTable.id })
+          .from(TabularReviewCellTable)
+          .where(eq(TabularReviewCellTable.itemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainMcpSyncSourceTable.id })
+          .from(ProjectBrainMcpSyncSourceTable)
+          .where(eq(ProjectBrainMcpSyncSourceTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainMcpSyncRunTable.id })
+          .from(ProjectBrainMcpSyncRunTable)
+          .where(eq(ProjectBrainMcpSyncRunTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainComposioSyncSourceTable.id })
+          .from(ProjectBrainComposioSyncSourceTable)
+          .where(eq(ProjectBrainComposioSyncSourceTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainComposioSyncRunTable.id })
+          .from(ProjectBrainComposioSyncRunTable)
+          .where(eq(ProjectBrainComposioSyncRunTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainSourceVersionTable.id })
+          .from(ProjectBrainSourceVersionTable)
+          .where(eq(ProjectBrainSourceVersionTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainSourceStateTable.projectId })
+          .from(ProjectBrainSourceStateTable)
+          .where(eq(ProjectBrainSourceStateTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainRunTable.id })
+          .from(ProjectBrainRunTable)
+          .where(eq(ProjectBrainRunTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainFactTable.id })
+          .from(ProjectBrainFactTable)
+          .where(eq(ProjectBrainFactTable.sourceItemId, itemId))
+          .limit(1),
+        tx
+          .select({ id: ProjectBrainTodoTable.id })
+          .from(ProjectBrainTodoTable)
+          .where(eq(ProjectBrainTodoTable.sourceItemId, itemId))
+          .limit(1),
+      ]);
+      if (referenceChecks.some((rows) => rows.length))
+        return "referenced" as const;
+
+      if (key) {
+        const [outbox] = await tx
+          .insert(FileCleanupOutboxTable)
+          .values({ userId, storageKey: key })
+          .returning({ id: FileCleanupOutboxTable.id });
+        if (!outbox)
+          throw new Error("Failed to create durable file cleanup task");
+        const deleted = await tx
+          .delete(CollectionItemTable)
+          .where(eq(CollectionItemTable.id, itemId))
+          .returning({ id: CollectionItemTable.id });
+        if (!deleted.length)
+          throw new Error("Collection item disappeared during deletion");
+        return { status: "queued", outboxId: outbox.id } as const;
+      }
+      const deleted = await tx
+        .delete(CollectionItemTable)
+        .where(eq(CollectionItemTable.id, itemId))
+        .returning({ id: CollectionItemTable.id });
+      return deleted.length ? ("deleted" as const) : ("not-found" as const);
+    });
+    if (typeof outcome === "string") return { status: outcome };
+    return outcome;
   },
 
   // --- documents + chunks ------------------------------------------------

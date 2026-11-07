@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import React from "react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import TabularReviewsDashboard from "./tabular-reviews-dashboard";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -62,7 +68,39 @@ beforeEach(() => {
   );
 });
 
+afterEach(cleanup);
+
 describe("TabularReviewsDashboard custom fields", () => {
+  test("creates a review with the reference penalty and remedies preset", async () => {
+    render(<TabularReviewsDashboard />);
+
+    fireEvent.click(await screen.findByLabelText(/lease\.pdf/));
+    fireEvent.click(screen.getByLabelText("Penalties & remedies"));
+    fireEvent.click(screen.getByRole("button", { name: "Create comparison" }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/tabular-reviews/review-1"),
+    );
+    const post = vi
+      .mocked(fetch)
+      .mock.calls.find(([, init]) => init?.method === "POST");
+    const payload = JSON.parse(String(post?.[1]?.body)) as {
+      columns: Array<{
+        id: string;
+        label: string;
+        type: string;
+        prompt: string;
+      }>;
+    };
+    expect(payload.columns).toContainEqual({
+      id: "penalty",
+      label: "Penalties & remedies",
+      type: "text",
+      prompt:
+        "Describe any penalty clauses, liquidated damages, indemnification provisions, or breach remedies stated in this document.",
+    });
+  });
+
   test("creates a review with a user-selected custom column type", async () => {
     render(<TabularReviewsDashboard />);
 

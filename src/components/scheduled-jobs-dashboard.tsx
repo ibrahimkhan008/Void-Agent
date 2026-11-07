@@ -59,6 +59,7 @@ const formatDate = (value: string | null) =>
 export function ScheduledJobsDashboard() {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [runs, setRuns] = useState<Record<string, ScheduledRun[]>>({});
+  const [loadingRuns, setLoadingRuns] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,13 +136,9 @@ export function ScheduledJobsDashboard() {
     }
   };
 
-  const toggleHistory = async (jobId: string) => {
-    if (expanded === jobId) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(jobId);
-    if (runs[jobId]) return;
+  const loadRuns = async (jobId: string) => {
+    setLoadingRuns((current) => ({ ...current, [jobId]: true }));
+    setError(null);
     try {
       const response = await fetch(
         `/api/scheduler/jobs/${jobId}/runs?limit=20`,
@@ -157,7 +154,18 @@ export function ScheduledJobsDashboard() {
       setError(
         cause instanceof Error ? cause.message : "Could not load run history.",
       );
+    } finally {
+      setLoadingRuns((current) => ({ ...current, [jobId]: false }));
     }
+  };
+
+  const toggleHistory = async (jobId: string) => {
+    if (expanded === jobId) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(jobId);
+    await loadRuns(jobId);
   };
 
   const createSchedule = async (event: FormEvent<HTMLFormElement>) => {
@@ -572,6 +580,19 @@ export function ScheduledJobsDashboard() {
               </button>
               {expanded === job.id && (
                 <div className="mt-2 border-t pt-2">
+                  <div className="mb-2 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loadingRuns[job.id] === true}
+                      onClick={() => void loadRuns(job.id)}
+                    >
+                      {loadingRuns[job.id] ? (
+                        <Loader2 className="mr-2 size-3.5 animate-spin" />
+                      ) : null}
+                      Refresh history
+                    </Button>
+                  </div>
                   {runs[job.id] ? (
                     runs[job.id].length ? (
                       <ul className="space-y-2">

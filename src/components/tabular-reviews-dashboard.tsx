@@ -47,6 +47,13 @@ const presets = [
     prompt: "Identify material risks explicitly described in this document.",
   },
   {
+    id: "penalty",
+    label: "Penalties & remedies",
+    type: "text",
+    prompt:
+      "Describe any penalty clauses, liquidated damages, indemnification provisions, or breach remedies stated in this document.",
+  },
+  {
     id: "jurisdiction",
     label: "Jurisdiction",
     type: "text",

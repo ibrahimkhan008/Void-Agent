@@ -686,3 +686,11 @@ Treat every agent file binding as a read grant because server-side storage crede
 ## F037 project unlink authorization recheck (2026-11-07 10:22 IST)
 - The project document DELETE route now rechecks current project membership/editor role, attached collection, and eligible collection source owner after resolving the item and immediately before unlinking. Tests cover revocation, role downgrade, detachment, and owner-scope loss.
 - The mutation only removes `project_document`; it does not delete the shared collection item or object storage bytes. Collection-object garbage collection remains a separate unimplemented lifecycle requiring transactional enqueue/retry semantics.
+## F018 private file deletion security (2026-11-07 10:53 IST)
+- Source deletion requires a same-origin authenticated request, collection write access, repository-level user and collection scoping, a personal (non-team) collection, file source type, and a storage key matching the signed-in user prefix. A transactional lock plus object-key uniqueness check prevents deleting a blob still attached to another collection item.
+- Project, review, and project-brain references fail closed so item deletion cannot cascade away active feature records. F037 remains unlink-only. Storage deletion runs only after a durable outbox transaction commits; worker revalidates ownership, tolerates already-missing objects, and records failed attempts for later cron retry instead of claiming cleanup completed.
+- Focused route/worker tests cover unauthenticated and cross-origin requests, insufficient collection role, shared/reference refusal, outbox race/no-claim behavior, owner-prefix rejection, and provider failure retry reporting.
+
+## F024 manual-run security boundary (2026-11-07 10:54 IST)
+- Schedule history remains guarded by session authentication and owner-scoped job lookup; the response allowlists run ID, start/completion times, and lifecycle status, excluding output and error text. Regression coverage verifies sensitive fields are not serialized.
+- A synchronous run-now endpoint was not introduced. User-triggered execution without a durable idempotency/request record could duplicate side effects on retries; calling execution directly would bypass worker lease fencing. Preserve the worker authorization/claim boundary in any future design.

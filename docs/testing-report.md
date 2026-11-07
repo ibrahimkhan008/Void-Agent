@@ -808,7 +808,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 ## 2026-11-07 CreateAgent schedule and published-page verification addendum
 
 ### F024 optional recurring schedule from CreateAgent
-- Focused test command: `pnpm exec vitest run src/lib/ai/tools/hitl/index.test.ts src/lib/scheduler/jobs.test.ts src/lib/db/pg/repositories/scheduler-repository.pg.test.ts src/app/api/scheduler/jobs/route.test.ts` — passed, 4 files / 38 tests.
+- Focused test command: `pnpm exec vitest run src/lib/ai/tools/hitl/index.test.ts src/lib/scheduler/jobs.test.ts src/lib/db/pg/repositories/scheduler-repository.pg.test.ts src/app/api/scheduler/jobs/route.test.ts` ï¿½ passed, 4 files / 38 tests.
 - Covers tool proposal bounds, schedule hash stability for recurring retries, exact schedule payload hash binding, transactional reservation insertion/replay, key payload conflict, deleted-job tombstone, caller-owned agent check, and key propagation.
 - `pnpm db:check` passed with 0061 in the journal; scoped `biome lint` passed; `git diff --check` passed. `pnpm check-types` did not pass because of two errors in concurrent files outside this batch: `src/app/api/chat/route.ts:1830` (`orgId` absent on `ChatThread`) and `src/lib/ai/team-member-ai-budget.ts:13` unused `TeamBudgetAuthorizationError` import. No production build, PostgreSQL migration application, browser workflow, or live recurring execution was run.
 
@@ -837,7 +837,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 
 ## F032 streaming markdown rendering (2026-11-07)
 
-- Command: `pnpm test -- src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx` — 2 files, 9 tests passed.
+- Command: `pnpm test -- src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx` ï¿½ 2 files, 9 tests passed.
 - Mounted React component test verifies the settled paragraph is not re-rendered as the tail changes, then verifies the tail re-renders when streaming completes. Parser coverage also verifies a 50,000-line blank run is collapsed without large variadic argument expansion while loose-list boundaries remain intact. Captured ReactMarkdown props assert GFM/remark-math and KaTeX remain configured and no raw-HTML or custom URL-transform plugin was added.
 - `pnpm exec biome check` passed on the seven affected source/test files; scoped `git diff --check` passed with only the repository's existing LF/CRLF notices.
 - Integrated typecheck/build intentionally not run in this batch; parent is coordinating integrated checks. F032 remains PARTIAL until these pass. No browser benchmark or live external integration applies to this render-only slice.
@@ -905,7 +905,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Full pnpm test passed 1,862 tests across 320 files. pnpm build passed and generated 196/196 pages. Existing non-fatal dependency, workspace-root, lint, dynamic-route, optional-service configuration and PostgreSQL SSL notices remain.
 - No live database migration/authorization, browser workflow, VAPID delivery, or Stripe/Vercel credential test was performed. F029 and F030 remain PARTIAL.
 
-## Integrated migration snapshot — 2026-11-07
+## Integrated migration snapshot ï¿½ 2026-11-07
 
 - Typecheck: `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`.
 - Full suite: `pnpm test` passed **1,921 tests across 331 files**.
@@ -967,3 +967,20 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Focused changes: nightly project-brain dream discovery, unified Cockpit provider status overview, and current-scope revalidation before project-document unlink. Combined focused Vitest passed **4 files / 9 tests**; the components add 1 dream-run, 4 unlink, 2 status-classification, and 2 overview-rendering tests.
 - Integrated `pnpm check-types` passed with a 6 GiB heap; full `pnpm test` passed **1,994/1,994 across 351 files**; `pnpm lint` exited 0 with existing `<img>` and multiple-lockfile warnings; `pnpm db:check` passed (journal only; no migration was applied); production `pnpm build` exited 0 with **203/203 pages**; `git diff --check` passed with line-ending notices.
 - Existing non-blocking build warnings include E2B/unpdf dependency analysis, dynamic-session prerender probes, optional Redis/Upstash/E2B configuration, and PostgreSQL SSL notices. No live Postgres, provider, browser, or Electron verification was performed.
+## F018 private file deletion lifecycle (2026-11-07 10:53 IST)
+- Focused Vitest: **13/13 passed** across collection DELETE route, outbox worker, and collection repository test files.
+- Scoped `pnpm exec biome check` passed on seven changed implementation/test files. `pnpm db:check` passed (migration journal consistency only; no database migration applied). `git diff --check` passed with Windows line-ending notices.
+- Whole-project typecheck was not completed: the initial default-heap run exhausted Node's 2 GiB heap; a 6 GiB retry was stopped when root requested focused verification only. No production build, PostgreSQL-backed test, live object-store call, deployment, push, or reference-repository write was performed.
+- F018 remains PARTIAL pending integrated typecheck/build, migration application in a disposable test database, and live private-provider verification.
+
+## F024 schedule history refresh security regression (2026-11-07 10:54 IST)
+- `pnpm vitest run src/app/api/scheduler/jobs/[jobId]/runs/route.test.ts`: PASS, 5/5 tests, including owner scoping and output/error redaction.
+- `pnpm biome check src/components/scheduled-jobs-dashboard.tsx 'src/app/api/scheduler/jobs/[jobId]/runs/route.test.ts'`: PASS. `git diff --check`: PASS with Windows line-ending notices.
+- No full suite/typecheck/build, live PostgreSQL, authenticated browser journey, migration apply, deployment, or push was run by this F024 subtask. Run-now remains unimplemented pending durable idempotency through the worker claim path.
+## F014 penalty preset verification (2026-11-07)
+- Focused Vitest passed 13/13 across table-review dashboard, review-column, schema and cell-schema tests. The new regression asserts the `penalty` field type and extraction prompt appear in the create-review payload. Scoped Biome passed. This does not verify a live PostgreSQL/provider/browser flow; F014 remains PARTIAL.
+## F018/F024/F014 combined verification (2026-11-07 11:09 IST)
+- Integrated pnpm check-types passed with NODE_OPTIONS=--max-old-space-size=6144; combined focused Vitest passed 18/18 across 4 files; full pnpm test passed **2,007/2,007 across 353 files**.
+- pnpm lint exited 0 with existing <img>, deprecated Next lint, and multiple-lockfile workspace-root warnings. pnpm db:check passed (journal consistency only; migration 0067 was not applied). git diff --check passed with Windows line-ending notices.
+- Production pnpm build exited 0 and generated **203/203 pages**. Existing dependency-analysis warnings (E2B/unpdf), workspace-root warning, and optional Redis/Upstash/E2B configuration notices remain.
+- No PostgreSQL-backed migration, live storage/provider, authenticated browser, deployment, or production DB verification was performed. F018, F024, and F014 remain PARTIAL; F024 Run now is explicitly deferred until durable lease-safe idempotency is implemented.

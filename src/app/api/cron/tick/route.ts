@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { processFileCleanupOutbox } from "lib/file-storage/cleanup-outbox";
 import { runSchedulerTick } from "lib/scheduler";
 import logger from "logger";
 
@@ -36,10 +37,12 @@ const handle = async (req: Request) => {
   const startedAt = Date.now();
   try {
     const result = await runSchedulerTick();
+    const fileCleanup = await processFileCleanupOutbox();
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - startedAt,
       ...result,
+      fileCleanup,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

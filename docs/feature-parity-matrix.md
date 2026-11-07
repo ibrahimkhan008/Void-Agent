@@ -1354,3 +1354,19 @@ No family is marked COMPLETE on the basis of route/component presence; environme
 - Nightly dream-cycle discovery now pages successful source-ingest runs using a stable project cursor and no longer requires an accepted-fact row to exist. Successful zero-fact ingest runs therefore remain eligible for the existing daily idempotent dream run; the previous first-100 project cap is removed.
 - Current project/source access checks and daily deduplication remain in place. Regression test covers 102 projects, an empty-fact success shape, cursor paging, and an unauthorized first project.
 - Evidence: `src/lib/projects/brain-dream.ts`, `src/lib/projects/brain-dream.test.ts`. F010 remains PARTIAL: no live PostgreSQL scheduler/worker run, model deduplication remains human-reviewed, and broader dream-stage parity remains.
+
+## F018 transactional private-file deletion lifecycle (2026-11-07 10:53 IST)
+- Added authenticated `DELETE /api/collections/[id]/items/[itemId]` for private file-source items in the caller-owned personal collection. Collection items outside the requested collection, team-shared collections, non-file sources, and unsafe owner keys are rejected.
+- The repository locks the source row and storage key, prevents reattaching a queued/deleted key, verifies unique object ownership, and refuses deletion while project documents, tabular reviews/cells, or project-brain sync/source/run/fact/todo records refer to the item. Existing F037 project unlink remains mapping-only and is unchanged.
+- Item removal and creation of `file_cleanup_outbox` happen in one transaction. Storage is never deleted before commit. The cron worker leases due outbox rows, rechecks the key owner prefix, treats missing objects as success, and records visible retry time/error on provider failure. Delete returns HTTP 202 while storage cleanup is pending and 204 only after cleanup succeeds.
+- Added additive migration 0067 and corresponding Drizzle schema/journal entry. Migration is recorded only; no database was connected or changed.
+
+## F024 manual run parity and history refresh (2026-11-07 10:54 IST)
+- Reference evidence: `Void-Agent-V2/apps/web/src/app/api/scheduled-tasks/[id]/run/route.ts` checks task ownership, then calls `runScheduledTaskNow` synchronously; `apps/web/src/lib/scheduled-tasks/runner.ts` bypasses Inngest for this path.
+- Void-Agent intentionally does not copy the synchronous shortcut. Its worker executes only rows claimed from active/due `scheduled_job` rows under a persisted lease token; `scheduled_run` has no durable manual-request/idempotency identifier or separate pending request row. Mutating `nextRunAt` would change recurring schedule semantics and could duplicate execution on a retried request. Direct execution would bypass worker claim/fencing.
+- Run-now remains EXCLUDED pending a durable, idempotent request/lease design (schema and worker work required); this is a concrete architectural/security exclusion, not parity. The dashboard now refetches owner-scoped run history when expanded and offers manual refresh. The history API returns lifecycle metadata only and excludes run output/error content.
+- Evidence: `src/components/scheduled-jobs-dashboard.tsx`, `src/app/api/scheduler/jobs/[jobId]/runs/route.ts`, and `route.test.ts`. Focused API suite passes 5/5; scoped Biome and diff checks pass. No migration or PostgreSQL/browser journey.
+## F014 penalties and remedies extraction preset (2026-11-07)
+- Added the missing Better Chatbot `penalty` column preset to the manual multi-document review dashboard, with an explicit extraction prompt and typed field flowing through the existing review creation API.
+- Evidence: `src/components/tabular-reviews-dashboard.tsx` and its test. Focused table-review/dashboard/schema suites passed 13/13; scoped Biome passed.
+- F014 remains PARTIAL: live database/provider/browser validation and broader reference workflow parity remain outstanding.

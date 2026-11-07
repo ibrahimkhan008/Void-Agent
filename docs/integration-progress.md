@@ -954,3 +954,19 @@ Agent file bindings are now validated server-side using the authenticated user's
 ## Published follow-up batch (2026-11-07)
 - Commit `481f6ca` (`feat: expand dream cycle and cockpit workflows`) was pushed to `origin/main` after integrated typecheck, all tests, lint, journal check, production build and whitespace validation passed.
 - Published scope: nightly project-brain zero-fact/paged coverage, unified Cockpit status overview (Stripe dashboard moved to `/cockpit/stripe`), and secure project-document unlink revalidation. F010/F030/F037 remain PARTIAL for the documented missing behaviors and lack of live DB/provider/browser/device verification.
+## F018 transactional private-file deletion lifecycle (2026-11-07 10:53 IST)
+- Added authenticated `DELETE /api/collections/[id]/items/[itemId]` for private file-source items in the caller-owned personal collection. Collection items outside the requested collection, team-shared collections, non-file sources, and unsafe owner keys are rejected.
+- The repository locks the source row and storage key, prevents reattaching a queued/deleted key, verifies unique object ownership, and refuses deletion while project documents, tabular reviews/cells, or project-brain sync/source/run/fact/todo records refer to the item. Existing F037 project unlink remains mapping-only and is unchanged.
+- Item removal and creation of `file_cleanup_outbox` happen in one transaction. Storage is never deleted before commit. The cron worker leases due outbox rows, rechecks the key owner prefix, treats missing objects as success, and records visible retry time/error on provider failure. Delete returns HTTP 202 while storage cleanup is pending and 204 only after cleanup succeeds.
+- Added additive migration 0067 and corresponding Drizzle schema/journal entry. Migration is recorded only; no database was connected or changed.
+
+## F024 run history refresh and run-now safety review (2026-11-07 10:54 IST)
+- Added refreshable recent-run history to the dashboard. Expanding history always refetches from the authenticated owner-scoped API; a refresh button handles subsequent updates. Run output and provider error contents remain redacted from this view.
+- Reviewed the reference manual run route and Void-Agent worker contract. No run-now route was added: the existing schema lacks a durable request idempotency key, and direct execution or `nextRunAt` mutation would bypass/alter worker lease and recurrence semantics.
+- Verification: `pnpm vitest run src/app/api/scheduler/jobs/[jobId]/runs/route.test.ts` passed 5/5; scoped Biome check passed on the dashboard and test; scoped `git diff --check` passed. No migration, live PostgreSQL/browser journey, deploy, or push. F024 remains PARTIAL.
+## F014 penalties and remedies preset (2026-11-07)
+- Added the missing `penalty` extraction preset with a focused UI regression proving its type and prompt are sent to review creation. Focused dashboard/review-schema suite passed 13/13; scoped Biome passed. F014 remains PARTIAL pending full provider/database/browser verification and broader parity.
+## F018/F024/F014 verified implementation batch (2026-11-07 11:09 IST)
+- F018 adds a transactional private-file delete/outbox path with leased cleanup retry; migration 0067 is recorded but unapplied. F024 adds owner-scoped refreshable run history and redaction; run-now stays blocked pending safe durable idempotency. F014 adds the missing penalty extraction preset.
+- Integrated verification: typecheck passed; focused batch tests 18/18; full suite 2,007/2,007 across 353 files; lint passed with existing warnings; migration journal check passed; production build 203/203 pages; diff whitespace check passed.
+- These families remain PARTIAL, and this batch does not complete the overall migration. No deployment or live PostgreSQL/provider/browser verification.

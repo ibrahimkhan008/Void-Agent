@@ -10,10 +10,6 @@ import {
 } from "app-types/subscription";
 import { UserPreferences } from "app-types/user";
 import { DBEdge, DBNode, DBWorkflow } from "app-types/workflow";
-import type {
-  ProblemReportContext,
-  ProblemReportScreenshot,
-} from "../../../types/problem-report";
 import { sql } from "drizzle-orm";
 import { isNotNull, isNull } from "drizzle-orm";
 import {
@@ -38,6 +34,10 @@ import {
   varchar,
   vector,
 } from "drizzle-orm/pg-core";
+import type {
+  ProblemReportContext,
+  ProblemReportScreenshot,
+} from "../../../types/problem-report";
 
 export const ChatThreadTable = pgTable("chat_thread", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -1140,6 +1140,37 @@ export type CollectionEntity = typeof CollectionTable.$inferSelect;
 export type CollectionItemEntity = typeof CollectionItemTable.$inferSelect;
 export type DocumentEntity = typeof DocumentTable.$inferSelect;
 export type DocumentChunkEntity = typeof DocumentChunkTable.$inferSelect;
+
+/** Durable cleanup queue for blobs whose owning knowledge item was deleted. */
+export const FileCleanupOutboxTable = pgTable(
+  "file_cleanup_outbox",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    storageKey: text("storage_key").notNull(),
+    status: varchar("status", { enum: ["pending", "processing", "complete"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("file_cleanup_outbox_status_next_attempt_idx").on(
+      table.status,
+      table.nextAttemptAt,
+    ),
+    index("file_cleanup_outbox_storage_key_idx").on(table.storageKey),
+  ],
+);
 
 // Multi-document tabular reviews. Sources use the existing knowledge-base
 // item/document pipeline so review access inherits collection ownership.

@@ -592,3 +592,13 @@ No implementation batch is scheduled for the reference Slack channel-subscriptio
 ## F030 continuation - provider connection hub (2026-11-07)
 - Implemented the shared provider connection-status overview at `/cockpit`; Stripe finance remains available at `/cockpit/stripe`. The hub intentionally stops at connection health and deep links; provider-specific metrics remain in their current dashboards until a safe, common summary contract is designed.
 - Verification: 4 focused tests passed, scoped Biome passed, SEO dashboard lint passed. Whole-project typecheck/build are delegated to root's integrated batch verification.
+## F018 transactional private-file deletion lifecycle (2026-11-07 10:53 IST)
+- Added authenticated `DELETE /api/collections/[id]/items/[itemId]` for private file-source items in the caller-owned personal collection. Collection items outside the requested collection, team-shared collections, non-file sources, and unsafe owner keys are rejected.
+- The repository locks the source row and storage key, prevents reattaching a queued/deleted key, verifies unique object ownership, and refuses deletion while project documents, tabular reviews/cells, or project-brain sync/source/run/fact/todo records refer to the item. Existing F037 project unlink remains mapping-only and is unchanged.
+- Item removal and creation of `file_cleanup_outbox` happen in one transaction. Storage is never deleted before commit. The cron worker leases due outbox rows, rechecks the key owner prefix, treats missing objects as success, and records visible retry time/error on provider failure. Delete returns HTTP 202 while storage cleanup is pending and 204 only after cleanup succeeds.
+- Added additive migration 0067 and corresponding Drizzle schema/journal entry. Migration is recorded only; no database was connected or changed.
+
+## F024 manual execution follow-up (2026-11-07 10:54 IST)
+- Safe gap closed: schedule history refetches whenever opened and has an explicit refresh action; the existing API remains owner-scoped and returns lifecycle metadata only.
+- Run-now remains blocked from implementation without durable invocation idempotency. Next design step: additive per-user/job request key record or queue with worker lease consumption, retry replay behavior, and recurring/one-shot schedule semantics; then add concurrency/authorization tests before exposing UI.
+- Do not copy the reference synchronous route, mutate `nextRunAt` for an ad-hoc request, apply a schema migration, or call the execution path outside the worker lease.
