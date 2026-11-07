@@ -113,3 +113,7 @@ Historical pause and publication entries below are retained as a timeline; the c
 - The build emits existing E2B/unpdf analysis, image lint, optional Redis/Upstash/E2B, dynamic-session probe, workspace-lockfile, and PG SSL-mode warnings. Build completes successfully.
 - No live OpenAI Realtime/KonvO voice, browser, or PostgreSQL integration was available. No schema migration, deployment, production DB operation, or V2 change.
 - Source/docs remain local pending staged-path review and push. The previous build run before final visibility/context hardening was superseded by this fresh pass.
+## Voice project knowledge publication result - 2026-11-07 23:03 IST
+- Published commit `7ad6d655f2c75be304be219b822bc8de7b8ca998` (`feat: add project knowledge search to voice`) to origin/main as a fast-forward from `eeaf442`.
+- Remote verification: local HEAD and origin/main both resolve to `7ad6d655f2c75be304be219b822bc8de7b8ca998`; ahead/behind is 0/0. The two CognixAI specs remain untouched and untracked.
+- Next recommended feature batch: automatically inject a small query-matched set of current, human-accepted project-brain facts/events into eligible project chats. Reuse primary-owned project/collection/source-revision scope and keep brain citations separate from ordinary RAG citation metadata. The broader migration and F010 remain incomplete; no percentage claimed.
