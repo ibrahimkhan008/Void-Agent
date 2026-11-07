@@ -1070,3 +1070,8 @@ Agent file bindings are now validated server-side using the authenticated user's
 - F026: Voice Inbox preview filters project suggestions to currently editable projects and adds an explicit-consent project assignment. The PATCH rechecks same-origin/session/rate limit, exact user-owned saved voice source/thread, and current edit access. It never executes a command/tool.
 - Focused checks: F010 1/1, F014 13/13, F018 9/9, F026 20/20. Integrated `pnpm check-types`, full Vitest (371 files / 2,094 tests, maxWorkers=2), lint, `pnpm db:check`, `git diff --check`, and production build (203/203 static pages) all pass. Existing warnings and unavailable live PostgreSQL/provider/browser/device/storage tests remain limitations; F010/F014/F018/F026 and overall migration remain PARTIAL.
 - No migration was applied, no production deployment performed, and the reference repository was not modified. This batch is awaiting scoped staging review and a separate GitHub push.
+
+## Publication receipt: F010 / F014 / F018 / F026 (2026-11-07 14:36 IST)
+- Published the verified batch as `6b69c6b724157edbe5b09b106cfcd8bddc7ca594` on `origin/main`; `git ls-remote` matched the local commit SHA after push.
+- The 22-file commit contains the listed implementation/tests/docs only. `context.md` and the two untracked CognixAI user specification files were excluded. Reference checkout unchanged; migration 0069 remains unapplied; no deployment occurred.
+- Overall parity remains incomplete and work continues from the P0/P1 rows in the existing matrix.
