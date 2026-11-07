@@ -39,6 +39,24 @@ export const createReviewSchema = z
 
 export type ReviewColumn = z.infer<typeof reviewColumnSchema>;
 
+export function shouldGenerateReviewTask(args: {
+  task: {
+    itemId: string;
+    column: { id: string };
+    current?: { status: string | null };
+  };
+  target?: { itemId: string; columnId: string };
+  force: boolean;
+}) {
+  if (args.target) {
+    return (
+      args.task.itemId === args.target.itemId &&
+      args.task.column.id === args.target.columnId
+    );
+  }
+  return args.force || args.task.current?.status !== "done";
+}
+
 export function numberDocumentPassages(
   sourceText: string,
   maxPassageChars = 4_000,

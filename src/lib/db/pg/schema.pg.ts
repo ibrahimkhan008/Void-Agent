@@ -1373,6 +1373,56 @@ export const ScheduledRunTable = pgTable(
 export type ScheduledRun = typeof ScheduledRunTable.$inferSelect;
 export type NewScheduledRun = typeof ScheduledRunTable.$inferInsert;
 
+/** Durable, owner-scoped manual execution requests, replay-safe by key. */
+export const ScheduledJobManualRunRequestTable = pgTable(
+  "scheduled_job_manual_run_request",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    scheduledJobId: uuid("scheduled_job_id").references(
+      () => ScheduledJobTable.id,
+      { onDelete: "set null" },
+    ),
+    requestKey: varchar("request_key", { length: 200 }).notNull(),
+    requestHash: varchar("request_hash", { length: 64 }).notNull(),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    claimToken: uuid("claim_token"),
+    claimExpiresAt: timestamp("claim_expires_at"),
+    scheduledRunId: uuid("scheduled_run_id").references(
+      () => ScheduledRunTable.id,
+      { onDelete: "set null" },
+    ),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({
+      name: "scheduled_job_manual_run_request_pk",
+      columns: [table.userId, table.requestKey],
+    }),
+    uniqueIndex("scheduled_job_manual_run_request_id_unique").on(table.id),
+    uniqueIndex("scheduled_job_manual_run_request_pending_job_unique")
+      .on(table.scheduledJobId)
+      .where(sql`${table.status} IN ('pending', 'processing')`),
+    index("scheduled_job_manual_run_request_claim_idx").on(
+      table.status,
+      table.claimExpiresAt,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type ScheduledJobManualRunRequest =
+  typeof ScheduledJobManualRunRequestTable.$inferSelect;
+
 // User-visible alerts and browser push endpoints. Push key material is
 // encrypted by the repository before it reaches these columns.
 export const NotificationTable = pgTable(

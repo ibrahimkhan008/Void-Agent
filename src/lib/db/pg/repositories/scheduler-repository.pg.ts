@@ -5,8 +5,9 @@ import { pgDb as db } from "../db.pg";
 import {
   NewScheduledJob,
   NewScheduledRun,
-  ScheduledJobCreationRequestTable,
   ScheduledJob,
+  ScheduledJobCreationRequestTable,
+  ScheduledJobManualRunRequestTable,
   ScheduledJobTable,
   ScheduledRun,
   ScheduledRunTable,
@@ -56,6 +57,27 @@ export class ScheduledJobReplayUnavailableError extends Error {
   }
 }
 
+export class ManualScheduledRunConflictError extends Error {
+  constructor(message = "A manual run is already queued for this schedule.") {
+    super(message);
+    this.name = "ManualScheduledRunConflictError";
+  }
+}
+
+export class ManualScheduledRunUnavailableError extends Error {
+  constructor() {
+    super("This schedule cannot be run manually.");
+    this.name = "ManualScheduledRunUnavailableError";
+  }
+}
+
+export class ManualScheduledRunIdempotencyConflictError extends Error {
+  constructor() {
+    super("The manual run key was already used for another schedule.");
+    this.name = "ManualScheduledRunIdempotencyConflictError";
+  }
+}
+
 export interface UpdateScheduledJobInput {
   name?: string;
   cron?: string;
@@ -74,6 +96,268 @@ export interface UpdateScheduledRunInput {
 }
 
 export const schedulerRepository = {
+  async requestManualScheduledRun(
+    jobId: string,
+    userId: string,
+    requestKey: string,
+  ): Promise<{
+    id: string;
+    status: string;
+    created: boolean;
+  }> {
+    return db.transaction(async (tx) => {
+      const [job] = await tx
+        .select()
+        .from(ScheduledJobTable)
+        .where(
+          and(
+            eq(ScheduledJobTable.id, jobId),
+            eq(ScheduledJobTable.userId, userId),
+          ),
+        )
+        .for("update");
+      if (!job) throw new ManualScheduledRunUnavailableError();
+
+      const requestHash = jobId;
+      const [existing] = await tx
+        .select()
+        .from(ScheduledJobManualRunRequestTable)
+        .where(
+          and(
+            eq(ScheduledJobManualRunRequestTable.userId, userId),
+            eq(ScheduledJobManualRunRequestTable.requestKey, requestKey),
+          ),
+        )
+        .for("update");
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          throw new ManualScheduledRunIdempotencyConflictError();
+        }
+        if (!existing.scheduledJobId) {
+          throw new ScheduledJobReplayUnavailableError();
+        }
+        return { id: existing.id, status: existing.status, created: false };
+      }
+
+      if (job.status === "disabled") {
+        throw new ManualScheduledRunUnavailableError();
+      }
+      const [pending] = await tx
+        .select({ id: ScheduledJobManualRunRequestTable.id })
+        .from(ScheduledJobManualRunRequestTable)
+        .where(
+          and(
+            eq(ScheduledJobManualRunRequestTable.scheduledJobId, jobId),
+            inArray(ScheduledJobManualRunRequestTable.status, [
+              "pending",
+              "processing",
+            ]),
+          ),
+        )
+        .limit(1);
+      if (pending) throw new ManualScheduledRunConflictError();
+
+      const [request] = await tx
+        .insert(ScheduledJobManualRunRequestTable)
+        .values({ userId, scheduledJobId: jobId, requestKey, requestHash })
+        .onConflictDoNothing()
+        .returning();
+      if (request) {
+        return { id: request.id, status: request.status, created: true };
+      }
+
+      // A concurrent request may have reserved this key while another job
+      // row was locked. Resolve it rather than accidentally creating work.
+      const [replayed] = await tx
+        .select()
+        .from(ScheduledJobManualRunRequestTable)
+        .where(
+          and(
+            eq(ScheduledJobManualRunRequestTable.userId, userId),
+            eq(ScheduledJobManualRunRequestTable.requestKey, requestKey),
+          ),
+        );
+      if (!replayed) throw new Error("Manual run request could not be saved.");
+      if (replayed.requestHash !== requestHash) {
+        throw new ManualScheduledRunIdempotencyConflictError();
+      }
+      if (!replayed.scheduledJobId) {
+        throw new ScheduledJobReplayUnavailableError();
+      }
+      return { id: replayed.id, status: replayed.status, created: false };
+    });
+  },
+
+  async claimManualScheduledRuns(
+    now: Date,
+    limit: number,
+    claimToken: string,
+    leaseUntil: Date,
+  ): Promise<Array<{ job: ScheduledJob; requestId: string; runId: string }>> {
+    if (!Number.isFinite(limit) || limit <= 0) return [];
+    return db.transaction(async (tx) => {
+      const candidates = await tx
+        .select({
+          request: ScheduledJobManualRunRequestTable,
+          job: ScheduledJobTable,
+        })
+        .from(ScheduledJobManualRunRequestTable)
+        .innerJoin(
+          ScheduledJobTable,
+          eq(
+            ScheduledJobTable.id,
+            ScheduledJobManualRunRequestTable.scheduledJobId,
+          ),
+        )
+        .where(
+          and(
+            inArray(ScheduledJobTable.status, ["active", "paused"]),
+            or(
+              eq(ScheduledJobManualRunRequestTable.status, "pending"),
+              and(
+                eq(ScheduledJobManualRunRequestTable.status, "processing"),
+                or(
+                  isNull(ScheduledJobManualRunRequestTable.claimExpiresAt),
+                  lte(ScheduledJobManualRunRequestTable.claimExpiresAt, now),
+                ),
+              ),
+            ),
+            or(
+              isNull(ScheduledJobTable.claimExpiresAt),
+              lte(ScheduledJobTable.claimExpiresAt, now),
+            ),
+          ),
+        )
+        .orderBy(ScheduledJobManualRunRequestTable.createdAt)
+        .limit(Math.min(100, Math.floor(limit)))
+        .for("update", { skipLocked: true });
+
+      const claimed: Array<{
+        job: ScheduledJob;
+        requestId: string;
+        runId: string;
+      }> = [];
+      for (const candidate of candidates) {
+        if (
+          candidate.request.status === "processing" &&
+          candidate.request.scheduledRunId
+        ) {
+          const crashMessage =
+            "Worker lease expired after execution started; request was not replayed to avoid duplicate side effects.";
+          await tx
+            .update(ScheduledJobManualRunRequestTable)
+            .set({
+              status: "failed",
+              claimToken: null,
+              claimExpiresAt: null,
+              lastError: crashMessage,
+              updatedAt: now,
+            })
+            .where(
+              eq(ScheduledJobManualRunRequestTable.id, candidate.request.id),
+            );
+          await tx
+            .update(ScheduledRunTable)
+            .set({
+              status: "failed",
+              completedAt: now,
+              error: crashMessage,
+            })
+            .where(eq(ScheduledRunTable.id, candidate.request.scheduledRunId));
+          continue;
+        }
+
+        const [job] = await tx
+          .update(ScheduledJobTable)
+          .set({ claimToken, claimExpiresAt: leaseUntil, updatedAt: now })
+          .where(
+            and(
+              eq(ScheduledJobTable.id, candidate.job.id),
+              or(
+                isNull(ScheduledJobTable.claimExpiresAt),
+                lte(ScheduledJobTable.claimExpiresAt, now),
+              ),
+            ),
+          )
+          .returning();
+        if (!job) continue;
+        const [run] = await tx
+          .insert(ScheduledRunTable)
+          .values({ scheduledJobId: job.id } satisfies NewScheduledRun)
+          .returning();
+        if (!run) {
+          await tx
+            .update(ScheduledJobTable)
+            .set({ claimToken: null, claimExpiresAt: null, updatedAt: now })
+            .where(
+              and(
+                eq(ScheduledJobTable.id, job.id),
+                eq(ScheduledJobTable.claimToken, claimToken),
+              ),
+            );
+          continue;
+        }
+        const [request] = await tx
+          .update(ScheduledJobManualRunRequestTable)
+          .set({
+            status: "processing",
+            attempts: candidate.request.attempts + 1,
+            claimToken,
+            claimExpiresAt: leaseUntil,
+            scheduledRunId: run.id,
+            updatedAt: now,
+          })
+          .where(eq(ScheduledJobManualRunRequestTable.id, candidate.request.id))
+          .returning();
+        if (!request) {
+          await tx
+            .update(ScheduledJobTable)
+            .set({ claimToken: null, claimExpiresAt: null, updatedAt: now })
+            .where(
+              and(
+                eq(ScheduledJobTable.id, job.id),
+                eq(ScheduledJobTable.claimToken, claimToken),
+              ),
+            );
+          continue;
+        }
+        claimed.push({
+          job: job as ScheduledJob,
+          requestId: request.id,
+          runId: run.id,
+        });
+      }
+      return claimed;
+    });
+  },
+
+  async finishManualScheduledRun(
+    requestId: string,
+    claimToken: string,
+    runId: string,
+    status: "completed" | "failed",
+    error?: string,
+  ): Promise<boolean> {
+    const [row] = await db
+      .update(ScheduledJobManualRunRequestTable)
+      .set({
+        status,
+        scheduledRunId: runId,
+        claimToken: null,
+        claimExpiresAt: null,
+        lastError: error?.slice(0, 1000) ?? null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(ScheduledJobManualRunRequestTable.id, requestId),
+          eq(ScheduledJobManualRunRequestTable.claimToken, claimToken),
+        ),
+      )
+      .returning({ id: ScheduledJobManualRunRequestTable.id });
+    return Boolean(row);
+  },
+
   async createScheduledJob(
     input: CreateScheduledJobInput,
     userId: string,
@@ -296,6 +580,16 @@ export const schedulerRepository = {
         ),
       )
       .returning({ id: ScheduledJobTable.id });
+    await db
+      .update(ScheduledJobManualRunRequestTable)
+      .set({ claimExpiresAt: leaseUntil, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(ScheduledJobManualRunRequestTable.scheduledJobId, jobIds),
+          eq(ScheduledJobManualRunRequestTable.claimToken, claimToken),
+          eq(ScheduledJobManualRunRequestTable.status, "processing"),
+        ),
+      );
     return rows.map((row) => row.id);
   },
 

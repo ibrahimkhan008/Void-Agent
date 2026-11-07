@@ -17,7 +17,7 @@ import {
   type ReviewCellRegeneration,
   isReviewCellInScope,
   readBoundedJson,
-  reviewCellRegenerationSchema,
+  reviewGenerationRequestSchema,
 } from "lib/tabular/review-cell-schema";
 import {
   type ReviewColumn,
@@ -25,6 +25,7 @@ import {
   TABULAR_REVIEW_MAX_SOURCE_CHARS,
   buildReviewPrompt,
   mapWithConcurrency,
+  shouldGenerateReviewTask,
   validateCitationAnswer,
 } from "lib/tabular/review-schema";
 
@@ -66,6 +67,7 @@ export async function POST(
     return new Response("Forbidden", { status: 403 });
   const { id } = await params;
   let target: ReviewCellRegeneration | undefined;
+  let force = false;
   if (request.body) {
     const body = await readBoundedJson(request);
     if (!body.ok)
@@ -78,10 +80,14 @@ export async function POST(
         },
         { status: body.reason === "too-large" ? 413 : 400 },
       );
-    const parsedTarget = reviewCellRegenerationSchema.safeParse(body.value);
-    if (!parsedTarget.success)
-      return Response.json({ error: "Invalid cell target" }, { status: 400 });
-    target = parsedTarget.data;
+    const parsedRequest = reviewGenerationRequestSchema.safeParse(body.value);
+    if (!parsedRequest.success)
+      return Response.json(
+        { error: "Invalid generation request" },
+        { status: 400 },
+      );
+    if ("force" in parsedRequest.data) force = parsedRequest.data.force;
+    else target = parsedRequest.data;
   }
   const rate = await checkApiRateLimit({
     kind: "tabular-review-generate",
@@ -190,9 +196,7 @@ export async function POST(
     return {
       status: "ready" as const,
       tasks: tasks.filter((task) =>
-        target
-          ? task.itemId === target.itemId && task.column.id === target.columnId
-          : task.current?.status !== "done",
+        shouldGenerateReviewTask({ task, target, force }),
       ),
       staleCellIds: cells
         .filter((cell) => cell.status === "generating")

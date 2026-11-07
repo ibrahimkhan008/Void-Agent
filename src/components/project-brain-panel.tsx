@@ -175,6 +175,7 @@ type BrainPagesData = {
 type BrainDreamData = {
   runs: Array<{
     id: string;
+    canRetry: boolean;
     status: string;
     stage: string;
     metrics: Record<
@@ -337,19 +338,27 @@ export function ProjectBrainPanel({
     },
   );
   const [startingDream, setStartingDream] = useState(false);
-  const startBrainDream = async () => {
+  const startBrainDream = async (retryRunId?: string) => {
     setStartingDream(true);
     try {
       const response = await fetch(`/api/projects/${projectId}/brain/dream`, {
         method: "POST",
+        ...(retryRunId
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ retryRunId }),
+            }
+          : {}),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok)
         throw new Error(payload.error || "Could not start the brain cycle");
       toast.success(
         payload.deduplicated
-          ? "A brain cycle is already queued this hour"
-          : "Project brain cycle queued",
+          ? "A brain cycle is already queued"
+          : retryRunId
+            ? "Project brain cycle retry queued"
+            : "Project brain cycle queued",
       );
       await mutateDream();
     } catch (error) {
@@ -1708,6 +1717,16 @@ export function ProjectBrainPanel({
                     {run.status} · {run.stage}
                     {run.errorMessage ? ` · ${run.errorMessage}` : ""}
                   </p>
+                  {run.canRetry && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={startingDream}
+                      onClick={() => void startBrainDream(run.id)}
+                    >
+                      {startingDream ? "Queueing retry…" : "Retry cycle"}
+                    </Button>
+                  )}
                   {Object.entries(run.metrics ?? {}).map(([stage, metrics]) => (
                     <div key={stage}>
                       <p>

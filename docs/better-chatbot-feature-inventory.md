@@ -1,4 +1,4 @@
-﻿# Better Chatbot implementation-surface inventory
+# Better Chatbot implementation-surface inventory
 
 Reference: local Void-Agent-V2 (upstream 2868c33 with the previously documented local branding/auth patches). Reference files are read-only in this initiative.
 
@@ -842,3 +842,28 @@ Reference behavior from `Void-Agent-V2/apps/web/src/lib/cockpit/providers/revolu
 
 ## F024 reference manual-run behavior (2026-11-07 10:54 IST)
 The reference exposes `POST /api/scheduled-tasks/[id]/run`, checks the task belongs to the authenticated user, then runs synchronously through `runScheduledTaskNow` without the Inngest executor. This provides on-demand execution but is coupled to a different task schema and execution lifecycle. Void-Agent retains its lease-claimed worker path; source comparison alone does not establish that the synchronous shortcut can be safely transplanted.
+## F018 source deletion UI completion slice (2026-11-07 11:13 IST)
+- Added a per-source Remove action only for writable personal collections and file-backed items. The user must confirm; the component calls the authenticated collection-item DELETE endpoint, refreshes list data, and distinguishes queued cleanup (202) from immediate completion. Team collections and URL sources do not expose this action.
+- Focused component tests passed 2/2: confirmation invokes the expected DELETE request and refresh on queued cleanup, and team collections do not offer per-source deletion. Scoped Biome check passed. F018 remains PARTIAL for project/reference blockers, wider multimodal parity, and live PostgreSQL/storage/browser validation.
+## F014 explicit whole-review regeneration (2026-11-07 11:15 IST)
+- Reference evidence: Void-Agent-V2/apps/web/src/app/api/tabular-review/[id]/generate/route.ts supports an explicit { force: true } request that intentionally regenerates completed cells. The reference tool card otherwise skips answered cells on thread remount.
+- Primary adaptation: src/app/api/tabular-reviews/[id]/generate/route.ts now accepts a strict bounded full-regeneration request alongside the existing targeted-cell request. Full reruns use the same authenticated review ownership, same-origin check, per-user rate limit, review lock, current source scope, bounded source text, prompt-injection framing, and output/citation validation as ordinary generation.
+- The review detail page exposes Regenerate all with a browser confirmation explaining that it replaces answers and uses AI credits. Existing per-cell regeneration and retry-only-failed behavior remain.
+- F014 remains PARTIAL: focused tests and code checks do not replace a PostgreSQL-backed review plus live provider/browser journey; team-shared review semantics were not added.
+## F029 project-consolidation digest parity audit (2026-11-07 11:17 IST)
+- Reference trace: apps/web/src/lib/project-brain/run-pipeline.ts calls consolidate-generate, consolidate-apply, then notify as distinct idempotent workflow steps. consolidate-project.ts marks only explicitly model-selected open todos as notified, reads the per-run set, derives currently authorized project recipients, and creates one deduplicated project_digest per run/recipient; push is sent only for newly inserted rows.
+- Primary behavior is materially different: primary src/lib/projects/brain-queue.ts stores extracted ProjectBrainTodo rows as proposed; there is no consolidation model, notify intent, per-run notified marker, or project todo digest trigger. The status route generates snapshots and only sends health-transition notifications; the todo route is a human review transition. src/app/api/projects/[id]/brain/status/route.ts generates a status snapshot and sends only a health-transition notification. src/app/api/projects/[id]/brain/todos/[todoId]/route.ts is a human review transition, not a digest workflow.
+- Decision: exclude this upstream todo digest subfeature for now. Notifying on raw proposed tasks would surface unreviewed model output and lacks durable idempotency or a newly-notified marker; task acceptance or health changes are not equivalent triggers. Parity needs an explicit consolidation/notify lifecycle and reviewed-notification state adapted to the primary task model.
+- Safe existing behavior retained: health changes notify only current project recipients, content is generic (does not leak private blockers), per-transition keys deduplicate, and push is attempted only when a recipient's in-app row was newly inserted. Existing project-health and status-route regression tests pass 20/20 together with the todo-review route suite.
+- F029 remains PARTIAL. No schema/migration or source behavior was changed by this audit; live PostgreSQL, browser permission, and real VAPID delivery remain unverified.
+## F010/F011 bounded project-brain cycle retry (2026-11-07 11:20 IST)
+- Added a one-time retry path for partial/failed root dream runs. Retry requests are same-origin, authenticated project-editor only, rate-limited, streaming body capped at 2 KiB, bound to a run in the same project, and idempotent on etry:<root-run-id>. A retry cannot itself be retried; repeated requests resolve to the same queued retry row.
+- Retry replays the existing staged workflow from the beginning. Existing stage effects are designed to be repeat-safe: dedupe only produces review suggestions, contradiction pairs use conflict-safe insertion and existing-pair exclusion, salience/archive are deterministic, and unchanged status fingerprints reuse a persisted snapshot. No auto-merge or fact-decision bypass was added.
+- The dream status API exposes only canRetry, not the internal idempotency key. The project-brain panel offers Retry cycle only when the latest run is partial/failed and eligible. F010/F011 remain PARTIAL pending database/browser/worker verification and broader feature gaps.
+- Evidence: src/app/api/projects/[id]/brain/dream/route.ts, its route tests, src/lib/projects/brain-dream-state.ts and tests, and src/components/project-brain-panel.tsx.
+
+
+## F024 manual run-now migration (2026-11-07 11:24 IST)
+- Reference implements a synchronous owner-checked endpoint that directly calls its scheduled-task runner. Void-Agent adapts this as a durable request consumed by the existing fenced scheduler worker instead of bypassing worker leases.
+- The request uses same-origin, authentication, mandatory idempotency key, owner-scoped job lookup, a one-pending-request-per-job constraint, pre-bound run history, unchanged recurrence timestamps, and non-replay after a started request lease expires.
+- Migration 0068 is recorded but not applied. External execution has at-most-once manual request replay semantics: a crash after the durable started marker can leave an ambiguous failed run rather than risk duplicate side effects.

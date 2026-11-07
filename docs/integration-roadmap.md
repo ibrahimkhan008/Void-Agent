@@ -602,3 +602,14 @@ No implementation batch is scheduled for the reference Slack channel-subscriptio
 - Safe gap closed: schedule history refetches whenever opened and has an explicit refresh action; the existing API remains owner-scoped and returns lifecycle metadata only.
 - Run-now remains blocked from implementation without durable invocation idempotency. Next design step: additive per-user/job request key record or queue with worker lease consumption, retry replay behavior, and recurring/one-shot schedule semantics; then add concurrency/authorization tests before exposing UI.
 - Do not copy the reference synchronous route, mutate `nextRunAt` for an ad-hoc request, apply a schema migration, or call the execution path outside the worker lease.
+## F010/F011 bounded project-brain cycle retry (2026-11-07 11:20 IST)
+- Added a one-time retry path for partial/failed root dream runs. Retry requests are same-origin, authenticated project-editor only, rate-limited, streaming body capped at 2 KiB, bound to a run in the same project, and idempotent on etry:<root-run-id>. A retry cannot itself be retried; repeated requests resolve to the same queued retry row.
+- Retry replays the existing staged workflow from the beginning. Existing stage effects are designed to be repeat-safe: dedupe only produces review suggestions, contradiction pairs use conflict-safe insertion and existing-pair exclusion, salience/archive are deterministic, and unchanged status fingerprints reuse a persisted snapshot. No auto-merge or fact-decision bypass was added.
+- The dream status API exposes only canRetry, not the internal idempotency key. The project-brain panel offers Retry cycle only when the latest run is partial/failed and eligible. F010/F011 remain PARTIAL pending database/browser/worker verification and broader feature gaps.
+- Evidence: src/app/api/projects/[id]/brain/dream/route.ts, its route tests, src/lib/projects/brain-dream-state.ts and tests, and src/components/project-brain-panel.tsx.
+
+
+## F024 manual run-now implementation (2026-11-07 11:24 IST)
+- Implemented durable owner-scoped/idempotent enqueue, claim-token worker execution, a pre-bound run record, and recurrence-preserving completion. Paused jobs are eligible; disabled jobs are not.
+- Crash policy: do not replay requests whose started run lease expires; mark request and run failed with an explicit ambiguous-outcome note. This avoids duplicate manual requests but may not complete a request after a crash.
+- Migration 0068 remains unapplied. Next: root integrated typecheck/full test/lint/build and disposable PostgreSQL migration/race validation, then authenticated browser verification. F024 remains PARTIAL until these checks and remaining scheduling parity are complete.

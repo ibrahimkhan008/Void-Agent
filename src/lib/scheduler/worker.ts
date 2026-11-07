@@ -6,11 +6,11 @@ import { BASE_URL, getBaseUrl } from "lib/const";
 import { schedulerRepository } from "lib/db/pg/repositories/scheduler-repository.pg";
 import { chatRepository } from "lib/db/repository";
 import { notifyScheduledRun } from "lib/notifications/scheduled-run";
-import { processProjectBrainQueue } from "lib/projects/brain-queue";
 import {
   enqueueNightlyProjectBrainDreams,
   processProjectBrainDreamQueue,
 } from "lib/projects/brain-dream";
+import { processProjectBrainQueue } from "lib/projects/brain-queue";
 import logger from "logger";
 
 import { computeNextRun } from "./cron-parser";
@@ -158,17 +158,35 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
     } catch (error) {
       logger.error("[scheduler] project brain dream queue failed:", error);
     }
+    const manualRuns = await schedulerRepository.claimManualScheduledRuns(
+      new Date(),
+      CLAIM_BATCH,
+      claimToken,
+      new Date(Date.now() + CLAIM_LEASE_MS),
+    );
     const dueJobs = await schedulerRepository.claimDueScheduledJobs(
       new Date(),
       CLAIM_BATCH,
       claimToken,
       new Date(Date.now() + CLAIM_LEASE_MS),
     );
-    result.claimed = dueJobs.length;
-    if (dueJobs.length === 0) {
+    const claimedJobs = [
+      ...manualRuns.map(({ job, requestId, runId }) => ({
+        job,
+        manualRequestId: requestId,
+        manualRunId: runId,
+      })),
+      ...dueJobs.map((job) => ({
+        job,
+        manualRequestId: null,
+        manualRunId: null,
+      })),
+    ];
+    result.claimed = claimedJobs.length;
+    if (claimedJobs.length === 0) {
       return result;
     }
-    for (const job of dueJobs) activeClaimIds.add(job.id);
+    for (const { job } of claimedJobs) activeClaimIds.add(job.id);
     let renewingClaims = false;
     claimHeartbeat = setInterval(() => {
       if (renewingClaims || activeClaimIds.size === 0) return;
@@ -199,7 +217,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
 
     const chatUrl = buildChatUrl();
 
-    for (const job of dueJobs) {
+    for (const { job, manualRequestId, manualRunId } of claimedJobs) {
       const now = new Date();
       const triggerMessage =
         typeof job.payload?.triggerMessage === "string" &&
@@ -224,7 +242,11 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
         );
       }
 
-      const run = await schedulerRepository.createScheduledRun(job.id);
+      const run = manualRunId
+        ? { id: manualRunId }
+        : await schedulerRepository.createScheduledRun(job.id);
+      let runStatus: "completed" | "failed" = "failed";
+      let runError: string | undefined;
 
       try {
         const chatModel = await chatRepository.selectLatestChatModelByUserId(
@@ -250,6 +272,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
             error: `chat-api-${response.status}: ${errorText.slice(0, 500)}`,
           });
           result.failed += 1;
+          runError = `chat-api-${response.status}`;
           await notifyScheduledRun({
             userId: job.userId,
             runId: run.id,
@@ -267,6 +290,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
             },
           });
           result.ran += 1;
+          runStatus = "completed";
           await notifyScheduledRun({
             userId: job.userId,
             runId: run.id,
@@ -277,6 +301,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        runError = message.slice(0, 1000);
         logger.error(`[scheduler] run for job ${job.id} threw:`, err);
         await schedulerRepository.updateScheduledRun(run.id, {
           status: "failed",
@@ -293,13 +318,38 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
         });
       }
 
+      if (manualRequestId) {
+        try {
+          await schedulerRepository.finishManualScheduledRun(
+            manualRequestId,
+            claimToken,
+            run.id,
+            runStatus,
+            runError,
+          );
+        } catch (err) {
+          logger.error(
+            `[scheduler] failed to finish manual request ${manualRequestId}:`,
+            err,
+          );
+        }
+      }
+
       // Roll the job forward: one-shot jobs disable themselves after the
       // first run so the next tick won't pick them up again. Recurring
       // jobs advance `next_run_at` to the next cron fire.
       try {
         const payload = (job.payload ?? {}) as Record<string, unknown>;
         const isOnce = payload.scheduleType === "once";
-        if (isOnce) {
+        if (manualRequestId) {
+          const completed = await schedulerRepository.completeScheduledJobClaim(
+            job.id,
+            job.userId,
+            claimToken,
+            { lastRunAt: now },
+          );
+          if (!completed) activeClaimIds.delete(job.id);
+        } else if (isOnce) {
           const completed = await schedulerRepository.completeScheduledJobClaim(
             job.id,
             job.userId,

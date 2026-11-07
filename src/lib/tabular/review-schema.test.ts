@@ -5,10 +5,36 @@ import {
   createReviewSchema,
   mapWithConcurrency,
   numberDocumentPassages,
+  shouldGenerateReviewTask,
   validateCitationAnswer,
 } from "./review-schema";
 
 describe("tabular review schema and bounded work", () => {
+  it("supports explicit full reruns, scoped cell reruns, and pending-only retries", () => {
+    const done = {
+      itemId: "a",
+      column: { id: "summary" },
+      current: { status: "done" },
+    };
+    const pending = {
+      itemId: "b",
+      column: { id: "summary" },
+      current: { status: "error" },
+    };
+    expect(shouldGenerateReviewTask({ task: done, force: false })).toBe(false);
+    expect(shouldGenerateReviewTask({ task: done, force: true })).toBe(true);
+    expect(
+      shouldGenerateReviewTask({
+        task: done,
+        target: { itemId: "b", columnId: "summary" },
+        force: true,
+      }),
+    ).toBe(false);
+    expect(shouldGenerateReviewTask({ task: pending, force: false })).toBe(
+      true,
+    );
+  });
+
   it("rejects duplicate rows, columns and unbounded inputs", () => {
     const itemId = "00000000-0000-4000-8000-000000000001";
     const column = {

@@ -12,6 +12,13 @@ vi.mock("server-only", () => ({}));
 vi.mock("../db.pg", () => ({ pgDb: dbMock }));
 
 import {
+  ScheduledJobManualRunRequestTable,
+  ScheduledJobTable,
+  ScheduledRunTable,
+} from "../schema.pg";
+import {
+  ManualScheduledRunConflictError,
+  ManualScheduledRunIdempotencyConflictError,
   ScheduledJobIdempotencyConflictError,
   ScheduledJobReplayUnavailableError,
   schedulerRepository,
@@ -118,6 +125,207 @@ describe("schedulerRepository claim leases", () => {
         claimExpiresAt: null,
       }),
     );
+  });
+});
+
+describe("schedulerRepository manual run requests", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const makeChain = (rows: unknown[]) => {
+    const chain: Record<string, any> = {};
+    chain.from = vi.fn(() => chain);
+    chain.innerJoin = vi.fn(() => chain);
+    chain.where = vi.fn(() => chain);
+    chain.orderBy = vi.fn(() => chain);
+    chain.limit = vi.fn(() => chain);
+    chain.for = vi.fn().mockResolvedValue(rows);
+    chain.set = vi.fn((values) => {
+      chain.valuesSet = values;
+      return chain;
+    });
+    chain.values = vi.fn((values) => {
+      chain.valuesSet = values;
+      return chain;
+    });
+    chain.onConflictDoNothing = vi.fn(() => chain);
+    chain.returning = vi.fn().mockResolvedValue(rows);
+    chain.then = vi.fn((resolve: (value: unknown[]) => unknown) =>
+      Promise.resolve(rows).then(resolve),
+    );
+    return chain;
+  };
+
+  it("replays a matching idempotency key without adding another request", async () => {
+    const job = { id: "job-1", userId: "user-1", status: "active" };
+    const existing = {
+      id: "request-1",
+      requestHash: "job-1",
+      scheduledJobId: "job-1",
+      status: "completed",
+    };
+    const selects = [makeChain([job]), makeChain([existing])];
+    const tx = {
+      select: vi.fn(() => selects.shift()),
+      insert: vi.fn(),
+    };
+    dbMock.transaction.mockImplementation(async (callback) => callback(tx));
+
+    await expect(
+      schedulerRepository.requestManualScheduledRun(
+        "job-1",
+        "user-1",
+        "same-key",
+      ),
+    ).resolves.toEqual({
+      id: "request-1",
+      status: "completed",
+      created: false,
+    });
+    expect(tx.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects key reuse for another job and concurrent pending work", async () => {
+    const job = { id: "job-1", userId: "user-1", status: "active" };
+    const mismatched = makeChain([job]);
+    const existingOtherJob = makeChain([
+      { id: "request-1", requestHash: "job-2", scheduledJobId: "job-2" },
+    ]);
+    const txWithExistingKey = {
+      select: vi
+        .fn()
+        .mockReturnValueOnce(mismatched)
+        .mockReturnValueOnce(existingOtherJob),
+      insert: vi.fn(),
+    };
+    dbMock.transaction.mockImplementationOnce(async (callback) =>
+      callback(txWithExistingKey),
+    );
+    await expect(
+      schedulerRepository.requestManualScheduledRun(
+        "job-1",
+        "user-1",
+        "reused-key",
+      ),
+    ).rejects.toBeInstanceOf(ManualScheduledRunIdempotencyConflictError);
+
+    const selects = [
+      makeChain([job]),
+      makeChain([]),
+      makeChain([{ id: "pending-request" }]),
+    ];
+    const txWithPending = {
+      select: vi.fn(() => selects.shift()),
+      insert: vi.fn(),
+    };
+    dbMock.transaction.mockImplementationOnce(async (callback) =>
+      callback(txWithPending),
+    );
+    await expect(
+      schedulerRepository.requestManualScheduledRun(
+        "job-1",
+        "user-1",
+        "new-key",
+      ),
+    ).rejects.toBeInstanceOf(ManualScheduledRunConflictError);
+    expect(txWithPending.insert).not.toHaveBeenCalled();
+  });
+
+  it("binds a run row before execution and stores it on the request", async () => {
+    const now = new Date("2026-11-07T10:00:00.000Z");
+    const job = { id: "job-1", userId: "user-1", status: "paused" };
+    const request = {
+      id: "request-1",
+      status: "processing",
+      attempts: 1,
+      scheduledRunId: "run-1",
+    };
+    const select = makeChain([
+      { request: { id: "request-1", status: "pending", attempts: 0 }, job },
+    ]);
+    const jobUpdate = makeChain([{ ...job, claimToken: "claim-1" }]);
+    const requestUpdate = makeChain([request]);
+    const runInsert = makeChain([{ id: "run-1", scheduledJobId: "job-1" }]);
+    const tx = {
+      select: vi.fn(() => select),
+      update: vi
+        .fn()
+        .mockReturnValueOnce(jobUpdate)
+        .mockReturnValueOnce(requestUpdate),
+      insert: vi.fn(() => runInsert),
+    };
+    dbMock.transaction.mockImplementation(async (callback) => callback(tx));
+
+    const result = await schedulerRepository.claimManualScheduledRuns(
+      now,
+      10,
+      "claim-1",
+      new Date(now.getTime() + 60_000),
+    );
+
+    expect(result).toEqual([
+      {
+        job: { ...job, claimToken: "claim-1" },
+        requestId: "request-1",
+        runId: "run-1",
+      },
+    ]);
+    expect(select.for).toHaveBeenCalledWith("update", { skipLocked: true });
+    expect(runInsert.valuesSet).toEqual({ scheduledJobId: "job-1" });
+    expect(requestUpdate.valuesSet).toEqual(
+      expect.objectContaining({
+        status: "processing",
+        scheduledRunId: "run-1",
+      }),
+    );
+    expect(tx.update.mock.calls.map(([table]) => table)).toEqual([
+      ScheduledJobTable,
+      ScheduledJobManualRunRequestTable,
+    ]);
+  });
+
+  it("does not replay a started request after its worker lease expires", async () => {
+    const now = new Date("2026-11-07T10:00:00.000Z");
+    const candidate = {
+      request: {
+        id: "request-1",
+        status: "processing",
+        attempts: 1,
+        scheduledRunId: "run-1",
+      },
+      job: { id: "job-1", userId: "user-1", status: "active" },
+    };
+    const select = makeChain([candidate]);
+    const requestUpdate = makeChain([]);
+    const runUpdate = makeChain([]);
+    const tx = {
+      select: vi.fn(() => select),
+      update: vi
+        .fn()
+        .mockReturnValueOnce(requestUpdate)
+        .mockReturnValueOnce(runUpdate),
+      insert: vi.fn(),
+    };
+    dbMock.transaction.mockImplementation(async (callback) => callback(tx));
+
+    const result = await schedulerRepository.claimManualScheduledRuns(
+      now,
+      10,
+      "claim-2",
+      new Date(now.getTime() + 60_000),
+    );
+
+    expect(result).toEqual([]);
+    expect(runUpdate.valuesSet).toEqual(
+      expect.objectContaining({
+        status: "failed",
+        error: expect.stringContaining("not replayed"),
+      }),
+    );
+    expect(tx.insert).not.toHaveBeenCalled();
+    expect(tx.update.mock.calls.map(([table]) => table)).toEqual([
+      ScheduledJobManualRunRequestTable,
+      ScheduledRunTable,
+    ]);
   });
 });
 

@@ -646,7 +646,7 @@ Treat every agent file binding as a read grant because server-side storage crede
 - Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
 - Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
 
-## Security verification addendum — 2026-11-07
+## Security verification addendum ï¿½ 2026-11-07
 
 - Saved workflow actions are summarized with bounded input/output details and secret redaction. Token issuance and execution both reject unreviewable effects; token consumption is one-use and revision/input-bound, and execute/MCP access is rechecked immediately before the workflow loads. Dynamic HTTP values, runtime LLM prompts, model-generated tool parameters and unknown nodes fail closed.
 - Approved MCP results are serialized and capped at 1 MiB. Oversized, cyclic, or non-JSON results do not flow into user-visible chat output.
@@ -654,7 +654,7 @@ Treat every agent file binding as a read grant because server-side storage crede
 - Slack workspace lookup is global by workspace ID, so the inbound path now verifies that the connector owner equals the configured inbound endpoint owner before parsing signatures or enqueueing work.
 - Problem-report screenshots are restricted to allowed image types, bounded size/count and the authenticated user's storage-key prefix. Page URL context only stores same-origin URLs without query/hash.
 - Title and agent-generation AI routes have bounded strict request bodies and per-user rate limits. A team-budget bypass is not solved by accepting request team IDs; agent generation remains outside the team ledger until trusted persisted team context exists.
-- Tests verify route/unit boundaries, but no real PostgreSQL ACL/migration, provider secrets, desktop GUI, or browser push workflow was available. Migrations 0063–0065 are additive and unapplied.
+- Tests verify route/unit boundaries, but no real PostgreSQL ACL/migration, provider secrets, desktop GUI, or browser push workflow was available. Migrations 0063ï¿½0065 are additive and unapplied.
 
 ## F030 Revolut security addendum (2026-11-07)
 - Client private key and refresh token are serialized only into the existing AES-GCM encrypted config column; authorization codes are transient. Status responses expose only client ID and boolean credential-presence flags. Errors omit upstream response bodies and credential values.
@@ -694,3 +694,26 @@ Treat every agent file binding as a read grant because server-side storage crede
 ## F024 manual-run security boundary (2026-11-07 10:54 IST)
 - Schedule history remains guarded by session authentication and owner-scoped job lookup; the response allowlists run ID, start/completion times, and lifecycle status, excluding output and error text. Regression coverage verifies sensitive fields are not serialized.
 - A synchronous run-now endpoint was not introduced. User-triggered execution without a durable idempotency/request record could duplicate side effects on retries; calling execution directly would bypass worker lease fencing. Preserve the worker authorization/claim boundary in any future design.
+## F018 source deletion UI completion slice (2026-11-07 11:13 IST)
+- Added a per-source Remove action only for writable personal collections and file-backed items. The user must confirm; the component calls the authenticated collection-item DELETE endpoint, refreshes list data, and distinguishes queued cleanup (202) from immediate completion. Team collections and URL sources do not expose this action.
+- Focused component tests passed 2/2: confirmation invokes the expected DELETE request and refresh on queued cleanup, and team collections do not offer per-source deletion. Scoped Biome check passed. F018 remains PARTIAL for project/reference blockers, wider multimodal parity, and live PostgreSQL/storage/browser validation.
+## F014 regeneration security note (2026-11-07 11:15 IST)
+- Whole-grid regeneration is an explicit user action with confirmation. The server validates the request body against a strict schema and applies the existing authenticated owner check, same-origin check, per-user rate limiting, row lock/busy guard, current source ownership and readiness checks, source-text bounds, untrusted-document framing, output bound, and citation quote verification.
+- Invalid force values/extra properties fail before database state or provider rate limit is touched. Force does not bypass permissions or allow client-supplied models/prompts/source text.
+## F029 project-consolidation digest parity audit (2026-11-07 11:17 IST)
+- Reference trace: apps/web/src/lib/project-brain/run-pipeline.ts calls consolidate-generate, consolidate-apply, then notify as distinct idempotent workflow steps. consolidate-project.ts marks only explicitly model-selected open todos as notified, reads the per-run set, derives currently authorized project recipients, and creates one deduplicated project_digest per run/recipient; push is sent only for newly inserted rows.
+- Primary behavior is materially different: primary src/lib/projects/brain-queue.ts stores extracted ProjectBrainTodo rows as proposed; there is no consolidation model, notify intent, per-run notified marker, or project todo digest trigger. The status route generates snapshots and only sends health-transition notifications; the todo route is a human review transition. src/app/api/projects/[id]/brain/status/route.ts generates a status snapshot and sends only a health-transition notification. src/app/api/projects/[id]/brain/todos/[todoId]/route.ts is a human review transition, not a digest workflow.
+- Decision: exclude this upstream todo digest subfeature for now. Notifying on raw proposed tasks would surface unreviewed model output and lacks durable idempotency or a newly-notified marker; task acceptance or health changes are not equivalent triggers. Parity needs an explicit consolidation/notify lifecycle and reviewed-notification state adapted to the primary task model.
+- Safe existing behavior retained: health changes notify only current project recipients, content is generic (does not leak private blockers), per-transition keys deduplicate, and push is attempted only when a recipient's in-app row was newly inserted. Existing project-health and status-route regression tests pass 20/20 together with the todo-review route suite.
+- F029 remains PARTIAL. No schema/migration or source behavior was changed by this audit; live PostgreSQL, browser permission, and real VAPID delivery remain unverified.
+## F010/F011 bounded project-brain cycle retry (2026-11-07 11:20 IST)
+- Added a one-time retry path for partial/failed root dream runs. Retry requests are same-origin, authenticated project-editor only, rate-limited, streaming body capped at 2 KiB, bound to a run in the same project, and idempotent on etry:<root-run-id>. A retry cannot itself be retried; repeated requests resolve to the same queued retry row.
+- Retry replays the existing staged workflow from the beginning. Existing stage effects are designed to be repeat-safe: dedupe only produces review suggestions, contradiction pairs use conflict-safe insertion and existing-pair exclusion, salience/archive are deterministic, and unchanged status fingerprints reuse a persisted snapshot. No auto-merge or fact-decision bypass was added.
+- The dream status API exposes only canRetry, not the internal idempotency key. The project-brain panel offers Retry cycle only when the latest run is partial/failed and eligible. F010/F011 remain PARTIAL pending database/browser/worker verification and broader feature gaps.
+- Evidence: src/app/api/projects/[id]/brain/dream/route.ts, its route tests, src/lib/projects/brain-dream-state.ts and tests, and src/components/project-brain-panel.tsx.
+
+
+## F024 manual run request boundary (2026-11-07 11:24 IST)
+- Manual run writes require a valid session, explicit matching Origin, a mandatory bounded Idempotency-Key, and an owner-scoped schedule lookup. API responses expose request ID/status only. The database keeps an idempotency tombstone and partial unique pending-work constraint.
+- AI execution is queued; the endpoint cannot bypass the worker. Manual jobs share persisted scheduler claim/lease fencing, and completion uses the same token. Active/paused are eligible; disabled jobs are rejected. Manual execution preserves nextRunAt.
+- The run record is durably linked before chat is invoked. On expired started work, request/run are failed as ambiguous and not replayed, avoiding duplicate manual execution. External completion may be unknown after a crash; no exactly-once guarantee is claimed. Migration 0068 is unapplied; PostgreSQL-backed behavior remains unverified.

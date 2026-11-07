@@ -904,7 +904,7 @@ Agent file bindings are now validated server-side using the authenticated user's
 - Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
 - Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
 
-## Checkpoint 17 — verified cross-family implementation batch (2026-11-07)
+## Checkpoint 17 ï¿½ verified cross-family implementation batch (2026-11-07)
 
 - Completed local implementation slices for F008, F010/F011, F014, F020/F021, F022, F026, F028, F029, F030, and F031; see the per-family addenda in the feature matrix and security review. They remain PARTIAL where full provider/Postgres/browser verification or additional reference behavior is absent.
 - F008 agent-generation route remains unbilled because it has no persisted server-side team scope. Do not trust a client team ID to fill this gap.
@@ -970,3 +970,34 @@ Agent file bindings are now validated server-side using the authenticated user's
 - F018 adds a transactional private-file delete/outbox path with leased cleanup retry; migration 0067 is recorded but unapplied. F024 adds owner-scoped refreshable run history and redaction; run-now stays blocked pending safe durable idempotency. F014 adds the missing penalty extraction preset.
 - Integrated verification: typecheck passed; focused batch tests 18/18; full suite 2,007/2,007 across 353 files; lint passed with existing warnings; migration journal check passed; production build 203/203 pages; diff whitespace check passed.
 - These families remain PARTIAL, and this batch does not complete the overall migration. No deployment or live PostgreSQL/provider/browser verification.
+## F018 source deletion UI completion slice (2026-11-07 11:13 IST)
+- Added a per-source Remove action only for writable personal collections and file-backed items. The user must confirm; the component calls the authenticated collection-item DELETE endpoint, refreshes list data, and distinguishes queued cleanup (202) from immediate completion. Team collections and URL sources do not expose this action.
+- Focused component tests passed 2/2: confirmation invokes the expected DELETE request and refresh on queued cleanup, and team collections do not offer per-source deletion. Scoped Biome check passed. F018 remains PARTIAL for project/reference blockers, wider multimodal parity, and live PostgreSQL/storage/browser validation.
+## F014 full-grid rerun support (2026-11-07 11:15 IST)
+- Added the reference-compatible explicit whole-grid retry behavior through an authenticated API request and user-confirmed dashboard action. This closes the gap where already-complete cells could only be regenerated individually.
+- Evidence and test locations: src/app/api/tabular-reviews/[id]/generate/route.ts, src/components/tabular-review-detail.tsx, src/lib/tabular/review-schema.ts, src/lib/tabular/review-cell-schema.ts, and their colocated tests.
+- Verification: focused tests 16/16 and scoped Biome PASS. Awaiting root's integrated typecheck/full suite/build for the combined branch. F014 stays PARTIAL.
+## F029 project-consolidation digest parity audit (2026-11-07 11:17 IST)
+- Reference trace: apps/web/src/lib/project-brain/run-pipeline.ts calls consolidate-generate, consolidate-apply, then notify as distinct idempotent workflow steps. consolidate-project.ts marks only explicitly model-selected open todos as notified, reads the per-run set, derives currently authorized project recipients, and creates one deduplicated project_digest per run/recipient; push is sent only for newly inserted rows.
+- Primary behavior is materially different: primary src/lib/projects/brain-queue.ts stores extracted ProjectBrainTodo rows as proposed; there is no consolidation model, notify intent, per-run notified marker, or project todo digest trigger. The status route generates snapshots and only sends health-transition notifications; the todo route is a human review transition. src/app/api/projects/[id]/brain/status/route.ts generates a status snapshot and sends only a health-transition notification. src/app/api/projects/[id]/brain/todos/[todoId]/route.ts is a human review transition, not a digest workflow.
+- Decision: exclude this upstream todo digest subfeature for now. Notifying on raw proposed tasks would surface unreviewed model output and lacks durable idempotency or a newly-notified marker; task acceptance or health changes are not equivalent triggers. Parity needs an explicit consolidation/notify lifecycle and reviewed-notification state adapted to the primary task model.
+- Safe existing behavior retained: health changes notify only current project recipients, content is generic (does not leak private blockers), per-transition keys deduplicate, and push is attempted only when a recipient's in-app row was newly inserted. Existing project-health and status-route regression tests pass 20/20 together with the todo-review route suite.
+- F029 remains PARTIAL. No schema/migration or source behavior was changed by this audit; live PostgreSQL, browser permission, and real VAPID delivery remain unverified.
+## F010/F011 bounded project-brain cycle retry (2026-11-07 11:20 IST)
+- Added a one-time retry path for partial/failed root dream runs. Retry requests are same-origin, authenticated project-editor only, rate-limited, streaming body capped at 2 KiB, bound to a run in the same project, and idempotent on etry:<root-run-id>. A retry cannot itself be retried; repeated requests resolve to the same queued retry row.
+- Retry replays the existing staged workflow from the beginning. Existing stage effects are designed to be repeat-safe: dedupe only produces review suggestions, contradiction pairs use conflict-safe insertion and existing-pair exclusion, salience/archive are deterministic, and unchanged status fingerprints reuse a persisted snapshot. No auto-merge or fact-decision bypass was added.
+- The dream status API exposes only canRetry, not the internal idempotency key. The project-brain panel offers Retry cycle only when the latest run is partial/failed and eligible. F010/F011 remain PARTIAL pending database/browser/worker verification and broader feature gaps.
+- Evidence: src/app/api/projects/[id]/brain/dream/route.ts, its route tests, src/lib/projects/brain-dream-state.ts and tests, and src/components/project-brain-panel.tsx.
+
+
+## F024 durable manual run queue (2026-11-07 11:24 IST)
+- Added POST /api/scheduler/jobs/{jobId}/run; same-origin authenticated requests require Idempotency-Key. Repository enforces owner scope, replay key/hash matching, disabled-job rejection, and at most one pending/processing request per job.
+- Worker leases manual requests and their scheduled_job with the same persisted claim token used by due-job runs. It creates and links scheduled_run before calling chat, then updates only lastRunAt (no nextRunAt change) for manual execution. This works for active and paused jobs.
+- Expired started requests become failed/ambiguous and are not retried, so a replay cannot duplicate that manual request's side effect. This is an at-most-once policy with possible missed/ambiguous execution on crash, not exactly-once.
+- Focused tests: 14/14 across route and scheduler repository tests; scoped Biome, Drizzle journal check, and diff check passed. Integrated verification is pending root. Migration 0068 is unapplied. F024 remains PARTIAL.
+
+## Integrated F010/F011/F014/F018/F024 batch verification (2026-11-07 11:43 IST)
+- Whole-project typecheck passed with a 6 GiB Node heap. Combined focused tests passed 40/40 across 8 files; full Vitest suite passed **2,024/2,024 tests across 356 files**.
+- Lint passed with existing `<img>`, deprecated Next lint, and multiple-lockfile workspace-root warnings. Drizzle migration journal check passed; migrations 0067 and 0068 remain unapplied. Diff whitespace check passed with Windows line-ending notices.
+- Production build passed and generated **203/203 pages**. Existing E2B/unpdf dependency-analysis, optional Redis/Upstash/E2B configuration, dynamic-session prerender, and PostgreSQL SSL warnings were emitted.
+- No PostgreSQL-backed migration/claim-race test, live storage/provider/browser/device workflow, deployment, or production database operation was performed. F010/F011, F014, F018, F024 and the overall reference migration remain PARTIAL; the matrix records the remaining gaps and exclusions.

@@ -62,7 +62,9 @@ export function ScheduledJobsDashboard() {
   const [loadingRuns, setLoadingRuns] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [manualRunBusyId, setManualRunBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -156,6 +158,36 @@ export function ScheduledJobsDashboard() {
       );
     } finally {
       setLoadingRuns((current) => ({ ...current, [jobId]: false }));
+    }
+  };
+
+  const runNow = async (job: ScheduledJob) => {
+    setManualRunBusyId(job.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/scheduler/jobs/${job.id}/run`, {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Could not queue a manual run.");
+      }
+      setNotice(
+        data?.status === "completed"
+          ? "That manual run has already completed."
+          : "Run queued. It will use the scheduler worker and keep the next scheduled time unchanged.",
+      );
+      if (expanded === job.id) await loadRuns(job.id);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not queue a manual run.",
+      );
+    } finally {
+      setManualRunBusyId(null);
     }
   };
 
@@ -320,6 +352,11 @@ export function ScheduledJobsDashboard() {
           className="mb-4 rounded-md border border-destructive/40 p-3 text-sm text-destructive"
         >
           {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="mb-4 rounded-md border p-3 text-sm">
+          {notice}
         </p>
       )}
       <div className="mb-4 flex flex-wrap justify-end gap-2">
@@ -530,6 +567,21 @@ export function ScheduledJobsDashboard() {
                   </dl>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      manualRunBusyId === job.id || job.status === "disabled"
+                    }
+                    onClick={() => void runNow(job)}
+                  >
+                    {manualRunBusyId === job.id ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <Play className="mr-2 size-4" />
+                    )}
+                    Run now
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

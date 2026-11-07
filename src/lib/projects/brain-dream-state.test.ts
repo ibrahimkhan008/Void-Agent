@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendProjectBrainDreamWarning,
+  canRetryProjectBrainDream,
   getNextProjectBrainDreamStage,
   hasProjectBrainStatusSnapshotForFingerprint,
   makeProjectBrainDreamIdempotencyKey,
@@ -8,6 +9,21 @@ import {
 } from "./brain-dream-state";
 
 describe("project brain dream queue state", () => {
+  it("allows one idempotent retry for a partial root run only", () => {
+    expect(canRetryProjectBrainDream("partial", "nightly:2026-11-07")).toBe(
+      true,
+    );
+    expect(canRetryProjectBrainDream("failed", "manual:2026-11-07T10")).toBe(
+      true,
+    );
+    expect(canRetryProjectBrainDream("running", "manual:2026-11-07T10")).toBe(
+      false,
+    );
+    expect(canRetryProjectBrainDream("partial", "retry:parent-run")).toBe(
+      false,
+    );
+  });
+
   it("advances one bounded stage at a time and ends after archival", () => {
     expect(getNextProjectBrainDreamStage("dedupe")).toBe("contradictions");
     expect(getNextProjectBrainDreamStage("contradictions")).toBe("salience");

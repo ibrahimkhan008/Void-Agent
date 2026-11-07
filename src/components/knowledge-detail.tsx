@@ -1,6 +1,7 @@
 "use client";
 
 import { useCollection } from "@/hooks/queries/use-collections";
+import type { CollectionItem } from "@/hooks/queries/use-collections";
 import {
   ArrowLeft,
   FileText,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import React from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -50,6 +52,8 @@ export default function KnowledgeDetail({ id }: { id: string }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<CollectionItem | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -124,6 +128,34 @@ export default function KnowledgeDetail({ id }: { id: string }) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
       setDeleting(false);
+    }
+  };
+
+  const removeCollectionItem = async () => {
+    if (!itemToDelete) return;
+    setDeletingItem(true);
+    try {
+      const response = await fetch(
+        `/api/collections/${id}/items/${itemToDelete.id}`,
+        { method: "DELETE" },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || `Failed (${response.status})`);
+      }
+      toast.success(
+        response.status === 202
+          ? "Source removed; file cleanup is queued for retry"
+          : "Source removed",
+      );
+      setItemToDelete(null);
+      await mutate();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove source",
+      );
+    } finally {
+      setDeletingItem(false);
     }
   };
 
@@ -310,9 +342,25 @@ export default function KnowledgeDetail({ id }: { id: string }) {
                     </p>
                   )}
                 </div>
-                <Badge variant={statusVariant(item.status)}>
-                  {item.status}
-                </Badge>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant={statusVariant(item.status)}>
+                    {item.status}
+                  </Badge>
+                  {canWrite &&
+                    !data.collection.orgId &&
+                    item.sourceType === "file" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${item.filename || "source"}`}
+                        disabled={deletingItem}
+                        onClick={() => setItemToDelete(item)}
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                </div>
               </div>
             ))
           )}
@@ -338,6 +386,38 @@ export default function KnowledgeDetail({ id }: { id: string }) {
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={itemToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingItem) setItemToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this source?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {itemToDelete?.filename || "This source"} will be removed from
+              this collection. If it is still used by a project, review, or
+              project brain, removal will be blocked. Private file cleanup may
+              continue in the background.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingItem}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={removeCollectionItem}
+              disabled={deletingItem}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingItem && <Loader2 className="size-4 animate-spin" />}
+              Remove source
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

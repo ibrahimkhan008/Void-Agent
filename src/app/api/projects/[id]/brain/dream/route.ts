@@ -1,10 +1,14 @@
 import { getSession } from "auth/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import { ProjectBrainDreamRunTable } from "lib/db/pg/schema.pg";
+import { readBoundedRequestBody } from "lib/http/bounded-request-body";
 import { getProjectAccess, mayEditProject } from "lib/projects/access";
 import { enqueueProjectBrainDream } from "lib/projects/brain-dream";
-import { makeProjectBrainDreamIdempotencyKey } from "lib/projects/brain-dream-state";
+import {
+  canRetryProjectBrainDream,
+  makeProjectBrainDreamIdempotencyKey,
+} from "lib/projects/brain-dream-state";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
@@ -24,6 +28,7 @@ export async function GET(
   const runs = await pgDb
     .select({
       id: ProjectBrainDreamRunTable.id,
+      idempotencyKey: ProjectBrainDreamRunTable.idempotencyKey,
       reason: ProjectBrainDreamRunTable.reason,
       status: ProjectBrainDreamRunTable.status,
       stage: ProjectBrainDreamRunTable.stage,
@@ -38,7 +43,15 @@ export async function GET(
     .where(eq(ProjectBrainDreamRunTable.projectId, id))
     .orderBy(desc(ProjectBrainDreamRunTable.createdAt))
     .limit(5);
-  return Response.json({ runs }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json(
+    {
+      runs: runs.map(({ idempotencyKey, ...run }) => ({
+        ...run,
+        canRetry: canRetryProjectBrainDream(run.status, idempotencyKey),
+      })),
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 export async function POST(
@@ -61,6 +74,29 @@ export async function POST(
   if (!access) return new Response("Not found", { status: 404 });
   if (!mayEditProject(access.role))
     return new Response("Forbidden", { status: 403 });
+  const bodyBytes = await readBoundedRequestBody(request, 2_048);
+  if (!bodyBytes)
+    return Response.json(
+      { error: "Request body is too large" },
+      { status: 413 },
+    );
+  const bodyText = new TextDecoder().decode(bodyBytes);
+  let retryRunId: string | undefined;
+  if (bodyText) {
+    let body: unknown;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return Response.json({ error: "Invalid request body" }, { status: 400 });
+    }
+    const parsed = z
+      .object({ retryRunId: z.string().uuid() })
+      .strict()
+      .safeParse(body);
+    if (!parsed.success)
+      return Response.json({ error: "Invalid retry request" }, { status: 400 });
+    retryRunId = parsed.data.retryRunId;
+  }
   const rate = await checkApiRateLimit({
     kind: "project-brain-dream",
     id: session.user.id,
@@ -78,11 +114,40 @@ export async function POST(
         },
       },
     );
+  let idempotencyKey = makeProjectBrainDreamIdempotencyKey(
+    "manual",
+    new Date(),
+  );
+  if (retryRunId) {
+    const [sourceRun] = await pgDb
+      .select({
+        id: ProjectBrainDreamRunTable.id,
+        status: ProjectBrainDreamRunTable.status,
+        idempotencyKey: ProjectBrainDreamRunTable.idempotencyKey,
+      })
+      .from(ProjectBrainDreamRunTable)
+      .where(
+        and(
+          eq(ProjectBrainDreamRunTable.id, retryRunId),
+          eq(ProjectBrainDreamRunTable.projectId, id),
+        ),
+      )
+      .limit(1);
+    if (
+      !sourceRun ||
+      !canRetryProjectBrainDream(sourceRun.status, sourceRun.idempotencyKey)
+    )
+      return Response.json(
+        { error: "This brain cycle cannot be retried" },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    idempotencyKey = `retry:${sourceRun.id}`;
+  }
   const result = await enqueueProjectBrainDream({
     projectId: id,
     userId: session.user.id,
     reason: "manual",
-    idempotencyKey: makeProjectBrainDreamIdempotencyKey("manual", new Date()),
+    idempotencyKey,
   });
   if (!result.id)
     return Response.json(

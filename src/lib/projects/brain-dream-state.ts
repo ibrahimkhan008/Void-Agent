@@ -10,6 +10,17 @@ export const PROJECT_BRAIN_DREAM_STAGES = [
 export type ProjectBrainDreamStage =
   (typeof PROJECT_BRAIN_DREAM_STAGES)[number];
 
+/** Only one retry is allowed for each partial/failed root run. */
+export function canRetryProjectBrainDream(
+  status: string,
+  idempotencyKey: string,
+) {
+  return (
+    (status === "partial" || status === "failed") &&
+    !idempotencyKey.startsWith("retry:")
+  );
+}
+
 export function getNextProjectBrainDreamStage(
   stage: ProjectBrainDreamStage,
 ): ProjectBrainDreamStage {

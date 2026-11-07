@@ -140,4 +140,21 @@ describe("tabular review generation target validation", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.checkApiRateLimit).not.toHaveBeenCalled();
   });
+
+  it("rejects a non-boolean full regeneration request before touching review state", async () => {
+    const response = await POST(
+      new Request(`http://localhost/api/tabular-reviews/${reviewId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: "true" }),
+      }),
+      { params: Promise.resolve({ id: reviewId }) },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid generation request",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.checkApiRateLimit).not.toHaveBeenCalled();
+  });
 });
