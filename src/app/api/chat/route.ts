@@ -81,11 +81,11 @@ import globalLogger from "logger";
 
 import { errorIf, safe } from "ts-safe";
 
+import { buildAudioAttachmentPreviewParts } from "@/lib/ai/ingest/audio-attachment";
 import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
 import { buildKonvOVisionIngestionPreviewParts } from "@/lib/ai/ingest/konvo-vision-ingest";
 import { buildOfficeIngestionPreviewParts } from "@/lib/ai/ingest/office-ingest";
 import { buildPdfIngestionPreviewParts } from "@/lib/ai/ingest/pdf-ingest";
-import { buildAudioAttachmentPreviewParts } from "@/lib/ai/ingest/audio-attachment";
 import { isFreeTier } from "app-types/subscription";
 import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
@@ -131,6 +131,7 @@ import { NodeVMExecutor } from "lib/ai/tools/code-engine/executor";
 import { HITL_TOOL_GUIDANCE, loadHitlTools } from "lib/ai/tools/hitl";
 import { createFlareImageTool } from "lib/ai/tools/image";
 import { createProjectKnowledgeGraphTool } from "lib/ai/tools/project-knowledge";
+import { createProjectStatusTool } from "lib/ai/tools/project-status";
 import { createPublishPageTool } from "lib/ai/tools/publish-page";
 import { sanitizeToolSchemas } from "lib/ai/tools/sanitize-tool-schemas";
 import {
@@ -150,12 +151,12 @@ import {
   isUserStorageKey,
   storageKeyFromUrl,
 } from "lib/file-storage/storage-utils";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import {
   getFreeTierLimitCheck,
   getFreeTierLimits,
   recordFreeTierTokenUsage,
 } from "lib/rate-limit/free-tier-usage";
-import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { publicScheduledJob } from "lib/scheduler/jobs";
 import { resolveEncryptedChatRequestBody } from "lib/security/chat-payload-obfuscation.server";
 import {
@@ -847,7 +848,11 @@ export async function POST(request: Request) {
       }
       return true;
     });
-    if (attachments.some((attachment) => attachment.mediaType?.toLowerCase().startsWith("audio/"))) {
+    if (
+      attachments.some((attachment) =>
+        attachment.mediaType?.toLowerCase().startsWith("audio/"),
+      )
+    ) {
       const audioRate = await checkApiRateLimit({
         kind: "chat-audio-attachment-transcription",
         id: effectiveUserId,
@@ -1350,20 +1355,29 @@ export async function POST(request: Request) {
       messages.pop();
     }
     const downloadFile = (key: string) => serverFileStorage.download(key);
-    const [csvParts, konvoVisionParts, officeParts, audioParts] = await Promise.all([
-      buildCsvIngestionPreviewParts(attachments, downloadFile, effectiveUserId),
-      buildKonvOVisionIngestionPreviewParts(
-        attachments,
-        downloadFile,
-        effectiveUserId,
-      ),
-      buildOfficeIngestionPreviewParts(
-        attachments,
-        downloadFile,
-        effectiveUserId,
-      ),
-      buildAudioAttachmentPreviewParts(attachments, effectiveUserId, serverFileStorage),
-    ]);
+    const [csvParts, konvoVisionParts, officeParts, audioParts] =
+      await Promise.all([
+        buildCsvIngestionPreviewParts(
+          attachments,
+          downloadFile,
+          effectiveUserId,
+        ),
+        buildKonvOVisionIngestionPreviewParts(
+          attachments,
+          downloadFile,
+          effectiveUserId,
+        ),
+        buildOfficeIngestionPreviewParts(
+          attachments,
+          downloadFile,
+          effectiveUserId,
+        ),
+        buildAudioAttachmentPreviewParts(
+          attachments,
+          effectiveUserId,
+          serverFileStorage,
+        ),
+      ]);
     const konvoHandledAttachmentUrls = new Set(
       konvoVisionParts.map((item) => item.attachmentUrl),
     );
@@ -2126,6 +2140,13 @@ export async function POST(request: Request) {
           ...(thread!.projectId && projectAccess
             ? {
                 searchProjectKnowledgeGraph: createProjectKnowledgeGraphTool({
+                  userId: effectiveUserId,
+                  projectId: thread!.projectId,
+                  collectionIds:
+                    thread!.collectionIds ??
+                    projectAccess.project.collectionIds,
+                }),
+                getProjectStatus: createProjectStatusTool({
                   userId: effectiveUserId,
                   projectId: thread!.projectId,
                   collectionIds:

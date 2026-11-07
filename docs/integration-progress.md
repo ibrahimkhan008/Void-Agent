@@ -1207,3 +1207,8 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Security: every call rechecks project access and current source collection/owner visibility; event retrieval requires accepted state, active source revision, and a ready currently attached source. Returned event strings are bounded.
 - Verification: focused tool tests 4/4, scoped Biome, integrated typecheck, and production build (206/206 pages) passed. Live DB/provider/browser validation unavailable.
 - Parity boundary: this feeds project-aware chat; no dedicated voice navigator or full project status/todo tool was added. F010 remains PARTIAL.
+
+## F010 project status chat tool
+- Added getProjectStatus alongside searchProjectKnowledgeGraph for chats attached to projects. It returns a current evidence-fingerprinted status snapshot, accepted task proposals and recent accepted timeline events.
+- Access checks run at execution time. The tool uses current attached collections and source owners and the shared active-source-revision context loader; snapshots must match the current context fingerprint. The tool is read-only and performs no inference/provider call.
+- Verification: 8/8 focused tool tests, scoped Biome, integrated TypeScript, and production build (206/206 pages) passed. No DB schema changes; no live Postgres/browser/voice workflow. F010 remains PARTIAL.

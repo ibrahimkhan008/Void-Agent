@@ -1,23 +1,21 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 20:41 IST
+Updated: 2026-11-07 21:08 IST
 
-## Current continuation status - 2026-11-07 20:57 IST
-The user resumed the migration and asked implementation to continue in verified batches while this handoff stays current. Verified pushes to the Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in the file.
+## Current continuation status - 2026-11-07 21:08 IST
+The user resumed the migration and asked implementation to continue in verified batches while this handoff stays current. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
 
-Current published state: implementation commit 3539a8f and handoff update 9880192 are on origin/main. Local worktree now has an in-progress F010 project knowledge timeline-event consumer plus updated docs; user-owned CognixAI specs are untracked and untouched.
-
-Current slice: Void-Agent's project-aware chat knowledge tool returns up to eight recent accepted timeline events in a separate result field. It rechecks project membership and source visibility, requires current accepted event/current source revision/ready attached source and caps returned text. Focused tests passed 4/4, scoped Biome passed, integrated typecheck passed, and fresh production build passed (206/206 pages). This is not the dedicated voice navigator or full status/todo aggregation found in the reference.
+Published implementation commit: 5aaa4ec adds recent accepted events to the project knowledge chat tool. Handoff follow-up 845da7b is also on origin/main. Current local task adds a distinct read-only getProjectStatus tool to project-attached chats; source code and docs are uncommitted pending staged review. The two untracked CognixAI specs remain untouched.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
 Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-## Current checkpoint - 2026-11-07 20:57 IST
-- F010 status-snapshot consumer (3539a8f) has already been pushed; current local change is the project knowledge chat recent-event feed, pending staged review and publication.
-- Latest tests: project knowledge tool suite 4/4; status-synthesis suite 8/8. Latest integrated typecheck and production build passed; build generated 206/206 pages with known non-fatal warnings (dependency analysis, optional services, dynamic sessions, workspace root/multiple lockfiles, PostgreSQL SSL mode and <img> warnings).
-- No live PostgreSQL/provider/browser validation, schema change, migration apply, or deployment. Migrations 0070-0072 remain authored/journaled but unapplied.
-- Keep cognixai-app-spec.md and cognixai-rebuild-spec.md out of the index and commits.
+## Current checkpoint - 2026-11-07 21:08 IST
+- getProjectStatus is wired into project-attached chats. It rechecks project access, derives current attached collection/source-owner scope, loads accepted current-revision facts/tasks/events, and returns a snapshot only on exact current-evidence fingerprint match. It reports no snapshot explicitly without calling a model. Tool output is bounded and read-only.
+- Focused project-status + project-knowledge tests passed **8/8**; scoped Biome and integrated typecheck passed; fresh production build passed, generating **206/206 pages**. Known non-fatal build warnings are listed in docs/testing-report.md.
+- Current changes are not committed/pushed yet. No schema change, DB apply, production deploy or live DB/provider/browser/voice test. Existing migrations 0070-0072 are unapplied.
+- Overall migration remains incomplete; the broad parity matrix is not a completion percentage. Keep the CognixAI spec files out of all commits.
 ## Migration completion assessment
 The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
 

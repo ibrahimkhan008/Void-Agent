@@ -1193,3 +1193,10 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
 - Fresh pnpm build: **PASS**, static generation 206/206 pages. Existing non-fatal dependency-analysis, dynamic-session, optional Redis/Upstash/E2B, workspace-root, PostgreSQL SSL, and <img> warnings remain.
 - No live PostgreSQL/provider/browser workflow; no migration applied.
+
+## F010 project status chat tool - 2026-11-07 21:08 IST
+- Focused Vitest: **PASS**, project status and project knowledge tool suites, 2 files / 8 tests.
+- Scoped Biome: **PASS**, tool, tests and chat route.
+- Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
+- Fresh pnpm build: **PASS**, static generation 206/206 pages. Known non-fatal E2B/unpdf dependency warnings, optional service config, dynamic-session static probes, workspace-root/multiple lockfiles, PostgreSQL SSL notice and existing <img> warnings remain.
+- No live PostgreSQL/browser/provider/voice workflow; no migration applied.
