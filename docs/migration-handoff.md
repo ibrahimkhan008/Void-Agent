@@ -94,3 +94,8 @@ Historical pause and publication entries below are retained as a timeline; the c
 - `pnpm build`: pass; static generation completed 206/206 pages. Existing warnings include E2B/unpdf dependency analysis, Next `<img>` lint notices, optional Redis/Upstash/E2B configuration, dynamic session probes, multiple lockfiles/workspace-root inference, and PostgreSQL SSL-mode notices.
 - First build attempt stopped on a newly introduced plain-anchor lint error; replaced it with Next `Link`, reran focused tests, and the fresh build passed. This is documented rather than represented as a clean first attempt.
 - Diff review and push are still pending. No external n8n/PostgreSQL user journey was run and no live service or database was touched.
+## n8n batch publication result - 2026-11-07 22:34 IST
+- Published verified security batch `00242083e658e226d7bd254d6f0b4e54348af2b9` (`security: retire unreviewed n8n editor access`) to origin/main as a fast-forward from `52fa768`.
+- Remote verification succeeded: local HEAD and origin/main both resolve to `00242083e658e226d7bd254d6f0b4e54348af2b9` (ahead/behind 0/0).
+- Only the 15 reviewed source/test/documentation paths were committed. The two untracked CognixAI specs remain untouched and excluded.
+- Next batch recommended by parallel read-only audits: add source-grounded project-knowledge graph search to OpenAI Realtime/KonvO voice sessions, reusing current thread-bound ownership and accepted-fact/source-revision filters; keep Kimi excluded until its client executor supports tools. Runtime saved-workflow MCP node pause/review/resume remains a larger subsequent approval-system gap. Full migration is still incomplete; no percentage is claimed.
