@@ -3,8 +3,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
+  DocumentTable,
   TabularReviewCellTable,
   TabularReviewItemTable,
+  TabularReviewSourceDocumentTable,
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
 import { hasSameOrigin } from "lib/security/same-origin";
@@ -30,7 +32,7 @@ export async function GET(
     .limit(1);
   if (!review) return new Response("Review not found", { status: 404 });
 
-  const [items, cells] = await Promise.all([
+  const [items, cells, sourcePages] = await Promise.all([
     pgDb
       .select({
         itemId: TabularReviewItemTable.itemId,
@@ -48,8 +50,50 @@ export async function GET(
       .select()
       .from(TabularReviewCellTable)
       .where(eq(TabularReviewCellTable.reviewId, id)),
+    pgDb
+      .select({
+        itemId: TabularReviewSourceDocumentTable.itemId,
+        documentId: TabularReviewSourceDocumentTable.documentId,
+        createdAt: DocumentTable.createdAt,
+      })
+      .from(TabularReviewSourceDocumentTable)
+      .leftJoin(
+        DocumentTable,
+        eq(DocumentTable.id, TabularReviewSourceDocumentTable.documentId),
+      )
+      .where(eq(TabularReviewSourceDocumentTable.reviewId, id)),
   ]);
-  return Response.json({ review, items, cells });
+  const sourceSummary = new Map<
+    string,
+    { pinned: number; available: number; latestAt: Date | null }
+  >();
+  for (const page of sourcePages) {
+    const current = sourceSummary.get(page.itemId) ?? {
+      pinned: 0,
+      available: 0,
+      latestAt: null,
+    };
+    current.pinned += 1;
+    if (page.documentId && page.createdAt) {
+      current.available += 1;
+      if (!current.latestAt || page.createdAt > current.latestAt)
+        current.latestAt = page.createdAt;
+    }
+    sourceSummary.set(page.itemId, current);
+  }
+  return Response.json({
+    review,
+    items: items.map((item) => {
+      const summary = sourceSummary.get(item.itemId);
+      return {
+        ...item,
+        sourceDocumentCount: summary?.pinned ?? 0,
+        availableSourceDocumentCount: summary?.available ?? 0,
+        latestSourceCreatedAt: summary?.latestAt?.toISOString() ?? null,
+      };
+    }),
+    cells,
+  });
 }
 
 export async function DELETE(

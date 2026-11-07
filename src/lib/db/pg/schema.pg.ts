@@ -1253,6 +1253,52 @@ export const TabularReviewItemTable = pgTable(
   ],
 );
 
+// Each review row pins every extracted page/document that existed when the
+// review was created. A nullable document FK preserves the pin slot if a
+// source is later deleted, so regeneration can fail closed instead of silently
+// analyzing a partial or newer source revision.
+export const TabularReviewSourceDocumentTable = pgTable(
+  "tabular_review_source_document",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    reviewId: uuid("review_id").notNull(),
+    itemId: uuid("item_id").notNull(),
+    documentId: uuid("document_id").references(() => DocumentTable.id, {
+      onDelete: "set null",
+    }),
+    position: integer("position").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.reviewId, table.itemId],
+      foreignColumns: [
+        TabularReviewItemTable.reviewId,
+        TabularReviewItemTable.itemId,
+      ],
+      name: "tabular_review_source_document_item_fk",
+    }).onDelete("cascade"),
+    unique("tabular_review_source_document_position_unique").on(
+      table.reviewId,
+      table.itemId,
+      table.position,
+    ),
+    unique("tabular_review_source_document_document_unique").on(
+      table.reviewId,
+      table.itemId,
+      table.documentId,
+    ),
+    check(
+      "tabular_review_source_document_position_check",
+      sql`${table.position} >= 0`,
+    ),
+    index("tabular_review_source_document_review_item_idx").on(
+      table.reviewId,
+      table.itemId,
+    ),
+    index("tabular_review_source_document_document_idx").on(table.documentId),
+  ],
+);
+
 export const TabularReviewCellTable = pgTable(
   "tabular_review_cell",
   {

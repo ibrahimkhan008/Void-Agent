@@ -1247,3 +1247,13 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 ## Automatic project-brain chat context checkpoint (2026-11-07)
 - Added bounded query-matched accepted project facts/events to interactive project-chat prompt assembly, with current source/access checks, separate untrusted-evidence section, 1.2s soft timeout, no embed/scheduler scope, and no RAG citation metadata changes.
 - Focused tests: 20/20 across 4 files. Integrated TypeScript and scoped Biome pass. Fresh production build pending; no live Postgres query plan or authenticated browser chat.
+## F014 pinned source revisions (in progress) - 2026-11-07 23:37:39 +05:30
+- Void-Agent stores multiple DocumentTable pages per collection item, so the reference's one-document pointer was not copied. New reviews capture every current page ID in deterministic creation-time/ID order. Generation reads only those pinned IDs; deleted, missing, or no-longer-owned/not-ready source pages fail closed rather than silently mixing revisions or using partial text. Existing reviews are backfilled with the complete currently present page set by migration 0073; their historical cell outputs are unchanged.
+- Review detail and XLSX export now show pinned-page coverage/snapshot date. PostgreSQL migration is additive and unapplied.
+- Focused verification so far: 27 tests/6 files pass; pnpm check-types, scoped Biome, pnpm db:check, and git diff --check pass. Fresh production build is running; no live PostgreSQL workflow.
+- F014 remains PARTIAL until build and database/browser workflow verification; no family-count upgrade.
+
+## F014 pinned source revision batch verified (2026-11-07)
+- Exact full page-set pinning is implemented for new reviews; generation uses only pinned pages and rechecks current access/readiness. Deletion or access loss fails closed. Review detail and XLSX export disclose the pinned set.
+- Migration 0073 backfills all extant pages for legacy review items in deterministic order without changing saved cell values. It is journaled, not applied. Historical output provenance remains unknown.
+- Focused tests: 27/27 across 6 files. Scoped Biome, integrated typecheck, pnpm db:check, diff check, and fresh production build (206/206) passed. No live Postgres/browser verification. F014 remains PARTIAL.

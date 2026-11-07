@@ -1,23 +1,23 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 22:08 IST
+Updated: 2026-11-07 23:45 IST
 
-## Current continuation status - 2026-11-07 22:08 IST
+## Current continuation status - 2026-11-07 23:20 IST
 The user asked to continue implementing in verified batches while keeping this handoff current. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
 
-Published voice project status commit `30cfb58` and handoff record `ce8cf38` are on `origin/main`. Current local batch closes DNS rebinding in workflow HTTP nodes by pinning the TLS transport to a validated public IP. Focused tests (21/21), scoped Biome, and integrated TypeScript pass; production build passed (206/206 pages). Fresh build and staged-path review passed; this batch is ready for its fast-forward push. The two untracked CognixAI specs remain untouched.
+Latest published origin/main is `d3138d5e7214b18b2134016b054815237b478b25`; it includes the automatic project-brain chat context batch and its handoff records. The current uncommitted batch implements exact page/document pins for F014 table reviews and is undergoing final validation. The 37 broad family labels are 0 COMPLETE, 10 EXISTING, 22 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED; this is not a completion percentage. The 206 route/page/tool census is not a workflow denominator. Two untracked CognixAI specs remain untouched.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
 Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-## Current checkpoint - 2026-11-07 22:08 IST
+## Current checkpoint - 2026-11-07 23:41:34 +05:30
 - Latest published implementation: voice `getProjectStatus` in OpenAI Realtime and KonvO through owned project chat scope (`30cfb58`); handoff follow-up `ce8cf38`.
 - Current local batch replaces workflow HTTP validate-then-fetch with DNS-pinned HTTPS transport. Focused tests passed **21/21**; scoped Biome and integrated `pnpm check-types` passed. Fresh production build passed with 206/206 pages.
 - Separate workflow audit found the embedded n8n full editor grants native run/activation/edit calls that bypass the host review UX; direct activation `PUT /api/workflow/[id]` also lacks a review-token check. Dynamic MCP/LLM node effects in saved graphs currently fail closed and cannot run until exact runtime approval is implemented. This next gap must remain visible; do not claim F025 complete.
 - No database/schema change, migration apply, production deploy, or live outbound/provider/database journey. Existing migrations 0070-0072 remain unapplied. Do not stage user-owned CognixAI specs.
 ## Migration completion assessment
-The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
+The migration remains incomplete. The current matrix has 37 broad family rows (F001-F036 plus F037): 0 COMPLETE, 10 EXISTING, 22 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED. EXISTING means an implementation was found, not verified end-to-end behavior. The 206 reference routes/pages/tool surfaces are not unique workflows, so there is still no defensible feature-level completion percentage.
 
 ## Verified work and limits
 The local/published migration includes project workspaces and brain ingestion/graph/contradictions, accepted entity and timeline review, team model routing/budgets, user-scoped encrypted public HTTPS providers, conversation pagination/archive/fork evidence, desktop remote MCP transport, notifications, Composio app connections, voice inbox/review/task approval, stored WAV-to-chat transcription, account recovery hardening, workflow video preview, and many security regression tests. See the feature matrix and integration-progress doc for paths and evidence.
@@ -134,3 +134,14 @@ Historical pause and publication entries below are retained as a timeline; the c
 
 ### Handoff publication follow-up - 2026-11-07 23:19:21 +05:30
 - Published the handoff update as edbca8fb2aefb00eadd033849230e78b6a1c1771 to origin/main. Remote and local HEAD match; no other paths were committed.
+
+### F014 table-review source revision batch - 2026-11-07 23:37:39 +05:30
+- Ongoing implementation: exact ordered source-page pins replace the current generate-time join over every document version. Migration 0073_tabular_review_source_documents.sql adds page pins and backfills every extant page for existing review rows without changing saved cells; applying it remains explicitly out of scope.
+- Review detail/export include pinned source coverage. Regeneration rechecks current collection owner and ready status, ignores later reingestion, and fails closed on a missing pin rather than using partial content.
+- Verification to this point: focused suite 27/27, typecheck, scoped Biome, pnpm db:check, and git diff --check pass. Production build and final staged review remain pending; no live PostgreSQL/browser run.
+
+### F014 table-review source revision pinning - verified implementation
+- Exact multi-page source pinning is implemented across creation, generation, review detail and XLSX export. Authorization and ready-state checks are re-run at generation time; missing/inaccessible pins fail closed. Reingestion does not silently change existing review inputs.
+- Verification: 27/27 focused tests across 6 files; scoped Biome; integrated typecheck; pnpm db:check; fresh production build exit 0 with 206/206 pages; diff check.
+- Migration 0073 is additive and journaled but unapplied. No live PostgreSQL/browser workflow or deployment. Existing review cell values are retained; legacy source pin backfill records the complete extant page set for future regeneration, not historical cell provenance.
+- Overall measured matrix snapshot: 37 broad families (F001-F036 plus F037): 0 COMPLETE, 10 EXISTING, 22 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED. This is a taxonomy, not a valid completion percentage. Individual workflows still need to be enumerated and verified; 206 surface entries are not unique features.

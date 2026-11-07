@@ -800,3 +800,12 @@ Personal API keys use the existing AES-256-GCM encryption helper in a dedicated 
 - Project chat requests can retrieve up to five query-matched accepted facts and three accepted events from the current active source revisions. Access is rechecked using the owned chat thread's persisted project and collection scope, current project membership, collection owners and ready source state.
 - Brain records are injected in a separate escaped, bounded, explicitly untrusted prompt section; ordinary RAG `RetrievedChunk`/citation metadata is unchanged. Embed and scheduler requests are excluded; no evidence means no prompt section. A 1.2s soft timeout omits slow results. No schema or migration.
 - Risks: no live PostgreSQL query-plan/latency check, so the bounded `ILIKE` scan needs observation against production-sized data before tuning. Focused tests 20/20; typecheck/Biome pass; fresh build pending.
+## Tabular review source revision pinning - 2026-11-07 23:37:39 +05:30
+- The new review source table stores one exact document/page ID per review item and an ordinal. Review generation rechecks current collection ownership/readiness before exposing pinned content to the model and fails closed if any pin is deleted, inaccessible, or contentless. A nullable source-document FK preserves the pin slot on deletion; an index supports FK cleanup. Newer reingestion rows are not selected.
+- The additive migration backfills all presently extant pages for legacy reviews in stable (created_at,id) order. Existing cell text is retained; previous generation provenance cannot be reconstructed, so these backfilled pins define the source set for future regeneration only.
+- Migration remains unapplied; pnpm db:check validates journal consistency but is not a PostgreSQL execution test. No source deletion or live DB query was performed.
+
+## F014 source revision pinning verification (2026-11-07)
+- Review generation now reads only pinned source-document IDs, rechecks collection owner and source-ready state, and treats a deleted or inaccessible pin as an incomplete source rather than silently using the remaining pages or latest reingestion.
+- Migration 0073 preserves deletion slots via nullable document FK with SET NULL and adds an index for that FK. Existing review cells are not changed. Legacy source pins reflect extant documents at migration time and cannot prove the provenance of previously generated values.
+- No PostgreSQL migration was executed. Focused tests/typecheck/build pass; production-sized database constraints and deletion behavior remain unverified.

@@ -7,12 +7,14 @@ import {
   DocumentTable,
   TabularReviewCellTable,
   TabularReviewItemTable,
+  TabularReviewSourceDocumentTable,
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
 import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
 import { createReviewSchema } from "lib/tabular/review-schema";
+import { groupReviewSourceDocuments } from "lib/tabular/review-source";
 
 export const dynamic = "force-dynamic";
 
@@ -73,11 +75,29 @@ export async function POST(request: Request) {
     });
   }
   const availableDocuments = await pgDb
-    .select({ itemId: DocumentTable.collectionItemId })
+    .select({
+      itemId: DocumentTable.collectionItemId,
+      documentId: DocumentTable.id,
+      createdAt: DocumentTable.createdAt,
+    })
     .from(DocumentTable)
-    .where(inArray(DocumentTable.collectionItemId, parsed.data.itemIds));
-  const availableIds = new Set(availableDocuments.map((row) => row.itemId));
-  if (parsed.data.itemIds.some((id) => !availableIds.has(id))) {
+    .innerJoin(
+      CollectionItemTable,
+      eq(CollectionItemTable.id, DocumentTable.collectionItemId),
+    )
+    .innerJoin(
+      CollectionTable,
+      eq(CollectionTable.id, CollectionItemTable.collectionId),
+    )
+    .where(
+      and(
+        inArray(CollectionItemTable.id, parsed.data.itemIds),
+        eq(CollectionTable.userId, session.user.id),
+        eq(CollectionItemTable.status, "ready"),
+      ),
+    );
+  const documentsByItem = groupReviewSourceDocuments(availableDocuments);
+  if (parsed.data.itemIds.some((id) => !documentsByItem.has(id))) {
     return new Response("One or more source documents have no extracted text", {
       status: 409,
     });
@@ -98,6 +118,16 @@ export async function POST(request: Request) {
         itemId,
         rowIndex,
       })),
+    );
+    await tx.insert(TabularReviewSourceDocumentTable).values(
+      parsed.data.itemIds.flatMap((itemId) =>
+        (documentsByItem.get(itemId) ?? []).map((document, position) => ({
+          reviewId: created.id,
+          itemId,
+          documentId: document.documentId,
+          position,
+        })),
+      ),
     );
     await tx.insert(TabularReviewCellTable).values(
       parsed.data.itemIds.flatMap((itemId) =>

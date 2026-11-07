@@ -9,6 +9,7 @@ import {
   DocumentTable,
   TabularReviewCellTable,
   TabularReviewItemTable,
+  TabularReviewSourceDocumentTable,
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
@@ -28,6 +29,7 @@ import {
   shouldGenerateReviewTask,
   validateCitationAnswer,
 } from "lib/tabular/review-schema";
+import { assemblePinnedReviewSource } from "lib/tabular/review-source";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -133,7 +135,6 @@ export async function POST(
       .select({
         itemId: TabularReviewItemTable.itemId,
         filename: CollectionItemTable.filename,
-        collectionId: CollectionItemTable.collectionId,
       })
       .from(TabularReviewItemTable)
       .innerJoin(
@@ -142,52 +143,68 @@ export async function POST(
       )
       .where(eq(TabularReviewItemTable.reviewId, id))
       .orderBy(asc(TabularReviewItemTable.rowIndex));
-    const owned = await tx
+    const pinnedPages = await tx
       .select({
-        itemId: CollectionItemTable.id,
+        itemId: TabularReviewSourceDocumentTable.itemId,
+        documentId: TabularReviewSourceDocumentTable.documentId,
+        position: TabularReviewSourceDocumentTable.position,
         content: DocumentTable.content,
-        createdAt: DocumentTable.createdAt,
+        sourceOwnerId: CollectionTable.userId,
+        sourceStatus: CollectionItemTable.status,
       })
-      .from(CollectionItemTable)
-      .innerJoin(
+      .from(TabularReviewSourceDocumentTable)
+      .leftJoin(
+        DocumentTable,
+        eq(DocumentTable.id, TabularReviewSourceDocumentTable.documentId),
+      )
+      .leftJoin(
+        CollectionItemTable,
+        eq(CollectionItemTable.id, TabularReviewSourceDocumentTable.itemId),
+      )
+      .leftJoin(
         CollectionTable,
         eq(CollectionTable.id, CollectionItemTable.collectionId),
       )
-      .innerJoin(
-        DocumentTable,
-        eq(DocumentTable.collectionItemId, CollectionItemTable.id),
-      )
-      .where(
-        and(
-          inArray(
-            CollectionItemTable.id,
-            items.map((item) => item.itemId),
-          ),
-          eq(CollectionTable.userId, session.user.id),
-          eq(CollectionItemTable.status, "ready"),
-        ),
-      )
-      .orderBy(asc(DocumentTable.createdAt));
-    const sourceText = new Map<string, string>();
-    for (const row of owned) {
-      const previous = sourceText.get(row.itemId) ?? "";
-      if (previous.length < TABULAR_REVIEW_MAX_SOURCE_CHARS) {
-        sourceText.set(
-          row.itemId,
-          `${previous}\n\n${row.content ?? ""}`.slice(
-            0,
-            TABULAR_REVIEW_MAX_SOURCE_CHARS,
-          ),
-        );
-      }
+      .where(eq(TabularReviewSourceDocumentTable.reviewId, id))
+      .orderBy(
+        asc(TabularReviewSourceDocumentTable.itemId),
+        asc(TabularReviewSourceDocumentTable.position),
+      );
+    const pagesByItem = new Map<
+      string,
+      Array<{
+        documentId: string | null;
+        position: number;
+        content: string | null;
+      }>
+    >();
+    for (const page of pinnedPages) {
+      const pages = pagesByItem.get(page.itemId) ?? [];
+      const callerStillOwnsReadySource =
+        page.sourceOwnerId === session.user.id && page.sourceStatus === "ready";
+      pages.push({
+        ...page,
+        documentId: callerStillOwnsReadySource ? page.documentId : null,
+        content: callerStillOwnsReadySource ? page.content : null,
+      });
+      pagesByItem.set(page.itemId, pages);
     }
+    const sourceByItem = new Map(
+      items.map((item) => [
+        item.itemId,
+        assemblePinnedReviewSource(
+          pagesByItem.get(item.itemId) ?? [],
+          TABULAR_REVIEW_MAX_SOURCE_CHARS,
+        ),
+      ]),
+    );
     const columns = review.columns as ReviewColumn[];
     const tasks = items.flatMap((item) =>
       columns.map((column) => ({
         itemId: item.itemId,
         filename: item.filename || "Source document",
         column,
-        source: sourceText.get(item.itemId) ?? "",
+        source: sourceByItem.get(item.itemId),
         current: cells.find(
           (cell) => cell.itemId === item.itemId && cell.columnId === column.id,
         ),
@@ -234,13 +251,17 @@ export async function POST(
           TABULAR_REVIEW_CONCURRENCY,
           async (task) => {
             request.signal.throwIfAborted();
-            if (!task.source.trim()) {
+            if (!task.source?.ok) {
               failed = true;
+              const failureMessage =
+                task.source?.reason === "incomplete"
+                  ? "Pinned source revision unavailable; create a new review"
+                  : "Source text unavailable";
               await pgDb
                 .update(TabularReviewCellTable)
                 .set({
                   status: "error",
-                  value: "Source text unavailable",
+                  value: failureMessage,
                   updatedAt: new Date(),
                 })
                 .where(
@@ -254,7 +275,7 @@ export async function POST(
                 type: "cell",
                 itemId: task.itemId,
                 columnId: task.column.id,
-                value: "Source text unavailable",
+                value: failureMessage,
                 status: "error",
               });
               return;
@@ -276,7 +297,7 @@ export async function POST(
             try {
               const { system, prompt } = buildReviewPrompt({
                 filename: task.filename,
-                sourceText: task.source,
+                sourceText: task.source.source,
                 column: task.column,
               });
               const result = await generateText({
@@ -291,7 +312,7 @@ export async function POST(
               if (task.column.type === "citation") {
                 const verification = validateCitationAnswer(
                   generatedValue,
-                  task.source,
+                  task.source.source,
                 );
                 if (!verification.ok) {
                   throw new Error("Citation output could not be verified");

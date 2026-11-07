@@ -4,8 +4,8 @@ This checkpoint reviews capability families below; the surface census is broader
 
 ### Current family classification (2026-11-07)
 
-- For the original F001-F036 rows, current primary row classifications are: 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED. Each family is counted once by its primary category; F030 is OPTIONAL and separately states that family parity is PARTIAL.
-- No F001-F036 family row is classified COMPLETE. A completion percentage is not available: EXISTING records located source, not verified end-to-end behavior, and the broad family rows are not a complete feature-level denominator.
+- For the original F001-F036 rows, current primary row classifications are: 10 EXISTING, 21 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED. Each family is counted once by its primary category; F030 is OPTIONAL and separately states that family parity is PARTIAL.
+- No family row is classified COMPLETE. Including F037, the 37 broad family rows currently classify as 0 COMPLETE, 10 EXISTING, 22 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED. This is not a completion percentage: EXISTING records a located implementation, not verified behavior, and families are not an individual-workflow denominator.
 - F037 project document originals was added later and remains PARTIAL. It is separate from the historical F001-F036 denominator.
 - The initial-triage distribution (12 EXISTING, 10 PARTIAL, 9 MISSING, 4 OPTIONAL, 1 DEPRECATED) remains documented as a historical snapshot in `docs/integration-progress.md`; it is not the current distribution.
 
@@ -1417,7 +1417,7 @@ No family is marked COMPLETE on the basis of route/component presence; environme
 - The dashboard lists only eligible owned OpenSEO server IDs/names plus authorization state. It directs users to Navigator to complete OAuth. SEO execution checks current caller ownership again, requires a connected MCP client, and invokes only tools annotated `readOnlyHint` that match fixed domain overview/keyword/backlink name patterns. Arguments are constructed solely from declared schema properties and saved domain/location/language values. Returned payloads are capped at 1 MB; manager calls retain their configured MCP tool timeout.
 - Focused schema, read-only tool selection/argument, route, and server-list tests: pending final integrated verification. Live OAuth/provider, PostgreSQL, browser, and team-sharing journeys were not run. F030 remains PARTIAL.
 
-## F008 Team AI budget — brain duplicate review route (2026-11-07 12:00 +05:30)
+## F008 Team AI budget ï¿½ brain duplicate review route (2026-11-07 12:00 +05:30)
 - Status: PARTIAL. Added persisted team-budget reservation and actual-usage settlement to /api/projects/[id]/brain/pages/dedupe when team-member budgets are enabled. Owner and personal calls preserve their prior unmetered behavior.
 - Evidence: src/app/api/projects/[id]/brain/pages/dedupe/route.ts, src/lib/projects/brain-page-duplicate-candidates.ts, and their focused tests. The route derives team scope from authorized project access, requires current membership for billed non-owner calls, pins the configured enabled project-brain model, disables provider fallback/retries for billed inference, bounds the request body, and rechecks project access before returning suggestions.
 - F008 remains PARTIAL: other team-scoped persisted AI surfaces need individual route audits; no PostgreSQL-backed or live-provider verification was performed.
@@ -1443,12 +1443,12 @@ The original F021 baseline above predates the Electron companion. Current eviden
 ## Latest integrated checkpoint (2026-11-07, F021/F025/F026)
 F021 gains verified native application menus; F026 gains the owner-scoped saved voice transcript inbox. F025 audit found no additional executable reference mutation missing from the existing approved effect paths. These slices do not close any family. Integrated checks pass: typecheck, full suite 2,051/2,051 across 363 files, lint, Drizzle journal check, desktop package typecheck/build + 50/50 tests, diff check, and root production build (203/203 pages). Remaining live desktop/browser/PostgreSQL/provider/gateway verification keeps these families PARTIAL.
 
-## Evidence addendum — 2026-11-07 13:54 IST
+## Evidence addendum ï¿½ 2026-11-07 13:54 IST
 - F037 project DOCX tracked editing: PARTIAL. Implementation evidence: `src/lib/documents/project-tracked-docx.ts`, project document edit API/download routes, repository/schema/migration 0069, and `src/components/project-documents-panel.tsx`; unit/route/component coverage and root build/typecheck pass. Migration is unapplied; live PostgreSQL/browser/storage journey remains unverified.
 - F030 finance overview: PARTIAL. `src/components/cockpit/finance-overview.tsx` composes existing authenticated Stripe/Revolut summaries; tests cover scope, currency separation, errors, and refresh. Live provider verification remains unavailable.
 - F026 intent preview: PARTIAL. `src/components/voice-inbox.tsx` requests a bounded preview by message ID and never runs a tool; component tests pass. Automatic classification/routing and audio gateway remain outside this slice.
 - F015 published-page revocation rate limit and F019 stale resumable-stream cleanup regression coverage are implemented and tested; their broader capability families remain subject to prior parity status.
-- No broad family status is upgraded solely from these slices. The F001–F036 baseline remains 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED; F037 is separately PARTIAL. Do not interpret this count as percent complete.
+- No broad family status is upgraded solely from these slices. The F001ï¿½F036 baseline remains 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED; F037 is separately PARTIAL. Do not interpret this count as percent complete.
 
 ## Evidence addendum - 2026-11-07 14:35 IST
 - F010 project-brain/dream: PARTIAL. Existing staged dream workflow remains; `src/lib/projects/brain-dream.ts` now discovers schedules using the current project owner and retains execution-time access checks. Focused test 1/1; no live worker/PostgreSQL check.
@@ -1654,3 +1654,8 @@ Public HTTPS per-user provider management is implemented and source/type checked
 ## Automatic project-brain context in chat (2026-11-07)
 - This closes a direct V2 behavior gap: project chats receive a small query-matched set of accepted graph facts/events without requiring an explicit `searchProjectKnowledgeGraph` tool call. It reuses the current project brain tables and source revision controls; no duplicate RAG schema.
 - Retrieval is limited to the owned chat's project and attached collections, current members' ready sources, accepted records, and active source revisions. Content is separate from ordinary RAG citation chips; source labels are requested in prose. F010 remains PARTIAL pending full chat/Postgres and source citation UX verification.
+## F014 exact source-page pinning update (2026-11-07)
+- New reviews pin the full current ordered set of extracted DocumentTable pages per selected collection item. Stable order is createdAt then document ID; page content is bounded using the existing 80,000-character cap.
+- Regeneration loads only the stored page IDs. It rechecks current collection ownership and ready state and fails closed if a pinned source is missing, inaccessible, or empty. Reingested pages added after review creation do not alter a review's source snapshot.
+- Additive migration 0073 creates source-page pin rows and backfills every currently extant page per legacy review item in deterministic order. Existing cell values are preserved; historical source provenance cannot be reconstructed, so the backfill defines the source set only for future regeneration. The migration is unapplied.
+- Review detail and XLSX export show pinned source coverage and newest pinned-page date. Focused tests 27/27, scoped Biome, typecheck, Drizzle migration journal check, and production build (206/206) pass. No live PostgreSQL or browser workflow was available; F014 remains PARTIAL.

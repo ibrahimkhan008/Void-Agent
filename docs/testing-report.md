@@ -1249,3 +1249,7 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 ## Automatic project-brain context final verification (2026-11-07)
 - Focused project brain/graph/status/prompt tests pass 20/20 across 4 files; scoped Biome, TypeScript and production build pass. Build generated 206/206 pages.
 - Existing warnings only. Live Postgres query plan/latency, access revocation under DB, authenticated browser chat and provider use are not verified. No DB migration/deployment.
+## F014 exact source-page pinning (2026-11-07)
+- Focused review/source/schema/route/tool-card suites: 27/27 across 6 files. Scoped Biome passed; integrated pnpm check-types passed with a 6 GiB heap; pnpm db:check passed; git diff --check passed.
+- Fresh production build passed with exit 0 and 206/206 generated pages. Existing warnings remain: E2B/unpdf dependency analysis, Next image lint notices, optional Redis/Upstash/E2B configuration, dynamic session probes, workspace-root/multiple-lockfile notice, PostgreSQL SSL-mode notice, and request-scoped rate limits falling back to in-memory without Upstash.
+- No disposable PostgreSQL execution, live DB/browser/provider workflow, production migration, or deployment. Migration 0073 remains unapplied.

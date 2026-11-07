@@ -519,6 +519,13 @@
       "when": 1794027300007,
       "tag": "0072_user_model_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794027300008,
+      "tag": "0073_tabular_review_source_documents",
+      "breakpoints": true
     }
   ]
 }

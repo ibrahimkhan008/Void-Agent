@@ -28,7 +28,14 @@ type ReviewData = {
     status: "pending" | "generating" | "done" | "error";
     columns: Column[];
   };
-  items: Array<{ itemId: string; rowIndex: number; filename: string | null }>;
+  items: Array<{
+    itemId: string;
+    rowIndex: number;
+    filename: string | null;
+    sourceDocumentCount?: number;
+    availableSourceDocumentCount?: number;
+    latestSourceCreatedAt?: string | null;
+  }>;
   cells: Cell[];
 };
 
@@ -264,6 +271,14 @@ export function TabularReviewToolCard({ part }: { part: ToolUIPart }) {
                 <tr key={item.itemId} className="align-top">
                   <th className="max-w-48 border-b p-3 text-left font-medium">
                     {item.filename || "Untitled source"}
+                    <span className="mt-1 block text-[10px] font-normal text-muted-foreground">
+                      {!item.sourceDocumentCount
+                        ? "No pinned source"
+                        : (item.availableSourceDocumentCount ?? 0) !==
+                            item.sourceDocumentCount
+                          ? `Source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount})`
+                          : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "page" : "pages"}`}
+                    </span>
                   </th>
                   {data.review.columns.map((column) => {
                     const cell = cellMap.get(`${item.itemId}:${column.id}`);

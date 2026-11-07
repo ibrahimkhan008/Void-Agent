@@ -14,7 +14,14 @@ type Cell = {
 };
 type ReviewData = {
   review: { id: string; title: string; status: string; columns: Column[] };
-  items: Array<{ itemId: string; rowIndex: number; filename: string | null }>;
+  items: Array<{
+    itemId: string;
+    rowIndex: number;
+    filename: string | null;
+    sourceDocumentCount?: number;
+    availableSourceDocumentCount?: number;
+    latestSourceCreatedAt?: string | null;
+  }>;
   cells: Cell[];
 };
 
@@ -263,6 +270,14 @@ export default function TabularReviewDetail({ id }: { id: string }) {
               <tr key={item.itemId} className="align-top">
                 <th className="sticky left-0 border-b bg-background p-3 text-left font-medium">
                   {item.filename || "Untitled source"}
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    {!item.sourceDocumentCount
+                      ? "No pinned source"
+                      : (item.availableSourceDocumentCount ?? 0) !==
+                          item.sourceDocumentCount
+                        ? `Pinned source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount} pages)`
+                        : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "page" : "pages"}${item.latestSourceCreatedAt ? ` · ${new Date(item.latestSourceCreatedAt).toLocaleDateString()}` : ""}`}
+                  </span>
                 </th>
                 {data.review.columns.map((column) => {
                   const cell = cellMap.get(`${item.itemId}:${column.id}`);
