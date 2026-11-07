@@ -2,22 +2,22 @@
 
 Updated: 2026-11-07 20:41 IST
 
-## Current continuation status - 2026-11-07 20:34 IST
-The user resumed migration work and asked that implementation continue in the existing verified-batch format while docs/migration-handoff.md is kept current. This supersedes older historical statements in this file that say work is paused, pushing is disallowed, the build is unverified, or the worktree is wholly uncommitted. The last published migration code checkpoint is 6861227; handoff publication follow-up 7925cd2 is also on origin/main. Current worktree contains the two preserved, untracked CognixAI spec files plus the in-progress F010 status-synthesis change.
+## Current continuation status - 2026-11-07 20:57 IST
+The user resumed the migration and asked implementation to continue in verified batches while this handoff stays current. Verified pushes to the Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in the file.
 
-Current slice: project status synthesis now includes accepted current-revision project-brain timeline events, with owner/collection/source visibility filters, bounded prompt data, and event provenance in the cache fingerprint. Focused tests (8/8), scoped Biome, and integrated TypeScript pass. A fresh production build is the next verification step. Overall feature parity is incomplete; the family counts below are only the existing coarse matrix and are not a valid completion percentage.
+Current published state: implementation commit 3539a8f and handoff update 9880192 are on origin/main. Local worktree now has an in-progress F010 project knowledge timeline-event consumer plus updated docs; user-owned CognixAI specs are untracked and untouched.
+
+Current slice: Void-Agent's project-aware chat knowledge tool returns up to eight recent accepted timeline events in a separate result field. It rechecks project membership and source visibility, requires current accepted event/current source revision/ready attached source and caps returned text. Focused tests passed 4/4, scoped Biome passed, integrated typecheck passed, and fresh production build passed (206/206 pages). This is not the dedicated voice navigator or full status/todo aggregation found in the reference.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
 Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-## Current checkpoint - 2026-11-07 20:40 IST
-- Last published commit before this slice: 7925cd2 on origin/main; the earlier implementation checkpoint is 6861227.
-- Current local task: F010 accepted project-brain timeline events are now included in status synthesis. The bounded query requires current project, accepted event state, active source revision, ready attached source, current collection and owner scope. Source revision participates in the status cache fingerprint. Event-only status context is supported.
-- Verification for this slice: focused project-brain status tests **8/8 passed**; scoped Biome passed; integrated pnpm check-types passed with a 6 GiB heap; fresh pnpm build passed and generated **206/206 pages**. Existing build warnings include optional Redis/Upstash/E2B configuration, Next dynamic-session static probes, dependency-analysis warnings, workspace-root/multiple lockfiles, PostgreSQL SSL-mode notice, and <img> lint warnings.
-- The F010 source/docs update was committed and pushed successfully as `3539a8f`; local `HEAD` matches `origin/main`. No schema change, database apply, or deployment was performed. The existing migrations 0070-0072 remain authored/journaled and unapplied.
-- The two untracked user-owned files cognixai-app-spec.md and cognixai-rebuild-spec.md remain untouched and must stay excluded from commits.
-
+## Current checkpoint - 2026-11-07 20:57 IST
+- F010 status-snapshot consumer (3539a8f) has already been pushed; current local change is the project knowledge chat recent-event feed, pending staged review and publication.
+- Latest tests: project knowledge tool suite 4/4; status-synthesis suite 8/8. Latest integrated typecheck and production build passed; build generated 206/206 pages with known non-fatal warnings (dependency analysis, optional services, dynamic sessions, workspace root/multiple lockfiles, PostgreSQL SSL mode and <img> warnings).
+- No live PostgreSQL/provider/browser validation, schema change, migration apply, or deployment. Migrations 0070-0072 remain authored/journaled but unapplied.
+- Keep cognixai-app-spec.md and cognixai-rebuild-spec.md out of the index and commits.
 ## Migration completion assessment
 The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
 

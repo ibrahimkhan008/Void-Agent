@@ -1186,3 +1186,10 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
 - Fresh pnpm build: **PASS**, static generation 206/206 pages. Existing optional-service/dependency/workspace/dynamic-session/SSL/image warnings remain non-fatal.
 - No live PostgreSQL, browser, or provider run; no migration applied.
+
+## F010 project knowledge recent-event feed - 2026-11-07 20:57 IST
+- pnpm exec vitest run src/lib/ai/tools/project-knowledge.test.ts: **PASS**, 1 file / 4 tests. Verifies visible event output, project/source/owner/ready/accepted/active-revision SQL constraints, existing claim behavior, membership revocation, and invalid query short-circuit.
+- pnpm exec biome check --write src/lib/ai/tools/project-knowledge.ts src/lib/ai/tools/project-knowledge.test.ts: **PASS**, 2 files.
+- Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
+- Fresh pnpm build: **PASS**, static generation 206/206 pages. Existing non-fatal dependency-analysis, dynamic-session, optional Redis/Upstash/E2B, workspace-root, PostgreSQL SSL, and <img> warnings remain.
+- No live PostgreSQL/provider/browser workflow; no migration applied.

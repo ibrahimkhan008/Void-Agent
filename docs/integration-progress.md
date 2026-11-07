@@ -1201,3 +1201,9 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Added bounded event fields and event source references to the status fingerprint. This means a newly accepted/current timeline item can affect a snapshot and stale cached status is not reused after its source scope changes.
 - Focused tests: 8/8; scoped Biome and integrated typecheck passed. Fresh production build passed (206/206 pages). No migration was added/applied; existing 0071 migration remains unapplied and no live PostgreSQL check occurred.
 - F010 remains PARTIAL; scheduled worker/voice consumers and live DB workflow remain unverified.
+
+## F010 project knowledge tool recent-event feed - 2026-11-07 20:57 IST
+- The project chat knowledge tool now returns up to eight most recent accepted timeline events, separately from query-matched accepted graph claims. Existing no-write read-only behavior is preserved.
+- Security: every call rechecks project access and current source collection/owner visibility; event retrieval requires accepted state, active source revision, and a ready currently attached source. Returned event strings are bounded.
+- Verification: focused tool tests 4/4, scoped Biome, integrated typecheck, and production build (206/206 pages) passed. Live DB/provider/browser validation unavailable.
+- Parity boundary: this feeds project-aware chat; no dedicated voice navigator or full project status/todo tool was added. F010 remains PARTIAL.

@@ -6,6 +6,7 @@ import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
   CollectionTable,
+  ProjectBrainEventTable,
   ProjectBrainFactTable,
 } from "lib/db/pg/schema.pg";
 import {
@@ -41,7 +42,7 @@ export function createProjectKnowledgeGraphTool(args: {
 }) {
   return tool({
     description:
-      "Search the current project's reviewed knowledge graph for entities, relationships, and facts. Only human-accepted claims are returned. Cite the source name and evidence excerpt in your answer; do not treat model confidence as proof.",
+      "Search the current project's reviewed knowledge graph for entities, relationships, and facts, and include its most recent human-accepted timeline events when available. Only human-accepted claims and events from currently accessible sources are returned. Cite the source name and evidence excerpt in your answer; do not treat model confidence as proof.",
     inputSchema,
     execute: async ({ query }) => {
       const terms = queryTerms(query);
@@ -75,6 +76,69 @@ export function createProjectKnowledgeGraphTool(args: {
           results: [],
           message: "No accessible project sources were found.",
         };
+
+      const recentEvents = await pgDb
+        .select({
+          id: ProjectBrainEventTable.id,
+          summary: ProjectBrainEventTable.summary,
+          detail: ProjectBrainEventTable.detail,
+          eventDate: ProjectBrainEventTable.eventDate,
+          evidence: ProjectBrainEventTable.evidence,
+          sourceItemId: ProjectBrainEventTable.sourceItemId,
+          filename: CollectionItemTable.filename,
+          sourceUrl: CollectionItemTable.sourceUrl,
+          sourceCollectionId: CollectionItemTable.collectionId,
+          sourceOwnerId: CollectionTable.userId,
+          sourceStatus: CollectionItemTable.status,
+          eventStatus: ProjectBrainEventTable.status,
+        })
+        .from(ProjectBrainEventTable)
+        .innerJoin(
+          CollectionItemTable,
+          eq(CollectionItemTable.id, ProjectBrainEventTable.sourceItemId),
+        )
+        .innerJoin(
+          CollectionTable,
+          eq(CollectionTable.id, CollectionItemTable.collectionId),
+        )
+        .where(
+          and(
+            eq(ProjectBrainEventTable.projectId, args.projectId),
+            projectBrainRunIsActiveSourceRevision(
+              ProjectBrainEventTable.runId,
+              ProjectBrainEventTable.projectId,
+              ProjectBrainEventTable.sourceItemId,
+            ),
+            eq(ProjectBrainEventTable.status, "accepted"),
+            inArray(CollectionItemTable.collectionId, collectionIds),
+            inArray(CollectionTable.userId, ownerIds),
+            eq(CollectionItemTable.status, "ready"),
+          ),
+        )
+        .orderBy(
+          desc(ProjectBrainEventTable.eventDate),
+          desc(ProjectBrainEventTable.createdAt),
+        )
+        .limit(8);
+      const visibleRecentEvents = recentEvents
+        .filter(
+          (event) =>
+            event.eventStatus === "accepted" &&
+            event.sourceStatus === "ready" &&
+            collectionIds.includes(event.sourceCollectionId) &&
+            ownerIds.includes(event.sourceOwnerId),
+        )
+        .map((event) => ({
+          id: event.id,
+          date: event.eventDate ? String(event.eventDate) : null,
+          summary: event.summary.slice(0, 240),
+          detail: (event.detail ?? "").slice(0, 600),
+          evidence: event.evidence.slice(0, 300),
+          source:
+            event.filename ||
+            event.sourceUrl ||
+            `Source ${event.sourceItemId.slice(0, 8)}`,
+        }));
 
       const baseSelect = () =>
         pgDb
@@ -244,9 +308,10 @@ export function createProjectKnowledgeGraphTool(args: {
       return {
         success: true,
         results,
+        recentEvents: visibleRecentEvents,
         message: results.length
-          ? "These are human-reviewed claims. Cite each source and evidence excerpt; mention when evidence is limited."
-          : "No matching human-reviewed project claims were found. Use the project's attached knowledge search for unstructured document content.",
+          ? "These are human-reviewed claims and recent accepted timeline events. Cite each source and evidence excerpt; mention when evidence is limited."
+          : "No matching human-reviewed project claims were found. Recent accepted timeline events, if any, are provided separately. Use the project's attached knowledge search for unstructured document content.",
       };
     },
   });
