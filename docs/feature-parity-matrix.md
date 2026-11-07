@@ -1651,3 +1651,6 @@ Public HTTPS per-user provider management is implemented and source/type checked
 - Search tool is hidden in the voice UI for non-project threads; client provider support and server-owned thread/project checks also gate execution. Kimi is explicitly unsupported.
 - Voice transcript copies project context only from a server-verified owned project thread and current collection intersection, preserving project continuity in its dedicated saved voice thread. Revoked or foreign source scope is not inherited.
 - Evidence is marked untrusted in voice tool instructions. F010 remains PARTIAL pending live voice/browser/Postgres validation and remaining reference behavior comparisons.
+## Automatic project-brain context in chat (2026-11-07)
+- This closes a direct V2 behavior gap: project chats receive a small query-matched set of accepted graph facts/events without requiring an explicit `searchProjectKnowledgeGraph` tool call. It reuses the current project brain tables and source revision controls; no duplicate RAG schema.
+- Retrieval is limited to the owned chat's project and attached collections, current members' ready sources, accepted records, and active source revisions. Content is separate from ordinary RAG citation chips; source labels are requested in prose. F010 remains PARTIAL pending full chat/Postgres and source citation UX verification.

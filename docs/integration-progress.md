@@ -1244,3 +1244,6 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 ## Voice project knowledge integration verification update (2026-11-07)
 - Added project-aware visible tool gating, verified project context inheritance in saved voice transcript threads, same-origin transcript write protection, and untrusted-source instruction. Focused related suites pass 27/27 across 7 files; Biome/typecheck pass.
 - Fresh production build pending after the final integration changes; live voice provider and PostgreSQL checks remain unavailable.
+## Automatic project-brain chat context checkpoint (2026-11-07)
+- Added bounded query-matched accepted project facts/events to interactive project-chat prompt assembly, with current source/access checks, separate untrusted-evidence section, 1.2s soft timeout, no embed/scheduler scope, and no RAG citation metadata changes.
+- Focused tests: 20/20 across 4 files. Integrated TypeScript and scoped Biome pass. Fresh production build pending; no live Postgres query plan or authenticated browser chat.

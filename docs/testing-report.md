@@ -1242,3 +1242,10 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 ## Voice project knowledge final verification (2026-11-07)
 - Final implementation passed 27/27 focused tests across 7 files, scoped Biome, integrated typecheck, and a fresh production build (206/206 pages). Earlier build before final hardening is superseded.
 - Existing build warnings only; no live provider/Postgres/browser validation. No DB migration or deployment.
+## Automatic project-brain chat context verification (2026-11-07)
+- Project retrieval/filter/format and existing graph/status/prompt suites: 20 tests passed across 4 files.
+- Scoped Biome, `git diff --check`, and `pnpm check-types` pass. Fresh production build pending.
+- No live PostgreSQL query plan, browser chat, or source-revocation journey. Query limits/candidate caps are unit tested; actual DB latency is not.
+## Automatic project-brain context final verification (2026-11-07)
+- Focused project brain/graph/status/prompt tests pass 20/20 across 4 files; scoped Biome, TypeScript and production build pass. Build generated 206/206 pages.
+- Existing warnings only. Live Postgres query plan/latency, access revocation under DB, authenticated browser chat and provider use are not verified. No DB migration/deployment.

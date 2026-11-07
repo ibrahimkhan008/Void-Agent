@@ -75,6 +75,11 @@ import {
   getProjectCollectionOwnerIds,
 } from "lib/projects/access";
 import { isProjectCollectionScopeAllowed } from "lib/projects/policy";
+import {
+  formatProjectBrainContext,
+  getProjectBrainContextForUser,
+  shouldLoadProjectBrainContext,
+} from "lib/projects/project-brain-context";
 import { type RetrievedChunk, retrieveRelevantChunks } from "lib/rag/retrieve";
 import { getEnabledCategories } from "lib/site-config-runtime";
 import globalLogger from "logger";
@@ -1774,11 +1779,42 @@ export async function POST(request: Request) {
                 return [] as RetrievedChunk[];
               })
             : Promise.resolve([] as RetrievedChunk[]);
+        const projectBrainContextPromise: Promise<string> =
+          shouldLoadProjectBrainContext({
+            isEmbedMode,
+            isSchedulerRequest,
+            hasProjectAccess: Boolean(projectAccess),
+            projectId: thread!.projectId,
+            collectionIds: effectiveCollectionScope,
+            query: lastUserText,
+          })
+            ? getProjectBrainContextForUser({
+                userId: effectiveUserId,
+                projectId: projectAccess!.project.id,
+                collectionIds: effectiveCollectionScope!,
+                query: lastUserText,
+              })
+                .then(formatProjectBrainContext)
+                .catch((error) => {
+                  logger.warn(
+                    "Project brain context retrieval failed; skipping",
+                    {
+                      projectId: thread!.projectId,
+                      errorName:
+                        error instanceof Error ? error.name : "unknown",
+                    },
+                  );
+                  return "";
+                })
+            : Promise.resolve("");
         const embedTimeoutPromise = new Promise<null>((resolve) => {
           setTimeout(() => resolve(null), 1500);
         });
         const retrievalTimeoutPromise = new Promise<any[]>((resolve) => {
           setTimeout(() => resolve([]), 1500);
+        });
+        const projectBrainTimeoutPromise = new Promise<string>((resolve) => {
+          setTimeout(() => resolve(""), 1200);
         });
 
         // Only load MCP tools if tool calls are allowed AND MCP servers are configured
@@ -2000,6 +2036,15 @@ export async function POST(request: Request) {
                 .filter(Boolean)
                 .join("\n");
             },
+          },
+          {
+            name: "project-brain-context",
+            order: -40,
+            text: () =>
+              Promise.race([
+                projectBrainContextPromise,
+                projectBrainTimeoutPromise,
+              ]),
           },
           {
             name: "persona",
