@@ -151,3 +151,13 @@ Historical pause and publication entries below are retained as a timeline; the c
 - The two untracked CognixAI specification files were excluded. Migration 0073 is committed but has not been applied. No deploy or production database action.
 - Ongoing overall migration: 37 broad family labels are 0 COMPLETE, 10 EXISTING, 22 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED. This is not a completion percentage. The canonical individually verified workflow denominator is still unbuilt; the 206 census rows are route/page/tool surfaces rather than independent feature units.
 - Next high-priority work: continue mapping the inventory into user-visible end-to-end workflow units with explicit status and evidence, while implementing the next major incomplete system. Audit findings: dynamic workflow MCP/app-tool effects need a persisted pause/review/resume design to obtain exact-argument approvals; the primary desktop MCP bridge is more secure than the reference and is test-screen-only in both projects, so do not copy the reference bridge.
+
+### Feature-level denominator audit in progress
+- To give a real answer for �how much is complete,� three read-only audits are now mapping route/page/tool surfaces into independently testable user workflows rather than treating the 37 family rows or 206 surfaces as a feature count.
+- Scopes: chat/models/conversation/settings; projects/knowledge/files/voice; integrations/tools/workflows/accounts/billing/desktop. Each item needs reference and primary evidence, status, and the remaining end-to-end verification gap.
+- The resulting denominator will count only discrete user-visible workflows. Existing family labels are retained as a coarse cross-check, not converted into percentages. Auditors make no repository edits.
+
+### Provisional workflow-level progress count
+- Added docs/feature-work-register.md. Three audited scopes have been grouped into 71 distinct workflow units after merging two overlapping rows (chat audio transcription and general workflow CRUD/execution) and adding the separate F014 table-review workflow.
+- Current counts: 61 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, and 0 COMPLETE. Therefore 62 units in this audited slice are still incomplete (61 partial plus 1 missing); partial includes both remaining implementation and missing end-to-end evidence, so it is not a count of code features to build.
+- This is not the total project denominator. More surfaces from the 206-route/page/tool census remain ungrouped, and the three-agent audit has not yet had independent evidence review. Do not present a project-wide percentage from these provisional counts.
