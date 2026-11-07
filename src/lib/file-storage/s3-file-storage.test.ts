@@ -219,4 +219,17 @@ describe("s3-file-storage", () => {
     };
     expect(call?.input?.ContentType).toBe("application/pdf");
   });
+
+  it("rejects an oversized object from HEAD metadata before requesting its body", async () => {
+    mocks.sendMock.mockResolvedValueOnce({ ContentLength: 6 });
+    const storage = createS3FileStorage();
+
+    await expect(
+      storage.downloadLimited("uploads/user-1/large.bin", 5),
+    ).rejects.toThrow("File exceeds the maximum allowed size");
+    expect(mocks.sendMock).toHaveBeenCalledTimes(1);
+    expect(mocks.sendMock.mock.calls[0][0]).toBeInstanceOf(
+      (await import("@aws-sdk/client-s3")).HeadObjectCommand,
+    );
+  });
 });

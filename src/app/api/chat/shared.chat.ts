@@ -16,6 +16,7 @@ import {
   ChatMetadata,
   ManualToolConfirmTag,
 } from "app-types/chat";
+import type { AgentFileBinding } from "app-types/agent";
 import { errorToString, exclude, objectFlow, toAny } from "lib/utils";
 import logger from "logger";
 import {
@@ -608,10 +609,11 @@ export const loadAppDefaultTools = async (opt?: {
   allowedAppDefaultToolkit?: string[];
   userId?: string;
   threadId?: string;
+  agentFiles?: AgentFileBinding[];
 }) => {
   // Use user-specific tools if userId is provided
   const toolKit = opt?.userId
-    ? getAppDefaultToolKitForUser(opt.userId, opt.threadId)
+    ? getAppDefaultToolKitForUser(opt.userId, opt.threadId, opt.agentFiles)
     : APP_DEFAULT_TOOL_KIT;
 
   // Get enabled categories from site config

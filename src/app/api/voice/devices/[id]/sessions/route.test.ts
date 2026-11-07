@@ -2,108 +2,132 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
-  rateLimit: vi.fn(),
+  rate: vi.fn(),
   list: vi.fn(),
 }));
+
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
-  checkApiRateLimit: mocks.rateLimit,
+  checkApiRateLimit: mocks.rate,
 }));
 vi.mock("lib/db/repository", () => ({
   voiceDeviceRepository: { listRecentSessionsByDevice: mocks.list },
 }));
 
+import { voiceDeviceUuid } from "lib/voice/device-transcript";
 import { GET } from "./route";
 
-const deviceId = "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f";
-const request = (query = "") =>
-  new Request(
-    `https://example.test/api/voice/devices/${deviceId}/sessions${query}`,
-  );
-const context = { params: Promise.resolve({ id: deviceId }) };
+const deviceId = "11111111-1111-4111-8111-111111111111";
 
-describe("GET device voice sessions", () => {
+function request(query = "") {
+  return new Request(
+    `https://void.test/api/voice/devices/${deviceId}/sessions${query}`,
+  );
+}
+
+describe("GET owner-scoped voice device sessions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getSession.mockResolvedValue({ user: { id: "user-1" } });
-    mocks.rateLimit.mockResolvedValue({ allowed: true });
-    mocks.list.mockResolvedValue([]);
+    mocks.getSession.mockResolvedValue({ user: { id: "owner-1" } });
+    mocks.rate.mockResolvedValue({ allowed: true });
+    mocks.list.mockResolvedValue([
+      {
+        id: "session-row-1",
+        sessionId: "session-1",
+        status: "completed",
+        segmentCount: 2,
+        startedAt: new Date("2026-01-01T00:00:00Z"),
+        lastSegmentAt: new Date("2026-01-01T00:01:00Z"),
+        finalizedAt: new Date("2026-01-01T00:02:00Z"),
+        transcript: "Turn on the lights",
+      },
+      {
+        id: "session-row-2",
+        sessionId: "session-2",
+        status: "active",
+        segmentCount: 1,
+        startedAt: new Date("2026-01-01T00:00:00Z"),
+        lastSegmentAt: null,
+        finalizedAt: null,
+        transcript: "unfinished transcript",
+      },
+      {
+        id: "session-row-3",
+        sessionId: "session-3",
+        status: "completed",
+        segmentCount: 0,
+        startedAt: new Date("2026-01-01T00:00:00Z"),
+        lastSegmentAt: null,
+        finalizedAt: new Date("2026-01-01T00:02:00Z"),
+        transcript: "",
+      },
+    ]);
   });
 
-  it("requires an authenticated user and does not query", async () => {
-    mocks.getSession.mockResolvedValue(null);
-    const response = await GET(request(), context);
+  it("returns a deterministic review target only for finalized transcripts", async () => {
+    const response = await GET(request(), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.json();
+    expect(body.items[0]).toMatchObject({
+      sessionId: "session-1",
+      transcript: "Turn on the lights",
+      finalizedAt: "2026-01-01T00:02:00.000Z",
+      threadId: voiceDeviceUuid("voice-device-thread", deviceId, "session-1"),
+      messageId: voiceDeviceUuid(
+        "voice-device-event",
+        deviceId,
+        "session-1",
+        "session-final",
+      ),
+    });
+    expect(body.items[1]).toMatchObject({ threadId: null, messageId: null });
+    expect(body.items[2]).toMatchObject({ threadId: null, messageId: null });
+    expect(mocks.list).toHaveBeenCalledWith({
+      deviceId,
+      userId: "owner-1",
+      limit: 20,
+    });
+  });
+
+  it("does not return session review targets without owner authentication", async () => {
+    mocks.getSession.mockResolvedValueOnce(null);
+    const response = await GET(request(), {
+      params: Promise.resolve({ id: deviceId }),
+    });
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
-  it("passes the authenticated owner and bounded limit to the repository", async () => {
-    mocks.list.mockResolvedValue([
-      {
-        id: "session-pk",
-        sessionId: "s-1",
-        status: "completed",
-        segmentCount: 1,
-        startedAt: new Date("2026-01-01Z"),
-        lastSegmentAt: null,
-        finalizedAt: new Date("2026-01-01Z"),
-        transcript: "hello",
-      },
-    ]);
-    const response = await GET(request("?limit=10"), context);
+  it("passes an explicitly requested bounded page size to the repository", async () => {
+    const response = await GET(request("?limit=7"), {
+      params: Promise.resolve({ id: deviceId }),
+    });
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(mocks.list).toHaveBeenCalledWith({
       deviceId,
-      userId: "user-1",
-      limit: 10,
+      userId: "owner-1",
+      limit: 7,
     });
-    const body = await response.json();
-    expect(body.items[0]).toMatchObject({
-      sessionId: "s-1",
-      transcript: "hello",
-      finalizedAt: "2026-01-01T00:00:00.000Z",
-      threadId: expect.any(String),
-    });
-    expect(body.items[0].threadId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("does not expose a conversation link before finalization or without transcript", async () => {
-    mocks.list.mockResolvedValue([
-      {
-        id: "active-session",
-        sessionId: "active-1",
-        status: "active",
-        segmentCount: 1,
-        startedAt: new Date("2026-01-01Z"),
-        lastSegmentAt: null,
-        finalizedAt: null,
-        transcript: "partial",
-      },
-      {
-        id: "empty-session",
-        sessionId: "empty-1",
-        status: "completed",
-        segmentCount: 0,
-        startedAt: new Date("2026-01-01Z"),
-        lastSegmentAt: null,
-        finalizedAt: new Date("2026-01-01Z"),
-        transcript: "",
-      },
-    ]);
-    const response = await GET(request(), context);
-    expect(
-      (await response.json()).items.map(
-        (item: { threadId: string | null }) => item.threadId,
-      ),
-    ).toEqual([null, null]);
+  it("rejects limits above the endpoint bound before reading sessions", async () => {
+    const response = await GET(request("?limit=51"), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(response.status).toBe(400);
+    expect(mocks.list).not.toHaveBeenCalled();
   });
 
-  it("rejects excessive limits and rate limits before reading", async () => {
-    expect((await GET(request("?limit=51"), context)).status).toBe(400);
-    mocks.rateLimit.mockResolvedValue({ allowed: false });
-    expect((await GET(request(), context)).status).toBe(429);
+  it("checks rate limits before reading sessions", async () => {
+    mocks.rate.mockResolvedValueOnce({ allowed: false });
+    const response = await GET(request(), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(response.status).toBe(429);
     expect(mocks.list).not.toHaveBeenCalled();
   });
 });

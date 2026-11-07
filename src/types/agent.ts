@@ -8,12 +8,23 @@ export type AgentIcon = {
   style?: Record<string, string>;
 };
 
+/** Files an agent can rely on being present in its E2B work directory. */
+export const MAX_AGENT_FILES = 10;
+export const AgentFileBindingSchema = z.object({
+  storageKey: z.string().min(1).max(512),
+  filename: z.string().min(1).max(240),
+  /** Server assigned when a user binds the file; never trusted from clients. */
+  ownerId: z.string().min(1).max(128).optional(),
+});
+export type AgentFileBinding = z.infer<typeof AgentFileBindingSchema>;
+
 export const AgentInstructionsSchema = z.object({
   role: z.string().optional(),
   systemPrompt: z.string().optional(),
   mentions: z.array(ChatMentionSchema).optional(),
   /** Optional provider/model pin for agent chat; absent/null inherits the chat model. */
   model: z.string().trim().max(120).nullable().optional(),
+  files: z.array(AgentFileBindingSchema).max(MAX_AGENT_FILES).optional(),
 });
 
 export const AgentCreateSchema = z

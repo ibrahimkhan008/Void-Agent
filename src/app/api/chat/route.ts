@@ -1566,6 +1566,7 @@ export async function POST(request: Request) {
               allowedAppDefaultToolkit: effectiveAllowedAppDefaultToolkit,
               userId: effectiveUserId,
               threadId: thread!.id,
+              agentFiles: agent?.instructions.files,
             }),
           )
           .orElse({});

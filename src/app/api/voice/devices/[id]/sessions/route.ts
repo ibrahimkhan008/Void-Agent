@@ -58,6 +58,15 @@ export async function GET(
             item.finalizedAt && item.transcript
               ? voiceDeviceUuid("voice-device-thread", id, item.sessionId)
               : null,
+          messageId:
+            item.finalizedAt && item.transcript
+              ? voiceDeviceUuid(
+                  "voice-device-event",
+                  id,
+                  item.sessionId,
+                  "session-final",
+                )
+              : null,
         })),
       },
       { headers: noStore },

@@ -157,6 +157,15 @@ export const createAgentInputSchema = z.object({
   role: z.string().trim().max(200).optional(),
   systemPrompt: z.string().trim().min(1).max(12000),
   tools: z.array(z.nativeEnum(DefaultToolName)).max(20).optional(),
+  files: z
+    .array(
+      z.object({
+        url: z.string().trim().min(1).max(4096),
+        filename: z.string().trim().min(1).max(240),
+      }),
+    )
+    .max(10)
+    .optional(),
   model: z
     .string()
     .trim()
@@ -175,7 +184,7 @@ export const createAgentInputSchema = z.object({
 
 export const createAgentTool = tool({
   description:
-    'Propose saving the current work as a reusable agent when the user asks for one. Include only relevant built-in tools from the available tool list. If the user explicitly asks to pin a model, provide its exact "provider/model" value from the available model catalog; otherwise omit model so the agent inherits the chat selection. If the user asks for recurring runs, include a valid five-field cronExpression, IANA timezone, and exact inputPrompt. The user reviews and edits the agent and optional schedule; an authenticated API creates the agent and schedule only after explicit approval. Never claim either was saved until confirmed.',
+    'Propose saving the current work as a reusable agent when the user asks for one. Include only relevant built-in tools from the available tool list. Attach only relevant files already uploaded by the user in this conversation; copy each file URL and filename from the visible attachment context exactly. The authenticated API verifies storage ownership before binding them. If the user explicitly asks to pin a model, provide its exact "provider/model" value from the available model catalog; otherwise omit model so the agent inherits the chat selection. If the user asks for recurring runs, include a valid five-field cronExpression, IANA timezone, and exact inputPrompt. The user reviews and edits the agent and optional schedule; an authenticated API creates the agent and schedule only after explicit approval. Never claim either was saved until confirmed.',
   inputSchema: createAgentInputSchema,
 });
 
@@ -214,6 +223,6 @@ export const HITL_TOOL_GUIDANCE = `Human-in-the-loop tools:
 - Before creating an Asana/ClickUp task or Productboard feature, use proposeTaskCreation and pass only the exact user-approved target and content with its one-use token.
 - Before creating a Google Drive file, use proposeDriveFile and pass only the exact user-approved name and content with its one-use token.
 - Before posting a Slack message, use proposeSlackMessage and send only the exact reviewed channel and text with its single-use token.
-- When the user asks to save reusable instructions as an agent, use createAgent and wait for the user to review and confirm the editable draft.
+- When the user asks to save reusable instructions as an agent, use createAgent and wait for the user to review and confirm the editable draft. Include relevant files only from user-owned uploads in this conversation; never guess or invent a file URL.
 - When the user asks to compare multiple available Knowledge documents or extract the same fields from them, use createTabularReview with the exact available item IDs and concise columns. The tool creates a review; the user can open it to run cell extraction and export the result.
 - Never request passwords, API keys, recovery codes, or other secrets through requestInput. These tools collect decisions and context; they do not authorize bypassing any tool's own permission checks.`;

@@ -7,6 +7,7 @@ import type {
   FileStorage,
   UploadOptions,
 } from "./file-storage.interface";
+import { assertFileSizeWithinLimit, readStreamWithLimit } from "./limited-download";
 import {
   resolveStoragePrefix,
   sanitizeFilename,
@@ -50,13 +51,24 @@ const getHeadForKey = async (key: string) => {
   }
 };
 
-const fetchSourceBuffer = async (url: string) => {
+const fetchSourceBuffer = async (url: string, maxBytes?: number) => {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     if (response.status === 404) {
       throw new FileNotFoundError(url);
     }
     throw new Error(`Failed to download blob. Status: ${response.status}`);
+  }
+  if (maxBytes !== undefined) {
+    const rawContentLength = response.headers.get("content-length");
+    if (rawContentLength !== null) {
+      const contentLength = Number(rawContentLength);
+      if (Number.isFinite(contentLength) && contentLength >= 0) {
+        assertFileSizeWithinLimit(contentLength, maxBytes);
+      }
+    }
+    if (!response.body) throw new Error("Blob response did not include a body");
+    return readStreamWithLimit(response.body, maxBytes);
   }
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
@@ -113,6 +125,19 @@ export const createVercelBlobStorage = (): FileStorage => {
         return Buffer.from(await new Response(result.stream).arrayBuffer());
       }
       return fetchSourceBuffer(info.url);
+    },
+
+    async downloadLimited(key, maxBytes) {
+      const info = await getHeadForKey(key);
+      assertFileSizeWithinLimit(info.size, maxBytes);
+      if (getBlobAccess() === "private") {
+        const result = await get(key, { access: "private", useCache: false });
+        if (!result || result.statusCode !== 200 || !result.stream) {
+          throw new FileNotFoundError(key);
+        }
+        return readStreamWithLimit(result.stream, maxBytes);
+      }
+      return fetchSourceBuffer(info.url, maxBytes);
     },
 
     async delete(key) {

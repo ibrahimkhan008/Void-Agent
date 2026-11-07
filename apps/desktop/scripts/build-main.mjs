@@ -36,3 +36,14 @@ await build({
   sourcemap: true,
   absWorkingDir: projectRoot,
 });
+await build({
+  entryPoints: [path.join(desktopRoot, "src", "preload", "server-picker.ts")],
+  outfile: path.join(desktopRoot, "dist", "preload", "server-picker.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "node22",
+  external: ["electron"],
+  sourcemap: true,
+  absWorkingDir: projectRoot,
+});

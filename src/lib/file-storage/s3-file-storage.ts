@@ -16,6 +16,7 @@ import type {
   UploadUrl,
   UploadUrlOptions,
 } from "./file-storage.interface";
+import { assertFileSizeWithinLimit, readStreamWithLimit } from "./limited-download";
 import {
   resolveStoragePrefix,
   sanitizeFilename,
@@ -227,6 +228,35 @@ export const createS3FileStorage = (): FileStorage => {
       } catch (error: unknown) {
         if ((error as any)?.$metadata?.httpStatusCode === 404) {
           throw new FileNotFoundError(key, error);
+        }
+        throw error;
+      }
+    },
+
+    async downloadLimited(key, maxBytes) {
+      try {
+        const metadata = await s3.send(
+          new HeadObjectCommand({ Bucket: bucket, Key: key }),
+        );
+        if (metadata.ContentLength !== undefined) {
+          assertFileSizeWithinLimit(metadata.ContentLength, maxBytes);
+        }
+
+        const res = await s3.send(
+          new GetObjectCommand({ Bucket: bucket, Key: key }),
+        );
+        if (!res.Body) throw new FileNotFoundError(key);
+        // Recheck the GET response to cover object replacement between HEAD and GET.
+        if (res.ContentLength !== undefined) {
+          assertFileSizeWithinLimit(res.ContentLength, maxBytes);
+        }
+        return await readStreamWithLimit(
+          res.Body as unknown as AsyncIterable<Uint8Array>,
+          maxBytes,
+        );
+      } catch (error: unknown) {
+        if ((error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode === 404) {
+          throw new FileNotFoundError(key, error as Error);
         }
         throw error;
       }

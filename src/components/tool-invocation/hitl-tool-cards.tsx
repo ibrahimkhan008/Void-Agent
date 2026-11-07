@@ -438,6 +438,19 @@ export function HitlToolCard({
           systemPrompt: String(input.systemPrompt ?? ""),
           model: typeof input.model === "string" ? input.model : "",
           tools: normalizeDefaultToolNames(input.tools),
+          files: Array.isArray(input.files)
+            ? input.files.flatMap((entry) => {
+                if (!entry || typeof entry !== "object") return [];
+                const file = entry as { url?: unknown; filename?: unknown };
+                if (
+                  typeof file.url !== "string" ||
+                  typeof file.filename !== "string"
+                ) {
+                  return [];
+                }
+                return [{ url: file.url, filename: file.filename }];
+              })
+            : [],
           schedule: input.schedule && typeof input.schedule === "object"
             ? input.schedule as { cronExpression: string; timezone: string; inputPrompt: string }
             : undefined,
@@ -965,6 +978,7 @@ function CreateAgentApprovalCard({
     systemPrompt: string;
     model: string;
     tools: string[];
+    files: Array<{ url: string; filename: string }>;
     schedule?: { cronExpression: string; timezone: string; inputPrompt: string };
   };
   submitted: Record<string, unknown> | null;
@@ -1092,6 +1106,7 @@ function CreateAgentApprovalCard({
             systemPrompt: draft.systemPrompt.trim(),
             model: draft.model || undefined,
             mentions: defaultToolMentionsFromNames(draft.tools),
+            files: draft.files,
           },
         }),
       });
@@ -1260,6 +1275,44 @@ function CreateAgentApprovalCard({
           <span role="alert" className="block text-xs text-destructive">This proposed model is unavailable. Choose an enabled model or inherit the chat model.</span>
         )}
       </label>
+      <div className="space-y-2 rounded-md border p-3">
+        <div>
+          <p className="text-sm font-medium">Agent files</p>
+          <p className="text-xs text-muted-foreground">
+            These user-owned uploads are copied into this agent&apos;s sandbox
+            working directory. Remove anything that should not be shared with
+            people who can use this agent.
+          </p>
+        </div>
+        {draft.files.length ? (
+          <ul className="space-y-1" aria-label="Files attached to agent">
+            {draft.files.map((file, index) => (
+              <li
+                key={`${file.url}:${index}`}
+                className="flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-sm"
+              >
+                <span className="min-w-0 truncate">{file.filename}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled || isCreating}
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      files: current.files.filter((_, fileIndex) => fileIndex !== index),
+                    }))
+                  }
+                >
+                  Remove
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">No files attached.</p>
+        )}
+      </div>
       <div className="space-y-1.5">
         <p className="text-sm">Built-in tools</p>
         <p className="text-xs text-muted-foreground">

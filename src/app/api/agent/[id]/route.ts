@@ -1,11 +1,12 @@
-import { agentRepository } from "lib/db/repository";
-import { getSession } from "auth/server";
-import { z } from "zod";
 import { AgentUpdateSchema } from "app-types/agent";
+import { getSession } from "auth/server";
+import { normalizeAgentFileBindings } from "lib/ai/agent/agent-files";
 import { isEnabledAgentModel } from "lib/ai/agent/pinned-model";
+import { canDeleteAgent, canEditAgent } from "lib/auth/permissions";
 import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
-import { canEditAgent, canDeleteAgent } from "lib/auth/permissions";
+import { agentRepository } from "lib/db/repository";
+import { z } from "zod";
 
 export async function GET(
   _request: Request,
@@ -50,12 +51,55 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const data = AgentUpdateSchema.parse(body);
     // Check access for write operations
     const hasAccess = await agentRepository.checkAccess(id, session.user.id);
     if (!hasAccess) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const existingAgent = await agentRepository.selectAgentById(
+      id,
+      session.user.id,
+    );
+    const submittedInstructions =
+      body && typeof body === "object" && "instructions" in body &&
+      body.instructions && typeof body.instructions === "object"
+        ? (body.instructions as Record<string, unknown>)
+        : {};
+    const fileBindings = normalizeAgentFileBindings({
+      files: submittedInstructions.files,
+      userId: session.user.id,
+      existingFiles: existingAgent?.instructions.files,
+    });
+    if (!fileBindings.ok) {
+      return Response.json(
+        {
+          error:
+            fileBindings.reason === "not-owned"
+              ? "Agent files must belong to the current user"
+              : "Invalid agent file bindings",
+        },
+        { status: 400 },
+      );
+    }
+    const normalizedBody = {
+      ...(body as Record<string, unknown>),
+      ...(body &&
+      typeof body === "object" &&
+      "instructions" in body &&
+      body.instructions &&
+      typeof body.instructions === "object"
+        ? {
+            instructions: {
+              ...submittedInstructions,
+              ...(submittedInstructions.files !== undefined
+                ? { files: fileBindings.files }
+                : {}),
+            },
+          }
+        : {}),
+    };
+    const data = AgentUpdateSchema.parse(normalizedBody);
 
     if (
       data.instructions?.model &&
@@ -71,10 +115,6 @@ export async function PUT(
     }
 
     // For non-owners of public agents, preserve original visibility
-    const existingAgent = await agentRepository.selectAgentById(
-      id,
-      session.user.id,
-    );
     if (existingAgent && existingAgent.userId !== session.user.id) {
       data.visibility = existingAgent.visibility;
     }

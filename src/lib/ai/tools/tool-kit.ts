@@ -1,4 +1,5 @@
 import { Tool } from "ai";
+import type { AgentFileBinding } from "app-types/agent";
 import type { DynamicTool } from "lib/db/pg/repositories/site-config-repository.pg";
 import { siteConfigRepository } from "lib/db/repository";
 import { AppDefaultToolkit, DefaultToolName } from ".";
@@ -231,6 +232,7 @@ export const APP_DEFAULT_TOOL_KIT: Record<
 export function getAppDefaultToolKitForUser(
   userId: string,
   threadId?: string,
+  agentFiles?: AgentFileBinding[],
 ): Record<AppDefaultToolkit, Record<string, Tool>> {
   return {
     ...APP_DEFAULT_TOOL_KIT,
@@ -244,6 +246,7 @@ export function getAppDefaultToolKitForUser(
       [DefaultToolName.Sandbox]: sandboxTool({
         userId,
         threadId: threadId ?? "",
+        agentFiles,
       }),
     },
     [AppDefaultToolkit.Http]: {

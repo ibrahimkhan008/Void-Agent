@@ -31,6 +31,7 @@ type DeviceSession = {
   finalizedAt: string | null;
   transcript: string;
   threadId: string | null;
+  messageId: string | null;
 };
 
 export function VoiceDevicesDashboard() {
@@ -412,6 +413,24 @@ export function VoiceDevicesDashboard() {
                                 Open conversation
                               </a>
                             )}
+                            {item.finalizedAt &&
+                              item.transcript &&
+                              item.threadId &&
+                              item.messageId && (
+                                <div className="mt-2">
+                                  <a
+                                    className="inline-flex items-center text-sm font-medium underline"
+                                    href={`/chat/${encodeURIComponent(item.threadId)}?processVoice=${encodeURIComponent(item.messageId)}`}
+                                  >
+                                    Review transcript with assistant
+                                  </a>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Preview the request and choose whether to
+                                    send it. No device command runs
+                                    automatically.
+                                  </p>
+                                </div>
+                              )}
                             {item.finalizedAt && (
                               <p className="mt-1 text-xs text-muted-foreground">
                                 Finalized{" "}

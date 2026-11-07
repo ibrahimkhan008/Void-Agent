@@ -92,4 +92,18 @@ describe("Vercel Blob access mode", () => {
       "VERCEL_BLOB_ACCESS must be either 'public' or 'private'",
     );
   });
+
+  it("rejects oversized blobs from HEAD metadata before opening their body", async () => {
+    process.env.VERCEL_BLOB_ACCESS = "private";
+    mocks.head.mockResolvedValueOnce({
+      url: "https://store.private.blob.vercel-storage.com/uploads/user-1/large.bin",
+      contentType: "application/octet-stream",
+      size: 6,
+    });
+
+    await expect(
+      createVercelBlobStorage().downloadLimited("uploads/user-1/large.bin", 5),
+    ).rejects.toThrow("File exceeds the maximum allowed size");
+    expect(mocks.get).not.toHaveBeenCalled();
+  });
 });

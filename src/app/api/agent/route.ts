@@ -1,5 +1,6 @@
 import { AgentCreateSchema, AgentQuerySchema } from "app-types/agent";
 import { getSession } from "auth/server";
+import { normalizeAgentFileBindings } from "lib/ai/agent/agent-files";
 import { isEnabledAgentModel } from "lib/ai/agent/pinned-model";
 import {
   hashAgentApprovalPayload,
@@ -79,7 +80,36 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const body = await request.json();
-    const data = AgentCreateSchema.parse(body);
+    const submittedInstructions =
+      body && typeof body === "object" && "instructions" in body &&
+      body.instructions && typeof body.instructions === "object"
+        ? (body.instructions as Record<string, unknown>)
+        : {};
+    const fileBindings = normalizeAgentFileBindings({
+      files: submittedInstructions.files,
+      userId: session.user.id,
+    });
+    if (!fileBindings.ok) {
+      return Response.json(
+        {
+          error:
+            fileBindings.reason === "not-owned"
+              ? "Agent files must belong to the current user"
+              : "Invalid agent file bindings",
+        },
+        { status: 400 },
+      );
+    }
+    const normalizedBody = {
+      ...(body as Record<string, unknown>),
+      instructions: {
+        ...submittedInstructions,
+        ...(submittedInstructions.files !== undefined
+          ? { files: fileBindings.files }
+          : {}),
+      },
+    };
+    const data = AgentCreateSchema.parse(normalizedBody);
     if (
       data.instructions.model &&
       !(await isEnabledAgentModel(data.instructions.model))

@@ -5,6 +5,8 @@ import {
   startDevServer,
 } from "lib/sandbox/client";
 import { getThreadSandbox, resetThreadSandbox } from "lib/sandbox/session";
+import type { AgentFileBinding } from "app-types/agent";
+import { stageAgentFiles } from "lib/sandbox/agent-files";
 import {
   WORK_DIR,
   describeEnvironmentContents,
@@ -47,7 +49,11 @@ const clip = (s: string): string =>
     ? `${s.slice(0, MAX_OUTPUT)}\n… [truncated ${s.length - MAX_OUTPUT} chars]`
     : s;
 
-export const sandboxTool = (ctx: { userId: string; threadId: string }) =>
+export const sandboxTool = (ctx: {
+  userId: string;
+  threadId: string;
+  agentFiles?: AgentFileBinding[];
+}) =>
   tool({
     description: [
       "Run commands and code in a secure Linux sandbox with a real filesystem, internet access and a full toolchain. Use this whenever you need to ACTUALLY execute something rather than reason about it: building and running projects, testing code, processing data, precise computation, or fetching from the network. The sandbox persists for the whole conversation, so files and installed packages stay available in later turns.",
@@ -178,6 +184,15 @@ export const sandboxTool = (ctx: { userId: string; threadId: string }) =>
         if (created) {
           const brief = describeEnvironmentContents(resolved.environment);
           if (brief) notice.environment = brief;
+        }
+
+        const agentFileStage = await stageAgentFiles(
+          sbx,
+          ctx.agentFiles,
+          WORK_DIR,
+        );
+        if (agentFileStage.unavailable.length > 0) {
+          notice.agentFiles = `Some configured agent files could not be staged: ${agentFileStage.unavailable.join(", ")}. Continue without those files and tell the user if they are required.`;
         }
 
         // Relative paths are resolved inside the work dir so the model cannot

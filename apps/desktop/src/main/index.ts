@@ -18,6 +18,11 @@ import {
   configureDesktopNotifications,
   registerDesktopNotificationHandlers,
 } from "./notifications.js";
+import { resolveStartupServer } from "./server-config.js";
+import {
+  openServerPickerWindow,
+  registerServerPickerIpc,
+} from "./server-picker.js";
 
 const targetValue =
   process.env.VOID_AGENT_WEB_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "";
@@ -47,12 +52,18 @@ function acceptDeepLink(raw: string) {
   void handleDesktopAuthDeepLink(raw);
 }
 
-function installApplicationMenu() {
+function installApplicationMenu(onChangeServer: () => void) {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
         label: "Void-Agent",
-        submenu: [{ role: "about" }, { type: "separator" }, { role: "quit" }],
+        submenu: [
+          { role: "about" },
+          { type: "separator" },
+          { label: "Change Server…", click: onChangeServer },
+          { type: "separator" },
+          { role: "quit" },
+        ],
       },
       {
         label: "Help",
@@ -86,8 +97,21 @@ else {
   app
     .whenReady()
     .then(async () => {
+      const userDataDir = app.getPath("userData");
+      const allowLocalHttp = process.env.NODE_ENV === "development";
+      const pickerPreloadPath = fileURLToPath(
+        new URL("../preload/server-picker.js", import.meta.url),
+      );
+      let startup: ReturnType<typeof resolveStartupServer>;
+      let defaultTarget: URL;
       try {
-        target = parseTarget(targetValue);
+        defaultTarget = parseTarget(targetValue);
+        startup = resolveStartupServer({
+          isDev: allowLocalHttp,
+          devUrl: defaultTarget.origin,
+          defaultUrl: defaultTarget.origin,
+          userDataDir,
+        });
       } catch {
         dialog.showErrorBox(
           "Void-Agent desktop is not configured",
@@ -96,6 +120,22 @@ else {
         app.quit();
         return;
       }
+
+      registerServerPickerIpc({
+        defaultUrl: defaultTarget.origin,
+        userDataDir,
+        allowLocalHttp,
+      });
+      if ("pick" in startup) {
+        await openServerPickerWindow({
+          defaultUrl: defaultTarget.origin,
+          previousUrl: defaultTarget.origin,
+          allowLocalHttp,
+          preloadPath: pickerPreloadPath,
+        });
+        return;
+      }
+      target = parseTarget(startup.url);
 
       const appTarget = target;
       if (!appTarget) {
@@ -122,7 +162,18 @@ else {
       setUpdateMainWindow(window, appTarget.origin);
       registerUpdateIpcHandlers();
       initAutoUpdater();
-      installApplicationMenu();
+      installApplicationMenu(() => {
+        if (!window || window.isDestroyed()) return;
+        void openServerPickerWindow({
+          defaultUrl: defaultTarget.origin,
+          previousUrl: appTarget.origin,
+          allowLocalHttp,
+          preloadPath: pickerPreloadPath,
+          parent: window,
+        }).catch((error) => {
+          console.error("Could not open the server picker", error);
+        });
+      });
       configureDesktopAuth(window, appTarget);
       configureMcpIpc(window, appTarget.origin);
       registerMcpIpcHandlers();

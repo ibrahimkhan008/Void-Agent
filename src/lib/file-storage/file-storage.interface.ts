@@ -63,6 +63,9 @@ export interface FileStorage {
   /** Retrieve file bytes in server environment. */
   download(key: string): Promise<Buffer>;
 
+  /** Retrieve file bytes only when storage metadata and streamed bytes fit the limit. */
+  downloadLimited(key: string, maxBytes: number): Promise<Buffer>;
+
   /** Delete the file from storage. */
   delete(key: string): Promise<void>;
 

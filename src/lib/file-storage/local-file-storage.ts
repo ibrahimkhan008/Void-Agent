@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, createReadStream } from "node:fs";
 import path from "node:path";
 import { FileNotFoundError } from "lib/errors";
 import { generateUUID } from "lib/utils";
@@ -8,6 +8,7 @@ import type {
   FileStorage,
   UploadOptions,
 } from "./file-storage.interface";
+import { assertFileSizeWithinLimit, readStreamWithLimit } from "./limited-download";
 import {
   getContentTypeFromFilename,
   resolveStoragePrefix,
@@ -129,6 +130,23 @@ export const createLocalFileStorage = (): FileStorage => {
     async download(key) {
       try {
         return await fs.readFile(keyToPath(key));
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+          throw new FileNotFoundError(key, error as Error);
+        }
+        throw error;
+      }
+    },
+
+    async downloadLimited(key, maxBytes) {
+      const filePath = keyToPath(key);
+      try {
+        const stat = await fs.stat(filePath);
+        assertFileSizeWithinLimit(stat.size, maxBytes);
+        return await readStreamWithLimit(
+          createReadStream(filePath),
+          maxBytes,
+        );
       } catch (error: unknown) {
         if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
           throw new FileNotFoundError(key, error as Error);

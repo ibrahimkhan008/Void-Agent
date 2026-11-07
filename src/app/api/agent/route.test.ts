@@ -48,6 +48,10 @@ beforeEach(() => {
     agent: { id: "agent-id", name: "Research helper" },
     replayed: false,
   });
+  mocks.insertAgent.mockResolvedValue({
+    id: "agent-id",
+    name: "Research helper",
+  });
 });
 
 describe("POST /api/agent approval idempotency", () => {
@@ -143,5 +147,67 @@ describe("POST /api/agent approval idempotency", () => {
     );
 
     expect(response.status).toBe(409);
+  });
+
+  it("stores current-user file bindings with a server-assigned owner", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          instructions: {
+            systemPrompt: "Use the supplied document.",
+            files: [
+              {
+                url: "/api/files/uploads/authenticated-user/source.pdf",
+                filename: "source.pdf",
+              },
+            ],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.insertAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "authenticated-user",
+        instructions: {
+          systemPrompt: "Use the supplied document.",
+          files: [
+            {
+              storageKey: "uploads/authenticated-user/source.pdf",
+              filename: "source.pdf",
+              ownerId: "authenticated-user",
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  it("rejects another user's file key before writing the agent", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          instructions: {
+            systemPrompt: "Use the supplied document.",
+            files: [
+              {
+                storageKey: "uploads/other-user/private.pdf",
+                filename: "private.pdf",
+              },
+            ],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.insertAgent).not.toHaveBeenCalled();
   });
 });
