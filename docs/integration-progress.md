@@ -938,3 +938,6 @@ Agent file bindings are now validated server-side using the authenticated user's
 ## Integrated verification after F008/F025 security follow-ups (2026-11-07)
 - Current combined worktree: 1,988/1,988 tests passed across 348 files; 6 GiB integrated typecheck passed; lint exited 0 with existing `<img>` and multiple-lockfile warnings; Drizzle journal check passed; production build exited 0 with 202/202 pages; `git diff --check` passed with line-ending notices.
 - This verifies the local source snapshot only. Database migrations remain unapplied and external provider, live PostgreSQL, browser, voice-device and Electron GUI journeys remain unverified. Families with documented gaps remain PARTIAL/EXCLUDED; no overall parity completion percentage is claimed.
+## Published verified batch (2026-11-07)
+- Commit `bebde2d` (`feat: expand Void-Agent feature parity and security`) was pushed to `origin/main` after typecheck, full test, lint, Drizzle journal check, production build and `git diff --check` passed.
+- This publishes the verified local implementation batch only. Full reference parity remains incomplete: 20 original capability families are PARTIAL; F037 is PARTIAL. No deployment or database migration application occurred.
