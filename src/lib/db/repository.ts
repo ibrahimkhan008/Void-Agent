@@ -48,6 +48,7 @@ export { embedSessionRepository } from "./pg/repositories/embed-session-reposito
 export { apiUsageRepository } from "./pg/repositories/api-usage-repository.pg";
 export { notificationRepository } from "./pg/repositories/notification-repository.pg";
 export { voiceDeviceRepository } from "./pg/repositories/voice-device-repository.pg";
+export { userModelProviderRepository } from "./pg/repositories/user-model-provider-repository.pg";
 
 // Phase 4 — Sharing (#14, #15, #19) + Stripe prereq. P4.A-P4.E will
 // import these directly; re-exporting here keeps the
@@ -57,6 +58,7 @@ export { mcpInstallRepository } from "./pg/repositories/mcp-install-repository.p
 export { agentInstallRepository } from "./pg/repositories/agent-install-repository.pg";
 export { agentViewRepository } from "./pg/repositories/agent-view-repository.pg";
 export { teamRepository } from "./pg/repositories/team-repository.pg";
+export { teamModelRoutingRepository } from "./pg/repositories/team-model-routing-repository.pg";
 export { subscriptionRepository } from "./pg/repositories/subscription-repository.pg";
 
 // P2.1 follow-up — knowledge base ingest. `lib/rag/retrieve.ts` could

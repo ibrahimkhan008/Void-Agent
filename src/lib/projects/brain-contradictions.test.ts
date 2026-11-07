@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ generateObject: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  generateObject: vi.fn(),
+  getModel: vi.fn(),
+}));
 
 vi.mock("ai", () => ({ generateObject: mocks.generateObject }));
 vi.mock("lib/ai/models", () => ({
   customModelProvider: {
     getModelWithFailureFallbackAsync: async () => ({ model: "test" }),
+    getModelAsync: mocks.getModel,
   },
 }));
 
@@ -13,6 +17,7 @@ import {
   type ProjectBrainClaim,
   findProjectBrainConflictCandidates,
   judgeProjectBrainConflictCandidates,
+  judgeProjectBrainConflictCandidatesWithUsage,
 } from "./brain-contradictions";
 
 const claim = (
@@ -147,5 +152,37 @@ describe("project brain contradiction classification", () => {
   it("does not call a model when there are no candidates", async () => {
     await expect(judgeProjectBrainConflictCandidates([])).resolves.toEqual([]);
     expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it("pins a requested model and returns usage for budget settlement", async () => {
+    const candidate = {
+      first: claim({ id: "fact-1" }),
+      second: claim({
+        id: "fact-2",
+        sourceItemId: "source-b",
+        object: "paused",
+      }),
+      pageId: null,
+    };
+    const usage = { inputTokens: 31, outputTokens: 7 };
+    mocks.getModel.mockResolvedValue({ model: "pinned" });
+    mocks.generateObject.mockResolvedValue({
+      object: { decisions: [] },
+      usage,
+    });
+
+    const result = await judgeProjectBrainConflictCandidatesWithUsage(
+      [candidate],
+      { model: { provider: "provider", model: "Model A" } },
+    );
+
+    expect(result).toEqual({ judgments: [], usage });
+    expect(mocks.getModel).toHaveBeenCalledWith({
+      provider: "provider",
+      model: "Model A",
+    });
+    expect(mocks.generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ model: { model: "pinned" } }),
+    );
   });
 });

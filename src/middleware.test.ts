@@ -55,4 +55,15 @@ describe("middleware session cookie prefixes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
   });
+
+  it.each(["/forgot-password", "/reset-password?token=opaque-token"])(
+    "allows the public password recovery route %s",
+    async (path) => {
+      const response = await middleware(
+        new NextRequest(`http://localhost${path}`),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    },
+  );
 });

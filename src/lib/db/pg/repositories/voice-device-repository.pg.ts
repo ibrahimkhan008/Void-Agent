@@ -534,6 +534,46 @@ export const voiceDeviceRepository = {
       )
       .limit(limit);
   },
+  /** Return bounded transcript segments only when the caller owns the device/session. */
+  async listTranscriptSegmentsByDeviceSession(input: {
+    deviceId: string;
+    userId: string;
+    sessionId: string;
+  }) {
+    const [session] = await db
+      .select({ id: VoiceDeviceSessionTable.id })
+      .from(VoiceDeviceSessionTable)
+      .innerJoin(
+        VoiceDeviceTable,
+        and(
+          eq(VoiceDeviceTable.id, input.deviceId),
+          eq(VoiceDeviceTable.userId, input.userId),
+          eq(VoiceDeviceSessionTable.deviceId, VoiceDeviceTable.id),
+          eq(VoiceDeviceSessionTable.userId, VoiceDeviceTable.userId),
+        ),
+      )
+      .where(
+        and(
+          eq(VoiceDeviceSessionTable.deviceId, input.deviceId),
+          eq(VoiceDeviceSessionTable.userId, input.userId),
+          eq(VoiceDeviceSessionTable.sessionId, input.sessionId),
+        ),
+      )
+      .limit(1);
+    if (!session) return null;
+    return db
+      .select({
+        eventId: VoiceDeviceTranscriptSegmentTable.eventId,
+        sequenceNumber: VoiceDeviceTranscriptSegmentTable.sequenceNumber,
+        text: VoiceDeviceTranscriptSegmentTable.text,
+        language: VoiceDeviceTranscriptSegmentTable.language,
+        createdAt: VoiceDeviceTranscriptSegmentTable.createdAt,
+      })
+      .from(VoiceDeviceTranscriptSegmentTable)
+      .where(eq(VoiceDeviceTranscriptSegmentTable.sessionPk, session.id))
+      .orderBy(asc(VoiceDeviceTranscriptSegmentTable.sequenceNumber))
+      .limit(500);
+  },
   /** Return text for summarization only after the owner finalized the capture. */
   async getFinalizedSessionTranscript(input: {
     deviceId: string;

@@ -9,11 +9,24 @@ import {
   streamText,
 } from "ai";
 
+import { getModelContextWindow } from "lib/ai/model-context-windows";
+import { isChatModelProviderEnabled } from "lib/ai/model-provider-availability";
 import {
   customModelProvider,
+  ensureDynamicProvidersHydrated,
   isToolCallUnsupportedModel,
   supportsNativeImageInput,
 } from "lib/ai/models";
+import {
+  type RoutableModel,
+  TEAM_ROUTE_MAX_OUTPUT_TOKENS,
+  TeamModelRouteUnavailableError,
+  estimateTeamRouteMinimumContextTokens,
+  inferTeamModelRouteTask,
+  materializeTeamRoute,
+  prioritizePinnedTeamModel,
+  rankTeamModels,
+} from "lib/ai/team-model-routing";
 
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
 
@@ -23,6 +36,11 @@ import {
   chatApiSchemaRequestBodySchema,
 } from "app-types/chat";
 import {
+  AgentPinnedModelUnavailableError,
+  getEnabledAgentModelCatalog,
+  resolveAgentChatModel,
+} from "lib/ai/agent/pinned-model";
+import {
   clearActiveStream,
   clearStop,
   getStreamContext,
@@ -30,11 +48,6 @@ import {
   setActiveStream,
 } from "lib/ai/chat-stream-context";
 import { buildAgentHarnessCached } from "lib/ai/harness";
-import {
-  AgentPinnedModelUnavailableError,
-  getEnabledAgentModelCatalog,
-  resolveAgentChatModel,
-} from "lib/ai/agent/pinned-model";
 import { embedText } from "lib/ai/memory/embed";
 import { runMemoryExtraction } from "lib/ai/memory/extract-and-store";
 import {
@@ -52,6 +65,8 @@ import {
   agentRepository,
   chatRepository,
   embedSessionRepository,
+  teamModelRoutingRepository,
+  teamRepository,
   userRepository,
 } from "lib/db/repository";
 import {
@@ -70,6 +85,7 @@ import { buildCsvIngestionPreviewParts } from "@/lib/ai/ingest/csv-ingest";
 import { buildKonvOVisionIngestionPreviewParts } from "@/lib/ai/ingest/konvo-vision-ingest";
 import { buildOfficeIngestionPreviewParts } from "@/lib/ai/ingest/office-ingest";
 import { buildPdfIngestionPreviewParts } from "@/lib/ai/ingest/pdf-ingest";
+import { buildAudioAttachmentPreviewParts } from "@/lib/ai/ingest/audio-attachment";
 import { isFreeTier } from "app-types/subscription";
 import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
@@ -139,6 +155,7 @@ import {
   getFreeTierLimits,
   recordFreeTierTokenUsage,
 } from "lib/rate-limit/free-tier-usage";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { publicScheduledJob } from "lib/scheduler/jobs";
 import { resolveEncryptedChatRequestBody } from "lib/security/chat-payload-obfuscation.server";
 import {
@@ -830,6 +847,20 @@ export async function POST(request: Request) {
       }
       return true;
     });
+    if (attachments.some((attachment) => attachment.mediaType?.toLowerCase().startsWith("audio/"))) {
+      const audioRate = await checkApiRateLimit({
+        kind: "chat-audio-attachment-transcription",
+        id: effectiveUserId,
+        limit: 5,
+        windowMs: 60_000,
+      });
+      if (!audioRate.allowed) {
+        return Response.json(
+          { error: "Too many audio attachments. Try again in a minute." },
+          { status: 429 },
+        );
+      }
+    }
     message.parts = message.parts.map((part: any) => {
       if (
         (part?.type !== "file" && part?.type !== "source-url") ||
@@ -912,12 +943,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const model = await customModelProvider.getModelAsync(effectiveChatModel);
-    let runtimeModel =
-      await customModelProvider.getModelWithFailureFallbackAsync(
-        effectiveChatModel,
-      );
-
     let thread = await chatRepository.selectThreadDetails(id);
     let newThreadProjectAccess: ProjectAccess | null = null;
 
@@ -986,6 +1011,243 @@ export async function POST(request: Request) {
       : null;
     const chatTeamId =
       projectAccess?.project.teamId ?? thread!.orgId ?? undefined;
+    const automaticRoutingRequested =
+      chatModel?.provider.toLowerCase() === "auto" &&
+      !agent?.instructions?.model?.trim();
+    let routeFallbackUsed = false;
+    let teamRoutedModel:
+      | Awaited<ReturnType<typeof customModelProvider.getModelAsync>>
+      | undefined;
+
+    if (automaticRoutingRequested) {
+      if (isEmbedMode || isSchedulerRequest || !chatTeamId) {
+        return Response.json(
+          {
+            code: "team-model-routing-unavailable",
+            message: "Automatic model routing requires a team conversation.",
+          },
+          { status: 409 },
+        );
+      }
+      try {
+        const member = await teamRepository.getTeamMember(
+          chatTeamId,
+          effectiveUserId,
+        );
+        if (!member) return new Response("Forbidden", { status: 403 });
+
+        const policy = await teamModelRoutingRepository.getPolicy(chatTeamId);
+        await ensureDynamicProvidersHydrated();
+        const availableModels: RoutableModel[] = [];
+        for (const providerInfo of customModelProvider.modelsInfo) {
+          if (!providerInfo.hasAPIKey) continue;
+          const providerEnabled = await isChatModelProviderEnabled({
+            provider: providerInfo.provider,
+            model: "",
+          });
+          if (!providerEnabled) continue;
+          for (const modelInfo of providerInfo.models) {
+            availableModels.push({
+              provider: providerInfo.provider,
+              model: modelInfo.name,
+              toolCalling: !modelInfo.isToolCallUnsupported,
+              vision: !modelInfo.isImageInputUnsupported,
+              contextTokens: getModelContextWindow({
+                provider: providerInfo.provider,
+                model: modelInfo.name,
+              }),
+            });
+          }
+        }
+
+        const latestUserText = message.parts
+          .filter((part: any) => part?.type === "text")
+          .map((part: any) => String(part.text ?? ""))
+          .join("\n");
+        const requiresVision =
+          attachments.some((attachment) =>
+            attachment.mediaType?.toLowerCase().startsWith("image/"),
+          ) ||
+          message.parts.some(
+            (part: any) =>
+              part?.type === "file" &&
+              typeof part.mediaType === "string" &&
+              part.mediaType.toLowerCase().startsWith("image/"),
+          );
+        const requiresTools = effectiveToolChoice !== "none";
+        const task = requiresVision
+          ? "vision"
+          : inferTeamModelRouteTask(latestUserText);
+        const routeConversation = [
+          ...(thread?.messages ?? [])
+            .filter((savedMessage) => savedMessage.id !== message.id)
+            .map((savedMessage) => ({
+              role: savedMessage.role,
+              parts: savedMessage.parts,
+            })),
+          { role: message.role, parts: message.parts },
+        ];
+        const minimumContextTokens = estimateTeamRouteMinimumContextTokens({
+          messages: routeConversation,
+          attachments,
+          toolChoice: effectiveToolChoice,
+        });
+        const rankedModels = rankTeamModels({
+          policy,
+          availableModels,
+          requirements: {
+            task,
+            requiresTools,
+            requiresVision,
+            minimumContextTokens,
+          },
+        });
+        const previousPin = await teamModelRoutingRepository.getThreadPin(
+          thread!.id,
+        );
+        const orderedModels = prioritizePinnedTeamModel(
+          rankedModels,
+          previousPin,
+        );
+        const materialized = await materializeTeamRoute(
+          orderedModels,
+          async (candidate) => {
+            try {
+              return await customModelProvider.getModelAsync(candidate);
+            } catch (error) {
+              globalLogger.warn(
+                `Team routing candidate unavailable: ${candidate.provider}/${candidate.model}`,
+                error,
+              );
+              throw error;
+            }
+          },
+        );
+        let selectedModel = materialized.candidate;
+        teamRoutedModel = materialized.value;
+        routeFallbackUsed = materialized.fallbackUsed;
+
+        // The first successful route becomes this thread's stable deployment.
+        // Concurrent first turns converge on the winner via the atomic
+        // nullable-column update. A stale pin is replaced only after the
+        // current policy has selected an eligible alternative.
+        const threadPin = await teamModelRoutingRepository.pinThreadModel(
+          thread!.id,
+          selectedModel.provider,
+          selectedModel.model,
+        );
+        if (
+          threadPin &&
+          (threadPin.provider.toLowerCase() !==
+            selectedModel.provider.toLowerCase() ||
+            threadPin.model !== selectedModel.model)
+        ) {
+          const concurrentPinnedCandidate = rankedModels.find(
+            (candidate) =>
+              candidate.provider.toLowerCase() ===
+                threadPin.provider.toLowerCase() &&
+              candidate.model === threadPin.model,
+          );
+          if (concurrentPinnedCandidate) {
+            try {
+              teamRoutedModel = await customModelProvider.getModelAsync(
+                concurrentPinnedCandidate,
+              );
+              selectedModel = concurrentPinnedCandidate;
+            } catch {
+              await teamModelRoutingRepository.replaceThreadPin(
+                thread!.id,
+                selectedModel.provider,
+                selectedModel.model,
+              );
+            }
+          } else {
+            await teamModelRoutingRepository.replaceThreadPin(
+              thread!.id,
+              selectedModel.provider,
+              selectedModel.model,
+            );
+          }
+        }
+        effectiveChatModel = {
+          provider: selectedModel.provider,
+          model: selectedModel.model,
+        };
+        try {
+          await teamModelRoutingRepository.writeAudit({
+            teamId: chatTeamId,
+            userId: effectiveUserId,
+            threadId: thread!.id,
+            taskKey: task,
+            selectedProvider: selectedModel.provider,
+            selectedModel: selectedModel.model,
+            reasonCode: routeFallbackUsed
+              ? "fallback_model_unavailable"
+              : "task_ranked",
+          });
+        } catch (error) {
+          globalLogger.error("Could not write team model route audit", error);
+        }
+      } catch (error) {
+        if (error instanceof TeamModelRouteUnavailableError) {
+          return Response.json(
+            {
+              code: "team-model-route-unavailable",
+              message:
+                "No team-approved enabled model can satisfy this request. Ask a team administrator to update routing policy.",
+            },
+            { status: 409 },
+          );
+        }
+        globalLogger.error("Could not resolve team model route", error);
+        return Response.json(
+          {
+            code: "team-model-routing-unavailable",
+            message: "Team model routing could not be verified.",
+          },
+          { status: 503 },
+        );
+      }
+    }
+
+    if (effectiveChatModel) {
+      try {
+        if (!(await isChatModelProviderEnabled(effectiveChatModel))) {
+          return Response.json(
+            {
+              code: "model-provider-disabled",
+              message: "This model provider is disabled by an administrator.",
+            },
+            { status: 403 },
+          );
+        }
+      } catch (error) {
+        globalLogger.error(
+          "Could not verify model provider availability",
+          error,
+        );
+        return Response.json(
+          {
+            code: "model-provider-settings-unavailable",
+            message: "Model provider settings could not be verified.",
+          },
+          { status: 503 },
+        );
+      }
+    }
+
+    const model =
+      teamRoutedModel ??
+      (await customModelProvider.getModelAsync(effectiveChatModel));
+    // Team routes stay inside the team's approved set. A failed model
+    // instantiation is handled by the deterministic policy fallback above;
+    // the global provider fallback chain must not escape that allowlist.
+    let runtimeModel = automaticRoutingRequested
+      ? model
+      : await customModelProvider.getModelWithFailureFallbackAsync(
+          effectiveChatModel,
+        );
+
     let teamBudgetPrice: ModelPrice | undefined;
     let teamBudgetTeamId: string | undefined;
     if (!isEmbedMode && !isSchedulerRequest && chatTeamId) {
@@ -1088,7 +1350,7 @@ export async function POST(request: Request) {
       messages.pop();
     }
     const downloadFile = (key: string) => serverFileStorage.download(key);
-    const [csvParts, konvoVisionParts, officeParts] = await Promise.all([
+    const [csvParts, konvoVisionParts, officeParts, audioParts] = await Promise.all([
       buildCsvIngestionPreviewParts(attachments, downloadFile, effectiveUserId),
       buildKonvOVisionIngestionPreviewParts(
         attachments,
@@ -1100,6 +1362,7 @@ export async function POST(request: Request) {
         downloadFile,
         effectiveUserId,
       ),
+      buildAudioAttachmentPreviewParts(attachments, effectiveUserId, serverFileStorage),
     ]);
     const konvoHandledAttachmentUrls = new Set(
       konvoVisionParts.map((item) => item.attachmentUrl),
@@ -1120,6 +1383,7 @@ export async function POST(request: Request) {
       ...konvoVisionParts.map((item) => item.part),
       ...pdfParts,
       ...officeParts,
+      ...audioParts,
     ];
     if (ingestionPreviewParts.length) {
       const baseParts = [...message.parts];
@@ -1908,7 +2172,9 @@ export async function POST(request: Request) {
             `binding tool count APP_DEFAULT: ${Object.keys(filteredAppDefaultTools ?? {}).length}, MCP: ${Object.keys(MCP_TOOLS ?? {}).length}, Workflow: ${Object.keys(WORKFLOW_TOOLS ?? {}).length}`,
           );
         }
-        logger.info(`model: ${effectiveChatModel?.provider}/${effectiveChatModel?.model}`);
+        logger.info(
+          `model: ${effectiveChatModel?.provider}/${effectiveChatModel?.model}`,
+        );
 
         const nativeImageInputSupported = supportsNativeImageInput(model);
         const hasBoundTools =
@@ -2001,6 +2267,9 @@ export async function POST(request: Request) {
           model: runtimeModel,
           system: systemPrompt,
           messages: preparedModelMessages,
+          maxOutputTokens: automaticRoutingRequested
+            ? TEAM_ROUTE_MAX_OUTPUT_TOKENS
+            : undefined,
           experimental_transform: smoothStream({
             chunking: "word",
             delayInMs: 0,

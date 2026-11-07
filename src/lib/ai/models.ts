@@ -6,6 +6,9 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { LanguageModelV2, createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { LanguageModel, wrapLanguageModel } from "ai";
 import { ChatModel } from "app-types/chat";
+import { getSession } from "auth/server";
+import { fetchUserModelProvider } from "lib/ai/user-model-provider-transport";
+import { userModelProviderRepository } from "lib/db/repository";
 import {
   createOpenAICompatibleModels,
   openaiCompatibleModelsSafeParse,
@@ -107,269 +110,273 @@ const groq = createGroq({
  * Some APIs don't include the required 'index' field in tool_calls, which causes
  * AI SDK validation errors. This wrapper adds the missing index field.
  */
-const normalizeToolCallsFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
+const createToolCallsNormalizingFetch =
+  (fetcher: typeof fetch): typeof fetch =>
+  async (input, init) => {
+    const response = await fetcher(input, init);
 
-  const contentType = response.headers.get("content-type") || "";
+    const contentType = response.headers.get("content-type") || "";
 
-  // Normalize non-standard error responses (e.g., {"error":"string"} → proper Error)
-  // Some upstream providers return {"error": "message"} instead of standard OpenAI error format
-  if (contentType.includes("application/json")) {
-    try {
-      const clone = response.clone();
-      const data = await clone.json();
-      if (data && typeof data === "object" && "error" in data) {
-        const error = data.error;
-        if (typeof error === "string") {
-          throw new Error(`Provider Error: ${error}`);
-        }
-      }
-    } catch (e: any) {
-      if (e.message && e.message.startsWith("Provider Error:")) {
-        throw e;
-      }
-      // Ignore JSON parsing errors, let SDK handle the response
-    }
-  }
-
-  // Only process streaming responses
-  if (!contentType.includes("text/event-stream") || !response.body) {
-    return response;
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-
-  const transformedStream = new ReadableStream({
-    async start(controller) {
-      let buffer = "";
-      // Some gateways (e.g. Bifrost -> Bedrock) never close the SSE body:
-      // they stream the content chunk (with finish_reason), a usage chunk,
-      // then keep the connection alive with `: heartbeat` comments forever,
-      // never sending `data: [DONE]`. The AI SDK waits for stream end
-      // before emitting `finish`, so without terminating here the chat
-      // response hangs after the last token. Close shortly after a
-      // finish_reason chunk once the trailing usage chunk has been read.
-      let finished = false;
-      let postFinishLines = 0;
-
-      // DeepSeek V3.x models sometimes emit native tool calls using their
-      // own DSML markup as plain text instead of OpenAI tool_call deltas:
-      //   <｜DSML｜function_calls>
-      //     <｜DSML｜invoke name="tool">
-      //       <｜DSML｜parameter name="x">v</｜DSML｜parameter>
-      //     </｜DSML｜invoke>
-      //   </｜DSML｜function_calls>
-      // Convert those blocks into real tool_calls so tools execute and no
-      // raw markup leaks into the chat transcript.
-      const DSML_START = "<\uFF5CDSML\uFF5Cfunction_calls";
-      const DSML_END = "</\uFF5CDSML\uFF5Cfunction_calls>";
-      let dsmlMode: string = "text";
-      let dsmlCapture = "";
-      let dsmlHold = "";
-      let emittedDsmlToolCalls = false;
-
-      const partialSuffixLen = (s: string, marker: string) => {
-        for (let k = Math.min(marker.length - 1, s.length); k > 0; k--) {
-          if (s.endsWith(marker.slice(0, k))) return k;
-        }
-        return 0;
-      };
-
-      const emitSyntheticToolCalls = (block: string) => {
-        const invokes = [
-          ...block.matchAll(
-            /<\uFF5CDSML\uFF5Cinvoke name="([^"]+)">([\s\S]*?)<\/\uFF5CDSML\uFF5Cinvoke>/g,
-          ),
-        ];
-        if (!invokes.length) return;
-        const toolCalls = invokes.map((m, i) => {
-          const args: Record<string, string> = {};
-          for (const pm of m[2].matchAll(
-            /<\uFF5CDSML\uFF5Cparameter name="([^"]+)">([\s\S]*?)<\/\uFF5CDSML\uFF5Cparameter>/g,
-          )) {
-            args[pm[1]] = pm[2];
-          }
-          return {
-            index: i,
-            id: `call_dsml_${Date.now()}_${i}`,
-            type: "function",
-            function: { name: m[1], arguments: JSON.stringify(args) },
-          };
-        });
-        emittedDsmlToolCalls = true;
-        controller.enqueue(
-          encoder.encode(
-            "data: " +
-              JSON.stringify({
-                choices: [
-                  {
-                    index: 0,
-                    delta: { tool_calls: toolCalls },
-                    finish_reason: null,
-                  },
-                ],
-              }) +
-              "\n",
-          ),
-        );
-      };
-
-      const processDsmlText = (chunk: string): string => {
-        let s = dsmlHold + chunk;
-        dsmlHold = "";
-        let out = "";
-        while (s.length > 0) {
-          if (dsmlMode === "text") {
-            const idx = s.indexOf(DSML_START);
-            if (idx >= 0) {
-              out += s.slice(0, idx);
-              dsmlMode = "capture";
-              dsmlCapture = "";
-              s = s.slice(idx + DSML_START.length);
-            } else {
-              const hold = partialSuffixLen(s, DSML_START);
-              out += s.slice(0, s.length - hold);
-              dsmlHold = s.slice(s.length - hold);
-              s = "";
-            }
-          } else {
-            const endIdx = s.indexOf(DSML_END);
-            if (endIdx >= 0) {
-              dsmlCapture += s.slice(0, endIdx);
-              emitSyntheticToolCalls(dsmlCapture);
-              dsmlMode = "text";
-              s = s.slice(endIdx + DSML_END.length);
-            } else {
-              dsmlCapture += s;
-              s = "";
-            }
-          }
-        }
-        return out;
-      };
-
+    // Normalize non-standard error responses (e.g., {"error":"string"} → proper Error)
+    // Some upstream providers return {"error": "message"} instead of standard OpenAI error format
+    if (contentType.includes("application/json")) {
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) {
-            // Flush any remaining buffer content
-            if (buffer.trim()) {
-              controller.enqueue(encoder.encode(buffer + "\n"));
-            }
-            controller.close();
-            break;
+        const clone = response.clone();
+        const data = await clone.json();
+        if (data && typeof data === "object" && "error" in data) {
+          const error = data.error;
+          if (typeof error === "string") {
+            throw new Error(`Provider Error: ${error}`);
           }
+        }
+      } catch (e: any) {
+        if (e.message && e.message.startsWith("Provider Error:")) {
+          throw e;
+        }
+        // Ignore JSON parsing errors, let SDK handle the response
+      }
+    }
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
+    // Only process streaming responses
+    if (!contentType.includes("text/event-stream") || !response.body) {
+      return response;
+    }
 
-          // Keep incomplete line in buffer
-          buffer = lines.pop() || "";
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
 
-          for (const line of lines) {
-            if (!line.startsWith("data: ") || line === "data: [DONE]") {
-              controller.enqueue(encoder.encode(line + "\n"));
-              continue;
+    const transformedStream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        // Some gateways (e.g. Bifrost -> Bedrock) never close the SSE body:
+        // they stream the content chunk (with finish_reason), a usage chunk,
+        // then keep the connection alive with `: heartbeat` comments forever,
+        // never sending `data: [DONE]`. The AI SDK waits for stream end
+        // before emitting `finish`, so without terminating here the chat
+        // response hangs after the last token. Close shortly after a
+        // finish_reason chunk once the trailing usage chunk has been read.
+        let finished = false;
+        let postFinishLines = 0;
+
+        // DeepSeek V3.x models sometimes emit native tool calls using their
+        // own DSML markup as plain text instead of OpenAI tool_call deltas:
+        //   <｜DSML｜function_calls>
+        //     <｜DSML｜invoke name="tool">
+        //       <｜DSML｜parameter name="x">v</｜DSML｜parameter>
+        //     </｜DSML｜invoke>
+        //   </｜DSML｜function_calls>
+        // Convert those blocks into real tool_calls so tools execute and no
+        // raw markup leaks into the chat transcript.
+        const DSML_START = "<\uFF5CDSML\uFF5Cfunction_calls";
+        const DSML_END = "</\uFF5CDSML\uFF5Cfunction_calls>";
+        let dsmlMode: string = "text";
+        let dsmlCapture = "";
+        let dsmlHold = "";
+        let emittedDsmlToolCalls = false;
+
+        const partialSuffixLen = (s: string, marker: string) => {
+          for (let k = Math.min(marker.length - 1, s.length); k > 0; k--) {
+            if (s.endsWith(marker.slice(0, k))) return k;
+          }
+          return 0;
+        };
+
+        const emitSyntheticToolCalls = (block: string) => {
+          const invokes = [
+            ...block.matchAll(
+              /<\uFF5CDSML\uFF5Cinvoke name="([^"]+)">([\s\S]*?)<\/\uFF5CDSML\uFF5Cinvoke>/g,
+            ),
+          ];
+          if (!invokes.length) return;
+          const toolCalls = invokes.map((m, i) => {
+            const args: Record<string, string> = {};
+            for (const pm of m[2].matchAll(
+              /<\uFF5CDSML\uFF5Cparameter name="([^"]+)">([\s\S]*?)<\/\uFF5CDSML\uFF5Cparameter>/g,
+            )) {
+              args[pm[1]] = pm[2];
+            }
+            return {
+              index: i,
+              id: `call_dsml_${Date.now()}_${i}`,
+              type: "function",
+              function: { name: m[1], arguments: JSON.stringify(args) },
+            };
+          });
+          emittedDsmlToolCalls = true;
+          controller.enqueue(
+            encoder.encode(
+              "data: " +
+                JSON.stringify({
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { tool_calls: toolCalls },
+                      finish_reason: null,
+                    },
+                  ],
+                }) +
+                "\n",
+            ),
+          );
+        };
+
+        const processDsmlText = (chunk: string): string => {
+          let s = dsmlHold + chunk;
+          dsmlHold = "";
+          let out = "";
+          while (s.length > 0) {
+            if (dsmlMode === "text") {
+              const idx = s.indexOf(DSML_START);
+              if (idx >= 0) {
+                out += s.slice(0, idx);
+                dsmlMode = "capture";
+                dsmlCapture = "";
+                s = s.slice(idx + DSML_START.length);
+              } else {
+                const hold = partialSuffixLen(s, DSML_START);
+                out += s.slice(0, s.length - hold);
+                dsmlHold = s.slice(s.length - hold);
+                s = "";
+              }
+            } else {
+              const endIdx = s.indexOf(DSML_END);
+              if (endIdx >= 0) {
+                dsmlCapture += s.slice(0, endIdx);
+                emitSyntheticToolCalls(dsmlCapture);
+                dsmlMode = "text";
+                s = s.slice(endIdx + DSML_END.length);
+              } else {
+                dsmlCapture += s;
+                s = "";
+              }
+            }
+          }
+          return out;
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              // Flush any remaining buffer content
+              if (buffer.trim()) {
+                controller.enqueue(encoder.encode(buffer + "\n"));
+              }
+              controller.close();
+              break;
             }
 
-            try {
-              const jsonStr = line.slice(6); // Remove "data: " prefix
-              const data = JSON.parse(jsonStr);
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
 
-              // Detect error objects embedded in the stream
-              // Some providers return 200 OK with data: {"error": {...}} in the SSE stream
-              if (data.error && !data.choices) {
-                const errorMsg =
-                  typeof data.error === "string"
-                    ? data.error
-                    : data.error.message || JSON.stringify(data.error);
-                controller.error(new Error(`Provider Error: ${errorMsg}`));
-                return; // Stop processing the stream
+            // Keep incomplete line in buffer
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ") || line === "data: [DONE]") {
+                controller.enqueue(encoder.encode(line + "\n"));
+                continue;
               }
 
-              if (data.choices) {
-                for (const choice of data.choices) {
-                  const deltaContent = choice.delta?.content;
-                  if (typeof deltaContent === "string") {
-                    const cleaned = processDsmlText(deltaContent);
-                    if (cleaned.length === 0) {
-                      delete choice.delta.content;
-                    } else if (cleaned !== deltaContent) {
-                      choice.delta.content = cleaned;
+              try {
+                const jsonStr = line.slice(6); // Remove "data: " prefix
+                const data = JSON.parse(jsonStr);
+
+                // Detect error objects embedded in the stream
+                // Some providers return 200 OK with data: {"error": {...}} in the SSE stream
+                if (data.error && !data.choices) {
+                  const errorMsg =
+                    typeof data.error === "string"
+                      ? data.error
+                      : data.error.message || JSON.stringify(data.error);
+                  controller.error(new Error(`Provider Error: ${errorMsg}`));
+                  return; // Stop processing the stream
+                }
+
+                if (data.choices) {
+                  for (const choice of data.choices) {
+                    const deltaContent = choice.delta?.content;
+                    if (typeof deltaContent === "string") {
+                      const cleaned = processDsmlText(deltaContent);
+                      if (cleaned.length === 0) {
+                        delete choice.delta.content;
+                      } else if (cleaned !== deltaContent) {
+                        choice.delta.content = cleaned;
+                      }
                     }
                   }
                 }
-              }
 
-              // Normalize tool_calls by adding missing index field
-              if (data.choices) {
-                for (const choice of data.choices) {
-                  if (choice.delta?.tool_calls) {
-                    choice.delta.tool_calls = choice.delta.tool_calls.map(
-                      (tc: any, i: number) => ({
-                        index: tc.index ?? i,
-                        ...tc,
-                      }),
-                    );
+                // Normalize tool_calls by adding missing index field
+                if (data.choices) {
+                  for (const choice of data.choices) {
+                    if (choice.delta?.tool_calls) {
+                      choice.delta.tool_calls = choice.delta.tool_calls.map(
+                        (tc: any, i: number) => ({
+                          index: tc.index ?? i,
+                          ...tc,
+                        }),
+                      );
+                    }
+                  }
+                  const finishReason = data.choices[0]?.finish_reason;
+                  if (finishReason) {
+                    if (dsmlMode === "capture" && dsmlCapture.trim()) {
+                      emitSyntheticToolCalls(dsmlCapture);
+                    }
+                    dsmlMode = "text";
+                    dsmlCapture = "";
+                    if (emittedDsmlToolCalls && finishReason === "stop") {
+                      data.choices[0].finish_reason = "tool_calls";
+                    }
+                    finished = true;
                   }
                 }
-                const finishReason = data.choices[0]?.finish_reason;
-                if (finishReason) {
-                  if (dsmlMode === "capture" && dsmlCapture.trim()) {
-                    emitSyntheticToolCalls(dsmlCapture);
-                  }
-                  dsmlMode = "text";
-                  dsmlCapture = "";
-                  if (emittedDsmlToolCalls && finishReason === "stop") {
-                    data.choices[0].finish_reason = "tool_calls";
-                  }
-                  finished = true;
-                }
-              }
 
-              controller.enqueue(
-                encoder.encode("data: " + JSON.stringify(data) + "\n"),
-              );
+                controller.enqueue(
+                  encoder.encode("data: " + JSON.stringify(data) + "\n"),
+                );
 
-              // The finish chunk may already carry the usage payload
-              // (e.g. Bifrost sends finish_reason and usage in the same
-              // final chunk). That chunk is then terminal: no further
-              // data: line follows, only heartbeat comments. Close
-              // immediately in that case instead of waiting for a
-              // trailing usage chunk that never arrives, otherwise the
-              // response hangs after the last token.
-              const hasUsage = !!data.usage;
-              if (finished && (hasUsage || ++postFinishLines >= 2)) {
-                controller.close();
-                try {
-                  await reader.cancel();
-                } catch {
-                  // Ignore cancel errors; the stream is being torn down.
+                // The finish chunk may already carry the usage payload
+                // (e.g. Bifrost sends finish_reason and usage in the same
+                // final chunk). That chunk is then terminal: no further
+                // data: line follows, only heartbeat comments. Close
+                // immediately in that case instead of waiting for a
+                // trailing usage chunk that never arrives, otherwise the
+                // response hangs after the last token.
+                const hasUsage = !!data.usage;
+                if (finished && (hasUsage || ++postFinishLines >= 2)) {
+                  controller.close();
+                  try {
+                    await reader.cancel();
+                  } catch {
+                    // Ignore cancel errors; the stream is being torn down.
+                  }
+                  return; // Stop processing the stream
                 }
-                return; // Stop processing the stream
+              } catch {
+                // If JSON parsing fails, pass through the original line
+                controller.enqueue(encoder.encode(line + "\n"));
               }
-            } catch {
-              // If JSON parsing fails, pass through the original line
-              controller.enqueue(encoder.encode(line + "\n"));
             }
           }
+        } catch (err) {
+          // Signal errors properly so the stream doesn't hang
+          controller.error(err);
         }
-      } catch (err) {
-        // Signal errors properly so the stream doesn't hang
-        controller.error(err);
-      }
-    },
-  });
+      },
+    });
 
-  return new Response(transformedStream, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
-};
+    return new Response(transformedStream, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  };
+
+const normalizeToolCallsFetch = createToolCallsNormalizingFetch(fetch);
 
 // `perplexity` is mis-named historically — the base URL points at Nvidia's
 // build catalog (`integrate.api.nvidia.com`). Fall back to NVIDIA_API_KEY
@@ -960,7 +967,7 @@ async function hydrateDynamicProvidersFromSiteConfig(): Promise<void> {
   for (const [id, dyn] of Object.entries(configuredProviders)) {
     if (!dyn || typeof dyn !== "object") continue;
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(id)) continue;
-    if (dyn.enabled === false || reservedProviderIds.has(id.toLowerCase())) {
+    if (dyn.enabled !== true || reservedProviderIds.has(id.toLowerCase())) {
       unregisterDynamicProvider(id);
       hydratedDynamicProviderIds.delete(id);
       continue;
@@ -1349,6 +1356,43 @@ const resolveModel = (model?: ChatModel): LanguageModel => {
   }
 };
 
+const USER_PROVIDER_ID_PREFIX = "user-";
+const USER_PROVIDER_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+export function shouldUseGlobalFailureFallback(model: ChatModel): boolean {
+  return !model.provider.startsWith(USER_PROVIDER_ID_PREFIX);
+}
+
+async function resolveUserModel(
+  model: ChatModel,
+): Promise<LanguageModel | null> {
+  if (!model.provider.startsWith(USER_PROVIDER_ID_PREFIX)) return null;
+  const providerId = model.provider.slice(USER_PROVIDER_ID_PREFIX.length);
+  if (!USER_PROVIDER_UUID.test(providerId) || !model.model.trim()) {
+    throw new Error("Personal model provider is unavailable");
+  }
+  const session = await getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Personal model provider is unavailable");
+
+  const provider = await userModelProviderRepository.getForRuntime(
+    userId,
+    providerId,
+  );
+  if (!provider || !provider.modelIds.includes(model.model)) {
+    throw new Error("Personal model provider is unavailable");
+  }
+
+  const customProvider = createOpenAICompatible({
+    name: model.provider,
+    apiKey: provider.apiKey || undefined,
+    baseURL: provider.baseUrl,
+    fetch: createToolCallsNormalizingFetch(fetchUserModelProvider),
+  });
+  return customProvider(model.model);
+}
+
 /**
  * Resolve a model by explicit provider + model name (used by fallback chain).
  * Returns a LanguageModelV2 or null if not found.
@@ -1443,6 +1487,10 @@ export const customModelProvider = {
   /** Resolve after admin-managed providers have been hydrated from PostgreSQL. */
   getModelAsync: async (model?: ChatModel): Promise<LanguageModel> => {
     await ensureDynamicProvidersHydrated();
+    if (model?.provider.startsWith(USER_PROVIDER_ID_PREFIX)) {
+      const userModel = await resolveUserModel(model);
+      if (userModel) return userModel;
+    }
     return resolveModel(model);
   },
   /** Build the fallback chain only after the dynamic registry is current. */
@@ -1450,6 +1498,12 @@ export const customModelProvider = {
     model?: ChatModel,
   ): Promise<LanguageModel> => {
     await ensureDynamicProvidersHydrated();
+    if (model && !shouldUseGlobalFailureFallback(model)) {
+      const userModel = await resolveUserModel(model);
+      // A personal provider may contain private prompt data. Never send that
+      // data to deployment-owned fallback providers without the user's consent.
+      if (userModel) return userModel;
+    }
     return withFailureFallback(resolveModel(model));
   },
   getModel: resolveModel,

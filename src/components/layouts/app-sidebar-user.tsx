@@ -1,54 +1,54 @@
 "use client";
 
+import { appStore } from "@/app/store";
+import { useArchives } from "@/hooks/queries/use-archives";
+import { useThemeStyle } from "@/hooks/use-theme-style";
+import { getLocaleAction } from "@/i18n/get-locale";
+import { BasicUser } from "app-types/user";
+import { authClient } from "auth/client";
+import { BASE_THEMES, COOKIE_KEY_LOCALE, SUPPORTED_LOCALES } from "lib/const";
+import { getUserAvatar } from "lib/user/utils";
+import { capitalizeFirstLetter, cn, fetcher } from "lib/utils";
 import {
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenu,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
-  DropdownMenuCheckboxItem,
-} from "ui/dropdown-menu";
-import { AvatarFallback, AvatarImage, Avatar } from "ui/avatar";
-import { SidebarMenuButton, SidebarMenuItem, SidebarMenu } from "ui/sidebar";
-import {
+  ChevronRight,
   ChevronsUpDown,
   Command,
-  LogOutIcon,
-  Settings2,
-  Palette,
-  Languages,
-  Sun,
-  MoonStar,
-  Monitor,
-  ChevronRight,
-  Settings,
   FolderOpenIcon,
-  PlusIcon,
+  Languages,
+  LogOutIcon,
   MessageSquareWarning,
+  Monitor,
+  MoonStar,
+  Palette,
+  PlusIcon,
+  Settings,
+  Settings2,
+  Sun,
 } from "lucide-react";
-import { useTheme } from "next-themes";
-import { appStore } from "@/app/store";
-import { BASE_THEMES, COOKIE_KEY_LOCALE, SUPPORTED_LOCALES } from "lib/const";
-import { capitalizeFirstLetter, cn, fetcher } from "lib/utils";
-import { authClient } from "auth/client";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
-import { getLocaleAction } from "@/i18n/get-locale";
-import { Suspense, useCallback, useMemo, useState } from "react";
-import { TelegramIcon } from "ui/telegram-icon";
-import { useThemeStyle } from "@/hooks/use-theme-style";
-import { BasicUser } from "app-types/user";
-import { getUserAvatar } from "lib/user/utils";
-import { Skeleton } from "ui/skeleton";
-import { MCPIcon } from "ui/mcp-icon";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useArchives } from "@/hooks/queries/use-archives";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
+import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "ui/dropdown-menu";
+import { MCPIcon } from "ui/mcp-icon";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "ui/sidebar";
+import { Skeleton } from "ui/skeleton";
+import { TelegramIcon } from "ui/telegram-icon";
 import { ArchiveDialog } from "../archive-dialog";
 
 export function AppSidebarUserInner(props: {
@@ -214,6 +214,12 @@ export function AppSidebarUserInner(props: {
               >
                 <TelegramIcon className="size-4 fill-foreground" />
                 <span>{t("joinCommunity")}</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/providers" className="cursor-pointer">
+                <Settings2 className="size-4" />
+                <span>Personal model providers</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

@@ -222,7 +222,10 @@ export function findProjectBrainShortestPath(
   facts: BrainFactForGraph[],
   input: { from: string; to: string; maxDepth?: number; nodeLimit?: number },
 ) {
-  const graph = deriveProjectBrainGraph(facts.filter((fact) => fact.reviewStatus === "accepted"));
+  const acceptedFacts = facts
+    .filter((fact) => fact.reviewStatus === "accepted")
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const graph = deriveProjectBrainGraph(acceptedFacts);
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
   const resolve = (value: string) => {
     return resolveGraphNodeId(facts, graph, value);
@@ -238,6 +241,16 @@ export function findProjectBrainShortestPath(
   for (const edge of graph.edges) {
     edgesByNode.set(edge.source, [...(edgesByNode.get(edge.source) ?? []), edge]);
     edgesByNode.set(edge.target, [...(edgesByNode.get(edge.target) ?? []), edge]);
+  }
+  // Database row order is not a path-selection policy. Resolve equal-length
+  // alternatives consistently by neighbor ID, then claim ID.
+  for (const [nodeId, edges] of edgesByNode) {
+    edges.sort((a, b) => {
+      const neighborA = a.source === nodeId ? a.target : a.source;
+      const neighborB = b.source === nodeId ? b.target : b.source;
+      return neighborA < neighborB ? -1 : neighborA > neighborB ? 1
+        : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
   }
   const previous = new Map<string, { nodeId: string; edge: (typeof graph.edges)[number] }>();
   const depthById = new Map([[from, 0]]);

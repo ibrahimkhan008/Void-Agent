@@ -36,6 +36,7 @@ export async function reserveTeamBudgetForAiRequest(input: {
   userId: string;
   model?: TeamBudgetModel;
   promptCharacters: number;
+  estimatedOutputTokens?: number;
   idempotencyScope: string;
 }): Promise<TeamBudgetLease | undefined> {
   if (!input.teamId || !(await getTeamMemberBudgetsEnabled())) return undefined;
@@ -50,7 +51,11 @@ export async function reserveTeamBudgetForAiRequest(input: {
   });
   if (!gate) return undefined;
 
-  const estimateMicros = estimateCostMicros(input.promptCharacters, gate.price);
+  const estimateMicros = estimateCostMicros(
+    input.promptCharacters,
+    gate.price,
+    input.estimatedOutputTokens,
+  );
   const reservation = await reserveTeamMemberBudget({
     teamId: gate.teamId,
     userId: input.userId,

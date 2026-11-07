@@ -19,6 +19,7 @@ const INLINE_TYPES = new Set([
   "image/jpeg",
   "image/gif",
   "image/webp",
+  "audio/wav",
 ]);
 
 export async function GET(request: Request) {

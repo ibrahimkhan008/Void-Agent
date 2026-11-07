@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 export const MAX_DEVICE_AUDIO_BYTES = 1_000_000;
+export const isWavAudio = (bytes: Uint8Array) =>
+  bytes.byteLength >= 12 &&
+  String.fromCharCode(...bytes.subarray(0, 4)) === "RIFF" &&
+  String.fromCharCode(...bytes.subarray(8, 12)) === "WAVE";
+
 export const deviceAudioHeadersSchema = z.object({
   sessionId: z.string().trim().min(1).max(120),
   eventId: z.string().trim().min(1).max(200),
@@ -37,7 +42,7 @@ export async function readBoundedWav(request: Request, maxBytes = MAX_DEVICE_AUD
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  if (String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WAVE") return null;
+  if (!isWavAudio(bytes)) return null;
   return bytes;
 }
 

@@ -8,10 +8,7 @@ import {
   ipcMain,
 } from "electron";
 import { readRecentDesktopMcpAuditEvents } from "./mcp-audit-log.js";
-import {
-  desktopStdioConfigSchema,
-  desktopToolCallSchema,
-} from "./mcp-policy.js";
+import { desktopMcpConfigSchema, desktopToolCallSchema } from "./mcp-policy.js";
 import {
   callDesktopMcpTool,
   getMcpConfigFingerprint,
@@ -54,21 +51,31 @@ function assertTrustedMcpPage(event: IpcMainInvokeEvent) {
 
 async function confirmConfig(event: IpcMainInvokeEvent, configInput: unknown) {
   assertTrustedMcpPage(event);
-  const config = desktopStdioConfigSchema.parse(configInput);
+  const config = desktopMcpConfigSchema.parse(configInput);
   const fingerprint = getMcpConfigFingerprint(config);
   if (consentedConfigs.has(fingerprint)) return config;
-  const commandLabel = [config.command, ...(config.args ?? [])]
-    .join(" ")
-    .slice(0, 700);
-  const envNames =
-    Object.keys(config.env ?? {})
-      .sort()
-      .join(", ") || "none";
+  const isRemote = "url" in config;
+  const commandLabel = isRemote
+    ? new URL(config.url).origin
+    : [config.command, ...(config.args ?? [])].join(" ").slice(0, 700);
+  const envNames = isRemote
+    ? Object.keys(config.headers ?? {})
+        .sort()
+        .join(", ") || "none"
+    : Object.keys(config.env ?? {})
+        .sort()
+        .join(", ") || "none";
   const result = await dialog.showMessageBox(trustedWindow!, {
     type: "warning",
-    title: "Allow a local MCP process?",
-    message: "Void-Agent wants to start a program on this computer.",
-    detail: `Program: ${commandLabel}\nEnvironment variable names: ${envNames}\n\nThe process can access files and services available to your account. Tool names do not prove that a server is safe. Continue only if you trust this program and its configuration.`,
+    title: isRemote
+      ? "Allow a remote MCP server?"
+      : "Allow a local MCP process?",
+    message: isRemote
+      ? "Void-Agent wants to connect to a remote MCP service from this computer."
+      : "Void-Agent wants to start a program on this computer.",
+    detail: isRemote
+      ? `HTTPS origin: ${commandLabel}\nCredential header names: ${envNames}\n\nThe remote service receives the displayed tool arguments and returns untrusted content. DNS addresses are checked and pinned for each connection; redirects are blocked. Only approved read-style tools are available. Continue only if you trust this origin and credentials.`
+      : `Program: ${commandLabel}\nEnvironment variable names: ${envNames}\n\nThe process can access files and services available to your account. Tool names do not prove that a server is safe. Continue only if you trust this program and its configuration.`,
     buttons: ["Allow for this app session", "Cancel"],
     defaultId: 1,
     cancelId: 1,
@@ -143,7 +150,7 @@ export function registerMcpIpcHandlers() {
       toolName?: unknown;
       params?: unknown;
     } | null;
-    const rawConfig = desktopStdioConfigSchema.parse(input?.config);
+    const rawConfig = desktopMcpConfigSchema.parse(input?.config);
     const call = desktopToolCallSchema.parse({
       toolName: input?.toolName,
       params: input?.params ?? {},

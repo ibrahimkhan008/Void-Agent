@@ -11,10 +11,12 @@ import {
   ChevronDown,
   ZapIcon,
 } from "lucide-react";
+import Link from "next/link";
+import React from "react";
 import {
   Fragment,
-  memo,
   PropsWithChildren,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -67,6 +69,7 @@ interface SelectModelProps {
   modelSpeed?: "fast" | "thinking";
   onModelSpeedChange?: (speed: "fast" | "thinking") => void;
   disabled?: boolean;
+  teamAutoRoutingStatus?: "enabled" | "disabled" | "loading" | "error";
   filterModel?: (
     provider: string,
     model: {
@@ -133,6 +136,14 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
     [blackboxCooldown, props],
   );
 
+  const handleAutoRoutingSelect = useCallback(() => {
+    if (props.teamAutoRoutingStatus !== "enabled") return;
+    const automaticModel = { provider: "auto", model: "auto" };
+    setModel(automaticModel);
+    props.onSelect(automaticModel);
+    setOpen(false);
+  }, [props]);
+
   const visibleProviders = useMemo(() => {
     if (!providers) return [];
 
@@ -147,7 +158,10 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
     if (flareIdx !== -1) {
       const [flare] = grouped.splice(flareIdx, 1);
       for (let i = grouped.length - 1; i >= 0; i--) {
-        if (grouped[i].provider === "flare" || grouped[i].provider === "Flare X") {
+        if (
+          grouped[i].provider === "flare" ||
+          grouped[i].provider === "Flare X"
+        ) {
           const [other] = grouped.splice(i, 1);
           flare.models.push(...other.models);
         }
@@ -275,18 +289,60 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
           />
           <CommandList className="p-2 max-h-64">
             <CommandEmpty>No results found.</CommandEmpty>
+            {props.teamAutoRoutingStatus && (
+              <>
+                <CommandGroup heading="Team model routing" className="pb-3">
+                  {props.teamAutoRoutingStatus === "enabled" ? (
+                    <CommandItem
+                      value="team-auto-routing"
+                      data-testid="team-auto-model-option"
+                      onSelect={handleAutoRoutingSelect}
+                    >
+                      <span>Team Auto</span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Route by task
+                      </span>
+                    </CommandItem>
+                  ) : (
+                    <div
+                      role="status"
+                      data-testid="team-auto-model-unavailable"
+                      className="space-y-1 px-2 py-2 text-xs text-muted-foreground"
+                    >
+                      <p>
+                        {props.teamAutoRoutingStatus === "loading"
+                          ? "Checking team routing availability…"
+                          : props.teamAutoRoutingStatus === "error"
+                            ? "Team routing could not be verified."
+                            : "Team automatic routing is not enabled."}
+                      </p>
+                      <Link
+                        className="text-primary underline underline-offset-2"
+                        href="/team-model-routing"
+                      >
+                        Open team routing settings
+                      </Link>
+                    </div>
+                  )}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
             {visibleProviders.map((provider, i) => (
               <Fragment key={provider.provider}>
                 <CommandGroup
                   heading={
                     <ProviderHeader
                       provider={provider.provider}
+                      displayName={provider.displayName}
                       hasAPIKey={provider.hasAPIKey}
                     />
                   }
                   className={cn(
                     "pb-4 group",
-                    !provider.hasAPIKey && "opacity-50",
+                    !provider.hasAPIKey &&
+                      !provider.provider.startsWith("user-") &&
+                      "opacity-50",
                   )}
                   onWheel={(e) => {
                     e.stopPropagation();
@@ -295,7 +351,8 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
                 >
                   {provider.models.map((item) => {
                     const isDisabled =
-                      !provider.hasAPIKey ||
+                      (!provider.hasAPIKey &&
+                        !provider.provider.startsWith("user-")) ||
                       (item.isBlackboxModel && blackboxCooldown);
 
                     return (
@@ -346,12 +403,15 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
 
 const ProviderHeader = memo(function ProviderHeader({
   provider,
+  displayName: configuredDisplayName,
   hasAPIKey,
-}: { provider: string; hasAPIKey: boolean }) {
+}: { provider: string; displayName?: string; hasAPIKey: boolean }) {
   // Human-friendly label for the picker. Provider ids stay lowercase for
   // routing / persistence (chat.provider, agent model refs, URL params).
   const displayName =
-    provider === "flare"
+    configuredDisplayName ??
+    (provider.startsWith("user-") ? provider.slice(5) : undefined) ??
+    (provider === "flare"
       ? "Flare X"
       : provider === "Qwen"
         ? "Qwen"
@@ -361,7 +421,7 @@ const ProviderHeader = memo(function ProviderHeader({
             ? "KonvO"
             : provider === "zAI"
               ? "Z.AI (GLM)"
-              : provider;
+              : provider);
   return (
     <div className="text-sm text-muted-foreground flex items-center gap-1.5 group-hover:text-foreground transition-colors duration-300">
       {provider === "openai" ? (

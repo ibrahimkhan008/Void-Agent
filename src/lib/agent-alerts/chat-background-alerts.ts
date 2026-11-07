@@ -35,6 +35,13 @@ export function shouldSendChatBackgroundAlert(
   );
 }
 
+export function shouldSendChatForegroundAlert(
+  enabled: boolean,
+  hidden: boolean,
+): boolean {
+  return enabled && !hidden;
+}
+
 export function chatBackgroundAlertCopy(kind: ChatBackgroundAlertKind): {
   title: string;
   body: string;
@@ -61,6 +68,10 @@ export function chatBackgroundAlertCopy(kind: ChatBackgroundAlertKind): {
         body: "A chat is waiting for your response.",
       };
   }
+}
+
+export function chatBackgroundAlertHref(threadId: string): string {
+  return `/chat/${encodeURIComponent(threadId)}`;
 }
 
 export function createChatBackgroundAlertDeduper(limit = 512) {

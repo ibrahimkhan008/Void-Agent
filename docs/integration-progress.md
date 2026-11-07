@@ -1075,3 +1075,123 @@ Agent file bindings are now validated server-side using the authenticated user's
 - Published the verified batch as `6b69c6b724157edbe5b09b106cfcd8bddc7ca594` on `origin/main`; `git ls-remote` matched the local commit SHA after push.
 - The 22-file commit contains the listed implementation/tests/docs only. `context.md` and the two untracked CognixAI user specification files were excluded. Reference checkout unchanged; migration 0069 remains unapplied; no deployment occurred.
 - Overall parity remains incomplete and work continues from the P0/P1 rows in the existing matrix.
+
+## Verified local batch: F003 / F007 / F008 / F009 / F029 (2026-11-07 15:12 IST)
+- F003: added opt-in cursor paging to the API-key thread-messages endpoint, capped at the chat window, with access checks and a continuation cursor; requests without pagination retain the legacy unpaged shape.
+- F007: normalized and legacy provider enablement shapes are now interpreted case-insensitively; disabled providers are filtered from the chat model catalog and direct chat requests are rejected. Dynamic providers default-deny unless explicitly enabled. Organization-scoped deployment catalogs, task profiles, capability/policy constraints, deterministic auto-routing, and route audits remain unimplemented.
+- F008: project-brain contradiction inference now reserves and settles the configured team AI budget for enabled non-exempt team members; personal/budget-disabled behavior remains compatible.
+- F009: viewer-only project access can no longer associate a private chat with the shared project; owner/editor roles can, and owner clearing remains available.
+- F029: source runs notify current project recipients only when they insert reviewable facts/todos; notifications are run-deduplicated and persisted before best-effort push.
+- Focused combined checks passed 47/47. Integrated checks passed: typecheck; full suite 2,115 tests / 375 files; lint; Drizzle journal check; production build (203/203 pages); diff check. Existing warnings remain documented. No live PostgreSQL/browser/provider/web-push validation.
+- This is a verified local checkpoint, not full migration completion; F003/F007/F008/F009/F029 remain PARTIAL and this checkpoint is intentionally not being pushed while the overall migration is incomplete.
+
+## F022 workflow video result preview (2026-11-07)
+- Reference `apps/web/src/components/tool-invocation/workflow-invocation.tsx` detects legacy Twelve Labs records and n8n `body.hls.video_url`, normalizes workflow output and renders `MediaPreview`; Void-Agent's counterpart rendered every successful workflow result as raw JSON only.
+- Added bounded traversal (500 object nodes, depth 8, maximum 12 clips), HTTPS-only credential-free URL validation, duplicate removal, and media-type URL detection. Workflow result UI now renders accessible native video controls with optional HTTPS poster, while retaining the raw JSON response/copy affordance.
+- Focused extraction tests: 3/3 pass for legacy/n8n/direct outputs, untrusted URL rejection, duplicates, and result bounds. Scoped Biome passes all three files; `git diff --check` passes. Integrated typecheck/build remain root verification tasks; no live third-party media playback tested.
+- F022 remains PARTIAL: this slice covers workflow result video rendering only, not every image/audio/document workflow surface.
+
+## F001 conversation-management audit (2026-11-07)
+- Audited conversation import/export, sharing, branching, editing/regeneration, and search against the reference. Void-Agent already provides owner-scoped bounded archive export/import, public share exports, message edit/regeneration, and owner-checked fork-from-message. The reference has no conversation archive/import implementation and its sidebar marks a dedicated search page as future work; no reference-backed missing workflow was added in this pass.
+- Focused archive/fork verification passed: 31 tests across 3 files. This is source/test evidence only, not a live PostgreSQL/browser certification. F001 remains PARTIAL and the broader conversation family is not marked complete.
+
+## F010 typed-page merge lineage (2026-11-07)
+Added a source-visibility-gated merged identity list to the typed page detail workflow, using the existing immutable merge ledger. Titles appear only while their accepted identity claim remains current and visible through project-attached ready sources; output is capped at 50 and omits actor identity. Focused API/UI tests passed 8/8 and scoped Biome passed. No live PostgreSQL/browser test. F010 remains PARTIAL.
+
+## F007 model context-window meter (2026-11-07)
+- Added an accessible composer context meter using the latest completed assistant message's actual resolved model and usage. Known exact model windows are displayed; unrecognized models are hidden. Error/interrupted turns invalidate older usage to avoid stale display.
+- Focused helper/UI tests passed 6/6; scoped Biome passed. Await root integrated typecheck/build. F007 remains PARTIAL.
+
+## F021 remote desktop MCP transport implementation update (2026-11-07)
+Implemented secure remote HTTPS MCP for the desktop test bridge using injected fetch + Undici socket lookup pinning. Streamable HTTP and SSE share the policy; each reconnect/request re-resolves, all returned addresses must be public unicast, redirects and cross-origin requests are rejected, and exact endpoint/config consent is native and credential-aware. Desktop scoped typecheck, bundle build, and 14 focused MCP tests passed. No live Electron GUI or external MCP endpoint verification; F021 remains PARTIAL.
+
+## F021 remote-operation route verification (2026-11-07)
+Remote list and tool-call entry points now accept the remote config union; a regression was found and fixed where those exported helpers still validated stdio only. The focused mocked-client transport test exercises the production operation factory and confirms the HTTPS transport receives the configured origin/header set, then verifies allowlist filtering and read-only denial. Separate fetch policy tests verify origin, redirect, private/mixed address, and DNS error rejection. External Electron/server behavior remains unverified.
+
+## F007 Team Auto context-capacity constraint (2026-11-07 18:38 IST)
+- Reference review: candidate context windows and minimum-context filtering exist in the V2 router, but its normal chat caller leaves the minimum at the default 0. Primary Team Auto had no capacity check despite having an exact provider/model context-window table for known models.
+- Added request-time serialized-history budgeting, exact known model capacity metadata, fail-closed exclusion of unknown/undersized models, and a 4,096-token output cap for Team Auto only. A 32,768-token reserve covers non-conversation system/policy/tool/retrieval context; the conversation estimate uses two serialized characters per token. Pin preference and fallback operate only after eligibility filtering.
+- Focused routing tests passed 8/8, including threshold filtering, unknown-window no-route, estimation reserves, and existing deterministic routing/pinning cases. `pnpm check-types` passed. Scoped Biome passed after formatting the touched files.
+- Limitation: no provider tokenizer/live generation check was available; reserve-based estimation can reject a route conservatively and cannot model every provider's hidden prompt overhead. No DB schema change/apply, reference write, push, or deployment. F007 remains PARTIAL.
+
+## F029 foreground chat alerts (2026-11-07)
+- Adapted the reference active-app agent-alert toast behavior into the existing opt-in primary chat-alert preference. Current-thread completion/error/approval/input events now show generic in-app Sonner alerts when visible; hidden tabs retain the existing OS/browser notification route. Both routes share an event deduper, so tab visibility changes cannot replay the same event. Toast navigation stays same-origin and encodes the thread identifier as one route segment.
+- The reference weekly-engagement preference has no runtime use and is excluded as a dead setting rather than represented as a working feature.
+- Validation: 12 focused tests passed across the hook/helper suites; scoped Biome and diff check passed. No DB migration, provider push, browser E2E, deployment, or push to GitHub.
+
+## F026 reviewed voice task action (2026-11-07)
+- Added authenticated Asana/ClickUp destination discovery for a saved device voice transcript. Workspace/space and project/list choices come from the connected user's existing read-only connector tools.
+- Added a user-edited task review form. The server revalidates transcript ownership and current destination membership before issuing approval and again before execution. Existing exact-payload, user-bound, single-use approval storage and connector executors guard the external write.
+- Focused tests passed 13/13 across 5 files; Biome passed. Integrated TypeScript check found a duplicate `provider` object key in this slice (fixed) plus four unrelated concurrent errors in `src/hooks/use-chat-background-alerts.test.ts`; parent should rerun `pnpm check-types`.
+- Limitations: Asana/ClickUp only; no live PostgreSQL/provider/browser verification; voice agents, schedules, workflows, and unsupported command types remain non-executing review/planning paths. No schema change, DB apply, deploy, push, or reference edits.
+
+### Composio direct app connection manager (2026-11-07)
+- Discovered reference surface: dynamic Composio toolkit catalog, per-user OAuth connection initiation, connection status/reconciliation, disconnect, and dashboard UI (`apps/web/src/app/api/connections`, `lib/composio/*`, `components/mcp-dashboard.tsx`).
+- Primary previously provided Composio MCP session provisioning and project-brain read-only connector use, but not direct per-toolkit connection management.
+- Added a searchable toolkit listing, user-scoped active account summary, SDK-managed OAuth authorization, and confirmed account disconnect to the primary MCP dashboard. API validates authentication, same-origin mutations, rate limits, toolkit/account input, caller ownership before unlink, and provider redirect URL. It never returns tokens/secrets.
+- Focused verification: route and UI suites 7/7; Biome scoped check passed; final integrated typecheck pending. Live provider OAuth and actual account unlink are unverified; do not claim all toolkit actions are integrated. No production DB, deploy, push, or reference write.
+- Final verification update: integrated `pnpm check-types` exited 0 after the UI changes; route/UI tests 7/7 and scoped Biome passed. Live provider flow remains unverified.
+
+## F025 approval policy parity update (2026-11-07)
+The reference system prompt distinguishes harmless read-only chains, a single action with its own approval card, and genuinely complex consequential plans. Void-Agent already had the reference proposal tools and server-enforced exact-payload effect tokens, but the shared guidance did not explicitly prevent unnecessary plan-approval cards or say that plan approval cannot authorize an effect. Updated `src/lib/ai/tools/hitl/index.ts` to keep plans proportional, preserve each tool's server-side approval boundary, and collect related missing details in one `requestInput` call. Added guidance-contract tests in `src/lib/ai/tools/hitl/index.test.ts`. Focused Vitest passed 13/13; Biome and `git diff --check` passed. F025 remains PARTIAL because prompt tests do not establish model adherence and live browser/PostgreSQL/provider journeys remain unverified. No permission gate was removed.
+
+### Root verification update - 2026-11-07 19:00 IST
+- F015 published-page lifecycle was compared with reference routes and primary behavior. Primary includes authenticated bounded publishing, ownership checks, append-only versions, quota locks, owner listing, all-version revocation, and opaque-origin sandboxed public reads. Focused route/public-read/repository tests ran as part of a 5-file / 24-test batch. Live Postgres/browser journey is still missing; F015 remains PARTIAL.
+- F032 streaming markdown parser and mounted component tests also passed in that batch. Integrated typecheck/build remain pending until concurrent implementation agents finish.
+
+## F018 explicit stored WAV to chat ingestion (2026-11-07)
+- Reference behavior: `Void-Agent-V2/apps/web/src/components/prompt-input.tsx` builds attachment parts and `apps/web/src/app/api/chat/route.ts` carries attachments into the model request; `route-helpers.ts` makes attachment parts available as model input. Reference storage used a public attachments bucket for model fetches. Primary already protects private owner storage but previously added only images as model file parts and reduced non-image files to filename notes.
+- Primary now transcribes only explicitly sent, user-owned stored WAV attachments into a labeled `[Untrusted transcript ...]` text part before model generation. It requires a managed owner key, matching stored WAV MIME, RIFF/WAVE magic, and <=1 MB metadata/streamed bytes; it uses the existing server-side Sarvam proxy helper, a dedicated 5/min per-user cap, and never fetches supplied external URLs. Other audio formats/external URLs receive an explicit unsupported/unowned note.
+- Composer labels WAVs as sent to chat as an untrusted transcript. The prior manual playback/transcript-preview workflow remains available; that preview endpoint still does not persist transcripts or execute tools. Sent-chat transcript becomes part of the explicitly submitted user message and follows normal chat/tool authorization.
+- Verification: audio ingest/storage route/device audio suites passed 13/13 across 3 files; scoped Biome lint passed across 10 files. Full `pnpm check-types` was running at checkpoint time; result to be appended after completion. No live Sarvam provider or browser storage journey. F018 remains PARTIAL: WAV only, no audio generation, no other audio codecs, and broader OCR/object-store staging verification remain unresolved.
+
+## F033 account/profile parity audit (2026-11-07)
+- Reference: `Void-Agent-V2/apps/web/src/components/user/user-detail/user-settings-content.tsx`, `user-detail-form-card.tsx`, `user-access-card.tsx`, `user-update-password-dialog.tsx`, `apps/web/src/app/api/user/actions.ts`, and `apps/web/src/lib/user/server.ts`.
+- Primary equivalents: the same user-detail components and `src/app/api/user/actions.ts`, `src/lib/user/server.ts`, plus the primary-only password recovery routes and `src/lib/auth/password-reset-*` hardening.
+- Profile/image/email update, password change (including revoking other sessions), and admin-only account deletion behavior are already present in both projects. The `UserSessions` component/helper is present in both but is not mounted by either settings flow, so it is not a reference user-facing workflow to migrate. No additional account UI/API was added.
+- F033 remains PARTIAL solely pending live email-provider, PostgreSQL, and authenticated browser verification of the existing flows.
+
+## F018 WAV-to-chat final local typecheck (2026-11-07 19:04:59 +05:30)
+- pnpm check-types completed with exit code 0 after the stored WAV chat-ingestion helper and chat route changes.
+- Focused tests remained 13/13 across 3 files; scoped Biome lint remained clean across 10 touched files.
+- This is source/type validation only. Live transcription provider, private object storage/browser upload-send-playback, other audio codecs, OCR, and broader multimodal parity are not verified; F018 remains PARTIAL.
+
+## F007 provider-management compatibility audit (2026-11-07)
+- Confirmed primary admin dynamic providers, encrypted keys, safe public-HTTPS model discovery, runtime hydration, model catalog, and provider enabled-state filtering against their implementation and focused tests (17/17 across four files).
+- Reference also has per-user local/OpenAI-compatible server setup. Deferred as incompatible with the current admin-global provider registry: reference stores the user key in preferences and server-fetches a user-selected URL. Secure parity requires a user-scoped encrypted credential and safe client/runtime connection boundary; no unsafe server fetch was copied.
+- The reference's separate model metadata table has no direct primary equivalent contract. Do not add a duplicate catalog based only on the selector metadata endpoint.
+- F007 remains PARTIAL; no application source changes in this audit.
+
+## Checkpoint - source-grounded project timeline events
+- Added a bounded event schema to project-brain extraction and exact-evidence filtering, then persisted candidates as revision-linked proposals in the new `project_brain_event` table.
+- Added a project timeline read API with current source visibility checks, accepted-only viewer results, and editor review actions with CSRF/origin, ownership, rate limit, active revision and atomic state-transition checks.
+- Added an accessible project timeline with date-unknown handling, source evidence/links, and accept/dismiss actions.
+- Validation: 19 focused tests pass across 4 files; `pnpm check-types`, `pnpm db:check`, scoped Biome and diff check pass. Migration 0071 is local/unapplied; no live PostgreSQL/browser/provider check.
+- Remaining: events are not wired into voice recent-events or project status snapshots. Existing unchanged source fingerprints are not auto-reprocessed. F010 remains PARTIAL.
+
+## F027 session-segment review
+- Added an on-demand owner dashboard panel for individual saved device transcript segments (sequence, text, language, capture timestamp). It reads from the existing segment table through a repository method that first verifies the session belongs to the authenticated user's device.
+- API caps results at 500 segments and 24,000 text characters; the UI does not fetch segment details until the owner opens the segment view. No schema/migration changes.
+- Focused voice session/history/finalize/segment tests passed 13/13 across five files. Scoped Biome passed. Integrated `pnpm check-types` is running; update result when complete.
+- F027 remains PARTIAL for the absent websocket bridge and unavailable hardware/PostgreSQL/provider verification. No DB apply, deploy, push, or reference edits.
+
+## F019 resumable-stream reconnect read limiting (2026-11-07 19:22 IST)
+- Reviewed the primary and reference resume endpoints. Both already owner-check HEAD/GET before Redis access; primary additionally validates UUIDs, uses no-store responses, and CAS-clears stale pointers by expected stream ID. Both were unbounded for authenticated reconnect probes; primary's detached stop endpoint already uses a per-user limiter.
+- Added a shared 120/minute per-user limiter for resume HEAD/GET, before thread DB lookup and Redis pointer/buffer access. Denials return `429`, `Retry-After`, and no-store headers. This reduces DB/Redis amplification by an authenticated account without changing stop/cancellation flow or the shared chat route.
+- Focused `pnpm exec vitest run 'src/app/api/chat/[id]/stream/route.test.ts'` passed 5/5. Scoped Biome passed; `git diff --check` passed with workspace line-ending notices. No live Redis used.
+- F019 remains PARTIAL; no multi-instance or browser resume run was performed. No DB apply, reference edits, push, or deployment.
+
+## F007 public per-user provider workflow (2026-11-07)
+- Added user-owned encrypted provider storage and HTTPS public-endpoint model discovery, exact-model runtime resolution, per-user catalog entries and management UI. Personal credentials never enter the admin-global provider registry or Team Auto. Personal model failure never routes user content through the deployment fallback chain.
+- Security boundary: public-only DNS validation on each request, pinned socket lookup, TLS hostname verification, port 443 only, no redirects, bounded discovery/runtime bodies and timeouts, authenticated same-origin APIs with per-user rate limits and owner-scoped CRUD.
+- Focused tests passed 27/27; scoped Biome passed. Six-GiB integrated typecheck is running. Migration 0072 is authored but not applied. Local/LAN endpoints remain excluded pending a client-side proxy architecture. F007 remains PARTIAL pending integration/browser/live provider validation.
+
+### F007 final local checkpoint (2026-11-07 19:39 IST)
+- Focused Vitest 6 files / 29 tests passed; scoped Biome 19 files passed; integrated `pnpm check-types` passed with a 6 GiB Node heap; `pnpm db:check` passed; `git diff --check` passed (only existing line-ending notices).
+- `.audit/check-types.log` is ignored and contains only the typecheck command output. Migration 0072 is authored/journaled and unapplied. No live provider, PostgreSQL/browser workflow, deployment, reference edit, commit or push.
+- F007 remains PARTIAL until live public-provider chat and browser/database lifecycle verification. Loopback/LAN Ollama and LM Studio remain excluded pending client proxy support.
+
+### F007 CRUD completion and final verification correction (2026-11-07 19:44 IST)
+- Added owner-scoped provider editing to the settings UI. Blank API key retains the existing encrypted credential; update re-discovers models before persisting the endpoint/model allowlist. Added regression coverage that the old key is used only server-side and passed through to owner-scoped persistence without returning it.
+- Final focused provider suite: 6 files / 30 tests passed. Scoped Biome passed 19 files. Final integrated `pnpm check-types` passed with 6 GiB heap; output is in ignored `.audit/check-types.log`. `pnpm db:check` passed without applying migrations. `git diff --check` exited 0; only existing LF/CRLF notices appeared.
+- F007 remains PARTIAL: no live PostgreSQL, external provider, browser, or chat streaming verification; migration 0072 is unapplied. Localhost/LAN Ollama/LM Studio are still excluded pending a client proxy. No reference write, production database, deployment, commit, or push.

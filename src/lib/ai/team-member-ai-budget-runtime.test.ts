@@ -132,6 +132,22 @@ describe("team-member AI budget runtime adapter", () => {
     expect(firstKey).not.toBe(secondKey);
   });
 
+  it("reserves a caller-supplied multi-step output ceiling", async () => {
+    const lease = await reserveTeamBudgetForAiRequest({
+      userId: "user-1",
+      teamId: "team-1",
+      model: { provider: "google", model: "Gemini 3 Flash" },
+      promptCharacters: 400,
+      estimatedOutputTokens: 10_240,
+      idempotencyScope: "composio-gather:run-1",
+    });
+
+    expect(mocks.reserve).toHaveBeenCalledWith(
+      expect.objectContaining({ estimateMicros: 41_160 }),
+    );
+    expect(lease?.estimateMicros).toBe(41_160);
+  });
+
   it("finalizes using provider input/output usage and falls back to its reservation estimate", async () => {
     const lease = {
       reservationId: "reservation-1",

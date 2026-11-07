@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveProjectRole } from "./policy";
+import { canEditProjectRole, resolveProjectRole } from "./policy";
 
 const base = {
   projectOwnerUserId: "creator",
@@ -58,5 +58,19 @@ describe("resolveProjectRole", () => {
         teamMembershipRole: undefined,
       }),
     ).toBe("owner");
+  });
+});
+
+describe("canEditProjectRole", () => {
+  it.each(["owner", "editor"])(
+    "%s can associate a chat with a project",
+    (role) => {
+      expect(canEditProjectRole(role)).toBe(true);
+    },
+  );
+
+  it("does not let a viewer associate their private chat with a project", () => {
+    expect(canEditProjectRole("viewer")).toBe(false);
+    expect(canEditProjectRole(null)).toBe(false);
   });
 });

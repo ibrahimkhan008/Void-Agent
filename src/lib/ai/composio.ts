@@ -46,15 +46,54 @@ export function isReadOnlyComposioAction(slug: string) {
 }
 
 export async function listComposioAccountsForUser(userId: string) {
-  const result = await getComposio().connectedAccounts.list(
-    {
-      userIds: [userId],
-      statuses: ["ACTIVE"],
-      limit: 100,
-    },
-    { signal: AbortSignal.timeout(10_000) },
-  );
-  return result.items.filter((account) => !account.isDisabled);
+  const accounts = [] as Awaited<
+    ReturnType<ReturnType<typeof getComposio>["connectedAccounts"]["list"]>
+  >["items"];
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const result = await getComposio().connectedAccounts.list(
+      {
+        userIds: [userId],
+        statuses: ["ACTIVE"],
+        limit: 100,
+        ...(cursor ? { cursor } : {}),
+      },
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    accounts.push(...result.items);
+    cursor = result.nextCursor ?? undefined;
+    if (!cursor) break;
+  }
+  return accounts.filter((account) => !account.isDisabled);
+}
+
+/** Returns global toolkit metadata and user-scoped connection flags. */
+export async function listComposioToolkits(
+  userId: string,
+  query: { search?: string; cursor?: string; limit?: number } = {},
+) {
+  const session = await getComposio().create(userId);
+  return session.toolkits({
+    limit: Math.min(Math.max(query.limit ?? 30, 1), 50),
+    ...(query.search ? { search: query.search } : {}),
+    ...(query.cursor ? { cursor: query.cursor } : {}),
+  });
+}
+
+/** Starts the provider-managed OAuth flow; Composio owns OAuth state handling. */
+export async function authorizeComposioToolkit(
+  userId: string,
+  toolkit: string,
+  callbackUrl: string,
+) {
+  const session = await getComposio().create(userId);
+  const authorization = await session.authorize(toolkit, { callbackUrl });
+  return authorization.redirectUrl;
+}
+
+/** Disconnect only after the caller proves the account belongs to this user. */
+export async function disconnectComposioAccount(connectedAccountId: string) {
+  await getComposio().connectedAccounts.delete(connectedAccountId);
 }
 
 export async function listComposioReadActions(toolkitSlug: string) {

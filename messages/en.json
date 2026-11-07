@@ -179,6 +179,27 @@
       "signIn": "Sign in",
       "orContinueWith": "OR CONTINUE WITH"
     },
+    "ForgotPassword": {
+      "title": "Reset your password",
+      "description": "Enter your email and we will send a password reset link if an account exists.",
+      "email": "Email",
+      "send": "Send reset link",
+      "failed": "Could not request a password reset. Please try again.",
+      "checkEmailDescription": "Check your inbox",
+      "checkEmailBody": "If an account exists for {email}, a reset link will arrive shortly.",
+      "backToSignIn": "Back to sign in"
+    },
+    "ResetPassword": {
+      "title": "Choose a new password",
+      "description": "Set a new password for your account.",
+      "invalidTokenDescription": "This reset link is missing, expired, or invalid.",
+      "requestNewLink": "Request a new reset link",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password",
+      "passwordMismatch": "The passwords do not match.",
+      "submit": "Update password",
+      "failed": "Could not reset your password. Request a new link and try again."
+    },
     "SignUp": {
       "title": "Create an account",
       "titleAdmin": "Create an Admin Account",

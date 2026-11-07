@@ -1,12 +1,16 @@
-import { authDestination } from "@/lib/auth/callback-url";
 import SignIn from "@/components/auth/sign-in";
+import { authDestination } from "@/lib/auth/callback-url";
 import { getAuthConfig } from "lib/auth/config";
 
 export default async function SignInPage({
   searchParams,
 }: { searchParams: Promise<{ callbackUrl?: string | string[] }> }) {
   const callbackUrl = authDestination((await searchParams).callbackUrl);
-  const { signUpEnabled, socialAuthenticationProviders } = getAuthConfig();
+  const {
+    signUpEnabled,
+    emailAndPasswordEnabled,
+    socialAuthenticationProviders,
+  } = getAuthConfig();
   const enabledProviders = (
     Object.keys(
       socialAuthenticationProviders,
@@ -15,6 +19,7 @@ export default async function SignInPage({
   return (
     <SignIn
       signUpEnabled={signUpEnabled}
+      emailAndPasswordEnabled={emailAndPasswordEnabled}
       socialAuthenticationProviders={enabledProviders}
       callbackUrl={callbackUrl}
     />

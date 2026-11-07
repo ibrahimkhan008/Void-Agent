@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   getProjectAccess: vi.fn(),
   getProjectCollectionSourceOwnerIds: vi.fn(),
+  getTeamRole: vi.fn(),
   transaction: vi.fn(),
   select: vi.fn(),
   txSelect: vi.fn(),
@@ -23,6 +24,12 @@ const mocks = vi.hoisted(() => ({
   insertBatchConflict: vi.fn(),
   checkApiRateLimit: vi.fn(),
   judgeProjectBrainConflictCandidates: vi.fn(),
+  judgeProjectBrainConflictCandidatesWithUsage: vi.fn(),
+  getTeamMemberBudgetsEnabled: vi.fn(),
+  getProjectBrainStatusModel: vi.fn(),
+  reserveTeamBudgetForAiRequest: vi.fn(),
+  settleTeamBudgetForAiRequest: vi.fn(),
+  TeamBudgetExceededError: class TeamBudgetExceededError extends Error {},
   historyFactPredicates: [] as unknown[],
   decisionPredicates: [] as unknown[],
 }));
@@ -31,6 +38,7 @@ vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/projects/access", () => ({
   getProjectAccess: mocks.getProjectAccess,
   getProjectCollectionSourceOwnerIds: mocks.getProjectCollectionSourceOwnerIds,
+  getTeamRole: mocks.getTeamRole,
   mayEditProject: (role: string) => role === "owner" || role === "editor",
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
@@ -43,6 +51,25 @@ vi.mock("lib/db/pg/db.pg", () => ({
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
 }));
+vi.mock("lib/ai/model-pricing.server", () => ({
+  getTeamMemberBudgetsEnabled: mocks.getTeamMemberBudgetsEnabled,
+}));
+vi.mock("lib/ai/team-member-ai-budget", () => ({
+  TeamBudgetAuthorizationError: class TeamBudgetAuthorizationError extends Error {},
+  TeamBudgetExceededError: mocks.TeamBudgetExceededError,
+  TeamBudgetPolicyError: class TeamBudgetPolicyError extends Error {},
+}));
+vi.mock("lib/ai/team-member-ai-budget-gate", () => ({
+  TeamBudgetCurrencyMismatchError: class TeamBudgetCurrencyMismatchError extends Error {},
+  TeamBudgetModelUnpricedError: class TeamBudgetModelUnpricedError extends Error {},
+}));
+vi.mock("lib/ai/team-member-ai-budget-runtime", () => ({
+  reserveTeamBudgetForAiRequest: mocks.reserveTeamBudgetForAiRequest,
+  settleTeamBudgetForAiRequest: mocks.settleTeamBudgetForAiRequest,
+}));
+vi.mock("lib/projects/project-brain-status", () => ({
+  getProjectBrainStatusModel: mocks.getProjectBrainStatusModel,
+}));
 vi.mock("lib/projects/brain-contradictions", async (importOriginal) => {
   const original =
     await importOriginal<typeof import("lib/projects/brain-contradictions")>();
@@ -50,6 +77,8 @@ vi.mock("lib/projects/brain-contradictions", async (importOriginal) => {
     ...original,
     judgeProjectBrainConflictCandidates:
       mocks.judgeProjectBrainConflictCandidates,
+    judgeProjectBrainConflictCandidatesWithUsage:
+      mocks.judgeProjectBrainConflictCandidatesWithUsage,
   };
 });
 
@@ -81,11 +110,28 @@ beforeEach(() => {
     project: {
       id: projectId,
       collectionIds: ["00000000-0000-4000-8000-000000000004"],
+      teamId: null,
     },
     role: "editor",
   });
   mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue(["member-1"]);
+  mocks.getTeamRole.mockResolvedValue("editor");
   mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
+  mocks.getTeamMemberBudgetsEnabled.mockResolvedValue(false);
+  mocks.getProjectBrainStatusModel.mockResolvedValue({
+    provider: "test-provider",
+    model: "Test Model",
+  });
+  mocks.reserveTeamBudgetForAiRequest.mockResolvedValue({
+    reservationId: "reservation-1",
+    estimateMicros: 100,
+    price: {
+      currency: "USD",
+      inputMicrosPerMillionTokens: 1,
+      outputMicrosPerMillionTokens: 1,
+    },
+  });
+  mocks.settleTeamBudgetForAiRequest.mockResolvedValue(undefined);
   configureFactRows([
     { id: firstId, subject: "Release", predicate: "status", object: "ready" },
     {
@@ -202,6 +248,89 @@ describe("POST project brain conflict scan", () => {
       }),
     ]);
     expect(mocks.insertBatchConflict).toHaveBeenCalledOnce();
+  });
+
+  it("reserves and settles team-member usage on the configured project model", async () => {
+    mocks.getProjectAccess.mockResolvedValueOnce({
+      project: {
+        id: projectId,
+        teamId: "team-1",
+        collectionIds: ["00000000-0000-4000-8000-000000000004"],
+      },
+      role: "editor",
+    });
+    mocks.getTeamMemberBudgetsEnabled.mockResolvedValueOnce(true);
+    const usage = { inputTokens: 321, outputTokens: 45 };
+    mocks.select
+      .mockReturnValueOnce(query(facts))
+      .mockReturnValueOnce(query([]));
+    mocks.judgeProjectBrainConflictCandidatesWithUsage.mockResolvedValueOnce({
+      judgments: [
+        {
+          candidate: {
+            first: facts[0],
+            second: facts[1],
+            pageId: "00000000-0000-4000-8000-000000000020",
+          },
+          verdict: "contradiction",
+          explanation: "The statuses conflict.",
+        },
+      ],
+      usage,
+    });
+
+    const response = await POST(request(), {
+      params: Promise.resolve({ id: projectId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.reserveTeamBudgetForAiRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: "team-1",
+        userId: "member-1",
+        model: { provider: "test-provider", model: "Test Model" },
+        promptCharacters: expect.any(Number),
+        idempotencyScope: `project-brain-conflicts:${projectId}`,
+      }),
+    );
+    expect(
+      mocks.judgeProjectBrainConflictCandidatesWithUsage,
+    ).toHaveBeenCalledWith(expect.any(Array), {
+      model: { provider: "test-provider", model: "Test Model" },
+    });
+    expect(mocks.judgeProjectBrainConflictCandidates).not.toHaveBeenCalled();
+    expect(mocks.settleTeamBudgetForAiRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "reservation-1" }),
+      { usage },
+    );
+  });
+
+  it("blocks a team inference when its member budget cannot be reserved", async () => {
+    mocks.getProjectAccess.mockResolvedValueOnce({
+      project: {
+        id: projectId,
+        teamId: "team-1",
+        collectionIds: ["00000000-0000-4000-8000-000000000004"],
+      },
+      role: "editor",
+    });
+    mocks.getTeamMemberBudgetsEnabled.mockResolvedValueOnce(true);
+    mocks.select
+      .mockReturnValueOnce(query(facts))
+      .mockReturnValueOnce(query([]));
+    mocks.reserveTeamBudgetForAiRequest.mockRejectedValueOnce(
+      new mocks.TeamBudgetExceededError("Budget exhausted"),
+    );
+
+    const response = await POST(request(), {
+      params: Promise.resolve({ id: projectId }),
+    });
+
+    expect(response.status).toBe(402);
+    expect(mocks.judgeProjectBrainConflictCandidates).not.toHaveBeenCalled();
+    expect(
+      mocks.judgeProjectBrainConflictCandidatesWithUsage,
+    ).not.toHaveBeenCalled();
   });
 
   it("rejects viewers and cross-origin scans before querying facts", async () => {

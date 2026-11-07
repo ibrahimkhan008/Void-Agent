@@ -14,6 +14,7 @@ import { ChatModel } from "app-types/chat";
 import { MCPToolInfo } from "app-types/mcp";
 import { callMcpToolViaDesktop, isDesktopClient, listMcpToolsViaDesktop } from "lib/ai/mcp/desktop-bridge";
 import { isMaybeStdioConfig } from "lib/ai/mcp/is-mcp-config";
+import { shouldUseDesktopMcpBridge } from "lib/ai/mcp/desktop-bridge";
 import { requestVoiceMcpApproval } from "lib/ai/speech/mcp-voice-approval";
 import { sortProvidersFlareFirst } from "lib/ai/sort-providers";
 import { isNull, isString, safeJSONParse } from "lib/utils";
@@ -402,8 +403,8 @@ export default function Page() {
 
   const { data: client, isLoading } = useSWR(`/mcp/${id}`, async () => {
     const serverInfo = await selectMcpClientAction(id as string);
-    if (serverInfo.config && isMaybeStdioConfig(serverInfo.config)) {
-      return { ...serverInfo, toolInfo: isDesktopClient() ? await listMcpToolsViaDesktop(serverInfo.config) : [] };
+    if (serverInfo.config && shouldUseDesktopMcpBridge(serverInfo.config)) {
+      return { ...serverInfo, toolInfo: await listMcpToolsViaDesktop(serverInfo.config) };
     }
     return serverInfo;
   });
@@ -458,7 +459,7 @@ export default function Page() {
 
     setIsCallLoading(true);
     try {
-      const isLocalDesktop = Boolean(client?.config && isMaybeStdioConfig(client.config) && isDesktopClient());
+      const isLocalDesktop = Boolean(client?.config && shouldUseDesktopMcpBridge(client.config));
       let result;
       if (isLocalDesktop && client?.config) {
         result = await callMcpToolViaDesktop(client.config, selectedTool.name, parsedInput.value as Record<string, unknown>);
@@ -541,7 +542,7 @@ export default function Page() {
 
       {client?.config && isMaybeStdioConfig(client.config) && !isDesktopClient() && <Alert className="mb-3"><AlertTitle>Local MCP server</AlertTitle><AlertDescription>This server runs on your computer. Open this page in the Void-Agent desktop app to test its read-only tools.</AlertDescription></Alert>}
 
-      {client?.config && isMaybeStdioConfig(client.config) && isDesktopClient() && (
+      {client?.config && shouldUseDesktopMcpBridge(client.config) && isDesktopClient() && (
         <div className="flex justify-end">
           <McpAuditHistory />
         </div>

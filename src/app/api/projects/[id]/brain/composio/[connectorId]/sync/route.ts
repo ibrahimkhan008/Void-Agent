@@ -7,6 +7,11 @@ import {
   listComposioAccountsForUser,
   listComposioReadActions,
 } from "lib/ai/composio";
+import {
+  TeamBudgetAuthorizationError,
+  TeamBudgetExceededError,
+  TeamBudgetPolicyError,
+} from "lib/ai/team-member-ai-budget";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
@@ -204,12 +209,27 @@ export async function POST(
     const catalog = await listComposioReadActions(connector.toolkitSlug);
     let sourceText: string;
     if (parsed.data.mode === "gather") {
+      const currentAccess = await getProjectAccess(projectId, session.user.id);
+      if (
+        !currentAccess ||
+        !mayEditProject(currentAccess.role) ||
+        !currentAccess.project.collectionIds.includes(connector.collectionId)
+      ) {
+        throw new TeamBudgetAuthorizationError();
+      }
+      const currentOwnerIds = await getProjectCollectionOwnerIds(currentAccess);
+      if (!currentOwnerIds.includes(connector.credentialOwnerUserId)) {
+        throw new TeamBudgetAuthorizationError();
+      }
       sourceText = await gatherComposioProjectSource({
         userId: session.user.id,
+        teamId: currentAccess.project.teamId,
+        role: currentAccess.role,
+        idempotencyScope: `project-brain-composio-gather:${createdRun.id}`,
         connectedAccountId: account.id,
         allowedActionSlugs: connector.readActionSlugs,
         catalog,
-        project: access.project,
+        project: currentAccess.project,
       });
     } else {
       const results: string[] = [];
@@ -393,13 +413,22 @@ export async function POST(
       { status: persisted.reused ? 200 : 201 },
     );
   } catch (error) {
+    const isBudgetDenial = error instanceof TeamBudgetExceededError;
+    const isBudgetUnavailable = error instanceof TeamBudgetPolicyError;
+    const isNoLongerAuthorized = error instanceof TeamBudgetAuthorizationError;
     const message =
       error instanceof Error &&
       /Action is not approved|permissions or arguments changed|returned no usable data/.test(
         error.message,
       )
         ? error.message
-        : "Composio source sync failed. Check the connection and try again.";
+        : isBudgetDenial
+          ? "This team member's AI allowance has been reached."
+          : isBudgetUnavailable
+            ? "Team AI budget is unavailable; no source sync was performed."
+            : isNoLongerAuthorized
+              ? "Project access changed; no source sync was performed."
+              : "Composio source sync failed. Check the connection and try again.";
     await pgDb
       .update(ProjectBrainComposioSyncRunTable)
       .set({ status: "failed", errorMessage: message, updatedAt: new Date() })
@@ -410,7 +439,15 @@ export async function POST(
       .where(eq(ProjectBrainComposioConnectorTable.id, connectorId));
     return Response.json(
       { error: message, runId: createdRun.id },
-      { status: 502 },
+      {
+        status: isBudgetDenial
+          ? 429
+          : isNoLongerAuthorized
+            ? 403
+            : isBudgetUnavailable
+              ? 503
+              : 502,
+      },
     );
   }
 }

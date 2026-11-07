@@ -1,15 +1,16 @@
 import { useCopy } from "@/hooks/use-copy";
 import { VercelAIWorkflowToolStreamingResult } from "app-types/workflow";
 import equal from "lib/equal";
+import { cn } from "lib/utils";
 import { AlertTriangleIcon, Check, Copy, Loader2, XIcon } from "lucide-react";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Alert, AlertDescription, AlertTitle } from "ui/alert";
 import { Button } from "ui/button";
 import JsonView from "ui/json-view";
-import { NodeResultPopup } from "../workflow/node-result-popup";
-import { cn } from "lib/utils";
-import { NodeIcon } from "../workflow/node-icon";
 import { TextShimmer } from "ui/text-shimmer";
+import { NodeIcon } from "../workflow/node-icon";
+import { NodeResultPopup } from "../workflow/node-result-popup";
+import { extractWorkflowVideoMedia } from "./workflow-video-media";
 
 interface WorkflowInvocationProps {
   result: VercelAIWorkflowToolStreamingResult;
@@ -18,6 +19,10 @@ interface WorkflowInvocationProps {
 function PureWorkflowInvocation({ result }: WorkflowInvocationProps) {
   const { copied, copy } = useCopy();
   const savedResult = useRef<VercelAIWorkflowToolStreamingResult>(result);
+  const videoMedia = useMemo(
+    () => extractWorkflowVideoMedia(result.result),
+    [result.result],
+  );
   const output = useMemo(() => {
     if (result.status == "running") return null;
     if (result.status == "fail")
@@ -29,6 +34,48 @@ function PureWorkflowInvocation({ result }: WorkflowInvocationProps) {
         </Alert>
       );
     if (!result.result) return null;
+
+    if (videoMedia.length > 0) {
+      return (
+        <div className="w-full space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {videoMedia.map((media) => (
+              <video
+                key={media.url}
+                className="max-h-[480px] w-full rounded-lg border bg-black"
+                controls
+                preload="metadata"
+                playsInline
+                poster={media.poster}
+                aria-label="Workflow generated video"
+                src={media.url}
+              />
+            ))}
+          </div>
+          <div className="w-full rounded-lg border bg-card p-4 text-xs text-muted-foreground">
+            <div className="flex items-center">
+              <h5 className="select-none font-medium">Raw Response Data</h5>
+              <div className="flex-1" />
+              {copied ? (
+                <Check className="size-3" />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-3 text-muted-foreground"
+                  onClick={() => copy(JSON.stringify(result.result))}
+                >
+                  <Copy className="size-3" />
+                </Button>
+              )}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto p-2">
+              <JsonView data={result.result} />
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="w-full bg-card p-4 border text-xs rounded-lg text-muted-foreground">
@@ -55,7 +102,7 @@ function PureWorkflowInvocation({ result }: WorkflowInvocationProps) {
         </div>
       </div>
     );
-  }, [result.status, result.error, result.result, copied]);
+  }, [result.status, result.error, result.result, copied, videoMedia]);
   useEffect(() => {
     if (result.status == "running") {
       savedResult.current = result;

@@ -2,7 +2,7 @@
 
 import { VoiceCaptureSummaryPanel } from "@/components/voice-capture-summary-panel";
 import { AudioLines, Copy, History, Loader2, Send, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
 
@@ -33,6 +33,13 @@ type DeviceSession = {
   threadId: string | null;
   messageId: string | null;
 };
+type SessionSegment = {
+  eventId: string;
+  sequenceNumber: number;
+  text: string;
+  language: string | null;
+  createdAt: string;
+};
 
 export function VoiceDevicesDashboard() {
   const [devices, setDevices] = useState<VoiceDevice[]>([]);
@@ -56,6 +63,18 @@ export function VoiceDevicesDashboard() {
     >
   >({});
   const [historyOpen, setHistoryOpen] = useState<string | null>(null);
+  const [segmentDetails, setSegmentDetails] = useState<
+    Record<
+      string,
+      {
+        items: SessionSegment[];
+        truncated: boolean;
+        error?: string;
+        loading?: boolean;
+      }
+    >
+  >({});
+  const [segmentsOpen, setSegmentsOpen] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/voice/devices", { cache: "no-store" });
@@ -222,6 +241,52 @@ export function VoiceDevicesDashboard() {
     window.location.assign(
       `/chat/${encodeURIComponent(item.threadId)}?processVoice=${encodeURIComponent(item.id)}`,
     );
+  };
+
+  const toggleSegments = async (deviceId: string, sessionId: string) => {
+    const key = `${deviceId}:${sessionId}`;
+    if (segmentsOpen[key]) {
+      setSegmentsOpen((current) => ({ ...current, [key]: false }));
+      return;
+    }
+    setSegmentsOpen((current) => ({ ...current, [key]: true }));
+    if (segmentDetails[key]) return;
+    setSegmentDetails((current) => ({
+      ...current,
+      [key]: { items: [], truncated: false, loading: true },
+    }));
+    try {
+      const response = await fetch(
+        `/api/voice/devices/${encodeURIComponent(deviceId)}/sessions/${encodeURIComponent(sessionId)}/segments`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => null)) as {
+        items?: SessionSegment[];
+        truncated?: boolean;
+        error?: string;
+      } | null;
+      if (!response.ok || !Array.isArray(result?.items))
+        throw new Error(result?.error ?? "Could not load transcript segments.");
+      setSegmentDetails((current) => ({
+        ...current,
+        [key]: {
+          items: result.items ?? [],
+          truncated: Boolean(result.truncated),
+        },
+      }));
+    } catch (error) {
+      setSegmentDetails((current) => ({
+        ...current,
+        [key]: {
+          items: [],
+          truncated: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not load transcript segments.",
+        },
+      }));
+    }
   };
 
   return (
@@ -399,6 +464,79 @@ export function VoiceDevicesDashboard() {
                               {item.transcript ||
                                 "No transcript text recorded."}
                             </p>
+                            <Button
+                              className="mt-2"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void toggleSegments(device.id, item.sessionId)
+                              }
+                            >
+                              {segmentsOpen[`${device.id}:${item.sessionId}`]
+                                ? "Hide segments"
+                                : "Show segments"}
+                            </Button>
+                            {segmentsOpen[`${device.id}:${item.sessionId}`] && (
+                              <div
+                                className="mt-2 space-y-2"
+                                aria-live="polite"
+                              >
+                                {segmentDetails[
+                                  `${device.id}:${item.sessionId}`
+                                ]?.loading ? (
+                                  <p
+                                    role="status"
+                                    className="text-xs text-muted-foreground"
+                                  >
+                                    Loading transcript segments…
+                                  </p>
+                                ) : segmentDetails[
+                                    `${device.id}:${item.sessionId}`
+                                  ]?.error ? (
+                                  <p
+                                    role="alert"
+                                    className="text-xs text-destructive"
+                                  >
+                                    {
+                                      segmentDetails[
+                                        `${device.id}:${item.sessionId}`
+                                      ]?.error
+                                    }
+                                  </p>
+                                ) : (
+                                  segmentDetails[
+                                    `${device.id}:${item.sessionId}`
+                                  ]?.items.map((segment) => (
+                                    <div
+                                      key={segment.eventId}
+                                      className="rounded border bg-background p-2"
+                                    >
+                                      <p className="whitespace-pre-wrap text-sm">
+                                        {segment.text}
+                                      </p>
+                                      <p className="mt-1 text-xs text-muted-foreground">
+                                        Segment {segment.sequenceNumber + 1}
+                                        {segment.language
+                                          ? ` · ${segment.language}`
+                                          : ""}{" "}
+                                        ·{" "}
+                                        {new Date(
+                                          segment.createdAt,
+                                        ).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  ))
+                                )}
+                                {segmentDetails[
+                                  `${device.id}:${item.sessionId}`
+                                ]?.truncated && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Transcript display is capped at 24,000
+                                    characters.
+                                  </p>
+                                )}
+                              </div>
+                            )}
                             {item.finalizedAt && item.transcript && (
                               <VoiceCaptureSummaryPanel
                                 deviceId={device.id}

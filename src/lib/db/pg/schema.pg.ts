@@ -50,6 +50,8 @@ export const ChatThreadTable = pgTable("chat_thread", {
   // and non-null as team-owned (and additionally checks team_member
   // for the calling user).
   orgId: uuid("org_id"),
+  routingModelProvider: text("routing_model_provider"),
+  routingModel: text("routing_model"),
   projectId: uuid("project_id").references(() => ProjectTable.id, {
     onDelete: "set null",
   }),
@@ -226,6 +228,34 @@ export const UserTable = pgTable("user", {
   createdIp: text("created_ip"),
   lastIp: text("last_ip"),
 });
+
+/** User-owned OpenAI-compatible providers. Credentials remain encrypted at rest. */
+export const UserModelProviderTable = pgTable(
+  "user_model_provider",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 80 }).notNull(),
+    baseUrl: text("base_url").notNull(),
+    encryptedApiKey: text("encrypted_api_key").notNull().default(""),
+    modelIds: jsonb("model_ids").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("user_model_provider_owner_id_unique").on(
+      table.userId,
+      table.id,
+    ),
+    index("user_model_provider_owner_idx").on(table.userId, table.createdAt),
+  ],
+);
 
 export const N8nUserTable = pgTable("n8n_user", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -2254,6 +2284,77 @@ export const TeamMemberAiReservationTable = pgTable(
   ],
 );
 
+/** Team-scoped deterministic model routing policy over enabled runtime models. */
+export type TeamModelRouteTask =
+  | "general_chat"
+  | "coding"
+  | "web_development"
+  | "web_search"
+  | "document_extraction"
+  | "tool_calling"
+  | "writing"
+  | "reasoning"
+  | "vision";
+
+export type TeamModelRouteProfile = {
+  provider: string;
+  model: string;
+  priority: number;
+  taskScores: Partial<Record<TeamModelRouteTask, number>>;
+};
+
+export const TeamModelRoutingPolicyTable = pgTable(
+  "team_model_routing_policy",
+  {
+    teamId: uuid("team_id")
+      .primaryKey()
+      .references(() => TeamTable.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    profiles: jsonb("profiles")
+      .$type<TeamModelRouteProfile[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    updatedByUserId: uuid("updated_by_user_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("team_model_routing_policy_enabled_idx").on(table.enabled)],
+);
+
+/** Auditable decision record; contains no prompt, tool arguments, or provider secrets. */
+export const TeamModelRouteAuditTable = pgTable(
+  "team_model_route_audit",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => TeamTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id").references(() => ChatThreadTable.id, {
+      onDelete: "set null",
+    }),
+    taskKey: text("task_key").notNull(),
+    selectedProvider: text("selected_provider").notNull(),
+    selectedModel: text("selected_model").notNull(),
+    reasonCode: text("reason_code").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("team_model_route_audit_team_created_idx").on(
+      table.teamId,
+      table.createdAt,
+    ),
+    index("team_model_route_audit_thread_idx").on(table.threadId),
+  ],
+);
+
 // Project workspace adapted to Void-Agent's Team/TeamMember model. A null
 // teamId is personal; teamId makes access follow current team membership.
 export const ProjectTable = pgTable(
@@ -3047,6 +3148,58 @@ export const ProjectBrainTodoTable = pgTable(
       table.status,
     ),
     index("project_brain_todo_source_idx").on(table.sourceItemId),
+  ],
+);
+
+/** Source-grounded project timeline entries remain proposals until reviewed. */
+export const ProjectBrainEventTable = pgTable(
+  "project_brain_event",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
+    sourceVersionId: uuid("source_version_id").notNull(),
+    sourceItemId: uuid("source_item_id")
+      .notNull()
+      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+    summary: varchar("summary", { length: 240 }).notNull(),
+    detail: varchar("detail", { length: 1200 }),
+    evidence: varchar("evidence", { length: 1200 }).notNull(),
+    dedupeKey: varchar("dedupe_key", { length: 64 }).notNull(),
+    eventDate: date("event_date"),
+    status: text("status").notNull().default("proposed"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    reviewedAt: timestamp("reviewed_at"),
+  },
+  (table) => [
+    foreignKey({
+      name: "project_brain_event_source_revision_fk",
+      columns: [table.sourceVersionId, table.projectId, table.sourceItemId],
+      foreignColumns: [
+        ProjectBrainSourceVersionTable.id,
+        ProjectBrainSourceVersionTable.projectId,
+        ProjectBrainSourceVersionTable.sourceItemId,
+      ],
+    }).onDelete("cascade"),
+    unique("project_brain_event_run_dedupe_unique").on(
+      table.runId,
+      table.dedupeKey,
+    ),
+    index("project_brain_event_project_date_idx").on(
+      table.projectId,
+      table.eventDate,
+    ),
+    index("project_brain_event_project_status_idx").on(
+      table.projectId,
+      table.status,
+    ),
+    index("project_brain_event_source_idx").on(table.sourceItemId),
   ],
 );
 

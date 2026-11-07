@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getStreamContext: vi.fn(),
   getActiveStream: vi.fn(),
   clearActiveStream: vi.fn(),
+  rateLimit: vi.fn(),
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/db/repository", () => ({
@@ -15,6 +16,9 @@ vi.mock("lib/ai/chat-stream-context", () => ({
   getActiveStream: mocks.getActiveStream,
   clearActiveStream: mocks.clearActiveStream,
 }));
+vi.mock("lib/rate-limit/api-rate-limit", () => ({
+  checkApiRateLimit: mocks.rateLimit,
+}));
 import { GET, HEAD } from "./route";
 const threadId = "00000000-0000-4000-8000-000000000001";
 const params = { params: Promise.resolve({ id: threadId }) };
@@ -24,6 +28,7 @@ beforeEach(() => {
   mocks.getSession.mockResolvedValue({ user: { id: "user-1" } });
   mocks.selectThread.mockResolvedValue({ id: threadId, userId: "user-1" });
   mocks.clearActiveStream.mockResolvedValue(undefined);
+  mocks.rateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0 });
   mocks.getStreamContext.mockReturnValue({
     resumeExistingStream: vi.fn().mockResolvedValue(null),
   });
@@ -40,6 +45,22 @@ describe("chat resumable stream endpoint", () => {
     expect((await GET(new Request("https://void.test"), params)).status).toBe(
       404,
     );
+    expect(mocks.getActiveStream).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits reconnect probes before loading the thread and gives a retry delay", async () => {
+    mocks.rateLimit.mockResolvedValue({ allowed: false, retryAfterMs: 12_500 });
+    const response = await GET(new Request("https://void.test"), params);
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("13");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(mocks.rateLimit).toHaveBeenCalledWith({
+      kind: "chat-stream-resume",
+      id: "user-1",
+      limit: 120,
+      windowMs: 60_000,
+    });
+    expect(mocks.selectThread).not.toHaveBeenCalled();
     expect(mocks.getActiveStream).not.toHaveBeenCalled();
   });
 

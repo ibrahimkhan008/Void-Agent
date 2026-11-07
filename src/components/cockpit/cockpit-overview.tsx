@@ -4,6 +4,8 @@ import {
   COCKPIT_PROVIDERS,
   type CockpitConnectionState,
   type CockpitConnectionStatus,
+  type CockpitOperationalAlert,
+  buildCockpitOperationalAlerts,
   classifyCockpitConnection,
   parseCockpitConnectionStatus,
 } from "lib/cockpit/overview";
@@ -40,6 +42,10 @@ type ProviderResult = {
   error: boolean;
 };
 type ProviderResults = Record<string, ProviderResult>;
+type OperationalFeed = {
+  alerts: CockpitOperationalAlert[];
+  unavailable: boolean;
+};
 
 const stateLabels: Record<CockpitConnectionState, string> = {
   ready: "Connected and verified",
@@ -76,6 +82,10 @@ export function CockpitOverview() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamChoice[]>([]);
   const [results, setResults] = useState<ProviderResults>({});
+  const [operationalFeed, setOperationalFeed] = useState<OperationalFeed>({
+    alerts: [],
+    unavailable: false,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const requestNumber = useRef(0);
@@ -99,24 +109,61 @@ export function CockpitOverview() {
     setLoading(true);
     setRefreshing(true);
     setResults({});
+    setOperationalFeed({ alerts: [], unavailable: false });
     const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-    const entries = await Promise.all(
-      COCKPIT_PROVIDERS.map(async (provider) => {
-        try {
-          const response = await fetch(`${provider.statusEndpoint}${query}`, {
-            cache: "no-store",
-          });
-          if (!response.ok) throw new Error("status unavailable");
-          const body = parseCockpitConnectionStatus(await response.json());
-          if (!body) throw new Error("invalid status response");
-          return [provider.id, { status: body, error: false }] as const;
-        } catch {
-          return [provider.id, { status: null, error: true }] as const;
-        }
-      }),
-    );
+    const [entries, operational] = await Promise.all([
+      Promise.all(
+        COCKPIT_PROVIDERS.map(async (provider) => {
+          try {
+            const response = await fetch(`${provider.statusEndpoint}${query}`, {
+              cache: "no-store",
+            });
+            if (!response.ok) throw new Error("status unavailable");
+            const body = parseCockpitConnectionStatus(await response.json());
+            if (!body) throw new Error("invalid status response");
+            return [provider.id, { status: body, error: false }] as const;
+          } catch {
+            return [provider.id, { status: null, error: true }] as const;
+          }
+        }),
+      ),
+      Promise.all(
+        [
+          "/api/cockpit/vercel/deployments",
+          "/api/cockpit/superlog/summary",
+        ].map(async (endpoint) => {
+          try {
+            const response = await fetch(`${endpoint}${query}`, {
+              cache: "no-store",
+            });
+            if (!response.ok) throw new Error("operational data unavailable");
+            const value: unknown = await response.json();
+            const collection =
+              endpoint === "/api/cockpit/vercel/deployments"
+                ? "projects"
+                : "incidents";
+            if (
+              !value ||
+              typeof value !== "object" ||
+              !Array.isArray((value as Record<string, unknown>)[collection])
+            )
+              throw new Error("invalid operational data");
+            return { ok: true as const, value };
+          } catch {
+            return { ok: false as const, value: null };
+          }
+        }),
+      ),
+    ]);
     if (currentRequest !== requestNumber.current) return;
     setResults(Object.fromEntries(entries));
+    setOperationalFeed({
+      alerts: buildCockpitOperationalAlerts(
+        operational[0]?.value,
+        operational[1]?.value,
+      ),
+      unavailable: operational.some((result) => !result.ok),
+    });
     setLoading(false);
     setRefreshing(false);
   }, [teamId]);
@@ -235,6 +282,68 @@ export function CockpitOverview() {
       </section>
 
       <FinanceOverview teamId={teamId} />
+
+      <section aria-label="Operational alerts" className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Operational alerts
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Current production deployment failures and open incidents.
+          </p>
+        </div>
+        {operationalFeed.unavailable && (
+          <p
+            role="status"
+            className="rounded-md border p-3 text-sm text-muted-foreground"
+          >
+            Latest deployment or incident data could not be loaded. Check the
+            Vercel and Superlog dashboards.
+          </p>
+        )}
+        {!operationalFeed.unavailable &&
+          operationalFeed.alerts.length === 0 &&
+          !loading && (
+            <p className="rounded-md border p-3 text-sm text-muted-foreground">
+              No deployment failures or open incidents were reported.
+            </p>
+          )}
+        {operationalFeed.alerts.length > 0 && (
+          <ul className="space-y-2">
+            {operationalFeed.alerts.map((alert) => (
+              <li
+                key={alert.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-md border p-3"
+              >
+                <div>
+                  <p className="font-medium">{alert.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {alert.detail}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  {alert.occurredAt &&
+                    Number.isFinite(Date.parse(alert.occurredAt)) && (
+                      <time dateTime={alert.occurredAt}>
+                        {new Date(alert.occurredAt).toLocaleString()}
+                      </time>
+                    )}
+                  <Link
+                    className="underline underline-offset-4"
+                    href={
+                      alert.provider === "vercel"
+                        ? "/cockpit/vercel"
+                        : "/cockpit/superlog"
+                    }
+                  >
+                    Open {alert.provider === "vercel" ? "Vercel" : "Superlog"}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <p className="text-xs text-muted-foreground">
         Credentials remain encrypted server-side and are never returned to the

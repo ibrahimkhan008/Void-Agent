@@ -23,10 +23,12 @@ import { MicrosoftIcon } from "ui/microsoft-icon";
 
 export default function SignIn({
   signUpEnabled,
+  emailAndPasswordEnabled,
   socialAuthenticationProviders,
   callbackUrl,
 }: {
   signUpEnabled: boolean;
+  emailAndPasswordEnabled: boolean;
   socialAuthenticationProviders: SocialAuthenticationProvider[];
   callbackUrl?: string;
 }) {
@@ -43,8 +45,15 @@ export default function SignIn({
     setDesktopAuth(Boolean(window.desktop?.auth));
     const params = new URLSearchParams(window.location.search);
     const provider = params.get("desktopProvider");
-    if (provider === "google" || provider === "github" || provider === "microsoft") {
-      void authClient.signIn.social({ provider, callbackURL: authDestination(params.get("callbackUrl")) });
+    if (
+      provider === "google" ||
+      provider === "github" ||
+      provider === "microsoft"
+    ) {
+      void authClient.signIn.social({
+        provider,
+        callbackURL: authDestination(params.get("callbackUrl")),
+      });
     }
   }, []);
 
@@ -72,8 +81,17 @@ export default function SignIn({
 
   const handleSocialSignIn = (provider: SocialAuthenticationProvider) => {
     if (window.desktop?.auth) {
-      void window.desktop.auth.startBrowserSignIn({ page: "sign-in", provider, callbackUrl: redirectTo })
-        .catch((e: unknown) => toast.error(e instanceof Error ? e.message : "Could not open browser sign-in"));
+      void window.desktop.auth
+        .startBrowserSignIn({
+          page: "sign-in",
+          provider,
+          callbackUrl: redirectTo,
+        })
+        .catch((e: unknown) =>
+          toast.error(
+            e instanceof Error ? e.message : "Could not open browser sign-in",
+          ),
+        );
       return;
     }
     // Keep the requested in-app destination; default to the original dashboard.
@@ -124,6 +142,14 @@ export default function SignIn({
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
+            {emailAndPasswordEnabled && (
+              <Link
+                href="/forgot-password"
+                className="self-end text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : t("title")}
             </Button>
@@ -131,7 +157,12 @@ export default function SignIn({
 
           {socialAuthenticationProviders.length > 0 && (
             <>
-              {desktopAuth && <p className="my-2 text-center text-sm text-muted-foreground">Social sign-in opens in your browser, then returns to Void-Agent.</p>}
+              {desktopAuth && (
+                <p className="my-2 text-center text-sm text-muted-foreground">
+                  Social sign-in opens in your browser, then returns to
+                  Void-Agent.
+                </p>
+              )}
               <div className="flex items-center gap-2 my-4">
                 <div className="flex-1 h-px bg-border" />
                 <span className="text-xs text-muted-foreground">

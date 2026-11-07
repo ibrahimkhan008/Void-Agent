@@ -116,3 +116,20 @@ export const getAccountDeactivatedEmailHtml = (name: string): string => {
     "[First Name]": name,
   });
 };
+
+/** Password reset email; the URL is generated and signed by Better Auth. */
+export const getPasswordResetEmailHtml = (name: string, resetUrl: string) => {
+  const escapeHtml = (value: string) =>
+    value.replace(
+      /[&<>"']/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[character]!,
+    );
+  return `<p>Hello ${escapeHtml(name || "there")},</p><p>We received a request to reset your Void-Agent password.</p><p><a href="${escapeHtml(resetUrl)}">Reset password</a></p><p>If you did not request this, you can ignore this email. The link expires shortly and can only be used once.</p>`;
+};

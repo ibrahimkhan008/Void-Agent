@@ -12,6 +12,7 @@ import Link from "next/link";
 
 import { Skeleton } from "ui/skeleton";
 
+import { ComposioAppConnections } from "@/components/composio-app-connections";
 import { useMcpList } from "@/hooks/queries/use-mcp-list";
 import { BasicUser } from "app-types/user";
 import { cn } from "lib/utils";
@@ -105,6 +106,7 @@ export default function MCPDashboard({ message, user }: MCPDashboardProps) {
     <>
       <ScrollArea className="h-full w-full z-40 ">
         <div className="pt-8 flex-1 relative flex flex-col gap-4 px-8 max-w-3xl h-full mx-auto pb-8">
+          <ComposioAppConnections />
           <div className={cn("flex items-center  pb-8")}>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               {canCreate ? t("mcpServers") : t("availableMcpServers")}

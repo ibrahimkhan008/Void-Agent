@@ -102,6 +102,36 @@ describe("desktop MCP IPC config consent", () => {
     });
   });
 
+  it("requires exact-origin remote consent and binds renewed consent to credentials", async () => {
+    const { event, listTools, callTool } = setup();
+    const remote = {
+      url: "https://mcp.example/rpc?tenant=one",
+      headers: { Authorization: "Bearer highly-secret" },
+    };
+    await listTools(event, { config: remote });
+    expect(mocks.showMessageBox.mock.calls[0]?.[1]).toMatchObject({
+      title: "Allow a remote MCP server?",
+      detail: expect.stringContaining("HTTPS origin: https://mcp.example"),
+    });
+    const detail = mocks.showMessageBox.mock.calls[0]?.[1].detail as string;
+    expect(detail).toContain("Authorization");
+    expect(detail).not.toContain("highly-secret");
+
+    const changedCredentials = {
+      ...remote,
+      headers: { Authorization: "Bearer rotated-secret" },
+    };
+    await callTool(event, { config: changedCredentials, ...call });
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(3);
+    expect(mocks.showMessageBox.mock.calls[1]?.[1]).toMatchObject({
+      title: "Allow a remote MCP server?",
+    });
+    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(
+      changedCredentials,
+      call,
+    );
+  });
+
   it("shows the complete exact arguments even when they exceed the former preview limit", async () => {
     const { event, callTool } = setup();
     const testConfig = { ...config, command: "node-long-argument-test" };

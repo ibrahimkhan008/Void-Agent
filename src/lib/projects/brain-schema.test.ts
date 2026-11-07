@@ -8,6 +8,7 @@ import {
   linkProjectBrainFactsToPages,
   normalizeProjectBrainLabel,
   projectBrainExtractionToFacts,
+  projectBrainExtractionToTimeline,
   projectBrainExtractionToTodos,
   projectBrainSourceFingerprint,
 } from "./brain-schema";
@@ -195,6 +196,55 @@ describe("project brain extraction contract", () => {
         dueDate: "2026-11-13",
       }),
     ]);
+  });
+
+  it("keeps only bounded, deduplicated timeline proposals with exact source evidence", () => {
+    const extraction = ProjectBrainExtractionSchema.parse({
+      timeline: [
+        {
+          summary: "Launch review",
+          detail: "The team reviewed the release plan.",
+          evidence: "The team reviewed the release plan on 2026-10-20.",
+          eventDate: "2026-10-20",
+        },
+        {
+          summary: "Launch review",
+          detail: "The team reviewed the release plan.",
+          evidence: "The team reviewed the release plan on 2026-10-20.",
+          eventDate: "2026-10-20",
+        },
+        {
+          summary: "Invented meeting",
+          evidence: "This meeting happened, but it is not in the source.",
+          eventDate: "2026-10-19",
+        },
+        {
+          summary: "Undated decision",
+          evidence: "We decided to keep the current launch scope.",
+        },
+      ],
+    });
+
+    expect(
+      projectBrainExtractionToTimeline(
+        extraction,
+        "The team reviewed the release plan on 2026-10-20. We decided to keep the current launch scope.",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        summary: "Launch review",
+        eventDate: "2026-10-20",
+      }),
+      expect.objectContaining({ summary: "Undated decision" }),
+    ]);
+    expect(
+      ProjectBrainExtractionSchema.safeParse({
+        timeline: Array(21).fill({
+          summary: "Event",
+          evidence: "Evidence",
+        }),
+      }).success,
+    ).toBe(false);
   });
 
   it("links claims to typed page IDs and leaves ambiguous labels unlinked", () => {

@@ -69,6 +69,7 @@ import {
 } from "lib/keyboard-shortcuts";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { TextShimmer } from "ui/text-shimmer";
+import { AudioAttachmentTranscription } from "./audio-attachment-transcription";
 
 import { SavedNoteCitation } from "app-types/user";
 import { forkThread as forkThreadRequest } from "lib/chat/fork-thread";
@@ -1870,6 +1871,7 @@ export const FileMessagePart = memo(
       "FILE";
     const fileUrl = part.url;
     const isOwnerUpload = Boolean(fileUrl && isOwnerScopedUploadUrl(fileUrl));
+    const isWavAudio = part.mediaType === "audio/wav" || part.mediaType === "audio/x-wav" || fileUrl?.toLowerCase().split(/[?#]/, 1)[0]?.endsWith(".wav");
     const displayUrl = isOwnerUpload
       ? `/api/storage/download?url=${encodeURIComponent(fileUrl!)}&disposition=inline`
       : fileUrl;
@@ -2024,6 +2026,9 @@ export const FileMessagePart = memo(
             </Tooltip>
           )}
         </div>
+        {isWavAudio && isOwnerUpload && fileUrl && (
+          <AudioAttachmentTranscription url={fileUrl} />
+        )}
       </div>
     );
   },
@@ -2046,6 +2051,7 @@ export function SourceUrlMessagePart({
   const isSpreadsheet = ext === "CSV" || ext === "XLSX";
   const isDocument = ["DOCX", "PDF", "PPTX", "TXT", "MD", "JSON"].includes(ext);
   const isOwnerUpload = isOwnerScopedUploadUrl(part.url);
+  const isWavAudio = ext === "WAV" || part.mediaType === "audio/wav" || part.mediaType === "audio/x-wav";
   const downloadHref = isOwnerUpload
     ? `/api/storage/download?url=${encodeURIComponent(part.url)}`
     : part.url;
@@ -2243,6 +2249,7 @@ export function SourceUrlMessagePart({
           </Button>
         </div>
       )}
+      {isWavAudio && isOwnerUpload && <AudioAttachmentTranscription url={part.url} />}
       {isDocument && isOwnerUpload && (
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogContent className="flex max-h-[85vh] max-w-[min(94vw,900px)] flex-col overflow-hidden">

@@ -69,6 +69,7 @@ describe("admin model pricing", () => {
       ),
     ).toBe(200_000);
     expect(estimateCostMicros(400, price)).toBe(8_292);
+    expect(estimateCostMicros(400, price, 10_240)).toBe(20_580);
     expect(() =>
       calculateCostMicros({ inputTokens: -1, outputTokens: 1 }, price),
     ).toThrow();

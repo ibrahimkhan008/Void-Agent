@@ -39,7 +39,10 @@ import { getCollectionAccess } from "lib/collections/access";
 import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
 import { getProjectAccess } from "lib/projects/access";
-import { isProjectCollectionScopeAllowed } from "lib/projects/policy";
+import {
+  canEditProjectRole,
+  isProjectCollectionScopeAllowed,
+} from "lib/projects/policy";
 import { getVoiceTranscriptForHandoff } from "lib/voice/handoff";
 import { convertToSavePart } from "./shared.chat";
 
@@ -151,6 +154,9 @@ export async function updateThreadProjectAction(
     ? await getProjectAccess(projectId, userId)
     : null;
   if (projectId && !projectAccess) throw new Error("Project not found");
+  if (projectAccess && !canEditProjectRole(projectAccess.role)) {
+    throw new Error("Project is read-only");
+  }
   if (!thread) return false; // The first POST persists a new thread's selection.
   await chatRepository.updateThread(threadId, {
     userId,

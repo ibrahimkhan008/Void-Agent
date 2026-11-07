@@ -36,6 +36,6 @@ describe("desktop local MCP process", () => {
         toolName: "write_file",
         params: { path: "notes.txt" },
       }),
-    ).rejects.toThrow("read-only desktop policy");
+    ).rejects.toThrow("read-only policy");
   }, 20_000);
 });

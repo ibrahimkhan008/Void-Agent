@@ -54,6 +54,7 @@ import {
   ChatModel,
 } from "app-types/chat";
 import { AnimatePresence, motion } from "framer-motion";
+import { selectLatestCompletedContextUsage } from "lib/ai/model-context-windows";
 import { getStorageManager } from "lib/browser-stroage";
 import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
@@ -101,6 +102,7 @@ type Props = {
   } | null;
   initialCollectionIds?: string[] | null;
   initialProjectId?: string | null;
+  initialTeamId?: string | null;
 };
 
 const firstTimeStorage = getStorageManager("IS_FIRST");
@@ -114,6 +116,7 @@ export default function ChatBot({
   initialInsights,
   initialCollectionIds = null,
   initialProjectId = null,
+  initialTeamId = null,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -254,6 +257,10 @@ export default function ChatBot({
   const [savingCollectionScope, setSavingCollectionScope] = useState(false);
   const { data: collectionsData } = useCollections();
   const { data: projectsData } = useProjects();
+  const activeRoutingTeamId = projectId
+    ? (projectsData?.projects.find((project) => project.id === projectId)
+        ?.teamId ?? null)
+    : initialTeamId;
 
   const changeCollectionScope = useCallback(
     async (next: string[] | null) => {
@@ -456,6 +463,10 @@ export default function ChatBot({
   // rendering catches up between chunks instead of stalling them.
   const messages = useDeferredValue(rawMessages);
   const setMessages = setRawMessages;
+  const latestContext = useMemo(
+    () => selectLatestCompletedContextUsage(messages),
+    [messages],
+  );
   useChatBackgroundAlerts({ threadId, messages, status });
 
   const loadOlderMessages = useCallback(async () => {
@@ -1016,6 +1027,9 @@ export default function ChatBot({
           <PromptInput
             input={input}
             threadId={threadId}
+            teamId={activeRoutingTeamId}
+            contextUsage={latestContext?.usage}
+            contextModel={latestContext?.model}
             sendMessage={sendMessage}
             setMessages={setMessages}
             setInput={setInput}

@@ -96,13 +96,22 @@ export const calculateCostMicros = (
 export const estimateCostMicros = (
   promptCharacters: number,
   price: ModelPrice,
+  estimatedOutputTokens = 4096,
 ): number => {
-  if (!Number.isSafeInteger(promptCharacters) || promptCharacters < 0) {
+  if (
+    !Number.isSafeInteger(promptCharacters) ||
+    promptCharacters < 0 ||
+    !Number.isSafeInteger(estimatedOutputTokens) ||
+    estimatedOutputTokens < 0
+  ) {
     throw new Error("Invalid prompt size for cost estimate");
   }
   // Keep the same conservative estimate used by the reference workflow:
-  // roughly one input token per four serialized characters plus 4096 output
+  // roughly one input token per four serialized characters plus bounded output
   // tokens. Actual provider usage replaces this estimate at stream finish.
   const inputTokens = Math.ceil(promptCharacters / 4);
-  return calculateCostMicros({ inputTokens, outputTokens: 4096 }, price);
+  return calculateCostMicros(
+    { inputTokens, outputTokens: estimatedOutputTokens },
+    price,
+  );
 };

@@ -180,16 +180,19 @@ export async function judgeBrainPageDuplicateCandidatesWithUsage(
   options: {
     timeoutMs?: number;
     model?: ChatModel;
+    onProviderStart?: () => void;
     onProviderComplete?: () => void;
   } = {},
 ): Promise<{ judgments: BrainPageDedupeJudgment[]; usage: unknown }> {
   const bounded = candidates.slice(0, MAX_JUDGED_PAIRS);
   if (!bounded.length) return { judgments: [], usage: undefined };
 
+  const model = options.model
+    ? await customModelProvider.getModelAsync(options.model)
+    : await customModelProvider.getModelWithFailureFallbackAsync();
+  options.onProviderStart?.();
   const { object, usage } = await generateObject({
-    model: options.model
-      ? await customModelProvider.getModelAsync(options.model)
-      : await customModelProvider.getModelWithFailureFallbackAsync(),
+    model,
     schema: BrainPageDedupeJudgmentSchema,
     abortSignal: AbortSignal.timeout(options.timeoutMs ?? 20_000),
     ...(options.model ? { maxRetries: 0 } : {}),

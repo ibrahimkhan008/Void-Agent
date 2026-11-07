@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   chatBackgroundAlertCopy,
+  chatBackgroundAlertHref,
   createChatBackgroundAlertDeduper,
   isChatBackgroundAlertEnabled,
   shouldSendChatBackgroundAlert,
+  shouldSendChatForegroundAlert,
 } from "./chat-background-alerts";
 
 describe("background chat alert preferences", () => {
@@ -16,6 +18,12 @@ describe("background chat alert preferences", () => {
     expect(isChatBackgroundAlertEnabled({ backgroundChatAlerts: true })).toBe(
       true,
     );
+  });
+
+  it("routes opted-in alerts to the foreground only while the tab is visible", () => {
+    expect(shouldSendChatForegroundAlert(true, false)).toBe(true);
+    expect(shouldSendChatForegroundAlert(true, true)).toBe(false);
+    expect(shouldSendChatForegroundAlert(false, false)).toBe(false);
   });
 
   it("sends only when enabled, hidden, and browser permission is granted", () => {
@@ -77,5 +85,14 @@ describe("background chat alert deduplication and copy", () => {
       body: "A chat is waiting for your review.",
     });
     expect(chatBackgroundAlertCopy("needs_input").body).not.toContain("thread");
+  });
+
+  it("keeps chat alert navigation on the app origin and encodes the thread as one path segment", () => {
+    expect(chatBackgroundAlertHref("thread/with spaces")).toBe(
+      "/chat/thread%2Fwith%20spaces",
+    );
+    expect(chatBackgroundAlertHref("//evil.example/path")).toBe(
+      "/chat/%2F%2Fevil.example%2Fpath",
+    );
   });
 });

@@ -41,6 +41,7 @@ export default async function Page({
       parentThreadId={thread.parentThreadId ?? null}
       initialCollectionIds={thread.collectionIds ?? null}
       initialProjectId={thread.projectId ?? null}
+      initialTeamId={thread.orgId ?? null}
       initialInsights={initialInsights}
     />
   );

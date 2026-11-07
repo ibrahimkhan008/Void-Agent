@@ -1,5 +1,20 @@
 import { getSession } from "auth/server";
 import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
+import { getTeamMemberBudgetsEnabled } from "lib/ai/model-pricing.server";
+import {
+  TeamBudgetAuthorizationError,
+  TeamBudgetExceededError,
+  TeamBudgetPolicyError,
+} from "lib/ai/team-member-ai-budget";
+import {
+  TeamBudgetCurrencyMismatchError,
+  TeamBudgetModelUnpricedError,
+} from "lib/ai/team-member-ai-budget-gate";
+import {
+  type TeamBudgetLease,
+  reserveTeamBudgetForAiRequest,
+  settleTeamBudgetForAiRequest,
+} from "lib/ai/team-member-ai-budget-runtime";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
@@ -11,19 +26,49 @@ import {
 import {
   getProjectAccess,
   getProjectCollectionSourceOwnerIds,
+  getTeamRole,
   mayEditProject,
 } from "lib/projects/access";
 import {
   type ProjectBrainClaim,
+  estimateProjectBrainConflictPromptCharacters,
   findProjectBrainConflictCandidates,
   judgeProjectBrainConflictCandidates,
+  judgeProjectBrainConflictCandidatesWithUsage,
 } from "lib/projects/brain-contradictions";
 import { getProjectFactConflictResolution } from "lib/projects/brain-graph";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+import { getProjectBrainStatusModel } from "lib/projects/project-brain-status";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
+
+function teamBudgetResponse(error: unknown) {
+  if (error instanceof TeamBudgetExceededError) {
+    return Response.json(
+      { code: "team-member-budget-exceeded", message: error.message },
+      { status: 402, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (error instanceof TeamBudgetAuthorizationError) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  if (
+    error instanceof TeamBudgetModelUnpricedError ||
+    error instanceof TeamBudgetCurrencyMismatchError ||
+    error instanceof TeamBudgetPolicyError
+  ) {
+    return Response.json(
+      {
+        code: "team-budget-unavailable",
+        message: "The team AI budget could not be verified for this model.",
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  return null;
+}
 
 /** Classify new current-revision cross-source conflicts without resolving them. */
 export async function POST(
@@ -77,6 +122,8 @@ export async function POST(
       { headers: { "Cache-Control": "no-store" } },
     );
 
+  let budgetLease: TeamBudgetLease | undefined;
+  let providerCallCompleted = false;
   try {
     const rows = await pgDb
       .select({
@@ -150,9 +197,57 @@ export async function POST(
           !existingPairs.has([first.id, second.id].sort().join(":")),
       )
       .slice(0, 40);
-    const judgments = candidates.length
-      ? await judgeProjectBrainConflictCandidates(candidates)
-      : [];
+    let judgments = [] as Awaited<
+      ReturnType<typeof judgeProjectBrainConflictCandidates>
+    >;
+    if (candidates.length) {
+      const teamId = access.project.teamId;
+      const billableTeamRun = Boolean(
+        teamId && (await getTeamMemberBudgetsEnabled()),
+      );
+      if (billableTeamRun && !(await getTeamRole(teamId!, session.user.id))) {
+        throw new TeamBudgetAuthorizationError();
+      }
+      const model = billableTeamRun ? await getProjectBrainStatusModel() : null;
+      if (billableTeamRun && !model) {
+        return Response.json(
+          {
+            code: "team-budget-unavailable",
+            message:
+              "No enabled, configured model is available for this team request.",
+          },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
+      if (billableTeamRun && model) {
+        budgetLease = await reserveTeamBudgetForAiRequest({
+          teamId,
+          userId: session.user.id,
+          model,
+          promptCharacters:
+            estimateProjectBrainConflictPromptCharacters(candidates),
+          idempotencyScope: `project-brain-conflicts:${projectId}`,
+        });
+      }
+
+      if (billableTeamRun) {
+        const generated = await judgeProjectBrainConflictCandidatesWithUsage(
+          candidates,
+          { model: model! },
+        );
+        providerCallCompleted = true;
+        if (budgetLease) {
+          await settleTeamBudgetForAiRequest(budgetLease, {
+            usage: generated.usage,
+          });
+          budgetLease = undefined;
+        }
+        judgments = generated.judgments;
+      } else {
+        judgments = await judgeProjectBrainConflictCandidates(candidates);
+      }
+    }
     const newDecisions = judgments.map(
       ({ candidate, verdict, explanation }) => ({
         projectId,
@@ -185,6 +280,17 @@ export async function POST(
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    if (budgetLease && !providerCallCompleted) {
+      await settleTeamBudgetForAiRequest(budgetLease, { aborted: true }).catch(
+        (releaseError) =>
+          console.error(
+            "[project-brain] conflict budget reservation release failed",
+            releaseError,
+          ),
+      );
+    }
+    const response = teamBudgetResponse(error);
+    if (response) return response;
     console.error("[project-brain] contradiction scan failed", error);
     return Response.json(
       { error: "Could not classify project conflicts right now" },

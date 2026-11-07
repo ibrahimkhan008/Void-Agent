@@ -33,8 +33,9 @@ import {
   mayEditProject,
 } from "lib/projects/access";
 import {
+  estimateProjectBrainConflictPromptCharacters,
   findProjectBrainConflictCandidates,
-  judgeProjectBrainConflictCandidates,
+  judgeProjectBrainConflictCandidatesWithUsage,
 } from "lib/projects/brain-contradictions";
 import {
   type ProjectBrainDreamStage,
@@ -51,12 +52,13 @@ import {
 } from "lib/projects/brain-page-archive";
 import {
   findBrainPageDuplicateCandidates,
-  judgeBrainPageDuplicateCandidates,
+  judgeBrainPageDuplicateCandidatesWithUsage,
 } from "lib/projects/brain-page-duplicate-candidates";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+import { runProjectBrainBudgetedInference } from "lib/projects/project-brain-budgeted-inference";
 import { ProjectBrainHealthSchema } from "lib/projects/project-brain-health";
 import {
-  generateProjectBrainStatus,
+  generateProjectBrainStatusWithUsage,
   loadProjectBrainStatusContext,
 } from "lib/projects/project-brain-status";
 import { recomputeProjectBrainSalience } from "lib/projects/recompute-brain-salience";
@@ -109,6 +111,8 @@ async function liveScope(run: typeof ProjectBrainDreamRunTable.$inferSelect) {
     throw new Error("No attached project sources are currently available.");
   return {
     projectId: run.projectId,
+    teamId: access.project.teamId,
+    role: access.role,
     collectionIds,
     ownerIds,
     project: {
@@ -259,7 +263,21 @@ async function runDedupeStage(
         secondFacts: toFacts(second.id),
       };
     });
-    const results = await judgeBrainPageDuplicateCandidates(inputs);
+    const promptCharacters = JSON.stringify(inputs).length + 1_500;
+    const results = await runProjectBrainBudgetedInference({
+      teamId: scope.teamId,
+      userId: run.requestedByUserId,
+      role: scope.role,
+      promptCharacters,
+      idempotencyScope: `brain-dream-dedupe:${run.id}`,
+      run: async ({ model, onProviderStart }) => {
+        const result = await judgeBrainPageDuplicateCandidatesWithUsage(
+          inputs,
+          { ...(model ? { model } : {}), onProviderStart },
+        );
+        return { value: result.judgments, usage: result.usage };
+      },
+    });
     suggestions = results
       .filter((result) => result.verdict === "same_entity")
       .map((result) => {
@@ -325,7 +343,20 @@ async function runContradictionStage(
     )
     .slice(0, 40);
   const judgments = novel.length
-    ? await judgeProjectBrainConflictCandidates(novel)
+    ? await runProjectBrainBudgetedInference({
+        teamId: scope.teamId,
+        userId: run.requestedByUserId,
+        role: scope.role,
+        promptCharacters: estimateProjectBrainConflictPromptCharacters(novel),
+        idempotencyScope: `brain-dream-conflicts:${run.id}`,
+        run: async ({ model, onProviderStart }) => {
+          const result = await judgeProjectBrainConflictCandidatesWithUsage(
+            novel,
+            { ...(model ? { model } : {}), onProviderStart },
+          );
+          return { value: result.judgments, usage: result.usage };
+        },
+      })
     : [];
   await assertScopeUnchanged(run, scope);
   if (judgments.length)
@@ -394,7 +425,21 @@ async function runStatusStage(
     return { reusedSnapshot: true, health: existing.health };
   }
 
-  const generated = await generateProjectBrainStatus(context.input);
+  const generated = await runProjectBrainBudgetedInference({
+    teamId: scope.teamId,
+    userId: run.requestedByUserId,
+    role: scope.role,
+    promptCharacters: JSON.stringify(context.input).length + 2_000,
+    idempotencyScope: `brain-dream-status:${run.id}`,
+    run: async ({ model, onProviderStart }) => {
+      const result = await generateProjectBrainStatusWithUsage(
+        context.input,
+        25_000,
+        { ...(model ? { model } : {}), onProviderStart },
+      );
+      return { value: result.status, usage: result.usage };
+    },
+  });
   await assertScopeUnchanged(run, scope);
   const latestContext = await loadCurrentContext();
   if (

@@ -2,6 +2,7 @@ import "server-only";
 
 import { handleError } from "@/app/api/chat/shared.chat";
 import { withApiKeyUsage } from "lib/auth/api-key";
+import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { chatRepository } from "lib/db/repository";
 import { generateUUID } from "lib/utils";
 import { z } from "zod";
@@ -28,13 +29,53 @@ export async function GET(request: Request, { params }: RouteParams) {
         return new Response("Missing id", { status: 400 });
       }
 
+      const url = new URL(_request.url);
+      const rawLimit = url.searchParams.get("limit");
+      const beforeMessageId = url.searchParams.get("beforeMessageId");
+      let limit: number | undefined;
+      if (rawLimit !== null) {
+        if (!/^[1-9]\d*$/.test(rawLimit)) {
+          return new Response("Invalid limit", { status: 400 });
+        }
+        limit = Number(rawLimit);
+        if (!Number.isSafeInteger(limit) || limit > CHAT_MESSAGE_WINDOW) {
+          return new Response("Limit exceeds maximum", { status: 400 });
+        }
+      }
+      if (
+        beforeMessageId !== null &&
+        (beforeMessageId.length === 0 || beforeMessageId.length > 128)
+      ) {
+        return new Response("Invalid beforeMessageId", { status: 400 });
+      }
+      if (beforeMessageId !== null && limit === undefined) {
+        return new Response("A limit is required with beforeMessageId", {
+          status: 400,
+        });
+      }
+
       try {
         const hasAccess = await chatRepository.checkAccess(id, apiKey.userId);
         if (!hasAccess) {
           return new Response("Not found", { status: 404 });
         }
-        const messages = await chatRepository.selectMessagesByThreadId(id);
-        return Response.json({ messages });
+        const messages = await chatRepository.selectMessagesByThreadId(
+          id,
+          limit === undefined
+            ? undefined
+            : { limit, beforeMessageId: beforeMessageId ?? undefined },
+        );
+        if (limit === undefined) return Response.json({ messages });
+
+        const hasMore = messages.length === limit;
+        return Response.json({
+          messages,
+          pagination: {
+            limit,
+            hasMore,
+            nextCursor: hasMore ? (messages.at(-1)?.id ?? null) : null,
+          },
+        });
       } catch (err) {
         return new Response(handleError(err), { status: 500 });
       }

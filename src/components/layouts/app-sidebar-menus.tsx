@@ -13,6 +13,7 @@ import {
   Box,
   Clock3,
   FolderKanban,
+  GitBranch,
   Globe2,
   Hammer,
   Inbox,
@@ -265,6 +266,27 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
               {isCollapsed && (
                 <TooltipContent side="right" align="center">
                   Projects
+                </TooltipContent>
+              )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/team-model-routing">
+                  <SidebarMenuButton className="font-semibold">
+                    <GitBranch className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Team model routing
+                    </span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Team model routing
                 </TooltipContent>
               )}
             </SidebarMenuItem>

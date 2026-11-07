@@ -72,6 +72,22 @@ describe("project brain graph", () => {
     expect(findProjectBrainShortestPath(claims, { from: "alpha", to: "omega", maxDepth: 1 })).toEqual({ nodes: [], edges: [] });
   });
 
+  it("chooses the same shortest path when equally short claims arrive in a different order", () => {
+    const claims = [
+      { id: "z-gamma-end", subject: "Gamma", predicate: "reaches", object: "Omega", reviewStatus: "accepted" },
+      { id: "a-alpha-gamma", subject: "Alpha", predicate: "links", object: "Gamma", reviewStatus: "accepted" },
+      { id: "y-beta-end", subject: "Beta", predicate: "reaches", object: "Omega", reviewStatus: "accepted" },
+      { id: "b-alpha-beta", subject: "Alpha", predicate: "links", object: "Beta", reviewStatus: "accepted" },
+    ];
+
+    const first = findProjectBrainShortestPath(claims, { from: "alpha", to: "omega" });
+    const reordered = findProjectBrainShortestPath([...claims].reverse(), { from: "alpha", to: "omega" });
+
+    expect(first.nodes.map((node) => node.id)).toEqual(["alpha", "beta", "omega"]);
+    expect(reordered.nodes.map((node) => node.id)).toEqual(["alpha", "beta", "omega"]);
+    expect(reordered.edges.map((edge) => edge.id)).toEqual(["b-alpha-beta", "y-beta-end"]);
+  });
+
   it("routes a topic to people using accepted typed facts and aliases only", () => {
     const source = (id: string, subject: string, predicate: string, object: string, reviewStatus = "accepted") => ({
       id, subject, predicate, object, reviewStatus, evidence: `${subject} ${predicate} ${object}`,

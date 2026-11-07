@@ -3,11 +3,15 @@ import { GEMINI_FILE_MIME_TYPES } from "./file-support";
 
 const mocks = vi.hoisted(() => ({
   getConfig: vi.fn().mockResolvedValue(null),
+  getSession: vi.fn(),
+  getUserProvider: vi.fn(),
 }));
 
 vi.mock("lib/db/repository", () => ({
   siteConfigRepository: { getConfig: mocks.getConfig },
+  userModelProviderRepository: { getForRuntime: mocks.getUserProvider },
 }));
+vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 
 vi.mock("server-only", () => ({}));
 
@@ -108,6 +112,10 @@ describe("customModelProvider file support metadata", () => {
             baseURL: "https://disabled.example.test/v1",
             models: ["Hidden Test"],
           },
+          legacygateway: {
+            baseURL: "https://legacy.example.test/v1",
+            models: ["Legacy Hidden Test"],
+          },
           boundedgateway: {
             enabled: true,
             baseURL: "https://bounded.example.test/v1",
@@ -150,13 +158,18 @@ describe("customModelProvider file support metadata", () => {
         (provider) => provider.provider === "disabledgateway",
       ),
     ).toBe(false);
+    expect(
+      customModelProvider.modelsInfo.some(
+        (provider) => provider.provider === "legacygateway",
+      ),
+    ).toBe(false);
     const boundedProvider = customModelProvider.modelsInfo.find(
       (provider) => provider.provider === "boundedgateway",
     );
     expect(boundedProvider?.models).toHaveLength(100);
-    expect(boundedProvider?.models.every((model) => model.name.length <= 200)).toBe(
-      true,
-    );
+    expect(
+      boundedProvider?.models.every((model) => model.name.length <= 200),
+    ).toBe(true);
 
     invalidateDynamicProviderHydration();
     await ensureDynamicProvidersHydrated();
@@ -211,5 +224,49 @@ describe("customModelProvider file support metadata", () => {
         (provider) => provider.provider === "stalegateway",
       ),
     ).toBe(false);
+  });
+});
+
+describe("personal model provider runtime resolution", () => {
+  it("does not apply deployment-wide fallback to user-owned models", () => {
+    expect(
+      modelsModule.shouldUseGlobalFailureFallback({
+        provider: "user-9a9b17b2-a413-42cc-a50a-a6e9dfd5f658",
+        model: "private-model",
+      }),
+    ).toBe(false);
+    expect(
+      modelsModule.shouldUseGlobalFailureFallback({
+        provider: "google",
+        model: "Gemini 3 Flash",
+      }),
+    ).toBe(true);
+  });
+
+  it("resolves only an exact model owned by the authenticated session", async () => {
+    const id = "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658";
+    mocks.getSession.mockResolvedValue({ user: { id: "owner-a" } });
+    mocks.getUserProvider.mockResolvedValue({
+      id,
+      name: "Personal gateway",
+      baseUrl: "https://provider.example/v1",
+      apiKey: "secret",
+      modelIds: ["model-a"],
+    });
+
+    const model = await modelsModule.customModelProvider.getModelAsync({
+      provider: `user-${id}`,
+      model: "model-a",
+    });
+    expect((model as { modelId?: string }).modelId).toBe("model-a");
+    expect(mocks.getUserProvider).toHaveBeenCalledWith("owner-a", id);
+
+    mocks.getUserProvider.mockResolvedValueOnce(null);
+    await expect(
+      modelsModule.customModelProvider.getModelAsync({
+        provider: `user-${id}`,
+        model: "model-a",
+      }),
+    ).rejects.toThrow("Personal model provider is unavailable");
   });
 });

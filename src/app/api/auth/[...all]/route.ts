@@ -1,5 +1,6 @@
 import { auth } from "auth/server";
 import { toNextJsHandler } from "better-auth/next-js";
+import { getAuthErrorLogContext } from "lib/auth/auth-route-logging";
 
 const handlers = toNextJsHandler(auth.handler);
 
@@ -17,19 +18,9 @@ const getAuthEnvDiagnostics = () => ({
 });
 
 const logAuthRouteError = async (request: Request, error: unknown) => {
-  let body: unknown;
-  try {
-    body = await request.clone().json();
-  } catch {
-    body = undefined;
-  }
-
   console.error("[AuthRoute] Better Auth handler failed", {
-    method: request.method,
-    url: request.url,
-    body,
+    ...(await getAuthErrorLogContext(request, error)),
     env: getAuthEnvDiagnostics(),
-    error,
   });
 };
 

@@ -1,5 +1,10 @@
 import type { ProjectRole } from "./access";
 
+/** A project viewer can read project content but must not associate new chats. */
+export function canEditProjectRole(role: string | null | undefined) {
+  return role === "owner" || role === "editor";
+}
+
 export function resolveTeamProjectRole(
   teamOwnerId: string | undefined,
   membershipRole: string | undefined,

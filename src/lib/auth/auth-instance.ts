@@ -2,6 +2,7 @@ import { DEFAULT_USER_ROLE, USER_ROLES } from "app-types/roles";
 // Base auth instance without "server-only" - can be used in seed scripts
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import {
   admin as adminPlugin,
@@ -28,6 +29,8 @@ import logger from "logger";
 import { headers } from "next/headers";
 import { getAuthConfig } from "./config";
 import { onUserCreateCreatePersonalTeam } from "./org-hooks";
+import { sendPasswordResetEmail } from "./password-reset-email";
+import { isPasswordResetRateLimited } from "./password-reset-rate-limit";
 import { ac, admin, editor, user } from "./roles";
 
 const {
@@ -92,12 +95,37 @@ const options = {
       organizationLimit: 10,
       teams: { enabled: false },
     }),
-    oneTimeToken({ expiresIn: 5, storeToken: "hashed", disableClientRequest: true }),
+    oneTimeToken({
+      expiresIn: 5,
+      storeToken: "hashed",
+      disableClientRequest: true,
+    }),
     nextCookies(),
   ],
   baseURL:
     cleanBaseUrl(process.env.FLARE_AUTH_URL) ||
     cleanBaseUrl(process.env.NEXT_PUBLIC_BASE_URL),
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/request-password-reset": { window: 60 * 60, max: 10 },
+      "/reset-password": { window: 15 * 60, max: 10 },
+    },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/request-password-reset") return;
+      const email = (ctx.body as { email?: unknown } | undefined)?.email;
+      if (
+        typeof email === "string" &&
+        (await isPasswordResetRateLimited(email))
+      ) {
+        throw new APIError("TOO_MANY_REQUESTS", {
+          message: "Too many password reset requests. Please try again later.",
+        });
+      }
+    }),
+  },
   user: {
     changeEmail: {
       enabled: true,
@@ -263,6 +291,19 @@ const options = {
     minPasswordLength: 8,
     maxPasswordLength: 128,
     disableSignUp: !signUpEnabled,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    revokeSessionsOnPasswordReset: true,
+    async sendResetPassword({ user, url }) {
+      const configuredBaseUrl =
+        cleanBaseUrl(process.env.FLARE_AUTH_URL) ||
+        cleanBaseUrl(process.env.NEXT_PUBLIC_BASE_URL);
+      await sendPasswordResetEmail({
+        email: user.email,
+        name: user.name || "there",
+        resetUrl: url,
+        configuredBaseUrl,
+      });
+    },
   },
   session: {
     cookieCache: {

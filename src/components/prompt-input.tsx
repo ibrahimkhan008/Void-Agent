@@ -2,6 +2,7 @@
 
 import { UploadedFile, appStore } from "@/app/store";
 import { UIMessage, UseChatHelpers } from "@ai-sdk/react";
+import type { LanguageModelUsage } from "ai";
 import { ChatMention, ChatModel } from "app-types/chat";
 import {
   AudioWaveformIcon,
@@ -32,12 +33,14 @@ import { ToolModeDropdown } from "./tool-mode-dropdown";
 
 import { upsertThreadMessageAction } from "@/app/api/chat/actions";
 import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
-import { cn, generateUUID } from "@/lib/utils";
+import { cn, fetcher, generateUUID } from "@/lib/utils";
 import { Editor } from "@tiptap/react";
 import { WorkflowSummary } from "app-types/workflow";
+import { getModelContextWindow } from "lib/ai/model-context-windows";
 import { DefaultToolName, ImageToolName } from "lib/ai/tools";
 import equal from "lib/equal";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { ClaudeIcon } from "ui/claude-icon";
 import {
@@ -56,6 +59,7 @@ import { MCPIcon } from "ui/mcp-icon";
 import { OpenAIIcon } from "ui/openai-icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { AssemblyAIDictationButton } from "./assemblyai-dictation-button";
+import { ChatContextMeter } from "./chat-context-meter";
 import { ConnectorsPopover } from "./connectors-popover";
 import { DefaultToolIcon } from "./default-tool-icon";
 
@@ -182,6 +186,9 @@ interface PromptInputProps {
   setModel?: (model: ChatModel) => void;
   voiceDisabled?: boolean;
   threadId?: string;
+  teamId?: string | null;
+  contextUsage?: LanguageModelUsage;
+  contextModel?: ChatModel;
   disabledMention?: boolean;
   onFocus?: () => void;
 }
@@ -207,6 +214,9 @@ export default function PromptInput({
   toolDisabled,
   voiceDisabled,
   threadId,
+  teamId,
+  contextUsage,
+  contextModel,
   disabledMention,
 }: PromptInputProps) {
   const t = useTranslations("Chat");
@@ -214,6 +224,27 @@ export default function PromptInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFiles } = useThreadFileUploader(threadId);
   const { data: providers } = useChatModels();
+  const { data: routingPolicy, error: routingPolicyError } = useSWR<{
+    policy?: { enabled?: boolean };
+  }>(
+    teamId ? `/api/teams/${encodeURIComponent(teamId)}/model-routing` : null,
+    fetcher,
+    { revalidateOnFocus: false, errorRetryCount: 0 },
+  );
+  const teamAutoRoutingStatus:
+    | "enabled"
+    | "disabled"
+    | "loading"
+    | "error"
+    | undefined = !teamId
+    ? undefined
+    : routingPolicyError
+      ? "error"
+      : routingPolicy
+        ? routingPolicy.policy?.enabled === true
+          ? "enabled"
+          : "disabled"
+        : "loading";
 
   const [
     globalModel,
@@ -366,6 +397,17 @@ export default function PromptInput({
 
   useEffect(() => {
     if (!providers?.length || !chatModel) return;
+    if (chatModel.provider.toLowerCase() === "auto") {
+      if (
+        !teamId ||
+        routingPolicyError ||
+        (routingPolicy && routingPolicy.policy?.enabled !== true)
+      ) {
+        const fallback = findModelByPredicate(() => true);
+        if (fallback) setChatModel(fallback);
+      }
+      return;
+    }
 
     const isCurrentFast = isFastModelName(chatModel.model);
 
@@ -384,7 +426,16 @@ export default function PromptInput({
         setChatModel(fallback);
       }
     }
-  }, [chatModel, findModelByPredicate, modelSpeed, providers, setChatModel]);
+  }, [
+    chatModel,
+    findModelByPredicate,
+    modelSpeed,
+    providers,
+    routingPolicy,
+    routingPolicyError,
+    setChatModel,
+    teamId,
+  ]);
 
   const modelFilter = useCallback(
     (_provider: string, modelInfo: ProviderModelInfo) => {
@@ -1738,11 +1789,20 @@ export default function PromptInput({
                   </>
                 ) : (
                   <>
+                    {contextUsage && contextModel && (
+                      <ChatContextMeter
+                        usage={contextUsage}
+                        model={contextModel}
+                        maxTokens={getModelContextWindow(contextModel)}
+                        className="mr-1"
+                      />
+                    )}
                     {/* Desktop Chat Model Selector */}
                     <div className="hidden md:block">
                       <SelectModel
                         onSelect={setChatModel}
                         currentModel={chatModel}
+                        teamAutoRoutingStatus={teamAutoRoutingStatus}
                         filterModel={modelFilter}
                         showModeToggle={true}
                         modelSpeed={modelSpeed}
@@ -1778,7 +1838,9 @@ export default function PromptInput({
                                 className="text-foreground group-data-[state=open]:text-foreground  "
                                 data-testid="selected-model-name"
                               >
-                                {chatModel.model}
+                                {chatModel.provider.toLowerCase() === "auto"
+                                  ? "Team Auto"
+                                  : chatModel.model}
                               </span>
                             </>
                           ) : (
@@ -1795,6 +1857,7 @@ export default function PromptInput({
                       <SelectModel
                         onSelect={setChatModel}
                         currentModel={chatModel}
+                        teamAutoRoutingStatus={teamAutoRoutingStatus}
                         filterModel={modelFilter}
                         showModeToggle={true}
                         modelSpeed={modelSpeed}
@@ -1824,7 +1887,9 @@ export default function PromptInput({
                             className="text-foreground text-xs font-medium max-w-[80px] truncate"
                             data-testid="selected-model-name"
                           >
-                            {getShortModelName(chatModel?.model)}
+                            {chatModel?.provider.toLowerCase() === "auto"
+                              ? "Auto"
+                              : getShortModelName(chatModel?.model)}
                           </span>
                         </Button>
                       </SelectModel>
@@ -1919,6 +1984,11 @@ export default function PromptInput({
                             <span className="text-[11px] text-muted-foreground/80">
                               {displayExt}
                             </span>
+                            {(file.mimeType === "audio/wav" || file.mimeType === "audio/x-wav") && (
+                              <span className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                                Sent as an untrusted transcript
+                              </span>
+                            )}
                           </div>
                         )}
 

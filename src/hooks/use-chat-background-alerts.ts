@@ -6,12 +6,15 @@ import {
   type ChatBackgroundAlert,
   type ChatBackgroundAlertKind,
   chatBackgroundAlertCopy,
+  chatBackgroundAlertHref,
   createChatBackgroundAlertDeduper,
   isChatBackgroundAlertEnabled,
   shouldSendChatBackgroundAlert,
+  shouldSendChatForegroundAlert,
 } from "lib/agent-alerts/chat-background-alerts";
 import { fetcher } from "lib/utils";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 
 const deduper = createChatBackgroundAlertDeduper();
@@ -41,7 +44,7 @@ export function findPendingUserAction(messages: UIMessage[]): {
   return null;
 }
 
-function notify(alert: ChatBackgroundAlert): void {
+function notify(alert: ChatBackgroundAlert, enabled: boolean): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   const desktopNotifications = window.desktop?.notifications;
   if (document.hidden && desktopNotifications) {
@@ -55,9 +58,28 @@ function notify(alert: ChatBackgroundAlert): void {
     }
     return;
   }
+  if (!document.hidden) {
+    if (
+      !shouldSendChatForegroundAlert(enabled, document.hidden) ||
+      !deduper.claim(alert)
+    ) {
+      return;
+    }
+    const copy = chatBackgroundAlertCopy(alert.kind);
+    toast(copy.title, {
+      description: copy.body,
+      id: `${alert.threadId}:${alert.kind}:${alert.eventId}`,
+      action: {
+        label: "Open chat",
+        onClick: () =>
+          window.location.assign(chatBackgroundAlertHref(alert.threadId)),
+      },
+    });
+    return;
+  }
   if (
     !shouldSendChatBackgroundAlert({
-      enabled: true,
+      enabled,
       hidden: document.hidden,
       permission:
         "Notification" in window ? Notification.permission : "unsupported",
@@ -76,7 +98,7 @@ function notify(alert: ChatBackgroundAlert): void {
   notification.onclick = () => {
     notification.close();
     window.focus();
-    window.location.assign(`/chat/${encodeURIComponent(alert.threadId)}`);
+    window.location.assign(chatBackgroundAlertHref(alert.threadId));
   };
 }
 
@@ -115,11 +137,14 @@ export function useChatBackgroundAlerts({
     const pendingUserAction = findPendingUserAction(messages);
     if (kind === "complete" && pendingUserAction) kind = null;
     if (enabled && kind) {
-      notify({
-        kind,
-        threadId,
-        eventId: latestMessage?.id ?? `${threadId}:${kind}`,
-      });
+      notify(
+        {
+          kind,
+          threadId,
+          eventId: latestMessage?.id ?? `${threadId}:${kind}`,
+        },
+        enabled,
+      );
     }
   }, [enabled, messages, status, threadId]);
 
@@ -127,6 +152,6 @@ export function useChatBackgroundAlerts({
     if (!enabled) return;
     const pending = findPendingUserAction(messages);
     if (!pending) return;
-    notify({ ...pending, threadId });
+    notify({ ...pending, threadId }, enabled);
   }, [enabled, messages, threadId]);
 }

@@ -32,6 +32,15 @@ const ProjectBrainTaskSchema = z.object({
   dueDate: z.string().date().optional(),
 });
 
+const ProjectBrainTimelineEventSchema = z.object({
+  summary: z.string().trim().min(1).max(240),
+  detail: z.string().trim().max(1200).optional(),
+  evidence: z.string().trim().min(1).max(1200),
+  // Keep dates as calendar dates. An omitted date means the source did not
+  // establish when the event happened; ingestion time is never substituted.
+  eventDate: z.string().date().optional(),
+});
+
 const ProjectBrainEntitySchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),
   type: z.enum([
@@ -88,6 +97,10 @@ export const ProjectBrainExtractionSchema = z
       resilientArray(ProjectBrainTaskSchema),
       z.array(ProjectBrainTaskSchema).max(40).default([]),
     ),
+    timeline: z.preprocess(
+      resilientArray(ProjectBrainTimelineEventSchema),
+      z.array(ProjectBrainTimelineEventSchema).max(20).default([]),
+    ),
     facts: z.preprocess(
       resilientArray(ProjectBrainFactSchema),
       z.array(ProjectBrainFactSchema).max(40).default([]),
@@ -136,6 +149,24 @@ export function projectBrainExtractionToTodos(
   return extraction.todos.filter((todo) => {
     if (!normalizedSource.includes(normalize(todo.evidence))) return false;
     const key = `${normalize(todo.title)}\u0000${normalize(todo.evidence)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Keep only unique timeline events backed by exact source excerpts. */
+export function projectBrainExtractionToTimeline(
+  extraction: ProjectBrainExtraction,
+  sourceText: string,
+) {
+  const normalize = (value: string) =>
+    value.toLocaleLowerCase().replace(/\s+/gu, " ").trim();
+  const normalizedSource = normalize(sourceText);
+  const seen = new Set<string>();
+  return extraction.timeline.filter((event) => {
+    if (!normalizedSource.includes(normalize(event.evidence))) return false;
+    const key = `${normalize(event.summary)}\u0000${event.eventDate ?? ""}\u0000${normalize(event.evidence)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

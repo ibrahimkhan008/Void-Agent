@@ -55,6 +55,9 @@ export type ChatThread = {
   userId: string;
   createdAt: Date;
   orgId?: string | null;
+  /** Model selected by team auto-routing and pinned for this conversation. */
+  routingModelProvider?: string | null;
+  routingModel?: string | null;
   // Phase 1+#7 — thread branching. A thread is a root when
   // `parentThreadId` is null. A fork copies the source thread's
   // messages up to and including `forkFromMessageId` into a new

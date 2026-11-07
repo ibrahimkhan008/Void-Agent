@@ -1077,3 +1077,99 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 203/203 pages. Existing dependency-analysis, optional-service, dynamic-session, workspace-root and PostgreSQL SSL notices remain non-fatal.
 - Focused slices passed: project brain 1/1, typed table-review 13/13, PDF preview helper+route 9/9, voice preview/project assignment 20/20. Scoped Biome passed across affected files; `git diff --check` passed.
 - No live PostgreSQL, browser, PDF storage provider, voice device, model provider, or deployment workflow was exercised.
+
+## Integrated verification: F003 / F007 / F008 / F009 / F029 (2026-11-07)
+- Focused related suites: 9 files / 47 tests PASS (thread API pagination, provider availability/catalog/runtime, project-brain contradiction budget, project-role policy, notification helper, dream schedule).
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS.
+- `pnpm exec vitest run --maxWorkers=2`: PASS, 375 files / 2,115 tests; exit code 0.
+- `pnpm lint`: PASS, 1,888 files scanned; existing Next workspace-root and `<img>` warnings.
+- `pnpm db:check`: PASS; journal consistency only, no database connection or migration apply.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS, 203/203 static pages generated.
+- `git diff --check`: PASS. No live PostgreSQL, browser, model/provider, web-push, or deployment workflow was exercised. This checkpoint remains local because broad feature parity remains incomplete.
+
+## F033 password recovery focused verification (2026-11-07)
+- Focused Vitest: 4 files / 16 tests PASS (password-reset-email, password-reset-rate-limit, auth-route-logging, and middleware).
+- Scoped Biome: PASS across 17 auth/recovery implementation, test, and route files. messages/en.json parsed as valid JSON.
+- No live PostgreSQL, configured email provider, or browser verification was available; no full integrated typecheck/build is claimed by this slice.
+
+## Integrated verification: F001 / F010 / F022 / F033 and current local batch (2026-11-07)
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS after current auth recovery, brain page links/backlinks, and workflow video changes.
+- `pnpm exec vitest run --maxWorkers=2`: PASS, 388 test files / 2,182 tests.
+- `pnpm lint`: PASS, 1,920 files checked; existing `<img>`, Next lint deprecation and multiple-lockfile workspace-root warnings remain.
+- `pnpm db:check`: PASS (Drizzle schema/journal consistency only; no live database connection or migration application).
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 205/205 pages. Existing dependency-analysis, optional service configuration, dynamic-session prerender, workspace-root and PostgreSQL SSL warnings remain non-fatal.
+- `git diff --check`: PASS (line-ending normalization notices only).
+- No live PostgreSQL, email delivery, browser, external media playback, provider, or deployment verification was performed. No production database action, deployment, reference repository write, or push occurred. Feature families remain PARTIAL where end-to-end/runtime evidence is outstanding.
+
+- Auth telemetry follow-up: one additional test verifies exception details are not included in logged auth error context. Final focused total is 16/16.
+
+## F021 secure remote desktop MCP verification (2026-11-07)
+- Added HTTPS remote MCP transport via injected SDK fetch backed by Undici Agent lookup pinning and public-address validation; redirect and cross-origin requests fail closed, and every request/reconnect resolves again.
+- Added exact-config consent coverage, DNS/address policy tests, and origin/redirect rejection tests.
+- Validation: desktop package `typecheck` passed; desktop bundle build passed; focused Vitest passed 14/14 across 3 files; scoped Biome passed on 8 files after formatting.
+- Not verified: live HTTPS MCP server, Electron GUI/native consent, network-level TLS/SNI, or reconnect against a changing live DNS record. F021 remains PARTIAL.
+
+## F021 remote operation and cross-package type follow-up (2026-11-07)
+Fixed union-schema validation for both desktop list and call operations; remote configs now reach the pinned Streamable HTTP/SSE connection workflow. A deterministic mocked-client operation harness covers remote list/call without making external requests. Fetch-policy tests cover private/mixed DNS, cross-origin/HTTP, redirect-init, and resolver failure. Root `pnpm check-types`, desktop typecheck/build, scoped Biome, and 18 focused tests passed. This does not replace live Electron or remote endpoint verification; F021 remains PARTIAL.
+
+## Integrated verification: F007 / F010 / F021 current slices (2026-11-07)
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS after correcting the context-meter SDK usage types and desktop Undici/global fetch type boundary.
+- `pnpm exec vitest run --maxWorkers=2`: PASS, 392 test files / 2,198 tests.
+- `pnpm lint`: PASS, 1,927 files checked; existing Next lint deprecation, workspace-root and `<img>` warnings remain.
+- `pnpm db:check`: PASS (Drizzle schema/journal consistency only; no live database connection or migration application).
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 205/205 pages. Existing dependency-analysis, optional-service, dynamic-session prerender, workspace-root, and PostgreSQL SSL warnings remain.
+- Focused F007 context-meter and F010 page-detail suites passed 14/14. Desktop MCP package typecheck/build passed; 18/18 focused tests across four files cover stdio + remote list/call, consent IPC, and pinned-fetch DNS/origin/redirect protections. Scoped Biome passed; `git diff --check` passed (line-ending notices only).
+- No live PostgreSQL, browser, email provider, Electron GUI, real remote MCP server, external media playback, deployment, production DB action, or GitHub push was performed. Migration 0070 remains unapplied. F007/F010/F021 and overall parity remain PARTIAL.
+
+## F029 foreground chat alert verification (2026-11-07)
+- `pnpm exec vitest run src/hooks/use-chat-background-alerts.test.ts src/lib/agent-alerts/chat-background-alerts.test.ts --maxWorkers=2`: PASS, 12 tests across 2 files.
+- Coverage: generic completion toast without response text; pending approval without recipient data; hidden desktop delivery only; hidden-to-visible transition without replay; disabled preference suppression; root-relative same-origin navigation with encoded route segment.
+- Live browser permission, VAPID receipt, PostgreSQL migration 0038 and browser end-to-end behavior were not tested. F029 remains PARTIAL.
+
+## Composio direct toolkit connection workflow (2026-11-07)
+- `pnpm exec vitest run src/app/api/integrations/composio/route.test.ts src/components/composio-app-connections.test.tsx`: passed, 7 tests across 2 files.
+- Scoped Biome check/write passed for the route, route tests, Composio helper, UI, UI test, and MCP dashboard.
+- Integrated `pnpm check-types` rerun after UI changes is pending at checkpoint write. No live OAuth/provider/account disconnect or browser-session test was possible.
+- Final verification update: `pnpm check-types` passed after the final UI and route changes; focused tests passed 7/7. External OAuth/account lifecycle remains unverified.
+
+## F025 approval policy parity update (2026-11-07)
+The reference system prompt distinguishes harmless read-only chains, a single action with its own approval card, and genuinely complex consequential plans. Void-Agent already had the reference proposal tools and server-enforced exact-payload effect tokens, but the shared guidance did not explicitly prevent unnecessary plan-approval cards or say that plan approval cannot authorize an effect. Updated `src/lib/ai/tools/hitl/index.ts` to keep plans proportional, preserve each tool's server-side approval boundary, and collect related missing details in one `requestInput` call. Added guidance-contract tests in `src/lib/ai/tools/hitl/index.test.ts`. Focused Vitest passed 13/13; Biome and `git diff --check` passed. F025 remains PARTIAL because prompt tests do not establish model adherence and live browser/PostgreSQL/provider journeys remain unverified. No permission gate was removed.
+
+## Focused F015/F032 verification - 2026-11-07 19:00 IST
+- `pnpm exec vitest run src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx src/app/api/published-page/route.test.ts src/app/p/[slug]/route.test.ts src/lib/db/pg/repositories/published-page-repository.pg.test.ts --maxWorkers=2`: PASS, 5 files / 24 tests.
+- Coverage includes streamed markdown block render stability, large blank-run parsing, publish validation/ownership/limits, public opaque-origin CSP and cache behavior, version/quota repository behavior, and revocation. These tests use mocked DB boundaries where applicable; no live Postgres/browser journey was performed. F015 and F032 remain PARTIAL pending broad end-to-end verification and current aggregate build/typecheck.
+
+## F018 stored WAV-to-chat attachment validation (2026-11-07)
+- Focused tests passed 13/13 across audio attachment ingestion, stored audio transcription route, and device WAV route. Scoped Biome lint passed across 10 changed source/test files.
+- pnpm check-types is still running at checkpoint; its result is not yet recorded. Live speech-provider, object-storage, and browser attachment-send journeys remain unverified. F018 remains PARTIAL.
+
+
+## F033 account/profile parity audit - 2026-11-07
+- Compared Better Auth profile/image/email updates, password change/session revocation, and admin-only account deletion in reference and primary; implementations are equivalent. Session listing helper/component is unused in both settings UIs.
+- `pnpm exec vitest run src/app/api/user/actions.test.ts src/lib/auth/password-reset-rate-limit.test.ts src/lib/auth/password-reset-email.test.ts src/lib/auth/auth-route-logging.test.ts src/lib/user/server.test.ts --maxWorkers=2`: PASS, 5 files / 35 tests.
+- No live PostgreSQL, email provider, or browser click-through was run. F033 remains PARTIAL only for this integration verification.
+
+## F018 WAV-to-chat final local typecheck (2026-11-07 19:04:59 +05:30)
+- pnpm check-types completed with exit code 0 after the stored WAV chat-ingestion helper and chat route changes.
+- Focused tests remained 13/13 across 3 files; scoped Biome lint remained clean across 10 touched files.
+- This is source/type validation only. Live transcription provider, private object storage/browser upload-send-playback, other audio codecs, OCR, and broader multimodal parity are not verified; F018 remains PARTIAL.
+
+## Project-brain timeline batch (2026-11-07)
+- Focused Vitest: PASS, 4 files / 19 tests (extraction evidence/bounds, source-scoped list API, review authorization/state transition, and editor/viewer UI behavior).
+- `pnpm check-types`: PASS.
+- `pnpm db:check`: PASS (Drizzle schema/journal consistency only; no live database connection and migration 0071 not applied).
+- Scoped `pnpm exec biome check --write`: PASS, 11 implementation/test files.
+- `git diff --check`: PASS, with existing LF/CRLF working-tree notices.
+- No live PostgreSQL, browser, configured model-provider, deployment, or production database verification.
+
+- Timeline review API follow-up: body-size regressions (malformed 400 / oversized 413) and conditional update source-visibility predicates pass in the same 19-test focused run. A bounded SHA-256 dedupe key replaces a text-composite index.
+
+## F007 public per-user provider workflow verification (2026-11-07 19:39 IST)
+- Focused Vitest passed 6 files / 29 tests: pinned HTTPS transport (DNS pin callback, redirect rejection, bounded timeout/body), authenticated user provider CRUD/discovery, user catalog, model ownership/fallback policy, and encrypted-at-rest repository projection.
+- Scoped Biome check passed 19 files. `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`; captured output is in ignored `.audit/check-types.log`. `pnpm db:check` passed Drizzle schema/journal validation only. `git diff --check` exited 0 with existing LF/CRLF working-tree notices.
+- No live public provider, browser chat, PostgreSQL, or migration apply was run. Migration 0072 remains authored and unapplied; F007 remains PARTIAL pending end-to-end environment verification and local-machine endpoint architecture.
+
+### F007 CRUD completion and final verification correction (2026-11-07 19:44 IST)
+- Added owner-scoped provider editing to the settings UI. Blank API key retains the existing encrypted credential; update re-discovers models before persisting the endpoint/model allowlist. Added regression coverage that the old key is used only server-side and passed through to owner-scoped persistence without returning it.
+- Final focused provider suite: 6 files / 30 tests passed. Scoped Biome passed 19 files. Final integrated `pnpm check-types` passed with 6 GiB heap; output is in ignored `.audit/check-types.log`. `pnpm db:check` passed without applying migrations. `git diff --check` exited 0; only existing LF/CRLF notices appeared.
+- F007 remains PARTIAL: no live PostgreSQL, external provider, browser, or chat streaming verification; migration 0072 is unapplied. Localhost/LAN Ollama/LM Studio are still excluded pending a client proxy. No reference write, production database, deployment, commit, or push.

@@ -6,15 +6,23 @@ export function isDesktopClient() {
 }
 
 export function shouldUseDesktopMcpBridge(config: MCPServerConfig) {
-  return isDesktopClient() && isMaybeStdioConfig(config);
+  return isDesktopClient() && (isMaybeStdioConfig(config) || "url" in config);
 }
 
-export async function listMcpToolsViaDesktop(config: MCPServerConfig): Promise<MCPToolInfo[]> {
-  if (!shouldUseDesktopMcpBridge(config)) throw new Error("Local MCP requires the Void-Agent desktop app");
+export async function listMcpToolsViaDesktop(
+  config: MCPServerConfig,
+): Promise<MCPToolInfo[]> {
+  if (!shouldUseDesktopMcpBridge(config))
+    throw new Error("This MCP server cannot use the desktop bridge");
   return window.desktop!.mcp.listTools(config);
 }
 
-export async function callMcpToolViaDesktop(config: MCPServerConfig, toolName: string, params: Record<string, unknown> = {}) {
-  if (!shouldUseDesktopMcpBridge(config)) throw new Error("Local MCP requires the Void-Agent desktop app");
+export async function callMcpToolViaDesktop(
+  config: MCPServerConfig,
+  toolName: string,
+  params: Record<string, unknown> = {},
+) {
+  if (!shouldUseDesktopMcpBridge(config))
+    throw new Error("This MCP server cannot use the desktop bridge");
   return window.desktop!.mcp.callTool({ config, toolName, params });
 }

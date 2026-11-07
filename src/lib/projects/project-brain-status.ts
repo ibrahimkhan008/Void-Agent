@@ -230,17 +230,23 @@ export async function generateProjectBrainStatusWithUsage(
     Awaited<ReturnType<typeof loadProjectBrainStatusContext>>
   >["input"],
   timeoutMs = 25_000,
-  options: { model?: ChatModel; signal?: AbortSignal } = {},
+  options: {
+    model?: ChatModel;
+    signal?: AbortSignal;
+    onProviderStart?: () => void;
+  } = {},
 ): Promise<{ status: ProjectBrainStatus; usage: unknown }> {
   const abortController = new AbortController();
   const timeout = setTimeout(() => abortController.abort(), timeoutMs);
   const abortFromCaller = () => abortController.abort(options.signal?.reason);
   options.signal?.addEventListener("abort", abortFromCaller, { once: true });
   try {
+    const model = options.model
+      ? await customModelProvider.getModelAsync(options.model)
+      : await customModelProvider.getModelWithFailureFallbackAsync();
+    options.onProviderStart?.();
     const { object, usage } = await generateObject({
-      model: options.model
-        ? await customModelProvider.getModelAsync(options.model)
-        : await customModelProvider.getModelWithFailureFallbackAsync(),
+      model,
       schema: ProjectBrainStatusSchema,
       maxOutputTokens: 1_500,
       ...(options.model ? { maxRetries: 0 } : {}),

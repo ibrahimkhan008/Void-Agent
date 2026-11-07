@@ -87,6 +87,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/sounds/") ||
     pathname.startsWith("/sign-in") ||
     pathname.startsWith("/sign-up") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/terms-of-service") ||
     pathname.startsWith("/privacy-policy") ||

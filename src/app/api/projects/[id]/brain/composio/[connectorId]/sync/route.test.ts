@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   listAccounts: vi.fn(),
   listReadActions: vi.fn(),
+  gatherSource: vi.fn(),
+  createdRuns: [] as Array<unknown[]>,
+  update: vi.fn(),
   execute: vi.fn(),
   wherePredicates: [] as unknown[],
 }));
@@ -25,7 +28,10 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
-  pgDb: { select: mocks.select, insert: mocks.insert },
+  pgDb: { select: mocks.select, insert: mocks.insert, update: mocks.update },
+}));
+vi.mock("lib/projects/composio-gather", () => ({
+  gatherComposioProjectSource: mocks.gatherSource,
 }));
 vi.mock("lib/ai/composio", () => ({
   listComposioAccountsForUser: mocks.listAccounts,
@@ -73,6 +79,7 @@ function selectRows(...rows: unknown[][]) {
     const result = rows[index++] ?? [];
     const query = {
       from: () => query,
+      innerJoin: () => query,
       where: (predicate: unknown) => {
         mocks.wherePredicates.push(predicate);
         return query;
@@ -107,11 +114,26 @@ describe("project brain Composio sync authorization and idempotency", () => {
     });
     mocks.getProjectCollectionOwnerIds.mockResolvedValue([userId]);
     mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
-    mocks.insert.mockReturnValue({
+    mocks.createdRuns = [];
+    mocks.insert.mockImplementation(() => ({
       values: () => ({
-        onConflictDoNothing: () => ({ returning: () => Promise.resolve([]) }),
+        onConflictDoNothing: () => ({
+          returning: () => Promise.resolve(mocks.createdRuns.shift() ?? []),
+        }),
       }),
+    }));
+    mocks.update.mockReturnValue({
+      set: () => ({ where: () => Promise.resolve([]) }),
     });
+    mocks.listAccounts.mockResolvedValue([
+      {
+        id: "account-1",
+        status: "ACTIVE",
+        isDisabled: false,
+        toolkit: { slug: "github" },
+      },
+    ]);
+    mocks.listReadActions.mockResolvedValue([]);
   });
 
   it("requires an idempotency key before reading connector state", async () => {
@@ -186,5 +208,129 @@ describe("project brain Composio sync authorization and idempotency", () => {
     );
     expect(response.status).toBe(403);
     expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it("passes only persisted project scope and the session actor to gather inference", async () => {
+    const createdRun = { id: "run-gather", status: "running" };
+    mocks.createdRuns.push([createdRun]);
+    mocks.getProjectAccess.mockResolvedValue({
+      project: {
+        id: projectId,
+        name: "Project",
+        teamId,
+        collectionIds: [collectionId],
+      },
+      role: "editor",
+    });
+    mocks.gatherSource.mockRejectedValue(new Error("provider unavailable"));
+    selectRows([connector(userId)], [{ id: collectionId }]);
+
+    const request = new Request(
+      `https://app.example/api/projects/${projectId}/brain/composio/${connectorId}/sync`,
+      {
+        method: "POST",
+        headers: {
+          Origin: "https://app.example",
+          "Content-Type": "application/json",
+          "Idempotency-Key": "gather-team-run",
+        },
+        body: JSON.stringify({ mode: "gather" }),
+      },
+    );
+    const response = await POST(request, {
+      params: Promise.resolve({ id: projectId, connectorId }),
+    });
+
+    expect(response.status).toBe(502);
+    expect(mocks.gatherSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId,
+        teamId,
+        role: "editor",
+        idempotencyScope: "project-brain-composio-gather:run-gather",
+      }),
+    );
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("returns a budget denial and never starts gather inference", async () => {
+    const createdRun = { id: "run-denied", status: "running" };
+    mocks.createdRuns.push([createdRun]);
+    const { TeamBudgetExceededError } = await import(
+      "lib/ai/team-member-ai-budget-core"
+    );
+    mocks.getProjectAccess.mockResolvedValue({
+      project: {
+        id: projectId,
+        name: "Project",
+        teamId,
+        collectionIds: [collectionId],
+      },
+      role: "editor",
+    });
+    mocks.gatherSource.mockRejectedValue(new TeamBudgetExceededError());
+    selectRows([connector(userId)], [{ id: collectionId }]);
+
+    const request = new Request(
+      `https://app.example/api/projects/${projectId}/brain/composio/${connectorId}/sync`,
+      {
+        method: "POST",
+        headers: {
+          Origin: "https://app.example",
+          "Content-Type": "application/json",
+          "Idempotency-Key": "gather-denied",
+        },
+        body: JSON.stringify({ mode: "gather" }),
+      },
+    );
+    const response = await POST(request, {
+      params: Promise.resolve({ id: projectId, connectorId }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({
+      error: "This team member's AI allowance has been reached.",
+    });
+    expect(mocks.gatherSource).toHaveBeenCalledTimes(1);
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it("keeps manual read-action sync outside the gather budget workflow", async () => {
+    const createdRun = { id: "run-manual", status: "running" };
+    mocks.createdRuns.push([createdRun]);
+    const manualText = `## GITHUB_GET_REPOS\n${JSON.stringify({
+      successful: true,
+      data: { repos: ["void"] },
+    })}`;
+    selectRows(
+      [connector(userId)],
+      [{ id: collectionId }],
+      [{ itemId: "source-reused", content: manualText }],
+    );
+    mocks.execute.mockResolvedValue({
+      successful: true,
+      data: { repos: ["void"] },
+    });
+    mocks.listReadActions.mockResolvedValue([
+      {
+        slug: "GITHUB_GET_REPOS",
+        inputParameters: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    ]);
+
+    const response = await POST(makeRequest({ idempotencyKey: "manual-1" }), {
+      params: Promise.resolve({ id: projectId, connectorId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      run: { status: "completed", sourceItemId: "source-reused", reused: true },
+    });
+    expect(mocks.execute).toHaveBeenCalledTimes(1);
+    expect(mocks.gatherSource).not.toHaveBeenCalled();
   });
 });

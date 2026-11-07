@@ -32,17 +32,15 @@ contextBridge.exposeInMainWorld("desktop", {
           outcome: "success" | "denied" | "failure";
         }>
       >,
-    listTools: (config: {
-      command: string;
-      args?: string[];
-      env?: Record<string, string>;
-    }) => ipcRenderer.invoke("mcp:list-tools", { config }),
+    listTools: (
+      config:
+        | { command: string; args?: string[]; env?: Record<string, string> }
+        | { url: string; headers?: Record<string, string> },
+    ) => ipcRenderer.invoke("mcp:list-tools", { config }),
     callTool: (input: {
-      config: {
-        command: string;
-        args?: string[];
-        env?: Record<string, string>;
-      };
+      config:
+        | { command: string; args?: string[]; env?: Record<string, string> }
+        | { url: string; headers?: Record<string, string> };
       toolName: string;
       params?: Record<string, unknown>;
     }) => ipcRenderer.invoke("mcp:tool-call", input),

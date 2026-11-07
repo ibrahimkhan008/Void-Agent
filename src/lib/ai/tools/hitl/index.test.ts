@@ -1,6 +1,7 @@
 import { DefaultToolName } from "lib/ai/tools";
 import { describe, expect, it } from "vitest";
 import {
+  HITL_TOOL_GUIDANCE,
   askForPlanApprovalInputSchema,
   createAgentInputSchema,
   proposeEmailInputSchema,
@@ -12,6 +13,35 @@ import { linearIssueApprovalSchema } from "./linear-approval";
 import { slackMessageApprovalSchema } from "./slack-approval";
 
 describe("human-in-the-loop tool schemas", () => {
+  it("keeps plan approval proportional and preserves effect-specific server gates", () => {
+    expect(HITL_TOOL_GUIDANCE).toMatch(
+      /read-only.*does not need plan approval/i,
+    );
+    expect(HITL_TOOL_GUIDANCE).toMatch(
+      /single action.*own action-specific review/i,
+    );
+    expect(HITL_TOOL_GUIDANCE).toMatch(
+      /plan approval is not an execution credential/i,
+    );
+    expect(HITL_TOOL_GUIDANCE).toMatch(
+      /exact-payload, single-use approval token/i,
+    );
+  });
+
+  it("asks for related missing details together without requesting secrets", () => {
+    expect(HITL_TOOL_GUIDANCE).toMatch(/one requestInput call/i);
+    expect(HITL_TOOL_GUIDANCE).toMatch(/never ask for secrets/i);
+    expect(
+      requestInputInputSchema.safeParse({
+        questions: Array.from({ length: 4 }, (_, index) => ({
+          header: `Q${index + 1}`,
+          question: "Which option should I use?",
+          options: ["A", "B"],
+        })),
+      }).success,
+    ).toBe(true);
+  });
+
   it("offers plan approval with bounded, non-empty steps", () => {
     expect(
       askForPlanApprovalInputSchema.safeParse({

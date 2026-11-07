@@ -82,11 +82,11 @@ export function BackgroundChatAlertSettings() {
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h3 className="text-xl font-semibold">Background chat alerts</h3>
+        <h3 className="text-xl font-semibold">Chat alerts</h3>
         <p className="py-2 text-sm text-muted-foreground">
-          Get a browser notification when a response finishes, errors, or waits
-          for your approval or input while this tab is hidden. Alert text never
-          includes your prompt or response.
+          Get an in-app alert while this tab is open, or a browser notification
+          when it is hidden, when a response finishes, errors, or waits for your
+          approval or input. Alert text never includes your prompt or response.
         </p>
       </div>
 
@@ -95,9 +95,7 @@ export function BackgroundChatAlertSettings() {
       ) : (
         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
           <div className="space-y-1">
-            <Label htmlFor="background-chat-alerts">
-              Enable background chat alerts
-            </Label>
+            <Label htmlFor="background-chat-alerts">Enable chat alerts</Label>
             <p className="text-xs text-muted-foreground">
               Browser permission: {permission}
             </p>

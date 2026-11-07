@@ -26,7 +26,7 @@ export const askForPlanApprovalInputSchema = z.object({
 
 export const askForPlanApprovalTool = tool({
   description:
-    "Before a complex multi-step task, present a concise proposed plan and wait for the user's approval, rejection, or requested changes. Do not begin the plan's actions before approval.",
+    "Use only before a genuinely complex, multi-step task with consequential actions. Present a concise plan and wait for approval, rejection, or requested changes before starting. Do not use for read-only research, a short tool chain, or a single action that already has its own review card. Plan approval does not replace any exact-payload approval required by an effectful tool.",
   inputSchema: askForPlanApprovalInputSchema,
 });
 
@@ -42,7 +42,7 @@ export const requestInputInputSchema = z.object({
 
 export const requestInputTool = tool({
   description:
-    "When important information is missing and only the user can provide it, ask up to four concise questions in one call and wait for their answers. Do not ask users to provide passwords, API keys, or other secrets in chat.",
+    "When essential information is missing and only the user can provide it, ask up to four concise related questions together in one call and wait for the answers; do not create multiple unanswered question cards in one turn. Offer options when answers are enumerable and omit options for open-ended answers. Never ask for passwords, API keys, recovery codes, or other secrets in chat.",
   inputSchema: requestInputInputSchema,
 });
 
@@ -208,11 +208,16 @@ export const loadHitlTools = () => ({
 });
 
 export const HITL_TOOL_GUIDANCE = `Human-in-the-loop tools:
+- Keep approval proportional: read-only lookup/search/research does not need plan approval, and a short read-only chain may run directly.
+- Use askForPlanApproval only for genuinely complex multi-tool work that includes consequential actions. Do not add a plan-approval card to a single action or short chain that already has its own action-specific review.
+- Plan approval is not an execution credential. Every effectful tool must still enforce its own authorization and any exact-payload, single-use approval token at the server-side effect boundary; never bypass those controls because a plan was approved.
+- For a single consequential action, use that action's dedicated proposal/review tool. Never repeat or alter an action after approval; changed fields require a new review.
+- When user input is essential, ask related questions together in one requestInput call (up to four), offer choices for enumerable answers, and never ask for secrets.
 - Before any outbound HTTP request, use proposeHttpRequest to show the exact URL, method, headers, body, and timeout. Make only the exact HTTPS request explicitly approved by the user with its one-use token.
 - Before running a Windmill/Activepieces automation or saved workflow, use proposeWorkflowRun to show the exact target and complete JSON input. For saved workflows include workflowName and approvalTokenField exactly as exposed by the workflow tool. Run only reviewed values with the one-use token; discovery is read-only.
 - Before calling a remote MCP tool, use proposeMcpToolCall to show the server, tool and complete arguments. Execute only the exact reviewed call with its one-use token.
-- For a complex multi-step task with consequential actions, use askForPlanApproval to show the user the proposed steps and wait for the response before acting on the plan.
-- When essential details are missing and only the user can supply them, use requestInput to ask the related questions together, then wait for the answers.
+- For a genuinely complex multi-step task with consequential actions, use askForPlanApproval once before beginning the plan; it does not replace effect-specific approval tokens listed below.
+- When essential details are missing and only the user can supply them, use one requestInput call for related questions and wait for the answers.
 - Before sending an email, use proposeEmail. Send only the user-approved recipient, subject, and body returned by the tool; never send a rejected draft.
 - Before creating, changing, or deleting a Google Calendar event, use proposeCalendarChange. Perform only the exact user-approved action and values with the returned single-use token; deletes require an explicit review card.
 - Before creating a Linear issue, use proposeLinearIssue and create only the exact user-approved team, title, and description with its single-use token.

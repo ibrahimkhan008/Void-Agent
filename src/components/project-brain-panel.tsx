@@ -16,7 +16,12 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
+import {
+  type ProjectBrainPageDetail,
+  ProjectBrainPageDetailPanel,
+} from "./project-brain-page-detail";
 import { ProjectBrainStatusCard } from "./project-brain-status-card";
+import { ProjectBrainTimeline } from "./project-brain-timeline";
 
 type Source = {
   itemId: string;
@@ -172,6 +177,7 @@ type BrainPagesData = {
     archivedAt: string;
   }>;
 };
+type BrainEntityPageDetailData = { detail: ProjectBrainPageDetail | null };
 type BrainDreamData = {
   runs: Array<{
     id: string;
@@ -269,6 +275,9 @@ export function ProjectBrainPanel({
   const sources = data?.sources ?? [];
   const facts = data?.facts ?? [];
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEntityPageId, setSelectedEntityPageId] = useState<
+    string | null
+  >(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [pathStart, setPathStart] = useState("");
   const [pathEnd, setPathEnd] = useState("");
@@ -323,6 +332,18 @@ export function ProjectBrainPanel({
       revalidateOnFocus: false,
       errorRetryCount: 0,
     });
+  const {
+    data: entityPageDetailData,
+    isLoading: entityPageDetailLoading,
+    error: entityPageDetailError,
+    mutate: mutateEntityPageDetail,
+  } = useSWR<BrainEntityPageDetailData>(
+    selectedEntityPageId
+      ? `/api/projects/${projectId}/brain/pages/${selectedEntityPageId}`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false, errorRetryCount: 0 },
+  );
   const { data: dreamData, mutate: mutateDream } = useSWR<BrainDreamData>(
     `/api/projects/${projectId}/brain/dream`,
     fetcher,
@@ -444,13 +465,27 @@ export function ProjectBrainPanel({
       );
       if (!response.ok)
         throw new Error((await response.json()).error ?? "Review failed");
-      await mutate();
+      await Promise.all([
+        mutate(),
+        mutateGraph(),
+        mutateBrainPages(),
+        mutateEntityPageDetail(),
+      ]);
       toast.success(status === "accepted" ? "Fact accepted" : "Fact dismissed");
+      return true;
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not update fact",
       );
+      return false;
     }
+  };
+
+  const reviewEntityPageFact = (
+    factId: string,
+    status: "accepted" | "rejected",
+  ) => {
+    void review(factId, status);
   };
 
   const reviewTodo = async (
@@ -1034,6 +1069,7 @@ export function ProjectBrainPanel({
       aria-label="Project knowledge brain"
     >
       <ProjectBrainStatusCard projectId={projectId} canReview={canReview} />
+      <ProjectBrainTimeline projectId={projectId} canReview={canReview} />
       <div className="mb-5 rounded-md border p-3">
         <h3 className="font-medium">Read-only MCP knowledge sources</h3>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -1901,6 +1937,21 @@ export function ProjectBrainPanel({
                         {selected ? "Selected" : "Select"}
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-expanded={selectedEntityPageId === page.id}
+                      aria-controls={`brain-page-detail-${page.id}`}
+                      onClick={() =>
+                        setSelectedEntityPageId((current) =>
+                          current === page.id ? null : page.id,
+                        )
+                      }
+                    >
+                      {selectedEntityPageId === page.id
+                        ? "Hide details"
+                        : "Details"}
+                    </Button>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Salience: {page.salience.toFixed(3)}
@@ -1914,6 +1965,28 @@ export function ProjectBrainPanel({
               );
             })}
           </ul>
+          {selectedEntityPageId && (
+            <section
+              id={`brain-page-detail-${selectedEntityPageId}`}
+              className="space-y-3 rounded-md border p-3"
+              aria-live="polite"
+            >
+              <ProjectBrainPageDetailPanel
+                detail={entityPageDetailData?.detail}
+                loading={entityPageDetailLoading}
+                error={Boolean(entityPageDetailError)}
+                canReview={canReview}
+                revisionPreview={revisionPreview}
+                loadingRevisionId={loadingRevisionId}
+                onToggleRevision={(versionId) =>
+                  void viewSourceRevision(versionId)
+                }
+                onReviewFact={(factId, status) =>
+                  void reviewEntityPageFact(factId, status)
+                }
+              />
+            </section>
+          )}{" "}
           {canReview && selectedMergePages.length === 2 && (
             <Button
               size="sm"

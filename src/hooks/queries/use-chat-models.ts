@@ -6,6 +6,7 @@ export const useChatModels = (options?: SWRConfiguration) => {
   return useSWR<
     {
       provider: string;
+      displayName?: string;
       hasAPIKey: boolean;
       models: {
         name: string;

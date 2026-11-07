@@ -6,13 +6,14 @@ import {
   getStreamContext,
 } from "lib/ai/chat-stream-context";
 import { chatRepository } from "lib/db/repository";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 const idSchema = z.string().uuid();
-const noStream = () =>
-  new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+const noStore = { "cache-control": "no-store" };
+const noStream = () => new Response(null, { status: 204, headers: noStore });
 
 async function authorizedThread(rawId: string) {
   const session = await getSession();
@@ -27,7 +28,25 @@ async function authorizedThread(rawId: string) {
     return {
       response: new Response("Not found", {
         status: 404,
-        headers: { "cache-control": "no-store" },
+        headers: noStore,
+      }),
+    };
+  const rate = await checkApiRateLimit({
+    kind: "chat-stream-resume",
+    id: session.user.id,
+    limit: 120,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed)
+    return {
+      response: new Response("Too many requests", {
+        status: 429,
+        headers: {
+          ...noStore,
+          "retry-after": String(
+            Math.max(1, Math.ceil(rate.retryAfterMs / 1_000)),
+          ),
+        },
       }),
     };
   const thread = await chatRepository.selectThread(rawId);
@@ -35,7 +54,7 @@ async function authorizedThread(rawId: string) {
     return {
       response: new Response("Not found", {
         status: 404,
-        headers: { "cache-control": "no-store" },
+        headers: noStore,
       }),
     };
   return { thread };
