@@ -1,24 +1,21 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 21:42 IST
+Updated: 2026-11-07 22:08 IST
 
-## Current continuation status - 2026-11-07 21:23 IST
-The user asked to continue implementing in verified batches and keep this file updated. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
+## Current continuation status - 2026-11-07 22:08 IST
+The user asked to continue implementing in verified batches while keeping this handoff current. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
 
-Published checkpoints include `5ee73aa` for project status chat and `04a25a3` for its handoff record. Published voice project status implementation commit `30cfb5836adfd732e0afece2c53e230c4c1ae8e9` to `origin/main` as a fast-forward. Focused tests, scoped Biome, integrated TypeScript, production build (206/206 pages), and staged diff checks passed. Local `HEAD` equals `origin/main`; the two untracked CognixAI specs remain untouched.
+Published voice project status commit `30cfb58` and handoff record `ce8cf38` are on `origin/main`. Current local batch closes DNS rebinding in workflow HTTP nodes by pinning the TLS transport to a validated public IP. Focused tests (21/21), scoped Biome, and integrated TypeScript pass; production build passed (206/206 pages). Fresh build and staged-path review passed; this batch is ready for its fast-forward push. The two untracked CognixAI specs remain untouched.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
 Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-## Current checkpoint - 2026-11-07 21:40 IST
-- The chat `getProjectStatus` tool remains source-revision/fingerprint bound and read-only. This local batch adds a voice executor through `POST /api/voice/project-status`, available in OpenAI Realtime and KonvO only when server-side session setup confirms an owned thread with current project access. Every status request rechecks thread ownership, project access, and current collection scope. Voice transcript persistence's separate generated thread is not used as project context.
-- Voice status route/scope plus project status/knowledge tests passed **15/15**. Scoped Biome and integrated `pnpm check-types` passed. Fresh production build passed with 206/206 pages.
-- No schema change, DB apply, production deploy, or live PostgreSQL/provider/browser voice workflow. Existing migrations 0070-0072 remain unapplied. Voice status source and migration docs are published in `30cfb58`. Do not stage the CognixAI specs.
-### Voice project status publication - 2026-11-07 21:42 IST
-- Commit `30cfb5836adfd732e0afece2c53e230c4c1ae8e9` (`feat: expose project status in voice chat`) was pushed to `origin/main` as a fast-forward from `04a25a3`. Local HEAD and origin/main match. The commit contains 17 implementation/test/documentation paths; user-owned CognixAI specs were excluded.
-- Verification: focused status/knowledge/voice suites 15/15; scoped Biome; `pnpm check-types` with the 6 GiB heap; production build 206/206 pages; staged `git diff --check`. No live PostgreSQL/provider/browser workflow, migration apply, or deployment. F010/F026 remain PARTIAL.
-
+## Current checkpoint - 2026-11-07 22:08 IST
+- Latest published implementation: voice `getProjectStatus` in OpenAI Realtime and KonvO through owned project chat scope (`30cfb58`); handoff follow-up `ce8cf38`.
+- Current local batch replaces workflow HTTP validate-then-fetch with DNS-pinned HTTPS transport. Focused tests passed **21/21**; scoped Biome and integrated `pnpm check-types` passed. Fresh production build passed with 206/206 pages.
+- Separate workflow audit found the embedded n8n full editor grants native run/activation/edit calls that bypass the host review UX; direct activation `PUT /api/workflow/[id]` also lacks a review-token check. Dynamic MCP/LLM node effects in saved graphs currently fail closed and cannot run until exact runtime approval is implemented. This next gap must remain visible; do not claim F025 complete.
+- No database/schema change, migration apply, production deploy, or live outbound/provider/database journey. Existing migrations 0070-0072 remain unapplied. Do not stage user-owned CognixAI specs.
 ## Migration completion assessment
 The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
 
@@ -33,6 +30,15 @@ Full test suite on the prior published checkpoint: **404 files / 2,254 tests pas
 3. Validate authored migrations in a disposable PostgreSQL environment only; they have not been applied. Never apply to production under this authorization.
 4. Run external provider, OAuth/email, Redis, browser, Electron, and hardware flows where configured; report unavailable services explicitly.
 5. After meaningful batches, rerun focused tests/type/lint and build as appropriate, update feature matrix/progress/testing/security docs and append-only context.md, then review staged paths before pushing to origin/main.
+
+### Workflow HTTP DNS pinning verification - 2026-11-07 22:08 IST
+- Focused pinned-transport, approved HTTP and URL guard suites passed 21/21; scoped Biome and `pnpm check-types` with 6 GiB heap passed; fresh production build passed (206/206 pages). `git diff --check` passed with LF/CRLF notices only.
+- No live external request or database/provider verification. This closes DNS rebinding in the workflow HTTP executor; it does not close the separately documented n8n editor and activation approval bypass. Source/docs are local pending staged review and push.
+
+## Newly audited workflow approval gaps - 2026-11-07 21:48 IST
+- `src/app/api/n8n/embed/[id]/route.ts` creates a short-lived JWT for the full n8n editor; iframe and raw-editor links expose native edit/run/activation requests outside Void-Agent's explicit review/one-use approval endpoints. `src/app/api/workflow/[id]/route.ts` also accepts activation updates without same-origin, rate limit, or a review token. The immediate safe design is to remove the full editor capability from the user-facing embed and provide a read-only definition view, while keeping host reviewed-run routing; activation needs an explicit effect-review/approval contract or must be disabled.
+- `getWorkflowEffectReview` deliberately rejects LLM-generated MCP/app-tool parameters and dynamic HTTP inputs, so these workflows fail closed but do not yet match the reference's parameterized execution workflow. Future completion needs a graph pause/resume effect review that shows exact runtime node arguments and uses a one-use token bound to user, graph revision, node, and exact effect data.
+- V2 executes graphs after access checks without server-enforced side-effect approval; Void-Agent's existing approval boundary is stronger and must be preserved.
 
 ## Repository safety
 Only modify Void-Agent. Keep Void-Agent-V2 read-only. Preserve existing user changes and the two CognixAI spec files; do not reset/clean/stash. Keep temporary logs in ignored .audit/, outside .git; do not expose secrets. No production deployment or database migration has occurred.

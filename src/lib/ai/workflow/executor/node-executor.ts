@@ -16,7 +16,6 @@ import { youtubeTranscriptToolForWorkflow } from "lib/ai/tools/web/youtube-trans
 import { AppError } from "lib/errors";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
 import { toAny } from "lib/utils";
-import { assertPublicWebhookUrl } from "lib/webhooks/url-guard";
 import { checkConditionBranch } from "../condition";
 import {
   convertTiptapJsonToAiMessage,
@@ -34,6 +33,7 @@ import {
   WorkflowNodeData,
 } from "../workflow.interface";
 import { WorkflowRuntimeState } from "./graph-store";
+import { requestPublicWorkflowHttp } from "./public-http-request";
 
 /**
  * Interface for node executor functions.
@@ -380,8 +380,6 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
 
   // Workflow definitions are user-authored and execute from the server. Apply
   // the same public-HTTPS destination guard used for webhook delivery.
-  await assertPublicWebhookUrl(finalUrl);
-
   // Build headers
   const headers: Record<string, string> = {};
   for (const header of node.headers || []) {
@@ -413,36 +411,12 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
   const startTime = Date.now();
 
   try {
-    // Create AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    let response: Response;
-    try {
-      response = await fetch(finalUrl, {
-        method: node.method,
-        headers,
-        body,
-        signal: controller.signal,
-        redirect: "error",
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    // Parse response body as string
-    let responseBody: string;
-    try {
-      responseBody = await response.text();
-    } catch {
-      // If parsing fails, return empty string
-      responseBody = "";
-    }
-
-    // Convert response headers to object
-    const responseHeaders: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      responseHeaders[key] = value;
+    const response = await requestPublicWorkflowHttp({
+      url: finalUrl,
+      method: node.method,
+      headers,
+      body,
+      timeoutMs: timeout,
     });
 
     const duration = Date.now() - startTime;
@@ -457,15 +431,13 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
     const responseData = {
       status: response.status,
       statusText: response.statusText,
-      ok: response.ok,
-      headers: responseHeaders,
-      body: responseBody,
+      ok: response.status >= 200 && response.status < 300,
+      headers: response.headers,
+      body: response.body,
       duration,
-      size: response.headers.get("content-length")
-        ? parseInt(response.headers.get("content-length")!)
-        : undefined,
+      size: response.size,
     };
-    if (!response.ok) {
+    if (!(response.status >= 200 && response.status < 300)) {
       state.setInput(node.id, {
         request,
         response: responseData,

@@ -1211,3 +1211,14 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 
 ### F010 voice project status final build (2026-11-07 21:40 IST)
 - The initially pending build was rerun after the malformed-tool-argument guard: `NODE_OPTIONS=--max-old-space-size=6144 pnpm build` PASS, static generation 206/206, exit 0. Non-fatal build warnings are recorded in the migration checkpoint; no live DB/provider/browser flow. The default-heap typecheck attempt OOMed at 2 GB; the configured 6 GiB `pnpm check-types` rerun passed.
+
+
+## Workflow HTTP DNS pinning (2026-11-07 21:48 IST)
+- Focused Vitest: 3 files / 21 tests PASS (`public-http-request`, approved HTTP tool, webhook URL guard).
+- Scoped Biome: PASS across the new transport/test and workflow node executor.
+- Integrated `pnpm check-types` with `NODE_OPTIONS=--max-old-space-size=6144`: PASS.
+- Production build pending for this batch. No live outbound request was made.
+
+
+### Workflow HTTP final build result (2026-11-07 22:08 IST)
+- Production build rerun: PASS, exit 0; static generation completed 206/206 pages. Compiled with existing E2B/unpdf dynamic dependency warnings; Next lint emitted existing `<img>` warnings; static data collection logged expected optional Redis/Upstash/E2B absence, dynamic session probes, workspace-root and PostgreSQL SSL warnings. No live outbound request.

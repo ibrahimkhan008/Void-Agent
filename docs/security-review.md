@@ -773,3 +773,13 @@ Personal API keys use the existing AES-256-GCM encryption helper in a dedicated 
 
 ### Voice project status final verification (2026-11-07 21:40 IST)
 - Malformed or non-object provider tool arguments are rejected before invoking built-in or MCP actions in both browser voice executors. Focused route/scope/tool tests passed 15/15, integrated TypeScript passed with the documented 6 GiB Node heap, scoped Biome passed, and the production build passed with 206/206 pages. Live authorization against PostgreSQL remains untested.
+
+
+## Workflow HTTP DNS rebinding fix (2026-11-07 21:48 IST)
+- Workflow HTTP nodes no longer validate DNS and then hand the hostname to global fetch for an independent resolution. They keep the resolver's public address set and pin the HTTPS socket lookup to the first validated address; URL hostname/TLS certificate checks remain in effect. Every returned DNS address is already rejected by `resolvePublicWebhookUrl` if non-public.
+- Automatic redirects are rejected; max response body is 1 MB; timeout remains bounded to 300 seconds. Tests cover pinned address use, unsafe resolver rejection before connection, redirects and bounds.
+- Approval audit identified a distinct unresolved bypass: full n8n embedded editor auth grants direct native API controls, and host activation PUT lacks a review token. Do not represent workflow execution approval as complete; scope this as the next task.
+
+
+### Workflow HTTP build verification (2026-11-07 22:08 IST)
+- Focused 21-test suite, scoped Biome, 6 GiB integrated typecheck and production build (206/206 pages) passed. No live outbound request was sent. The n8n embed/activation approval bypass remains a separate unaddressed gap.

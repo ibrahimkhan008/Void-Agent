@@ -1223,3 +1223,14 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 
 ### F010 voice status final verification correction (2026-11-07 21:40 IST)
 - Fresh production build passed with 206/206 static pages after the final voice argument-validation change. Existing E2B/unpdf dependency-analysis, missing optional Redis/Upstash/E2B configuration, dynamic-session probes, multiple-lockfile root inference, PostgreSQL SSL-mode notice, and `<img>` warnings remain. No live voice/provider/PostgreSQL journey; F010/F026 remain PARTIAL.
+
+
+## Workflow HTTP DNS pinning security fix (2026-11-07 21:48 IST)
+- Replaced the workflow HTTP node's validate-then-global-fetch path with a transport that pins the TLS socket to a validated public address. This closes DNS rebinding between `assertPublicWebhookUrl` and the later `fetch` resolution.
+- Redirects stay disabled; timeouts are bounded by the existing five-minute config limit; response buffering is capped at 1 MB. Added coverage for pinned DNS, no connect on unsafe resolution, redirect rejection, and output/timeout bounds.
+- Focused suite passed 3 files / 21 tests; scoped Biome and integrated typecheck passed. Production build pending.
+- Separate approval audit: primary chat workflows and host-triggered n8n runs use graph/payload-bound one-use approvals. The full embedded n8n editor's signed session can run, activate, or edit workflows outside that host boundary; `PUT /api/workflow/[id]` activation has no review-token check. This is the next major security migration item. Parameterized local graph MCP/LLM effects remain fail-closed and not yet supported.
+
+
+### Workflow HTTP final verification correction (2026-11-07 22:08 IST)
+- Fresh production build passed (exit 0; Next static generation 206/206). Prior ?production build pending? note is superseded. Existing build warnings remain non-fatal; no live HTTP, provider or database request was made.

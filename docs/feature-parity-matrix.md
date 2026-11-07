@@ -1628,3 +1628,13 @@ Public HTTPS per-user provider management is implemented and source/type checked
 
 ### F010/F026 voice status build verification (2026-11-07 21:40 IST)
 - The focused source/type checks remained green after rejecting malformed provider tool arguments before execution. Fresh production `pnpm build` passed; Next generated 206/206 pages. Existing dependency, optional-service, dynamic-session, SSL, and `<img>` warnings were non-fatal and are not evidence of live provider or database verification.
+
+
+## Workflow HTTP SSRF rebinding closure (2026-11-07 21:48 IST)
+- Primary workflow HTTP node previously validated a public HTTPS hostname, then called global `fetch`, which performed a second DNS lookup and allowed a DNS-rebinding race.
+- It now uses `resolvePublicWebhookUrl`'s validated addresses and `node:https.request` with a lookup callback pinned to one checked public address. The URL hostname remains unchanged for TLS SNI/certificate validation. Redirects are rejected; request timeout is bounded to 5 minutes and response buffering to 1 MB. HTTP request/response status, headers, body, size and workflow error-state behavior are preserved.
+- Verification: focused pinned-transport, existing approved HTTP tool and URL-guard tests passed 21/21; scoped Biome and integrated typecheck passed. Production build pending.
+- F025 remains PARTIAL. Audit separately found the full n8n editor embed and a direct activation endpoint can bypass the host workflow preview/approval UI; dynamic MCP parameter workflows remain fail-closed/unrunnable until exact runtime effect approval exists.
+
+### Workflow HTTP final verification (2026-11-07 22:08 IST)
+- Fresh `pnpm build` passed with 206/206 static pages after the DNS-pinned transport change. Non-fatal dependency/workspace/dynamic-session/optional-service/image/SSL notices remain. No live external HTTP request was made.
