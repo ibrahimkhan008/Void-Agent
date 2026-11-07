@@ -1042,3 +1042,21 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types` passed. `pnpm lint` passed with existing Next lint deprecation, `<img>` warnings and multiple-lockfile workspace-root warning. `pnpm db:check` passed journal consistency only. `git diff --check` passed with Windows line-ending notices.
 - `NODE_OPTIONS=--max-old-space-size=6144 pnpm build` passed; production build generated 203/203 pages. Existing E2B/unpdf critical-dependency, optional Redis/Upstash/E2B configuration, dynamic-session prerender, and PostgreSQL SSL-mode warnings remain non-fatal.
 - No PostgreSQL migration/runtime test, live OpenSEO OAuth/provider call, object-storage/browser preview, Web Push/VAPID delivery, deployment, or production database operation was performed. No new migration was introduced in this batch. The four affected capability families and total migration remain PARTIAL.
+
+## F026 Voice Inbox focused verification (2026-11-07)
+- `pnpm test -- src/lib/voice/voice-inbox.test.ts src/app/api/voice/inbox/route.test.ts src/components/voice-inbox.test.tsx`: PASS, 3 files / 6 tests.
+- Coverage includes cursor round-trip/date validation, malformed/empty cursor rejection, stable timestamp+message-ID keyset SQL, owner predicate, page sentinel/30-row cap, text-only 8,000-character projection, authentication/rate limit, and device transcript links into the existing review route.
+- Scoped Biome check passed across the 7 implementation/test/page files. No integrated typecheck/build or live PostgreSQL/browser/provider journey was run by this slice. No database migration was added.
+
+## F021 desktop native menu verification (2026-11-07)
+- `pnpm --dir apps/desktop typecheck` passed.
+- `pnpm --dir apps/desktop build` passed (main-process bundle; not an installer/package build).
+- `pnpm exec vitest run apps/desktop/src/main` passed 50/50 across 14 files, including the new platform menu tests.
+- Scoped `pnpm exec biome check apps/desktop/src/main/application-menu.ts apps/desktop/src/main/application-menu.test.ts apps/desktop/src/main/index.ts` and `git diff --check` passed.
+- No Electron GUI, signed package, live OAuth/server switching, updater feed install, deployment, or production system was tested. F021 remains PARTIAL.
+## Integrated verification: F021 / F025 / F026 (2026-11-07)
+- Root `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`; root `pnpm test` passed 2,051/2,051 across 363 files; `pnpm lint` passed with existing deprecation, `<img>`, and workspace-root warnings; `pnpm db:check` passed journal consistency; and `git diff --check` passed with Windows line-ending notices.
+- Desktop companion `typecheck` and `build` passed; desktop main Vitest passed 50/50 across 14 files; scoped Biome/diff checks passed.
+- Production `pnpm build` passed, generating 203/203 pages. Existing E2B/unpdf critical-dependency, optional Redis/Upstash/E2B configuration, dynamic-session prerender, and PostgreSQL SSL-mode warnings were non-fatal.
+- Initial full-suite run overlapped typecheck and had four timeout failures (auth permission and DOCX/PPTX parser/render tests). All four files passed 34/34 when rerun alone; a complete full-suite rerun with typecheck finished passed 2,051/2,051. The overlap run is classified as resource contention, not a product regression.
+- F025 had no missing executable reference mutation; the audit confirmed matching primary workflows and stronger server-side effect gates. F021/F025/F026 remain PARTIAL pending unavailable GUI/browser/live-service verification. No schema migration, database application, deployment, or production DB operation was performed.

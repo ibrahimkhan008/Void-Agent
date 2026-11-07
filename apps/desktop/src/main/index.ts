@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { BrowserWindow, Menu, app, dialog, shell } from "electron";
+import { buildDesktopApplicationMenu } from "./application-menu.js";
 import {
   checkForUpdatesNow,
   initAutoUpdater,
@@ -53,28 +54,21 @@ function acceptDeepLink(raw: string) {
 }
 
 function installApplicationMenu(onChangeServer: () => void) {
+  app.setAboutPanelOptions({
+    applicationName: "Void-Agent",
+    applicationVersion: app.getVersion(),
+  });
   Menu.setApplicationMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "Void-Agent",
-        submenu: [
-          { role: "about" },
-          { type: "separator" },
-          { label: "Change Server…", click: onChangeServer },
-          { type: "separator" },
-          { role: "quit" },
-        ],
-      },
-      {
-        label: "Help",
-        submenu: [
-          {
-            label: "Check for Updates…",
-            click: () => void checkForUpdatesNow("manual"),
-          },
-        ],
-      },
-    ]),
+    Menu.buildFromTemplate(
+      buildDesktopApplicationMenu({
+        platform: process.platform,
+        connectedHost: target?.host.slice(0, 253) ?? "",
+        canOpenDevTools: process.env.NODE_ENV === "development",
+        onChangeServer,
+        onCheckForUpdates: () => void checkForUpdatesNow("manual"),
+        onAbout: () => app.showAboutPanel(),
+      }),
+    ),
   );
 }
 

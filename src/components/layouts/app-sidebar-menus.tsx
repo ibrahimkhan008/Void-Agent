@@ -15,14 +15,15 @@ import {
   FolderKanban,
   Globe2,
   Hammer,
+  Inbox,
   Library,
   PencilRuler,
   SlidersHorizontal,
   Sparkles,
   TableProperties,
   Users,
-  Waypoints,
   WalletCards,
+  Waypoints,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -84,14 +85,41 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <TooltipTrigger asChild>
-                <Link href="/cockpit">
+                <Link href="/voice-inbox">
                   <SidebarMenuButton className="font-semibold">
-                    <WalletCards className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Cockpit</span>
+                    <Inbox className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Voice inbox
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Cockpit</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Voice inbox
+                </TooltipContent>
+              )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/cockpit">
+                  <SidebarMenuButton className="font-semibold">
+                    <WalletCards className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Cockpit
+                    </span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Cockpit
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
@@ -123,11 +151,17 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <Link href="/published-pages">
                   <SidebarMenuButton className="font-semibold">
                     <Globe2 className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Published pages</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Published pages
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Published pages</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Published pages
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
@@ -138,11 +172,17 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <Link href="/schedules">
                   <SidebarMenuButton className="font-semibold">
                     <Clock3 className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Scheduled tasks</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Scheduled tasks
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Scheduled tasks</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Scheduled tasks
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
@@ -216,11 +256,17 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <Link href="/projects">
                   <SidebarMenuButton className="font-semibold">
                     <FolderKanban className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Projects</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Projects
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Projects</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Projects
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
@@ -231,11 +277,17 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <Link href="/voice-devices">
                   <SidebarMenuButton className="font-semibold">
                     <AudioLines className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Voice devices</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Voice devices
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Voice devices</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Voice devices
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
@@ -267,11 +319,17 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <Link href="/tabular-reviews">
                   <SidebarMenuButton className="font-semibold">
                     <TableProperties className="size-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Document reviews</span>
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Document reviews
+                    </span>
                   </SidebarMenuButton>
                 </Link>
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" align="center">Document reviews</TooltipContent>}
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Document reviews
+                </TooltipContent>
+              )}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
