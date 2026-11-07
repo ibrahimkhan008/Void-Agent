@@ -951,3 +951,6 @@ Agent file bindings are now validated server-side using the authenticated user's
 ## F010 zero-fact and paged nightly dream coverage (2026-11-07)
 - Nightly dream scheduling now selects successful ingest runs directly, including runs that produced zero accepted facts, and uses stable project cursor paging instead of a fixed first-100 project list. Existing daily idempotency and current project access checks remain enforced.
 - Regression coverage: 102-project paging, zero-fact run, cursor progression and unauthorized-project exclusion. Focused batch tests and integrated checks are recorded in the verification entry below. F010 remains PARTIAL pending live PostgreSQL execution and remaining model-dedupe/stage parity.
+## Published follow-up batch (2026-11-07)
+- Commit `481f6ca` (`feat: expand dream cycle and cockpit workflows`) was pushed to `origin/main` after integrated typecheck, all tests, lint, journal check, production build and whitespace validation passed.
+- Published scope: nightly project-brain zero-fact/paged coverage, unified Cockpit status overview (Stripe dashboard moved to `/cockpit/stripe`), and secure project-document unlink revalidation. F010/F030/F037 remain PARTIAL for the documented missing behaviors and lack of live DB/provider/browser/device verification.
