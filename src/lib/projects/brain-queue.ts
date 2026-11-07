@@ -38,6 +38,11 @@ import {
   findProjectBrainConflictCandidates,
   judgeProjectBrainConflictCandidates,
 } from "lib/projects/brain-contradictions";
+import { runProjectBrainMaintenance } from "lib/projects/brain-maintenance";
+import {
+  archiveStaleProjectBrainPage,
+  listStaleProjectBrainPages,
+} from "lib/projects/brain-page-archive";
 import {
   ProjectBrainExtractionSchema,
   getGroundedProjectBrainEntities,
@@ -48,6 +53,7 @@ import {
   projectBrainSourceFingerprint,
 } from "lib/projects/brain-schema";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+import { recomputeProjectBrainSalience } from "lib/projects/recompute-brain-salience";
 import {
   ensureProjectBrainSourceVersion,
   resolveProjectBrainSourceSnapshot,
@@ -159,6 +165,12 @@ export async function processProjectBrainQueue(now = new Date()) {
   let claimed = 0;
   let completed = 0;
   let failed = 0;
+  let salienceUpdated = 0;
+  let stalePagesArchived = 0;
+  const maintenanceScopes = new Map<
+    string,
+    { projectId: string; collectionIds: string[]; ownerIds: string[] }
+  >();
 
   for (let count = 0; count < MAX_RUNS_PER_TICK; count += 1) {
     const run = await pgDb.transaction(async (tx) => {
@@ -505,6 +517,11 @@ export async function processProjectBrainQueue(now = new Date()) {
           );
         }
       }
+      maintenanceScopes.set(run.projectId, {
+        projectId: run.projectId,
+        collectionIds: access.project.collectionIds,
+        ownerIds,
+      });
       completed += 1;
     } catch (error) {
       console.error(
@@ -530,5 +547,30 @@ export async function processProjectBrainQueue(now = new Date()) {
     }
   }
 
-  return { claimed, completed, failed };
+  // Run once per currently authorized project after the queue batch instead
+  // of once per source. This keeps one tick bounded even when many sources in
+  // the same project finish together.
+  for (const scope of maintenanceScopes.values()) {
+    const maintenance = await runProjectBrainMaintenance(scope, {
+      recomputeSalience: recomputeProjectBrainSalience,
+      listStalePages: listStaleProjectBrainPages,
+      archiveStalePage: archiveStaleProjectBrainPage,
+    });
+    salienceUpdated += maintenance.salienceUpdated;
+    stalePagesArchived += maintenance.stalePagesArchived;
+    if (maintenance.warnings.length) {
+      console.warn(
+        "[project-brain] post-ingest maintenance was partial",
+        scope.projectId,
+        maintenance.warnings,
+      );
+    }
+  }
+
+  return {
+    claimed,
+    completed,
+    failed,
+    maintenance: { salienceUpdated, stalePagesArchived },
+  };
 }
