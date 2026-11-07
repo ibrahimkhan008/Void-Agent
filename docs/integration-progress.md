@@ -1057,3 +1057,8 @@ Agent file bindings are now validated server-side using the authenticated user's
 - F015/F019: added published-page revocation rate-limit coverage/guard and a regression test for stale resumable-stream buffer cleanup.
 - Verification: typecheck passed; Vitest passed 2,080/2,080 across 369 files with `--maxWorkers=2`; lint and `pnpm db:check` passed; production build passed and generated 203/203 pages; `git diff --check` passed. Existing warnings and unavailable live PostgreSQL/browser/provider checks remain documented. Do not mark these broad families COMPLETE.
 - This verified batch is prepared for publication after a scoped staging review. Overall parity migration remains in progress; previous family counts are not represented as completed migration.
+
+## Publication receipt (2026-11-07 13:55 IST)
+- Published verified batch as commit `217041971126b447b82829922e64e0f966997d2b` to `origin/main`; remote and local hashes matched immediately after push.
+- Only the reviewed 31 source/test/migration/documentation files were committed. User-owned CognixAI spec files and ignored `context.md` remain unstaged. No reference repository, database, or deployment was changed.
+- The batch verification is recorded above. Overall Better Chatbot parity remains in progress and this commit does not claim completion.
