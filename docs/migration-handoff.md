@@ -14,7 +14,7 @@ Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is t
 ## Current checkpoint - 2026-11-07 21:08 IST
 - getProjectStatus is wired into project-attached chats. It rechecks project access, derives current attached collection/source-owner scope, loads accepted current-revision facts/tasks/events, and returns a snapshot only on exact current-evidence fingerprint match. It reports no snapshot explicitly without calling a model. Tool output is bounded and read-only.
 - Focused project-status + project-knowledge tests passed **8/8**; scoped Biome and integrated typecheck passed; fresh production build passed, generating **206/206 pages**. Known non-fatal build warnings are listed in docs/testing-report.md.
-- Current changes are not committed/pushed yet. No schema change, DB apply, production deploy or live DB/provider/browser/voice test. Existing migrations 0070-0072 are unapplied.
+- The project status tool change was committed and pushed successfully as `5ee73aa`; `HEAD` matches `origin/main`. No schema change, DB apply, production deploy or live DB/provider/browser/voice test. Existing migrations 0070-0072 are unapplied.
 - Overall migration remains incomplete; the broad parity matrix is not a completion percentage. Keep the CognixAI spec files out of all commits.
 ## Migration completion assessment
 The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
@@ -68,3 +68,8 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Published commit 5aaa4ec1aae58d8f7f17665f8db8c738d6259f82 (eat: add recent events to project knowledge) to origin/main as a fast-forward from 9880192.
 - Verification: 4/4 focused project-knowledge tests, scoped Biome, integrated typecheck, and production build (206/206 pages) passed. HEAD and origin/main are aligned; ahead/behind count 0/0.
 - The dedicated voice navigator and complete project status/todo tool remain incomplete; F010 remains PARTIAL. No DB migration or deploy.
+
+## F010 project status tool publication - 2026-11-07 21:09 IST
+- Published commit 5ee73aa62ba24fb4509ccfd663802b22a18e9334 (eat: add project status chat tool) to origin/main as a fast-forward from 845da7b.
+- Verification: focused status/knowledge tests 8/8; scoped Biome; integrated typecheck; production build generated 206/206 pages. Remote ahead/behind is 0/0.
+- The feature remains PARTIAL: no live PostgreSQL/browser/voice workflow and the reference's dedicated voice navigator has not been recreated. No migration applied or deployment performed.
