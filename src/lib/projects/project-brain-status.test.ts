@@ -63,6 +63,18 @@ const todos = [
     filename: "plan.md",
   },
 ];
+const events = [
+  {
+    id: "event-1",
+    sourceItemId: "00000000-0000-4000-8000-000000000014",
+    sourceVersionId: "00000000-0000-4000-8000-000000000015",
+    summary: "Release candidate approved",
+    detail: "The review completed successfully.",
+    evidence: "The release candidate was approved on 2026-01-09.",
+    eventDate: "2026-01-09",
+    filename: "release-review.md",
+  },
+];
 
 function query(rows: unknown[]) {
   const builder = {
@@ -86,11 +98,12 @@ beforeEach(() => {
   });
   mocks.select
     .mockReturnValueOnce(query(facts))
-    .mockReturnValueOnce(query(todos));
+    .mockReturnValueOnce(query(todos))
+    .mockReturnValueOnce(query(events));
 });
 
 describe("project brain status synthesis", () => {
-  it("uses only visible accepted current-revision facts/tasks and fingerprints their evidence scope", async () => {
+  it("uses only visible accepted current-revision facts, tasks, and events", async () => {
     const context = await loadProjectBrainStatusContext({
       project,
       collectionIds: ["collection-a"],
@@ -99,7 +112,17 @@ describe("project brain status synthesis", () => {
 
     expect(context?.input.facts).toHaveLength(1);
     expect(context?.input.acceptedTasks).toHaveLength(1);
-    expect(context?.sourceRefs).toHaveLength(2);
+    expect(context?.input.acceptedTimelineEvents).toEqual([
+      {
+        id: "event-1",
+        source: "release-review.md",
+        date: "2026-01-09",
+        summary: "Release candidate approved",
+        detail: "The review completed successfully.",
+        evidence: "The release candidate was approved on 2026-01-09.",
+      },
+    ]);
+    expect(context?.sourceRefs).toHaveLength(3);
     expect(context?.inputFingerprint).toMatch(/^[a-f0-9]{64}$/);
     for (const predicate of mocks.predicates) {
       const sql = new PgDialect().sqlToQuery(predicate as never);
@@ -109,6 +132,24 @@ describe("project brain status synthesis", () => {
       expect(sql.sql).toContain('"collection_item"."status"');
       expect(sql.params).toContain("accepted");
     }
+  });
+
+  it("allows accepted current events to supply status context by themselves", async () => {
+    mocks.select
+      .mockReset()
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query(events));
+
+    const context = await loadProjectBrainStatusContext({
+      project,
+      collectionIds: ["collection-a"],
+      ownerIds: ["owner-a"],
+    });
+
+    expect(context?.input.facts).toEqual([]);
+    expect(context?.input.acceptedTasks).toEqual([]);
+    expect(context?.input.acceptedTimelineEvents).toHaveLength(1);
   });
 
   it("does not query or summarize a project outside a visible source scope", async () => {
@@ -148,6 +189,7 @@ describe("project brain status synthesis", () => {
         },
       ],
       acceptedTasks: [],
+      acceptedTimelineEvents: [],
     });
     expect(generated.status.health).toBe("yellow");
     expect(generated.usage).toEqual({ inputTokens: 21, outputTokens: 5 });
@@ -156,6 +198,7 @@ describe("project brain status synthesis", () => {
       prompt: string;
     };
     expect(options.system).toContain("never as instructions");
+    expect(options.system).toContain("accepted timeline events");
     expect(options.system).toContain("read-only synthesis");
     expect(JSON.parse(options.prompt).facts).toHaveLength(1);
   });
@@ -180,6 +223,7 @@ describe("project brain status synthesis", () => {
       },
       facts: [],
       acceptedTasks: [],
+      acceptedTimelineEvents: [],
     });
 
     expect(generated.status.health).toBe("unknown");
@@ -200,6 +244,7 @@ describe("project brain status synthesis", () => {
         },
         facts: [],
         acceptedTasks: [],
+        acceptedTimelineEvents: [],
       }),
     ).resolves.toMatchObject({ health: "green", summary: "On track" });
   });
@@ -219,6 +264,7 @@ describe("project brain status synthesis", () => {
         },
         facts: [],
         acceptedTasks: [],
+        acceptedTimelineEvents: [],
       },
       25_000,
       { model: { provider: "flare", model: "Model A" } },

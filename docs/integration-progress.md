@@ -1195,3 +1195,9 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Added owner-scoped provider editing to the settings UI. Blank API key retains the existing encrypted credential; update re-discovers models before persisting the endpoint/model allowlist. Added regression coverage that the old key is used only server-side and passed through to owner-scoped persistence without returning it.
 - Final focused provider suite: 6 files / 30 tests passed. Scoped Biome passed 19 files. Final integrated `pnpm check-types` passed with 6 GiB heap; output is in ignored `.audit/check-types.log`. `pnpm db:check` passed without applying migrations. `git diff --check` exited 0; only existing LF/CRLF notices appeared.
 - F007 remains PARTIAL: no live PostgreSQL, external provider, browser, or chat streaming verification; migration 0072 is unapplied. Localhost/LAN Ollama/LM Studio are still excluded pending a client proxy. No reference write, production database, deployment, commit, or push.
+
+## F010 status snapshots now consume accepted timeline events - 2026-11-07 20:33 IST
+- Implemented end-to-end context inclusion for review-accepted, current-source-revision timeline events. Reused the owner/collection/ready-source visibility joins and active source-state predicate already used for accepted facts/tasks.
+- Added bounded event fields and event source references to the status fingerprint. This means a newly accepted/current timeline item can affect a snapshot and stale cached status is not reused after its source scope changes.
+- Focused tests: 8/8; scoped Biome and integrated typecheck passed. Fresh production build passed (206/206 pages). No migration was added/applied; existing 0071 migration remains unapplied and no live PostgreSQL check occurred.
+- F010 remains PARTIAL; scheduled worker/voice consumers and live DB workflow remain unverified.

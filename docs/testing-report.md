@@ -1173,3 +1173,16 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Added owner-scoped provider editing to the settings UI. Blank API key retains the existing encrypted credential; update re-discovers models before persisting the endpoint/model allowlist. Added regression coverage that the old key is used only server-side and passed through to owner-scoped persistence without returning it.
 - Final focused provider suite: 6 files / 30 tests passed. Scoped Biome passed 19 files. Final integrated `pnpm check-types` passed with 6 GiB heap; output is in ignored `.audit/check-types.log`. `pnpm db:check` passed without applying migrations. `git diff --check` exited 0; only existing LF/CRLF notices appeared.
 - F007 remains PARTIAL: no live PostgreSQL, external provider, browser, or chat streaming verification; migration 0072 is unapplied. Localhost/LAN Ollama/LM Studio are still excluded pending a client proxy. No reference write, production database, deployment, commit, or push.
+
+## F010 accepted timeline events in status synthesis - 2026-11-07 20:33 IST
+- pnpm exec vitest run src/lib/projects/project-brain-status.test.ts: **PASS**, 1 file / 8 tests. Covers owner/source/current revision predicate on every knowledge query, accepted event inclusion and source fingerprinting, event-only synthesis, and prompt untrusted-data policy.
+- pnpm exec biome check src/lib/projects/project-brain-status.ts src/lib/projects/project-brain-status.test.ts: **PASS**, 2 files.
+- pnpm check-types with NODE_OPTIONS=--max-old-space-size=6144: **PASS**.
+- Production build pending; no live PostgreSQL/browser/provider execution. No migration applied.
+
+## F010 status snapshot timeline consumer - 2026-11-07 20:40 IST
+- Focused Vitest: **PASS**, src/lib/projects/project-brain-status.test.ts (8/8).
+- Scoped Biome: **PASS**, status helper and test (2 files).
+- Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
+- Fresh pnpm build: **PASS**, static generation 206/206 pages. Existing optional-service/dependency/workspace/dynamic-session/SSL/image warnings remain non-fatal.
+- No live PostgreSQL, browser, or provider run; no migration applied.

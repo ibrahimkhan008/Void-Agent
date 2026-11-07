@@ -1,69 +1,42 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 20:11 IST
+Updated: 2026-11-07 20:34 IST
+
+## Current continuation status - 2026-11-07 20:34 IST
+The user resumed migration work and asked that implementation continue in the existing verified-batch format while docs/migration-handoff.md is kept current. This supersedes older historical statements in this file that say work is paused, pushing is disallowed, the build is unverified, or the worktree is wholly uncommitted. The last published migration code checkpoint is 6861227; handoff publication follow-up 7925cd2 is also on origin/main. Current worktree contains the two preserved, untracked CognixAI spec files plus the in-progress F010 status-synthesis change.
+
+Current slice: project status synthesis now includes accepted current-revision project-brain timeline events, with owner/collection/source visibility filters, bounded prompt data, and event provenance in the cache fingerprint. Focused tests (8/8), scoped Biome, and integrated TypeScript pass. A fresh production build is the next verification step. Overall feature parity is incomplete; the family counts below are only the existing coarse matrix and are not a valid completion percentage.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
+Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-Continue the existing Better Chatbot V2 to original Void-Agent migration. Void-Agent is the only implementation target; `Void-Agent-V2` is a read-only reference. Preserve Void-Agent's architecture, branding, existing functionality, and security customizations while adapting every valuable, legally reusable reference capability. Do not push, deploy, apply migrations to a production database, or modify the reference checkout.
+## Current checkpoint - 2026-11-07 20:40 IST
+- Last published commit before this slice: 7925cd2 on origin/main; the earlier implementation checkpoint is 6861227.
+- Current local task: F010 accepted project-brain timeline events are now included in status synthesis. The bounded query requires current project, accepted event state, active source revision, ready attached source, current collection and owner scope. Source revision participates in the status cache fingerprint. Event-only status context is supported.
+- Verification for this slice: focused project-brain status tests **8/8 passed**; scoped Biome passed; integrated pnpm check-types passed with a 6 GiB heap; fresh pnpm build passed and generated **206/206 pages**. Existing build warnings include optional Redis/Upstash/E2B configuration, Next dynamic-session static probes, dependency-analysis warnings, workspace-root/multiple lockfiles, PostgreSQL SSL-mode notice, and <img> lint warnings.
+- The local F010 source/docs update is not yet committed or pushed. No schema change, database apply, or deployment was performed. The existing migrations 0070-0072 remain authored/journaled and unapplied.
+- The two untracked user-owned files cognixai-app-spec.md and cognixai-rebuild-spec.md remain untouched and must stay excluded from commits.
 
-The user explicitly paused all work and asked for this handoff. No agent task is active. Do not resume implementation until the user asks to continue.
+## Migration completion assessment
+The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
 
-## Current completion assessment
+## Verified work and limits
+The local/published migration includes project workspaces and brain ingestion/graph/contradictions, accepted entity and timeline review, team model routing/budgets, user-scoped encrypted public HTTPS providers, conversation pagination/archive/fork evidence, desktop remote MCP transport, notifications, Composio app connections, voice inbox/review/task approval, stored WAV-to-chat transcription, account recovery hardening, workflow video preview, and many security regression tests. See the feature matrix and integration-progress doc for paths and evidence.
 
-There is no defensible feature-parity percentage yet. The latest broad matrix classification says, for F001-F036, **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED**. `EXISTING` means an implementation was located, not that its behavior was verified end to end. F037 is an additional PARTIAL family. The 206 reference route/page/tool surfaces have not all been audited and classified individually, so neither `0/36 complete` nor the number of passing tests should be presented as the percent of the migration done.
-
-The migration remains substantially incomplete. Use the per-family evidence and limitations in `docs/feature-parity-matrix.md`; do not mark families complete based on a focused slice.
-
-## Latest verification evidence
-
-- Full Vitest: **404 files, 2,254 tests passed** (`pnpm exec vitest run --maxWorkers=2`, exit 0).
-- Integrated TypeScript check: **passed** with `NODE_OPTIONS=--max-old-space-size=6144` after the provider UI changes. A later test-only typing fix was validated by its focused test and full lint; rerun the integrated typecheck on resume.
-- `pnpm db:check`: **passed**. This checks Drizzle schema/journal consistency only; it is not a live database check and did not apply migrations.
-- `pnpm lint`: **passed** after fixing the new test's unsafe `Function` type; 1,952 files checked. Existing Next lint deprecation, multiple-lockfile workspace-root, and `<img>` warnings remain.
-- `git diff --check`: **passed** with Windows LF/CRLF normalization notices.
-- Production build: **not verified**. `pnpm build` started and was interrupted at the user's explicit request to pause; it had printed `Creating an optimized production build ...` but no result.
-- No live PostgreSQL, external provider/OAuth, browser/device, Redis, or deployment verification was performed.
-
-## Work verified or audited in the latest continuation
-
-- **F007 provider/model management:** added owner-scoped encrypted OpenAI-compatible public HTTPS providers, bounded model discovery, user catalog/runtime resolution, settings add/edit/remove UI, DNS-public-address validation and pinned transport, request/response/time limits, redirects denied, and no deployment-global fallback for personal-provider errors. 30 focused tests passed. Migration `0072_user_model_providers.sql` is authored and journaled, not applied. Localhost/LAN Ollama/LM Studio is excluded because the server cannot safely/reliably reach a user's machine without a separate client proxy.
-- **F010 project brain:** added source-grounded timeline extraction, exact source-revision persistence, source-visible reads, and editor accept/reject UI/API. Security review added a 4 KiB request bound and repeated source-visibility checks in the conditional update. 19 focused tests, typecheck, scoped Biome, `db:check`, and diff check passed. Migration `0071_project_brain_timeline_events.sql` is authored and journaled, not applied.
-- **F018 audio/files:** explicit owner-owned stored WAV attachments can be sent to chat, validated by metadata and RIFF/WAVE signature, bounded to 1 MiB and rate-limited, then transcribed as clearly marked untrusted user content. External URLs are not fetched. 13 focused tests, typecheck, and scoped Biome passed. F018 remains partial: other codecs, audio generation, OCR, and live storage/provider/browser behavior are outstanding.
-- **F019 resumable streaming:** authenticated resume HEAD/GET probes are limited to 120/minute/user before DB/Redis access and return `429`, `Retry-After`, and no-store. 5 focused tests passed. Live Redis and browser behavior remain unverified.
-- **F025 tool approvals:** prompt guidance distinguishes read-only work, a single reviewed action, and genuinely complex consequential plans; approval tokens remain bound to the exact effect. 13 focused tests passed. This does not prove model adherence or a live external approval journey.
-- **F027 voice devices:** owners can expand a device session to inspect bounded transcript segments, language, order, and timestamps. Owner/device/session checks, rate limits, and response caps are in place; no migration was needed. 13 focused tests and scoped checks passed. The websocket/audio gateway, firmware/hardware, and live database journey remain outstanding.
-- **F033 accounts:** audit found profile/image/email updates, password changes with session revocation, and admin account deletion equivalent between repositories; primary also has password recovery and extra security hardening. 35 focused tests passed. Live email/Postgres/browser verification remains.
-- **F015 and F032:** published-page lifecycle/sandbox behavior and streaming-markdown rendering were source-reviewed; 24 focused tests passed. Live Postgres/browser and integrated build verification remain.
-- Existing work already recorded in the matrix/progress/context includes project workspaces and brain ingestion/graph/contradictions, table reviews, notification inbox/push and foreground alerts, Composio connections, desktop MCP remote HTTPS transport, password recovery, Team Auto/context handling, bounded chat history, voice transcript task review, and earlier security patches. Review the source docs for their exact evidence and limits.
+Full test suite on the prior published checkpoint: **404 files / 2,254 tests passed**. Full lint, integrated typecheck, Drizzle journal check, and build passed at that checkpoint. This current F010 slice additionally passed its focused test, typecheck, formatting, and fresh production build. No live PostgreSQL/browser/provider/email/device workflow was available; do not claim those passed.
 
 ## Remaining major work
+1. Individually audit all 206 reference surfaces and retain evidence for behavior, authorization, persistence, tests, and compatibility.
+2. Continue closing compatible partial/missing systems, especially the complete agent/tool approval user journey, project-brain scheduled and voice consumers, non-WAV audio/multimodal support, table-review citations, team/provider model routing details, desktop packaging/runtime, notifications/integrations, and end-to-end conversation/project workflows.
+3. Validate authored migrations in a disposable PostgreSQL environment only; they have not been applied. Never apply to production under this authorization.
+4. Run external provider, OAuth/email, Redis, browser, Electron, and hardware flows where configured; report unavailable services explicitly.
+5. After meaningful batches, rerun focused tests/type/lint and build as appropriate, update feature matrix/progress/testing/security docs and append-only context.md, then review staged paths before pushing to origin/main.
 
-1. Complete the surface-by-surface behavioral inventory for the 206 reference surfaces and replace broad family-only reporting with an individually traceable feature denominator.
-2. Finish every compatible PARTIAL/MISSING/BROKEN capability; high-impact gaps still include complete model/provider/team routing behavior, agent/tool approval journeys, project-brain consolidation and consumers, non-WAV multimodal files/audio, voice gateway/firmware, table-review citation behavior, desktop release/runtime coverage, notifications/integrations, and end-to-end conversation/project workflows.
-3. Establish a safe test PostgreSQL and execute authored migrations in a disposable/test environment only after an explicit user request and a rollback plan. Migrations `0070_team_model_routing.sql`, `0071_project_brain_timeline_events.sql`, and `0072_user_model_providers.sql` are currently authored/journaled and unapplied; other earlier integration migrations may also be unapplied. Verify before any application.
-4. Complete browser, Redis, public-provider, OAuth/email, desktop, and hardware workflows where test services are available. Document unavailable external credentials instead of claiming live success.
-5. Rerun integrated typecheck, full suite, lint, `pnpm db:check`, `git diff --check`, and a fresh production build after resumed edits. The current full suite/lint/typecheck evidence applies to this checkpoint only.
-6. Continue security regression review and update feature matrix, testing report, progress, strategy, security review, and append-only `context.md` after each batch.
+## Repository safety
+Only modify Void-Agent. Keep Void-Agent-V2 read-only. Preserve existing user changes and the two CognixAI spec files; do not reset/clean/stash. Keep temporary logs in ignored .audit/, outside .git; do not expose secrets. No production deployment or database migration has occurred.
 
-## Worktree and safety notes
-
-- There is a large uncommitted local worktree containing the migration work. **Do not reset, clean, stash, or discard it.** No commit or push has been made for this migration.
-- Preserve untracked user-owned `cognixai-app-spec.md` and `cognixai-rebuild-spec.md`; do not modify or remove them.
-- `/.audit/` is ignored. The captured TypeScript log is `.audit/check-types.log`; keep future temporary logs there, outside any `.git` directory, and never log environment secrets.
-- An earlier status inspection found `Void-Agent-V2` already had roughly 3,072 dirty paths. Do not assume that checkout is clean or reset it; inspect its state read-only before any future reference work. Agents in this continuation did not intentionally edit it.
-- No database migrations were applied, no production service was touched, and no GitHub push or deployment occurred.
-
-## Resume sequence for the next agent
-
-1. Read `AGENTS.md` and all of `context.md` before editing; preserve append-only history.
-2. Inspect `git status --short` and current migration docs. Keep the reference checkout read-only and preserve user-owned specs.
-3. Inspect this handoff plus `docs/feature-parity-matrix.md`, `docs/integration-progress.md`, and `docs/testing-report.md` for current family-level evidence.
-4. Continue a substantial, dependency-aware missing feature system; do not spend the session only on status summaries or tiny unrelated fixes.
-5. Run focused tests for the chosen batch, record exact files/results/limits in docs and append to `context.md`.
-6. After source edits settle, rerun integrated verification and the production build. Do not claim full parity or calculate a percentage until the individual feature inventory is complete.
-
-
+Historical pause and publication entries below are retained as a timeline; the current status above supersedes their old “paused,” “no push,” build-pending, and unpublished statements.
 ## Resumed task checkpoint - 2026-11-07 19:52 IST
 - User resumed the migration and requested one completed task, continuous handoff updates, and a GitHub push.
 - Selected task: finish aggregate verification and publish the already implemented, locally accumulated migration batch as one reviewable commit. Current branch is `main`, and `HEAD` matches `origin/main` (0 ahead/0 behind before this batch). Push target is the Void-Agent `origin` remote only.
