@@ -1222,3 +1222,12 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 
 ### Workflow HTTP final build result (2026-11-07 22:08 IST)
 - Production build rerun: PASS, exit 0; static generation completed 206/206 pages. Compiled with existing E2B/unpdf dynamic dependency warnings; Next lint emitted existing `<img>` warnings; static data collection logged expected optional Redis/Upstash/E2B absence, dynamic session probes, workspace-root and PostgreSQL SSL warnings. No live outbound request.
+
+## n8n editor security batch (2026-11-07)
+- Focused test invocation: 6 files, 24 passed. Scoped Biome passed on all touched implementation/test files.
+- First integrated typecheck found only a test fixture assertion mismatch; changed the fixture assertion to explicitly model the n8n response's extra credential property. Fresh integrated typecheck is running; no passing result recorded yet.
+- Production build not yet run for this batch. No live n8n, PostgreSQL, migration, or production verification.
+## n8n batch final verification (2026-11-07)
+- Focused tests 24/24, targeted Biome and `pnpm check-types` pass. `pnpm build` passes with 206/206 pages.
+- Initial build lint failure (`<a>` instead of Next `Link`) was fixed and verified by a fresh complete build. Remaining build warnings are pre-existing dependency-analysis, image-lint, optional-config, dynamic-session, lockfile, and PG SSL notices.
+- No live provider/browser/PostgreSQL verification or migration application.

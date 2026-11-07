@@ -4,53 +4,26 @@ import {
   executeReviewedN8nWorkflow,
   previewN8nWorkflow,
 } from "lib/n8n/browser-approval";
+import type { N8nWorkflowReadOnlySummary } from "lib/n8n/workflow-summary";
 import { notify } from "lib/notify";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
 
-const EDITOR_URL =
-  process.env.NEXT_PUBLIC_N8N_EDITOR_URL ?? "https://n8n.flare-sh.tech";
-
-interface N8nWorkflowEmbedProps {
-  workflowId: string;
-  workflowName: string;
-  active: boolean;
-}
-
 export default function N8nWorkflowEmbed({
-  workflowId,
-  workflowName,
-  active,
-}: N8nWorkflowEmbedProps) {
+  workflow,
+}: {
+  workflow: N8nWorkflowReadOnlySummary;
+}) {
   const t = useTranslations();
-  const [isActive, setIsActive] = useState(active);
-  const [isToggling, setIsToggling] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-
-  const toggleActive = async () => {
-    setIsToggling(true);
-    try {
-      const res = await fetch(`/api/workflow/${workflowId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !isActive }),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      setIsActive(!isActive);
-      toast.success(t("Workflow.visibilityUpdated"));
-    } catch {
-      toast.error(t("Common.error"));
-    } finally {
-      setIsToggling(false);
-    }
-  };
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   const run = async () => {
     setIsRunning(true);
     try {
-      const review = await previewN8nWorkflow(workflowId);
+      const review = await previewN8nWorkflow(workflow.id);
       const approved = await notify.confirm({
         title: `Review ${review.workflowName}`,
         description: (
@@ -66,7 +39,7 @@ export default function N8nWorkflowEmbed({
         okText: "Approve and run",
       });
       if (!approved) return;
-      await executeReviewedN8nWorkflow({ id: workflowId, review, query: {} });
+      await executeReviewedN8nWorkflow({ id: workflow.id, review, query: {} });
       toast.success("Workflow run request accepted by n8n");
     } catch (error) {
       toast.error(
@@ -77,20 +50,46 @@ export default function N8nWorkflowEmbed({
     }
   };
 
+  const deactivate = async () => {
+    setIsDeactivating(true);
+    try {
+      const response = await fetch(
+        `/api/workflow/${encodeURIComponent(workflow.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: false }),
+        },
+      );
+      if (!response.ok) throw new Error("Could not deactivate workflow");
+      toast.success("Workflow deactivated");
+      window.location.reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("Common.error"));
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full gap-2 p-4">
-      <div className="flex flex-row items-center gap-3">
-        <h1 className="text-lg font-semibold truncate flex-1">
-          {workflowName}
+    <main className="flex h-full flex-col gap-4 overflow-auto p-6">
+      <header className="flex flex-wrap items-center gap-3">
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">
+          {workflow.name}
         </h1>
-        <Button
-          variant={isActive ? "default" : "outline"}
-          size="sm"
-          onClick={toggleActive}
-          disabled={isToggling}
-        >
-          {isActive ? t("Workflow.active") : t("Workflow.inactive")}
-        </Button>
+        <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
+          {workflow.active ? t("Workflow.active") : t("Workflow.inactive")}
+        </span>
+        {workflow.active && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={deactivate}
+            disabled={isDeactivating}
+          >
+            Deactivate
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="sm"
@@ -99,22 +98,49 @@ export default function N8nWorkflowEmbed({
         >
           {t("Workflow.run")}
         </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <a
-            href={`${EDITOR_URL}/workflow/${workflowId}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("Workflow.openInNewTab")}
-          </a>
-        </Button>
-      </div>
-      <iframe
-        src={`/api/n8n/embed/${workflowId}`}
-        className="flex-1 w-full border rounded-lg bg-white"
-        title={workflowName}
-        allow="clipboard-write; clipboard-read"
-      />
-    </div>
+      </header>
+
+      <section
+        className="space-y-3 rounded-lg border p-4"
+        aria-labelledby="workflow-steps"
+      >
+        <div>
+          <h2 id="workflow-steps" className="font-medium">
+            Workflow steps
+          </h2>
+          {workflow.description && (
+            <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+              {workflow.description}
+            </p>
+          )}
+        </div>
+        {workflow.nodes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            This workflow has no configured steps.
+          </p>
+        ) : (
+          <ol className="space-y-2">
+            {workflow.nodes.map((node, index) => (
+              <li
+                key={`${index}-${node.name}`}
+                className="rounded-md bg-muted/50 p-3"
+              >
+                <span className="mr-2 text-xs text-muted-foreground">
+                  {index + 1}.
+                </span>
+                <span className="font-medium">{node.name}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {node.type}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Workflow definitions are read-only here. Every run must be reviewed
+          and approved.
+        </p>
+      </section>
+    </main>
   );
 }

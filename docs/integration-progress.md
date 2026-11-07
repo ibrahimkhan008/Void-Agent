@@ -1234,3 +1234,7 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 
 ### Workflow HTTP final verification correction (2026-11-07 22:08 IST)
 - Fresh production build passed (exit 0; Next static generation 206/206). Prior ?production build pending? note is superseded. Existing build warnings remain non-fatal; no live HTTP, provider or database request was made.
+
+## n8n security batch (2026-11-07)
+- Removed editor JWT/iframe/direct-link access, replaced the detail page with sanitized read-only node metadata, rejected activation, retained reviewed runs, and retained safe deactivation. Native n8n create/edit/activate is deferred for a concrete server-enforced security reason; it is not counted as complete.
+- Focused tests: 24/24 across 6 files. Scoped Biome: pass. Typecheck pending after fixing a test-only type assertion. Production build and complete verification pending.

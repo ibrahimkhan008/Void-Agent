@@ -7,13 +7,9 @@ import {
 } from "lib/n8n/browser-approval";
 import { notify } from "lib/notify";
 import { fetcher } from "lib/utils";
-import {
-  ArrowUpRight,
-  Play,
-  Trash2,
-  Workflow as WorkflowIcon,
-} from "lucide-react";
+import { Play, Trash2, Workflow as WorkflowIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,7 +32,6 @@ export default function WorkflowListPage({
 }: { userRole?: string | null } = {}) {
   const t = useTranslations();
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState<string | null>(null);
 
@@ -45,25 +40,6 @@ export default function WorkflowListPage({
     fetcher,
     { fallbackData: [] },
   );
-
-  const createWorkflow = async () => {
-    try {
-      setIsCreating(true);
-      const res = await fetch("/api/workflow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: t("Workflow.newWorkflow") }),
-      });
-      if (!res.ok) throw new Error("Failed to create workflow");
-      const workflow = await res.json();
-      mutate("/api/workflow");
-      router.push(`/workflow/${workflow.id}`);
-    } catch {
-      toast.error(t("Common.error"));
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   const deleteWorkflow = async (id: string) => {
     const ok = await notify.confirm({
@@ -117,10 +93,6 @@ export default function WorkflowListPage({
     <div className="w-full flex flex-col gap-4 p-8">
       <div className="flex flex-row gap-2 items-center justify-between">
         <h2 className="text-lg font-semibold">{t("Workflow.myWorkflows")}</h2>
-        <Button onClick={createWorkflow} disabled={isCreating}>
-          {t("Workflow.createWorkflow")}
-          <ArrowUpRight className="size-3.5" />
-        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -205,8 +177,10 @@ export default function WorkflowListPage({
               <CardDescription>
                 {t("Workflow.noAvailableWorkflowsDescription")}
               </CardDescription>
-              <Button className="mt-4 mx-auto" onClick={createWorkflow}>
-                {t("Workflow.createWorkflow")}
+              <Button className="mt-4 mx-auto" asChild>
+                <Link href="/saved-workflows">
+                  Open Void-Agent workflow editor
+                </Link>
               </Button>
             </div>
           </CardHeader>

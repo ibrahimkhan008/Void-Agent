@@ -1638,3 +1638,8 @@ Public HTTPS per-user provider management is implemented and source/type checked
 
 ### Workflow HTTP final verification (2026-11-07 22:08 IST)
 - Fresh `pnpm build` passed with 206/206 static pages after the DNS-pinned transport change. Non-fatal dependency/workspace/dynamic-session/optional-service/image/SSL notices remain. No live external HTTP request was made.
+
+## n8n editor boundary checkpoint (2026-11-07)
+- Removed the full native editor path because it bypassed Void-Agent's reviewed execution boundary. Workflow summaries are sanitized server-side; node parameters and credentials are not passed to client UI.
+- The run action remains bound to the current workflow revision and current review, using the existing one-use approval. Activation is fail-closed; deactivation remains available. N8n create/edit/activate via the native editor is an explicit security exclusion pending a server-enforced safe editor and activation review contract.
+- Evidence paths: `src/app/api/n8n/embed/[id]/route.ts`, `src/app/api/workflow/[id]/route.ts`, `src/app/(chat)/workflow/[id]/page.tsx`, `src/components/workflow/n8n-workflow-embed.tsx`, `src/lib/n8n/workflow-summary.ts`.

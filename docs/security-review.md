@@ -783,3 +783,8 @@ Personal API keys use the existing AES-256-GCM encryption helper in a dedicated 
 
 ### Workflow HTTP build verification (2026-11-07 22:08 IST)
 - Focused 21-test suite, scoped Biome, 6 GiB integrated typecheck and production build (206/206 pages) passed. No live outbound request was sent. The n8n embed/activation approval bypass remains a separate unaddressed gap.
+
+## n8n managed editor retirement (2026-11-07)
+- Security disposition: the signed native n8n editor session conveys direct edit/run/activation privileges that cannot be constrained by the host's existing approval UI. The embed token endpoint is retired (410), and the client no longer exposes the iframe or direct editor URL.
+- The n8n detail page now receives a display-only projection; tests verify credential and node configuration values are not included. Reviewed one-shot execution remains. Activation requests are rejected; deactivation is allowed through same-origin, per-user rate-limited, bounded input.
+- This removes the n8n authoring/activation workflow from Void-Agent until a server-enforced approval-safe editor is available. Existing Void-Agent saved-workflow editing remains separate. F023/F025 and workflow feature parity remain PARTIAL.

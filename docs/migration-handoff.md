@@ -82,3 +82,15 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Published commit 5ee73aa62ba24fb4509ccfd663802b22a18e9334 (eat: add project status chat tool) to origin/main as a fast-forward from 845da7b.
 - Verification: focused status/knowledge tests 8/8; scoped Biome; integrated typecheck; production build generated 206/206 pages. Remote ahead/behind is 0/0.
 - The feature remains PARTIAL: no live PostgreSQL/browser/voice workflow and the reference's dedicated voice navigator has not been recreated. No migration applied or deployment performed.
+
+## n8n editor and activation boundary - 2026-11-07 22:20 IST
+- The prior `52fa768` DNS-pinned workflow HTTP change is already on origin/main. This local batch addresses the separately audited native n8n editor/activation bypass.
+- Removed the native editor iframe and direct editor link. `/api/n8n/embed/[id]` now returns 410 and cannot mint a JWT. The workflow page receives only a sanitized projection of workflow name, active status, description, and bounded node labels/types; credentials, parameters, connections, and settings are not serialized to the browser.
+- Removed n8n creation/activation controls from the list. Existing workflows remain viewable and can run through the existing exact-revision review/one-use approval. Deactivation is allowed through a same-origin, rate-limited bounded request. Activation fails closed until an approval-bound effect review exists. The page links to Void-Agent's own saved-workflow editor. This intentionally leaves external n8n authoring/activation unavailable for now and does not claim parity or F025 completion.
+- Focused suites passed 24/24 across 6 files; scoped Biome passed. Typecheck is rerunning after correcting one test-fixture cast. Production build, final diff review, and publication are pending. No production data/service, migration, or V2 file was touched.
+- CognixAI specification files remain untouched and untracked.
+## n8n batch verification and publication status - 2026-11-07 22:32 IST
+- Focused workflow/approval suites: 24/24 across 6 files. Scoped Biome: pass. `pnpm check-types`: pass.
+- `pnpm build`: pass; static generation completed 206/206 pages. Existing warnings include E2B/unpdf dependency analysis, Next `<img>` lint notices, optional Redis/Upstash/E2B configuration, dynamic session probes, multiple lockfiles/workspace-root inference, and PostgreSQL SSL-mode notices.
+- First build attempt stopped on a newly introduced plain-anchor lint error; replaced it with Next `Link`, reran focused tests, and the fresh build passed. This is documented rather than represented as a clean first attempt.
+- Diff review and push are still pending. No external n8n/PostgreSQL user journey was run and no live service or database was touched.

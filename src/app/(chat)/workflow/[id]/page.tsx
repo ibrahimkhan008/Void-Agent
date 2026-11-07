@@ -1,8 +1,9 @@
+import N8nWorkflowEmbed from "@/components/workflow/n8n-workflow-embed";
 import { getSession } from "auth/server";
 import { createUserClient } from "lib/n8n/client";
 import { ensureN8nUser } from "lib/n8n/provision";
+import { toN8nWorkflowReadOnlySummary } from "lib/n8n/workflow-summary";
 import { notFound, redirect } from "next/navigation";
-import N8nWorkflowEmbed from "@/components/workflow/n8n-workflow-embed";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +22,13 @@ export default async function WorkflowPage({
   let workflow;
   try {
     const n8nUser = await ensureN8nUser(session);
-    workflow = await createUserClient(n8nUser.email ?? session.user.email ?? "", n8nUser.password ?? "").getWorkflow(id);
+    workflow = await createUserClient(
+      n8nUser.email ?? session.user.email ?? "",
+      n8nUser.password ?? "",
+    ).getWorkflowDefinition(id);
   } catch {
     notFound();
   }
 
-  return (
-    <N8nWorkflowEmbed
-      workflowId={id}
-      workflowName={workflow.name}
-      active={workflow.active}
-    />
-  );
+  return <N8nWorkflowEmbed workflow={toN8nWorkflowReadOnlySummary(workflow)} />;
 }
