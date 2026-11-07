@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   metadata: vi.fn(),
   docxHtml: vi.fn(),
   pptx: vi.fn(),
+  pdfPreview: vi.fn(),
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.session }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
@@ -30,6 +31,9 @@ vi.mock("lib/file-ingest/docx-html", () => ({
   renderDocxHtml: mocks.docxHtml,
 }));
 vi.mock("lib/file-ingest/pptx", () => ({ parsePptxPreview: mocks.pptx }));
+vi.mock("lib/file-ingest/pdf-preview", () => ({
+  extractPdfPreview: mocks.pdfPreview,
+}));
 vi.mock("lib/logger", () => ({ default: { error: vi.fn() } }));
 import { GET } from "./route";
 
@@ -48,6 +52,13 @@ describe("GET /api/storage/document", () => {
       slides: [{ index: 1, title: "Intro", text: "slide text", hidden: false }],
       totalSlides: 1,
       skipped: 0,
+      truncated: false,
+      partial: true,
+    });
+    mocks.pdfPreview.mockResolvedValue({
+      text: "Page 1\nPDF text",
+      totalPages: 1,
+      pagesShown: 1,
       truncated: false,
       partial: true,
     });
@@ -82,12 +93,24 @@ describe("GET /api/storage/document", () => {
       partial: true,
     });
     expect(mocks.docxHtml).toHaveBeenCalled();
+    const pdf = await GET(request("key=uploads%2Fuser-1%2Ffile.pdf"));
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers.get("cache-control")).toBe("private, no-store");
+    expect(await pdf.json()).toMatchObject({
+      text: "PDF, 1 page(s)\n\nPage 1\nPDF text",
+      partial: true,
+      truncated: false,
+    });
+    expect(mocks.pdfPreview).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({ maxChars: expect.any(Number) }),
+    );
     const slides = await (
       await GET(request("key=uploads%2Fuser-1%2Fslides.pptx"))
     ).json();
     expect(slides.text).toContain("Slide 1: Intro");
     expect(
-      (await GET(request("key=uploads%2Fuser-1%2Farchive.pdf"))).status,
+      (await GET(request("key=uploads%2Fuser-1%2Farchive.zip"))).status,
     ).toBe(400);
   });
 

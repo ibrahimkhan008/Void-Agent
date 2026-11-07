@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   pages: [] as Array<Array<{ projectId: string; userId: string }>>,
   selectedTables: [] as unknown[],
+  joinedTables: [] as unknown[],
   whereConditions: [] as Array<{
     op: string;
     conditions?: unknown[];
@@ -29,7 +30,15 @@ vi.mock("lib/db/pg/db.pg", () => ({
     selectDistinctOn: vi.fn(() => ({
       from: (table: unknown) => {
         mocks.selectedTables.push(table);
-        return {
+        const query = {
+          innerJoin: (joinedTable: unknown) => {
+            mocks.joinedTables.push(joinedTable);
+            return query;
+          },
+          leftJoin: (joinedTable: unknown) => {
+            mocks.joinedTables.push(joinedTable);
+            return query;
+          },
           where: (condition: { op: string; conditions?: unknown[] }) => {
             mocks.whereConditions.push(condition);
             return {
@@ -39,6 +48,7 @@ vi.mock("lib/db/pg/db.pg", () => ({
             };
           },
         };
+        return query;
       },
     })),
     select: vi.fn(() => ({
@@ -86,7 +96,11 @@ vi.mock("lib/projects/recompute-brain-salience", () => ({
   recomputeProjectBrainSalience: vi.fn(),
 }));
 
-import { ProjectBrainRunTable } from "lib/db/pg/schema.pg";
+import {
+  ProjectBrainRunTable,
+  ProjectTable,
+  TeamTable,
+} from "lib/db/pg/schema.pg";
 import { enqueueNightlyProjectBrainDreams } from "./brain-dream";
 
 function projectCandidates(start: number, count: number) {
@@ -100,6 +114,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.pages = [projectCandidates(0, 100), projectCandidates(100, 2), []];
   mocks.selectedTables = [];
+  mocks.joinedTables = [];
   mocks.whereConditions = [];
   mocks.inserted = 0;
   mocks.getProjectAccess.mockImplementation(async (projectId: string) =>
@@ -119,6 +134,14 @@ describe("nightly project brain dream scheduling", () => {
       ProjectBrainRunTable,
     ]);
     expect(mocks.pages).toEqual([]);
+    expect(mocks.joinedTables).toEqual([
+      ProjectTable,
+      TeamTable,
+      ProjectTable,
+      TeamTable,
+      ProjectTable,
+      TeamTable,
+    ]);
     expect(mocks.getProjectAccess).toHaveBeenCalledTimes(102);
     expect(mocks.whereConditions).toHaveLength(3);
 

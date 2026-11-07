@@ -1068,3 +1068,12 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - `pnpm db:check`: PASS (Drizzle schema/journal consistency only; migration 0069 was not applied and no live PostgreSQL validation occurred).
 - `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 203/203 pages. Existing dependency-analysis, optional-service configuration, dynamic-session prerender, and PostgreSQL SSL notices remain non-fatal.
 - `git diff --check`: PASS. No browser, live OAuth/provider, storage, payment, device, or PostgreSQL-backed journey was run. No deployment occurred.
+
+## Integrated verification: F010 / F014 / F018 / F026 (2026-11-07)
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS, including latest F026 access-filter/UI updates.
+- `pnpm exec vitest run --maxWorkers=2`: PASS, 371 test files and 2,094 tests. Controlled two-worker run completed with exit code 0.
+- `pnpm lint`: PASS across 1,882 files. Existing Next workspace-root and `<img>` warnings remain.
+- `pnpm db:check`: PASS (Drizzle schema/journal consistency only; no live PostgreSQL or migration apply).
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 203/203 pages. Existing dependency-analysis, optional-service, dynamic-session, workspace-root and PostgreSQL SSL notices remain non-fatal.
+- Focused slices passed: project brain 1/1, typed table-review 13/13, PDF preview helper+route 9/9, voice preview/project assignment 20/20. Scoped Biome passed across affected files; `git diff --check` passed.
+- No live PostgreSQL, browser, PDF storage provider, voice device, model provider, or deployment workflow was exercised.

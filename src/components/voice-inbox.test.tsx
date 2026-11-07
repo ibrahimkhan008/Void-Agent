@@ -178,4 +178,68 @@ describe("VoiceInbox", () => {
     expect(await screen.findByText("Call Ana · note")).toBeTruthy();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   });
+
+  it("requires explicit consent before assigning a suggested project", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000005";
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          items: [
+            {
+              id: "message-1",
+              threadId: "thread-1",
+              title: "Voice note",
+              text: "Remember the launch decision",
+              source: "voice_device",
+              createdAt: "2026-11-07T12:00:00.000Z",
+            },
+          ],
+          nextCursor: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          preview: {
+            intent: "note",
+            title: "Launch decision",
+            summary: "Remember the launch decision.",
+            suggestedProjectId: projectId,
+          },
+          suggestedProject: { id: projectId, name: "Launch" },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ project: { id: projectId, name: "Launch" } }),
+      });
+    render(<VoiceInbox />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Preview intent for Voice note",
+      }),
+    );
+
+    const assign = await screen.findByRole("button", {
+      name: "Assign conversation to project",
+    });
+    expect((assign as HTMLButtonElement).disabled).toBe(true);
+    const consent = screen.getByRole("checkbox", {
+      name: /Anyone with access to this project/,
+    });
+    fireEvent.click(consent);
+    expect((assign as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(assign);
+
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "/api/voice/transcript/project",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ messageId: "message-1", projectId }),
+      }),
+    );
+  });
 });

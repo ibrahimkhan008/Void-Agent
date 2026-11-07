@@ -5,6 +5,7 @@ import {
   MAX_DOCUMENT_PREVIEW_HTML_CHARS,
 } from "lib/file-ingest/document-preview-limits";
 import { renderDocxHtml } from "lib/file-ingest/docx-html";
+import { extractPdfPreview } from "lib/file-ingest/pdf-preview";
 import { parsePptxPreview } from "lib/file-ingest/pptx";
 import { decodeTextFile } from "lib/file-ingest/text";
 import { serverFileStorage } from "lib/file-storage";
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const supported = new Set(["docx", "pptx", "txt", "md", "json"]);
+const supported = new Set(["docx", "pdf", "pptx", "txt", "md", "json"]);
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -89,6 +90,15 @@ export async function GET(request: Request) {
         { html, truncated: false, partial: true },
         { headers: { "Cache-Control": "private, no-store" } },
       );
+    } else if (extension === "pdf") {
+      const result = await extractPdfPreview(new Uint8Array(content), {
+        maxChars: MAX_DOCUMENT_PREVIEW_CHARS,
+      });
+      preview = {
+        text: `PDF, ${result.totalPages} page(s)${result.truncated ? " (preview limited)" : ""}\n\n${result.text || "(No extractable text found in this PDF)"}`,
+        truncated: result.truncated,
+        partial: true,
+      };
     } else if (extension === "pptx") {
       const result = await parsePptxPreview(content, {
         maxChars: MAX_DOCUMENT_PREVIEW_CHARS,

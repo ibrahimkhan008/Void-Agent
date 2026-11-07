@@ -2044,7 +2044,7 @@ export function SourceUrlMessagePart({
     part.url,
   );
   const isSpreadsheet = ext === "CSV" || ext === "XLSX";
-  const isDocument = ["DOCX", "PPTX", "TXT", "MD", "JSON"].includes(ext);
+  const isDocument = ["DOCX", "PDF", "PPTX", "TXT", "MD", "JSON"].includes(ext);
   const isOwnerUpload = isOwnerScopedUploadUrl(part.url);
   const downloadHref = isOwnerUpload
     ? `/api/storage/download?url=${encodeURIComponent(part.url)}`
@@ -2239,7 +2239,7 @@ export function SourceUrlMessagePart({
             variant="outline"
             onClick={() => void openDocumentPreview()}
           >
-            Preview document
+            {ext === "PDF" ? "Preview PDF" : "Preview document"}
           </Button>
         </div>
       )}

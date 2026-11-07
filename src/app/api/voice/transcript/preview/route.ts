@@ -1,6 +1,11 @@
 import { getSession } from "auth/server";
 import { chatRepository } from "lib/db/repository";
 import { readBoundedJson } from "lib/notifications/contracts";
+import {
+  getProjectAccess,
+  listProjectsForUser,
+  mayEditProject,
+} from "lib/projects/access";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
 import { getVoiceTranscriptForHandoff } from "lib/voice/handoff";
@@ -67,8 +72,39 @@ export async function POST(request: Request) {
 
     // This path only reads the owned transcript and asks for a structured
     // classification. It does not create records or invoke tools/connectors.
-    const preview = await previewVoiceTranscript(text);
-    return Response.json({ preview }, { headers: noStore });
+    const listedProjects = await listProjectsForUser(session.user.id);
+    const projects = (
+      await Promise.all(
+        listedProjects.map(async (project) => {
+          const access = await getProjectAccess(project.id, session.user.id);
+          return access && mayEditProject(access.role) ? project : null;
+        }),
+      )
+    ).filter((project) => project !== null);
+    const classifiedPreview = await previewVoiceTranscript(
+      text,
+      projects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+      })),
+    );
+    const suggestedProject = projects.find(
+      (project) => project.id === classifiedPreview.suggestedProjectId,
+    );
+    const preview = {
+      ...classifiedPreview,
+      suggestedProjectId: suggestedProject?.id ?? null,
+    };
+    return Response.json(
+      {
+        preview,
+        suggestedProject: suggestedProject
+          ? { id: suggestedProject.id, name: suggestedProject.name }
+          : null,
+      },
+      { headers: noStore },
+    );
   } catch {
     return Response.json(
       { error: "Could not preview voice transcript" },

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   preview: vi.fn(),
   hasSameOrigin: vi.fn(),
+  listProjectsForUser: vi.fn(),
+  getProjectAccess: vi.fn(),
 }));
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
@@ -26,6 +28,11 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
 vi.mock("lib/security/same-origin", () => ({
   hasSameOrigin: mocks.hasSameOrigin,
 }));
+vi.mock("lib/projects/access", () => ({
+  listProjectsForUser: mocks.listProjectsForUser,
+  getProjectAccess: mocks.getProjectAccess,
+  mayEditProject: (role: string) => role === "owner" || role === "editor",
+}));
 vi.mock("lib/voice/transcript-preview", () => ({
   previewVoiceTranscript: mocks.preview,
 }));
@@ -40,6 +47,7 @@ const preview = {
   intent: "task",
   title: "Summarize notes",
   summary: "The transcript asks for a summary.",
+  suggestedProjectId: null,
 };
 
 function request(body: unknown = { messageId }) {
@@ -68,6 +76,8 @@ describe("POST /api/voice/transcript/preview", () => {
     mocks.rateLimit.mockResolvedValue({ allowed: true });
     mocks.hasSameOrigin.mockReturnValue(true);
     mocks.preview.mockResolvedValue(preview);
+    mocks.listProjectsForUser.mockResolvedValue([]);
+    mocks.getProjectAccess.mockResolvedValue({ role: "owner" });
   });
 
   it("rejects a transcript whose thread belongs to another user", async () => {
@@ -96,12 +106,55 @@ describe("POST /api/voice/transcript/preview", () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(await response.json()).toEqual({ preview });
-    expect(mocks.preview).toHaveBeenCalledWith("Summarize my notes");
+    expect(await response.json()).toEqual({
+      preview,
+      suggestedProject: null,
+    });
+    expect(mocks.preview).toHaveBeenCalledWith("Summarize my notes", []);
     expect(mocks.upsertMessage).not.toHaveBeenCalled();
     expect(mocks.upsertThread).not.toHaveBeenCalled();
     expect(mocks.selectMessage).toHaveBeenCalledWith(messageId);
     expect(mocks.selectThread).toHaveBeenCalledWith(threadId);
+  });
+
+  it("limits project suggestions to the signed-in user's authorized project list", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000005";
+    mocks.listProjectsForUser.mockResolvedValue([
+      { id: projectId, name: "Launch", description: "Launch planning" },
+    ]);
+    mocks.preview.mockResolvedValue({
+      ...preview,
+      suggestedProjectId: projectId,
+    });
+
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      preview: { ...preview, suggestedProjectId: projectId },
+      suggestedProject: { id: projectId, name: "Launch" },
+    });
+    expect(mocks.preview).toHaveBeenCalledWith("Summarize my notes", [
+      { id: projectId, name: "Launch", description: "Launch planning" },
+    ]);
+  });
+
+  it("does not surface projects where the caller has view-only access", async () => {
+    const projectId = "00000000-0000-4000-8000-000000000005";
+    mocks.listProjectsForUser.mockResolvedValue([
+      { id: projectId, name: "Read only", description: null },
+    ]);
+    mocks.getProjectAccess.mockResolvedValue({ role: "viewer" });
+    mocks.preview.mockResolvedValue({
+      ...preview,
+      suggestedProjectId: projectId,
+    });
+
+    const response = await POST(request());
+    expect(await response.json()).toMatchObject({
+      preview: { suggestedProjectId: null },
+      suggestedProject: null,
+    });
+    expect(mocks.preview).toHaveBeenCalledWith("Summarize my notes", []);
   });
 
   it("accepts only the message ID and enforces origin and rate limits", async () => {

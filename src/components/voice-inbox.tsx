@@ -33,7 +33,11 @@ type VoiceIntentPreview = {
     | "unknown";
   title: string;
   summary: string;
+  suggestedProjectId: string | null;
+  suggestedProject?: SuggestedProject;
 };
+
+type SuggestedProject = { id: string; name: string };
 
 function parseVoiceIntentPreview(value: unknown): VoiceIntentPreview | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -51,13 +55,19 @@ function parseVoiceIntentPreview(value: unknown): VoiceIntentPreview | null {
     typeof candidate.intent !== "string" ||
     !intents.includes(candidate.intent) ||
     typeof candidate.title !== "string" ||
-    typeof candidate.summary !== "string"
+    typeof candidate.summary !== "string" ||
+    (candidate.suggestedProjectId != null &&
+      typeof candidate.suggestedProjectId !== "string")
   )
     return null;
   return {
     intent: candidate.intent as VoiceIntentPreview["intent"],
     title: candidate.title,
     summary: candidate.summary,
+    suggestedProjectId:
+      typeof candidate.suggestedProjectId === "string"
+        ? candidate.suggestedProjectId
+        : null,
   };
 }
 
@@ -74,6 +84,16 @@ export function VoiceInbox() {
     {},
   );
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [projectConsent, setProjectConsent] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [projectMoves, setProjectMoves] = useState<
+    Record<string, SuggestedProject>
+  >({});
+  const [projectMoveErrors, setProjectMoveErrors] = useState<
+    Record<string, string>
+  >({});
+  const [movingMessageId, setMovingMessageId] = useState<string | null>(null);
 
   const previewIntent = useCallback(async (messageId: string) => {
     setPreviewingId(messageId);
@@ -91,12 +111,27 @@ export function VoiceInbox() {
       });
       const payload = (await response.json().catch(() => null)) as {
         preview?: unknown;
+        suggestedProject?: unknown;
         error?: string;
       } | null;
       if (!response.ok)
         throw new Error(payload?.error ?? "Could not preview this transcript.");
       const preview = parseVoiceIntentPreview(payload?.preview);
       if (!preview) throw new Error("The preview response was invalid.");
+      const project = payload?.suggestedProject;
+      if (
+        project &&
+        typeof project === "object" &&
+        !Array.isArray(project) &&
+        typeof (project as Record<string, unknown>).id === "string" &&
+        typeof (project as Record<string, unknown>).name === "string" &&
+        preview.suggestedProjectId === (project as Record<string, unknown>).id
+      ) {
+        preview.suggestedProject = {
+          id: (project as Record<string, unknown>).id as string,
+          name: (project as Record<string, unknown>).name as string,
+        };
+      }
       setPreviews((current) => ({ ...current, [messageId]: preview }));
     } catch (cause) {
       setPreviewErrors((current) => ({
@@ -110,6 +145,47 @@ export function VoiceInbox() {
       setPreviewingId((current) => (current === messageId ? null : current));
     }
   }, []);
+
+  const assignToProject = useCallback(
+    async (messageId: string, project: SuggestedProject) => {
+      setMovingMessageId(messageId);
+      setProjectMoveErrors((current) => {
+        const next = { ...current };
+        delete next[messageId];
+        return next;
+      });
+      try {
+        const response = await fetch("/api/voice/transcript/project", {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId, projectId: project.id }),
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          project?: unknown;
+          error?: string;
+        } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "Could not assign this project.");
+        }
+        setProjectMoves((current) => ({ ...current, [messageId]: project }));
+      } catch (cause) {
+        setProjectMoveErrors((current) => ({
+          ...current,
+          [messageId]:
+            cause instanceof Error
+              ? cause.message
+              : "Could not assign this project.",
+        }));
+      } finally {
+        setMovingMessageId((current) =>
+          current === messageId ? null : current,
+        );
+      }
+    },
+    [],
+  );
 
   const load = useCallback(async (nextCursor?: string | null) => {
     if (nextCursor) setLoadingMore(true);
@@ -207,6 +283,7 @@ export function VoiceInbox() {
               item.source === "voice_device"
                 ? `/chat/${encodeURIComponent(item.threadId)}?processVoice=${encodeURIComponent(item.id)}`
                 : `/chat/${encodeURIComponent(item.threadId)}`;
+            const suggestedProject = previews[item.id]?.suggestedProject;
             return (
               <Card key={item.id}>
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -245,6 +322,66 @@ export function VoiceInbox() {
                         <p className="mt-2 text-xs text-muted-foreground">
                           Preview only. No task or tool was run.
                         </p>
+                        {suggestedProject ? (
+                          <div className="mt-3 border-t pt-3">
+                            <p className="font-medium">
+                              Suggested project: {suggestedProject.name}
+                            </p>
+                            {projectMoves[item.id] ? (
+                              <p
+                                role="status"
+                                className="mt-2 text-xs text-muted-foreground"
+                              >
+                                Conversation assigned to{" "}
+                                {projectMoves[item.id].name}.
+                              </p>
+                            ) : (
+                              <>
+                                <label className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
+                                  <input
+                                    type="checkbox"
+                                    checked={projectConsent[item.id] ?? false}
+                                    onChange={(event) =>
+                                      setProjectConsent((current) => ({
+                                        ...current,
+                                        [item.id]: event.target.checked,
+                                      }))
+                                    }
+                                  />
+                                  Anyone with access to this project may be able
+                                  to see this conversation. Assign it anyway.
+                                </label>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2"
+                                  disabled={
+                                    !projectConsent[item.id] ||
+                                    movingMessageId !== null
+                                  }
+                                  onClick={() =>
+                                    void assignToProject(
+                                      item.id,
+                                      suggestedProject,
+                                    )
+                                  }
+                                >
+                                  {movingMessageId === item.id
+                                    ? "Assigning..."
+                                    : "Assign conversation to project"}
+                                </Button>
+                                {projectMoveErrors[item.id] ? (
+                                  <p
+                                    role="alert"
+                                    className="mt-2 text-xs text-destructive"
+                                  >
+                                    {projectMoveErrors[item.id]}
+                                  </p>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                     {previewErrors[item.id] ? (

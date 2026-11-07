@@ -114,6 +114,30 @@ describe("tabular review schema and bounded work", () => {
     expect(text.prompt).not.toContain("<CITATIONS>");
   });
 
+  it("formats typed answers according to the reference column contracts", () => {
+    const prompts = (type: "date" | "boolean" | "list" | "score") =>
+      buildReviewPrompt({
+        filename: "contract.pdf",
+        sourceText: "A sample source.",
+        column: {
+          id: "field",
+          label: "Field",
+          type,
+          prompt: "Extract the answer.",
+        },
+      }).prompt;
+
+    expect(prompts("date")).toContain("ISO 8601 format (YYYY-MM-DD)");
+    expect(prompts("date")).toContain("'N/A' if no date is stated");
+    expect(prompts("boolean")).toContain("only 'Yes', 'No', or 'N/A'");
+    expect(prompts("list")).toContain(
+      "bullet list with each item on its own line",
+    );
+    expect(prompts("list")).toContain("'None identified.'");
+    expect(prompts("score")).toContain("integer from 0 to 10");
+    expect(prompts("score")).toContain("'7 — reason'");
+  });
+
   it("numbers all bounded citation passages without losing source text", () => {
     const source = `${"A".repeat(4_200)}\n${"B".repeat(4_100)}`;
     const passages = numberDocumentPassages(source);

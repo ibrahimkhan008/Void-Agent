@@ -11,6 +11,7 @@ import {
   lt,
   notExists,
   or,
+  sql,
 } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
@@ -22,6 +23,8 @@ import {
   ProjectBrainPageTable,
   ProjectBrainRunTable,
   ProjectBrainStatusSnapshotTable,
+  ProjectTable,
+  TeamTable,
 } from "lib/db/pg/schema.pg";
 import { notifyProjectHealthTransition } from "lib/notifications/project-health";
 import {
@@ -579,9 +582,18 @@ export async function enqueueNightlyProjectBrainDreams(now = new Date()) {
     const recent = await pgDb
       .selectDistinctOn([ProjectBrainRunTable.projectId], {
         projectId: ProjectBrainRunTable.projectId,
-        userId: ProjectBrainRunTable.requestedByUserId,
+        userId: sql<string>`COALESCE(${TeamTable.ownerId}, ${ProjectTable.userId})`,
       })
       .from(ProjectBrainRunTable)
+      // Scheduling must use a currently authoritative project principal,
+      // not the user who happened to trigger the latest source ingest. That
+      // user may since have left the team or lost project access, which would
+      // otherwise starve a still-active shared project indefinitely.
+      .innerJoin(
+        ProjectTable,
+        eq(ProjectTable.id, ProjectBrainRunTable.projectId),
+      )
+      .leftJoin(TeamTable, eq(TeamTable.id, ProjectTable.teamId))
       .where(and(...predicates))
       .orderBy(
         ProjectBrainRunTable.projectId,

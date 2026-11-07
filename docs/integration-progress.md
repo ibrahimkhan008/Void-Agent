@@ -1062,3 +1062,11 @@ Agent file bindings are now validated server-side using the authenticated user's
 - Published verified batch as commit `217041971126b447b82829922e64e0f966997d2b` to `origin/main`; remote and local hashes matched immediately after push.
 - Only the reviewed 31 source/test/migration/documentation files were committed. User-owned CognixAI spec files and ignored `context.md` remain unstaged. No reference repository, database, or deployment was changed.
 - The batch verification is recorded above. Overall Better Chatbot parity remains in progress and this commit does not claim completion.
+
+## Verified parity batch: F010 / F014 / F018 / F026 (2026-11-07 14:35 IST)
+- F010: fixed nightly project-brain discovery to use the project's current owner as the scheduling principal rather than the most recent ingest actor, while stage execution still revalidates current access. Existing dream stages, retry, provenance and human review were already present; no unsafe automatic merge behavior was added.
+- F014: table-review prompt now carries explicit format instructions for date, boolean, list, and score extraction types, and the missing-answer policy no longer conflicts with those types.
+- F018: owner-upload PDF attachments now have an authenticated text preview, bounded to 50 pages and the shared character/byte limits, returned private/no-store. PDF.js document handles are destroyed in success and failure paths.
+- F026: Voice Inbox preview filters project suggestions to currently editable projects and adds an explicit-consent project assignment. The PATCH rechecks same-origin/session/rate limit, exact user-owned saved voice source/thread, and current edit access. It never executes a command/tool.
+- Focused checks: F010 1/1, F014 13/13, F018 9/9, F026 20/20. Integrated `pnpm check-types`, full Vitest (371 files / 2,094 tests, maxWorkers=2), lint, `pnpm db:check`, `git diff --check`, and production build (203/203 static pages) all pass. Existing warnings and unavailable live PostgreSQL/provider/browser/device/storage tests remain limitations; F010/F014/F018/F026 and overall migration remain PARTIAL.
+- No migration was applied, no production deployment performed, and the reference repository was not modified. This batch is awaiting scoped staging review and a separate GitHub push.

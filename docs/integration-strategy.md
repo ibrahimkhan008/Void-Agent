@@ -629,3 +629,9 @@ Retain Void-Agent's existing Electron companion instead of transplanting the ref
 - F037 DOCX tracked edits were implemented against Void-Agent's existing project access, private storage, repository abstraction, and UI. The upstream document-edit behavior is adapted without replacing the original document or accepting unrelated existing Word revisions. Migration 0069 is authored but intentionally not applied in this development environment.
 - F030 finance overview composes existing authenticated provider summaries rather than duplicating provider or payment logic. F026 voice preview calls the existing authorized preview route and remains non-executing. F015/F019 changes are narrow hardening/regression coverage.
 - These changes are implementation slices; no broad family is declared complete without live end-to-end evidence.
+
+## 2026-11-07 integration decisions - next batch
+- Keep Void-Agent's staged, human-reviewed project-brain workflow; only correct the nightly discovery principal to the current project owner and preserve execution-time authorization.
+- Align table-review answer schemas with extraction column types to prevent malformed date/boolean/list/score results.
+- Adapt reference PDF access into the existing user-owned document preview endpoint. Keep byte, page, and character limits, no-store response, and text-only partial-preview disclosure.
+- Adapt voice project routing as an explicit user-confirmed assignment. Do not invoke tools or execute transcript instructions during classification/assignment.

@@ -1442,3 +1442,10 @@ F021 gains verified native application menus; F026 gains the owner-scoped saved 
 - F026 intent preview: PARTIAL. `src/components/voice-inbox.tsx` requests a bounded preview by message ID and never runs a tool; component tests pass. Automatic classification/routing and audio gateway remain outside this slice.
 - F015 published-page revocation rate limit and F019 stale resumable-stream cleanup regression coverage are implemented and tested; their broader capability families remain subject to prior parity status.
 - No broad family status is upgraded solely from these slices. The F001–F036 baseline remains 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED; F037 is separately PARTIAL. Do not interpret this count as percent complete.
+
+## Evidence addendum - 2026-11-07 14:35 IST
+- F010 project-brain/dream: PARTIAL. Existing staged dream workflow remains; `src/lib/projects/brain-dream.ts` now discovers schedules using the current project owner and retains execution-time access checks. Focused test 1/1; no live worker/PostgreSQL check.
+- F014 table review: PARTIAL. `src/lib/tabular/review-schema.ts` now gives explicit reference-aligned output formats to date/boolean/list/score extraction columns. Focused tests 13/13; provider/browser end-to-end remains unverified.
+- F018 documents/multimodal: PARTIAL. Owner-scoped PDF text preview is available via `src/app/api/storage/document/route.ts` and `src/lib/file-ingest/pdf-preview.ts`, with 50-page and character bounds, private/no-store response, and capped UI action. Focused tests 9/9; real object storage/browser and scanned-PDF OCR remain unverified/not implemented by this slice.
+- F026 voice: PARTIAL. Voice Inbox now supports consent-based assignment of an owned saved device transcript to a project after server-side source/thread/project access checks; project suggestions are limited to currently editable projects. Focused tests 20/20; no live device/PostgreSQL/browser run.
+- Broad family statuses remain unchanged; implementation slices do not upgrade a family without complete end-to-end verification.
