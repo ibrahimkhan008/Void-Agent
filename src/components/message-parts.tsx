@@ -2065,7 +2065,8 @@ export function SourceUrlMessagePart({
   } | null>(null);
   const [activeSheet, setActiveSheet] = useState(0);
   const [documentPreview, setDocumentPreview] = useState<{
-    text: string;
+    text?: string;
+    html?: string;
     truncated: boolean;
     partial: boolean;
   } | null>(null);
@@ -2256,15 +2257,27 @@ export function SourceUrlMessagePart({
               </p>
             ) : documentPreview ? (
               <>
-                <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded border bg-muted/30 p-4 text-sm leading-6">
-                  {documentPreview.text ||
-                    "This document contains no readable text."}
-                </pre>
+                {documentPreview.html ? (
+                  <iframe
+                    title={`${name} preview`}
+                    sandbox=""
+                    referrerPolicy="no-referrer"
+                    srcDoc={`<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><style>body{margin:0;padding:24px;font:14px/1.6 ui-sans-serif,system-ui,sans-serif;color:#18181b}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:4px 8px;text-align:left}img{display:none}</style></head><body>${documentPreview.html}</body></html>`}
+                    className="h-[70vh] min-h-0 w-full flex-1 rounded border bg-muted/30"
+                  />
+                ) : (
+                  <pre className="min-h-0 overflow-auto whitespace-pre-wrap break-words rounded border bg-muted/30 p-4 text-sm leading-6">
+                    {documentPreview.text ||
+                      "This document contains no readable text."}
+                  </pre>
+                )}
                 {(documentPreview.truncated || documentPreview.partial) && (
                   <p className="text-xs text-muted-foreground">
                     {documentPreview.truncated && "Preview is truncated. "}
                     {documentPreview.partial &&
-                      "This is a text-only or partial preview."}
+                      (documentPreview.html
+                        ? "Images and some complex Word elements are not included."
+                        : "This is a text-only or partial preview.")}
                   </p>
                 )}
               </>

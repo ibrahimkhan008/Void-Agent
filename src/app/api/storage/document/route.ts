@@ -2,8 +2,9 @@ import { getSession } from "auth/server";
 import {
   MAX_DOCUMENT_PREVIEW_BYTES,
   MAX_DOCUMENT_PREVIEW_CHARS,
+  MAX_DOCUMENT_PREVIEW_HTML_CHARS,
 } from "lib/file-ingest/document-preview-limits";
-import { parseDocxPreview } from "lib/file-ingest/docx";
+import { renderDocxHtml } from "lib/file-ingest/docx-html";
 import { parsePptxPreview } from "lib/file-ingest/pptx";
 import { decodeTextFile } from "lib/file-ingest/text";
 import { serverFileStorage } from "lib/file-storage";
@@ -77,11 +78,17 @@ export async function GET(request: Request) {
 
     let preview: { text: string; truncated: boolean; partial: boolean };
     if (extension === "docx") {
-      const result = await parseDocxPreview(content, {
-        maxChars: MAX_DOCUMENT_PREVIEW_CHARS,
-      });
-      // Raw-text extraction does not preserve Word layout, tables, or images.
-      preview = { ...result, partial: true };
+      const html = await renderDocxHtml(content);
+      if (html.length > MAX_DOCUMENT_PREVIEW_HTML_CHARS) {
+        return Response.json(
+          { error: "This file is too large to preview", reason: "too_large" },
+          { status: 413 },
+        );
+      }
+      return Response.json(
+        { html, truncated: false, partial: true },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
     } else if (extension === "pptx") {
       const result = await parsePptxPreview(content, {
         maxChars: MAX_DOCUMENT_PREVIEW_CHARS,

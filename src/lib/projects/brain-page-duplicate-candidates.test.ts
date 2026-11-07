@@ -1,18 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ generateObject: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  generateObject: vi.fn(),
+  getPinnedModel: vi.fn(),
+}));
 vi.mock("ai", () => ({ generateObject: mocks.generateObject }));
 vi.mock("lib/ai/models", () => ({
   customModelProvider: {
     getModelWithFailureFallbackAsync: vi
       .fn()
       .mockResolvedValue({ id: "test-model" }),
+    getModelAsync: mocks.getPinnedModel,
   },
 }));
 
 import {
   findBrainPageDuplicateCandidates,
   judgeBrainPageDuplicateCandidates,
+  judgeBrainPageDuplicateCandidatesWithUsage,
 } from "./brain-page-duplicate-candidates";
 
 const page = (
@@ -30,7 +35,10 @@ const page = (
   salience,
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.getPinnedModel.mockResolvedValue({ id: "pinned-model" });
+});
 
 describe("findBrainPageDuplicateCandidates", () => {
   it("finds same-type similar names and puts the higher-salience page first", () => {
@@ -144,5 +152,41 @@ describe("findBrainPageDuplicateCandidates", () => {
       first: { facts: Array<{ claim: string }> };
     }>;
     expect(prompt[0]?.first.facts).toHaveLength(8);
+  });
+
+  it("pins budgeted judgments and disables provider retries", async () => {
+    mocks.generateObject.mockResolvedValue({
+      object: { decisions: [] },
+      usage: { inputTokens: 12, outputTokens: 4 },
+    });
+    const result = await judgeBrainPageDuplicateCandidatesWithUsage(
+      [
+        {
+          firstPageId: "page-a",
+          firstTitle: "A",
+          firstType: "person",
+          firstAliases: [],
+          firstFacts: [],
+          secondPageId: "page-b",
+          secondTitle: "B",
+          secondType: "person",
+          secondAliases: [],
+          secondFacts: [],
+        },
+      ],
+      { model: { provider: "flare", model: "Model A" } },
+    );
+
+    expect(result).toEqual({
+      judgments: [],
+      usage: { inputTokens: 12, outputTokens: 4 },
+    });
+    expect(mocks.getPinnedModel).toHaveBeenCalledWith({
+      provider: "flare",
+      model: "Model A",
+    });
+    expect(mocks.generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ model: { id: "pinned-model" }, maxRetries: 0 }),
+    );
   });
 });

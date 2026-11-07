@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
   checkApiRateLimit: vi.fn(),
   hasSameOrigin: vi.fn(),
   getModel: vi.fn(),
+  getPinnedModel: vi.fn(),
+  getBudgetEnabled: vi.fn(),
+  getBudgetModel: vi.fn(),
+  reserveBudget: vi.fn(),
+  settleBudget: vi.fn(),
   generateObject: vi.fn(),
   select: vi.fn(),
   predicates: [] as unknown[],
@@ -25,7 +30,28 @@ vi.mock("lib/security/same-origin", () => ({
   hasSameOrigin: mocks.hasSameOrigin,
 }));
 vi.mock("lib/ai/models", () => ({
-  customModelProvider: { getModelWithFailureFallbackAsync: mocks.getModel },
+  customModelProvider: {
+    getModelWithFailureFallbackAsync: mocks.getModel,
+    getModelAsync: mocks.getPinnedModel,
+  },
+}));
+vi.mock("lib/ai/model-pricing.server", () => ({
+  getTeamMemberBudgetsEnabled: mocks.getBudgetEnabled,
+}));
+vi.mock("lib/ai/team-member-ai-budget-runtime", () => ({
+  normalizeModelUsage: (usage: unknown) => {
+    if (!usage || typeof usage !== "object") return null;
+    const record = usage as Record<string, unknown>;
+    return typeof record.inputTokens === "number" &&
+      typeof record.outputTokens === "number"
+      ? { inputTokens: record.inputTokens, outputTokens: record.outputTokens }
+      : null;
+  },
+  reserveTeamBudgetForAiRequest: mocks.reserveBudget,
+  settleTeamBudgetForAiRequest: mocks.settleBudget,
+}));
+vi.mock("lib/projects/project-brain-status", () => ({
+  getProjectBrainStatusModel: mocks.getBudgetModel,
 }));
 vi.mock("ai", () => ({ generateObject: mocks.generateObject }));
 vi.mock("lib/db/pg/db.pg", () => ({ pgDb: { select: mocks.select } }));
@@ -79,6 +105,22 @@ beforeEach(() => {
   mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
   mocks.hasSameOrigin.mockReturnValue(true);
   mocks.getModel.mockResolvedValue("model");
+  mocks.getPinnedModel.mockResolvedValue("pinned-model");
+  mocks.getBudgetEnabled.mockResolvedValue(false);
+  mocks.getBudgetModel.mockResolvedValue({
+    provider: "flare",
+    model: "Model A",
+  });
+  mocks.reserveBudget.mockResolvedValue({
+    reservationId: "reservation-1",
+    estimateMicros: 200,
+    price: {
+      inputMicrosPerMillion: 1,
+      outputMicrosPerMillion: 1,
+      currency: "EUR",
+    },
+  });
+  mocks.settleBudget.mockResolvedValue(undefined);
   mocks.generateObject.mockResolvedValue({
     object: {
       answer: "The plan is to launch in June.",
@@ -117,6 +159,7 @@ describe("project document analysis", () => {
         prompt: expect.stringContaining("untrusted evidence"),
       }),
     );
+    expect(mocks.reserveBudget).not.toHaveBeenCalled();
     const query = sqlFor(mocks.predicates[0]);
     expect(query.sql).toContain('"project_document"."project_id"');
     expect(query.sql).toContain('"collection_item"."collection_id"');
@@ -176,5 +219,115 @@ describe("project document analysis", () => {
       (await POST(request({ question: "Question?" }), params)).status,
     ).toBe(404);
     expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it("pins, reserves, and settles AI usage for trusted team projects", async () => {
+    mocks.getBudgetEnabled.mockResolvedValue(true);
+    mocks.generateObject.mockResolvedValueOnce({
+      object: {
+        answer: "The plan is to launch in June.",
+        citations: [{ quote: "Launch target: June." }],
+      },
+      usage: { inputTokens: 50, outputTokens: 20 },
+    });
+    const response = await POST(
+      request({ question: "When is launch?" }),
+      params,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.reserveBudget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: "team-1",
+        userId: "member-1",
+        model: { provider: "flare", model: "Model A" },
+        idempotencyScope: `project-document-analysis:${projectId}:${itemId}`,
+      }),
+    );
+    expect(mocks.getPinnedModel).toHaveBeenCalledWith({
+      provider: "flare",
+      model: "Model A",
+    });
+    expect(mocks.getModel).not.toHaveBeenCalled();
+    expect(mocks.generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "pinned-model", maxRetries: 0 }),
+    );
+    expect(mocks.settleBudget).toHaveBeenCalledWith(
+      expect.objectContaining({ reservationId: "reservation-1" }),
+      { usage: { inputTokens: 50, outputTokens: 20 } },
+    );
+  });
+
+  it("fails closed when the enabled team budget has no administrator model", async () => {
+    mocks.getBudgetEnabled.mockResolvedValue(true);
+    mocks.getBudgetModel.mockResolvedValue(null);
+    const response = await POST(
+      request({ question: "When is launch?" }),
+      params,
+    );
+    expect(response.status).toBe(503);
+    expect(mocks.reserveBudget).not.toHaveBeenCalled();
+    expect(mocks.generateObject).not.toHaveBeenCalled();
+  });
+
+  it("releases a reservation after provider failure but never after settlement failure", async () => {
+    mocks.getBudgetEnabled.mockResolvedValue(true);
+    mocks.generateObject.mockRejectedValueOnce(new Error("provider down"));
+    expect(
+      (
+        await POST(request({ question: "When is launch?" }), params)
+      ).status,
+    ).toBe(502);
+    expect(mocks.settleBudget).toHaveBeenCalledWith(
+      expect.anything(),
+      { aborted: true },
+    );
+
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ user: { id: "member-1" } });
+    mocks.getProjectAccess.mockResolvedValue({
+      project: {
+        id: projectId,
+        collectionIds: [collectionId],
+        teamId: "team-1",
+      },
+      role: "viewer",
+    });
+    mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue([
+      "member-1",
+      "creator-1",
+    ]);
+    mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
+    mocks.hasSameOrigin.mockReturnValue(true);
+    mocks.getBudgetEnabled.mockResolvedValue(true);
+    mocks.getBudgetModel.mockResolvedValue({ provider: "flare", model: "A" });
+    mocks.reserveBudget.mockResolvedValue({
+      reservationId: "reservation-2",
+      estimateMicros: 200,
+      price: {
+        inputMicrosPerMillion: 1,
+        outputMicrosPerMillion: 1,
+        currency: "EUR",
+      },
+    });
+    mocks.getPinnedModel.mockResolvedValue("pinned-model");
+    mocks.generateObject.mockResolvedValue({
+      object: {
+        answer: "The plan is to launch in June.",
+        citations: [{ quote: "Launch target: June." }],
+      },
+      usage: { inputTokens: 50, outputTokens: 20 },
+    });
+    mocks.settleBudget.mockRejectedValue(new Error("ledger down"));
+    expect(
+      (
+        await POST(request({ question: "When is launch?" }), params)
+      ).status,
+    ).toBe(502);
+    expect(mocks.settleBudget).toHaveBeenCalledTimes(1);
+    expect(mocks.settleBudget).toHaveBeenCalledWith(
+      expect.anything(),
+      { usage: { inputTokens: 50, outputTokens: 20 } },
+    );
   });
 });

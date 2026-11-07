@@ -6,6 +6,7 @@ import {
   CollectionTable,
   ProjectBrainTodoTable,
 } from "lib/db/pg/schema.pg";
+import { notifyAcceptedProjectBrainTodo } from "lib/notifications/project-brain-todo-accepted";
 import {
   getProjectAccess,
   getProjectCollectionSourceOwnerIds,
@@ -122,5 +123,8 @@ export async function PATCH(
       { error: "Task has already changed state" },
       { status: 409 },
     );
+  if (todo.status === "accepted") {
+    await notifyAcceptedProjectBrainTodo({ projectId, todoId: todo.id });
+  }
   return Response.json({ todo }, { headers: { "Cache-Control": "no-store" } });
 }

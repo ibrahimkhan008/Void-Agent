@@ -1,4 +1,5 @@
 import type { Buffer } from "node:buffer";
+import { OoxmlPackage } from "./ooxml";
 
 /**
  * A .docx as HTML, for display inside a sandboxed frame.
@@ -27,6 +28,12 @@ import type { Buffer } from "node:buffer";
  */
 
 export async function renderDocxHtml(content: Buffer): Promise<string> {
+  // Keep this helper safe when called outside the preview route too. OOXML
+  // packages are untrusted ZIPs and need the same expansion/DOCTYPE checks as
+  // text extraction before Mammoth reads them.
+  const pkg = await OoxmlPackage.open(content);
+  await pkg.verifyAllEntries();
+
   const { default: mammoth } = await import("mammoth");
 
   const { value } = await mammoth.convertToHtml(

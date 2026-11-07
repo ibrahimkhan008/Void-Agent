@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   rate: vi.fn(),
   download: vi.fn(),
   metadata: vi.fn(),
-  docx: vi.fn(),
+  docxHtml: vi.fn(),
   pptx: vi.fn(),
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.session }));
@@ -26,7 +26,9 @@ vi.mock("lib/file-storage/storage-utils", () => ({
     }
   },
 }));
-vi.mock("lib/file-ingest/docx", () => ({ parseDocxPreview: mocks.docx }));
+vi.mock("lib/file-ingest/docx-html", () => ({
+  renderDocxHtml: mocks.docxHtml,
+}));
 vi.mock("lib/file-ingest/pptx", () => ({ parsePptxPreview: mocks.pptx }));
 vi.mock("lib/logger", () => ({ default: { error: vi.fn() } }));
 import { GET } from "./route";
@@ -41,7 +43,7 @@ describe("GET /api/storage/document", () => {
     mocks.rate.mockResolvedValue({ allowed: true });
     mocks.metadata.mockResolvedValue({ size: 10 });
     mocks.download.mockResolvedValue(Buffer.from("hello"));
-    mocks.docx.mockResolvedValue({ text: "word text", truncated: false });
+    mocks.docxHtml.mockResolvedValue("<h1>Word title</h1><table></table>");
     mocks.pptx.mockResolvedValue({
       slides: [{ index: 1, title: "Intro", text: "slide text", hidden: false }],
       totalSlides: 1,
@@ -75,8 +77,11 @@ describe("GET /api/storage/document", () => {
   it("dispatches supported document formats and rejects other formats", async () => {
     const docx = await GET(request("key=uploads%2Fuser-1%2Ffile.docx"));
     expect(docx.status).toBe(200);
-    expect(await docx.json()).toMatchObject({ partial: true });
-    expect(mocks.docx).toHaveBeenCalled();
+    expect(await docx.json()).toMatchObject({
+      html: "<h1>Word title</h1><table></table>",
+      partial: true,
+    });
+    expect(mocks.docxHtml).toHaveBeenCalled();
     const slides = await (
       await GET(request("key=uploads%2Fuser-1%2Fslides.pptx"))
     ).json();
@@ -84,6 +89,13 @@ describe("GET /api/storage/document", () => {
     expect(
       (await GET(request("key=uploads%2Fuser-1%2Farchive.pdf"))).status,
     ).toBe(400);
+  });
+
+  it("rejects oversized rendered DOCX output and does not return HTML", async () => {
+    mocks.docxHtml.mockResolvedValueOnce("<p>x</p>".repeat(70_000));
+    const response = await GET(request("key=uploads%2Fuser-1%2Flarge.docx"));
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ reason: "too_large" });
   });
 
   it("checks metadata and downloaded size before parsing", async () => {

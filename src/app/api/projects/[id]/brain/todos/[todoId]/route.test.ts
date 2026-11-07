@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   checkApiRateLimit: vi.fn(),
   select: vi.fn(),
   update: vi.fn(),
+  notifyAcceptedProjectBrainTodo: vi.fn(),
   predicates: [] as unknown[],
 }));
 
@@ -19,6 +20,9 @@ vi.mock("lib/projects/access", () => ({
 }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
+}));
+vi.mock("lib/notifications/project-brain-todo-accepted", () => ({
+  notifyAcceptedProjectBrainTodo: mocks.notifyAcceptedProjectBrainTodo,
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, update: mocks.update },
@@ -53,6 +57,7 @@ beforeEach(() => {
   });
   mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue(["member-1"]);
   mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
+  mocks.notifyAcceptedProjectBrainTodo.mockResolvedValue({ inserted: 1 });
   const selectQuery = {
     from: vi.fn().mockReturnThis(),
     innerJoin: vi.fn().mockReturnThis(),
@@ -63,13 +68,17 @@ beforeEach(() => {
     limit: vi.fn().mockResolvedValue([{ id: todoId }]),
   };
   mocks.select.mockReturnValue(selectQuery);
+  let updatedStatus = "accepted";
   const updateQuery = {
-    set: vi.fn().mockReturnThis(),
+    set: vi.fn((values: { status: string }) => {
+      updatedStatus = values.status;
+      return updateQuery;
+    }),
     where: vi.fn((predicate: unknown) => {
       mocks.predicates.push(predicate);
       return updateQuery;
     }),
-    returning: vi.fn().mockResolvedValue([{ id: todoId, status: "accepted" }]),
+    returning: vi.fn(async () => [{ id: todoId, status: updatedStatus }]),
   };
   mocks.update.mockReturnValue(updateQuery);
 });
@@ -136,6 +145,11 @@ describe("PATCH project brain todo review", () => {
       mocks.predicates.at(-1) as never,
     );
     expect(updatePredicate.sql).toContain('"project_brain_source_state"');
+    expect(mocks.notifyAcceptedProjectBrainTodo).toHaveBeenCalledOnce();
+    expect(mocks.notifyAcceptedProjectBrainTodo).toHaveBeenCalledWith({
+      projectId,
+      todoId,
+    });
   });
 
   it("rejects unsupported transitions and rate-limits reviews", async () => {
