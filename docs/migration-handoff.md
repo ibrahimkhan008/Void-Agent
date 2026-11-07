@@ -65,3 +65,8 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Commit 3539a8f73172aeae328ea4a958f1114db8ae79e6 (eat: include brain timeline in project status) was pushed to origin/main successfully as a fast-forward from 7925cd2.
 - Remote verification: ahead/behind count is 0/0. Commit contains the F010 implementation/tests and updated migration matrix, progress, testing report, and handoff.
 - The two untracked CognixAI specification files remain untouched and excluded. Overall migration remains incomplete; no DB apply or production deployment.
+
+## F010 project chat event-feed publication - 2026-11-07 20:57 IST
+- Published commit 5aaa4ec1aae58d8f7f17665f8db8c738d6259f82 (eat: add recent events to project knowledge) to origin/main as a fast-forward from 9880192.
+- Verification: 4/4 focused project-knowledge tests, scoped Biome, integrated typecheck, and production build (206/206 pages) passed. HEAD and origin/main are aligned; ahead/behind count 0/0.
+- The dedicated voice navigator and complete project status/todo tool remain incomplete; F010 remains PARTIAL. No DB migration or deploy.
