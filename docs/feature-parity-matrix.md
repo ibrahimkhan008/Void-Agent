@@ -1643,3 +1643,11 @@ Public HTTPS per-user provider management is implemented and source/type checked
 - Removed the full native editor path because it bypassed Void-Agent's reviewed execution boundary. Workflow summaries are sanitized server-side; node parameters and credentials are not passed to client UI.
 - The run action remains bound to the current workflow revision and current review, using the existing one-use approval. Activation is fail-closed; deactivation remains available. N8n create/edit/activate via the native editor is an explicit security exclusion pending a server-enforced safe editor and activation review contract.
 - Evidence paths: `src/app/api/n8n/embed/[id]/route.ts`, `src/app/api/workflow/[id]/route.ts`, `src/app/(chat)/workflow/[id]/page.tsx`, `src/components/workflow/n8n-workflow-embed.tsx`, `src/lib/n8n/workflow-summary.ts`.
+## Voice project knowledge feature slice (2026-11-07)
+- F010 gains voice search over current accepted graph facts and events through the already-owned project chat thread. Reused `createProjectKnowledgeGraphTool`; no competing RAG/knowledge schema was added.
+- Evidence: `src/app/api/voice/project-knowledge/route.ts`, `src/lib/ai/tools/project-knowledge.ts`, `src/lib/voice/project-status.ts`, OpenAI/KonvO voice executors and their session tool gates. Kimi is intentionally not offered the tool due to absent client execution support.
+- Status remains PARTIAL pending live voice/provider/PostgreSQL workflow and broader project knowledge parity review.
+## Voice project knowledge integration hardening (2026-11-07)
+- Search tool is hidden in the voice UI for non-project threads; client provider support and server-owned thread/project checks also gate execution. Kimi is explicitly unsupported.
+- Voice transcript copies project context only from a server-verified owned project thread and current collection intersection, preserving project continuity in its dedicated saved voice thread. Revoked or foreign source scope is not inherited.
+- Evidence is marked untrusted in voice tool instructions. F010 remains PARTIAL pending live voice/browser/Postgres validation and remaining reference behavior comparisons.

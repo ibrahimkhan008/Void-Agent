@@ -1,7 +1,10 @@
 "use client";
 
 import { TextPart, getToolName, isToolUIPart } from "ai";
-import { DEFAULT_VOICE_TOOLS, UIMessageWithCompleted } from "lib/ai/speech";
+import {
+  UIMessageWithCompleted,
+  getAvailableDefaultVoiceTools,
+} from "lib/ai/speech";
 import { useKonvOVoiceChat } from "lib/ai/speech/konvo/use-voice-chat-konvo";
 import { useOpenAIVoiceChat } from "lib/ai/speech/open-ai/use-voice-chat.openai";
 import { type VoiceChatProviderId } from "lib/ai/speech/providers";
@@ -55,16 +58,6 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "ui/dialog";
 import JsonView from "ui/json-view";
 import { useShallow } from "zustand/shallow";
 import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
-
-const prependTools: EnabledTools[] = [
-  {
-    groupName: "Browser",
-    tools: DEFAULT_VOICE_TOOLS.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-    })),
-  },
-];
 
 const VOICE_PROVIDER_DEFAULTS: Record<
   VoiceChatProviderId,
@@ -180,6 +173,7 @@ export function ChatBotVoice() {
     allowedMcpServers,
     mcpList,
     currentThreadId,
+    threadList,
   ] = appStore(
     useShallow((state) => [
       state.voiceChat.agentId,
@@ -188,6 +182,7 @@ export function ChatBotVoice() {
       state.allowedMcpServers,
       state.mcpList,
       state.currentThreadId,
+      state.threadList,
     ]),
   );
 
@@ -266,6 +261,7 @@ export function ChatBotVoice() {
 
   const voicePersistenceRef = useRef<{
     threadId: string;
+    contextThreadId?: string;
     voiceSessionId: string;
     agentId?: string;
     signatures: Map<string, string>;
@@ -290,6 +286,7 @@ export function ChatBotVoice() {
     current.inFlight = true;
     const saved = await flushVoiceSessionTurns({
       threadId: current.threadId,
+      contextThreadId: current.contextThreadId,
       voiceSessionId: current.voiceSessionId,
       agentId: current.agentId,
       turns,
@@ -372,6 +369,7 @@ export function ChatBotVoice() {
   const startWithSound = useCallback(() => {
     voicePersistenceRef.current = {
       threadId: generateUUID(),
+      contextThreadId: currentThreadId ?? undefined,
       voiceSessionId: generateUUID(),
       agentId,
       signatures: new Map(),
@@ -384,7 +382,7 @@ export function ChatBotVoice() {
     start().then(() => {
       startAudio.current?.play().catch(() => {});
     });
-  }, [agentId, start]);
+  }, [agentId, currentThreadId, start]);
 
   const endVoiceChat = useCallback(async () => {
     setIsClosing(true);
@@ -463,9 +461,32 @@ export function ChatBotVoice() {
     });
   }, [toolMentions]);
 
+  const projectThreadAvailable = useMemo(
+    () =>
+      Boolean(
+        currentThreadId &&
+          threadList.some(
+            (thread) => thread.id === currentThreadId && thread.projectId,
+          ),
+      ),
+    [currentThreadId, threadList],
+  );
+
   const tools = useMemo<EnabledTools[]>(() => {
-    return [...prependTools, ...mcpTools];
-  }, [prependTools, mcpTools]);
+    const defaultTools = getAvailableDefaultVoiceTools({
+      projectThreadAvailable,
+    });
+    return [
+      {
+        groupName: "Built-in",
+        tools: defaultTools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+        })),
+      },
+      ...mcpTools,
+    ];
+  }, [mcpTools, projectThreadAvailable]);
 
   const handleProviderChange = useCallback(
     (nextProvider: VoiceChatProviderId) => {

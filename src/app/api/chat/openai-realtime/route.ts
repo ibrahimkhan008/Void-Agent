@@ -13,7 +13,7 @@ import {
 
 import { ChatMention } from "app-types/chat";
 import { colorize } from "consola/utils";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import { getAvailableDefaultVoiceTools } from "lib/ai/speech";
 import globalLogger from "lib/logger";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { getUserPreferences } from "lib/user/server";
@@ -147,9 +147,9 @@ export async function POST(request: NextRequest) {
       session.user.id,
       threadId,
     );
-    const defaultVoiceTools = DEFAULT_VOICE_TOOLS.filter(
-      (tool) => tool.name !== "getProjectStatus" || projectThreadScope,
-    );
+    const defaultVoiceTools = getAvailableDefaultVoiceTools({
+      projectThreadAvailable: Boolean(projectThreadScope),
+    });
     const bindingTools = [...openAITools, ...defaultVoiceTools];
 
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {

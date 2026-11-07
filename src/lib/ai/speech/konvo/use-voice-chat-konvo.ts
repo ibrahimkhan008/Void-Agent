@@ -662,6 +662,41 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
                 };
               }
               break;
+            case "searchProjectKnowledge":
+              if (
+                typeof toolArgs.query !== "string" ||
+                toolArgs.query.trim().length < 2 ||
+                toolArgs.query.length > 300
+              ) {
+                result = {
+                  success: false,
+                  error:
+                    "Provide a project search phrase between 2 and 300 characters.",
+                };
+                break;
+              }
+              try {
+                const response = await fetch("/api/voice/project-knowledge", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    threadId: props?.threadId,
+                    query: toolArgs.query,
+                  }),
+                });
+                result = response.ok
+                  ? await response.json()
+                  : {
+                      success: false,
+                      error: "Project knowledge is unavailable for this chat.",
+                    };
+              } catch {
+                result = {
+                  success: false,
+                  error: "Project knowledge could not be loaded.",
+                };
+              }
+              break;
           }
         } else {
           // MCP tool execution

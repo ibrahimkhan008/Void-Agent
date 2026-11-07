@@ -5,7 +5,7 @@ import {
   buildMcpServerCustomizationsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import { getAvailableDefaultVoiceTools } from "lib/ai/speech";
 import globalLogger from "lib/logger";
 import { getUserPreferences } from "lib/user/server";
 import { getOwnedProjectThreadScope } from "lib/voice/project-status";
@@ -123,9 +123,9 @@ export async function POST(request: NextRequest) {
       session.user.id,
       threadId,
     );
-    const availableDefaultTools = DEFAULT_VOICE_TOOLS.filter(
-      (tool) => tool.name !== "getProjectStatus" || projectThreadScope,
-    );
+    const availableDefaultTools = getAvailableDefaultVoiceTools({
+      projectThreadAvailable: Boolean(projectThreadScope),
+    });
     const defaultTools = availableDefaultTools.map((tool) => ({
       type: "function" as const,
       function: {

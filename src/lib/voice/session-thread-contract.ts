@@ -6,6 +6,7 @@ export const VOICE_THREAD_FLUSH_DEBOUNCE_MS = 1_500;
 
 export const voiceSessionThreadRequestSchema = z.object({
   threadId: z.string().uuid(),
+  contextThreadId: z.string().uuid().optional(),
   voiceSessionId: z.string().trim().min(1).max(120),
   agentId: z.string().uuid().optional(),
   turns: z.array(z.object({

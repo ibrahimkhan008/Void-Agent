@@ -5,7 +5,7 @@ import {
   buildMcpServerCustomizationsSystemPrompt,
   buildSpeechSystemPrompt,
 } from "lib/ai/prompts";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import { getAvailableDefaultVoiceTools } from "lib/ai/speech";
 import globalLogger from "lib/logger";
 import { getUserPreferences } from "lib/user/server";
 import { NextRequest } from "next/server";
@@ -117,10 +117,13 @@ export async function POST(request: NextRequest) {
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );
 
-    // This provider does not expose the project-status client executor yet.
+    // This provider does not expose the project-scoped client tool executors yet.
     const bindingTools = [
       ...openAiStyleTools,
-      ...DEFAULT_VOICE_TOOLS.filter((tool) => tool.name !== "getProjectStatus"),
+      ...getAvailableDefaultVoiceTools({
+        projectThreadAvailable: false,
+        projectToolExecutorAvailable: false,
+      }),
     ];
 
     const elevenLabsToken = await requestElevenLabsToken({

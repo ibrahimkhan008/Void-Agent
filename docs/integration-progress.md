@@ -1238,3 +1238,9 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 ## n8n security batch (2026-11-07)
 - Removed editor JWT/iframe/direct-link access, replaced the detail page with sanitized read-only node metadata, rejected activation, retained reviewed runs, and retained safe deactivation. Native n8n create/edit/activate is deferred for a concrete server-enforced security reason; it is not counted as complete.
 - Focused tests: 24/24 across 6 files. Scoped Biome: pass. Typecheck pending after fixing a test-only type assertion. Production build and complete verification pending.
+## Voice project knowledge checkpoint (2026-11-07)
+- Implemented a thread-bound voice search endpoint reusing accepted project graph search and current source access/revision checks. OpenAI Realtime/KonvO clients execute it only in project sessions; Kimi is filtered.
+- Focused tests: 18/18 across 5 files. Scoped Biome and integrated typecheck pass. Production build pending. No live model, Postgres, or browser verification.
+## Voice project knowledge integration verification update (2026-11-07)
+- Added project-aware visible tool gating, verified project context inheritance in saved voice transcript threads, same-origin transcript write protection, and untrusted-source instruction. Focused related suites pass 27/27 across 7 files; Biome/typecheck pass.
+- Fresh production build pending after the final integration changes; live voice provider and PostgreSQL checks remain unavailable.

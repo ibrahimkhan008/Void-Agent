@@ -1231,3 +1231,14 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Focused tests 24/24, targeted Biome and `pnpm check-types` pass. `pnpm build` passes with 206/206 pages.
 - Initial build lint failure (`<a>` instead of Next `Link`) was fixed and verified by a fresh complete build. Remaining build warnings are pre-existing dependency-analysis, image-lint, optional-config, dynamic-session, lockfile, and PG SSL notices.
 - No live provider/browser/PostgreSQL verification or migration application.
+## Voice project knowledge verification (2026-11-07)
+- Focused test invocation: project knowledge route, existing project status scope/route, graph tool, and voice-tool gating; 5 files / 18 tests passed.
+- Scoped Biome: pass. `pnpm check-types`: pass. Production build pending.
+- No live OpenAI Realtime/KonvO provider, browser, or PostgreSQL source access flow was run.
+## Voice project knowledge integration hardening (2026-11-07)
+- Added UI tool menu gating, server-verified project context persistence, same-origin transcript protection, and untrusted-evidence prompt guidance.
+- Related focused tests: 7 files / 27 passed. Scoped Biome pass. `pnpm check-types` pass. Fresh build pending after the final code changes.
+- No live provider/database/browser journey.
+## Voice project knowledge final verification (2026-11-07)
+- Final implementation passed 27/27 focused tests across 7 files, scoped Biome, integrated typecheck, and a fresh production build (206/206 pages). Earlier build before final hardening is superseded.
+- Existing build warnings only; no live provider/Postgres/browser validation. No DB migration or deployment.
