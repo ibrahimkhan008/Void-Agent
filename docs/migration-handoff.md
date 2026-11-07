@@ -81,3 +81,9 @@ The migration remains substantially incomplete. Use the per-family evidence and 
 - The completed task for this batch is verification and publication of the accumulated local migration changes. Fresh production build passed (206/206 pages); the previously recorded full suite, typecheck, lint, Drizzle consistency check, and whitespace check also passed. No production database or service was touched.
 - Staging plan: include the current migration changes and migration documentation only; explicitly exclude cognixai-app-spec.md and cognixai-rebuild-spec.md. Push only to origin/main, without force. A final commit hash and push result will be appended after publication.
 - The broader feature migration remains in progress; this commit is a verified checkpoint and does not claim full parity.
+
+## Publication result - 2026-11-07 20:12 IST
+- Published migration checkpoint commit 6861227776178fd5424548805ac8bb700050b028 (eat: extend verified Void-Agent migration) to origin/main successfully. Push was fast-forward from 5eb27b2; no force operation was used.
+- Remote verification: local HEAD and origin/main both resolve to 6861227776178fd5424548805ac8bb700050b028; ahead/behind count is 0/0.
+- Commit contains 163 paths (13,183 insertions, 522 deletions) spanning migration implementation, tests, and docs. The two CognixAI spec files were not included and remain untracked locally.
+- This is one verified migration checkpoint only. The feature migration remains incomplete; see “Remaining major work” above. No production deploy or database migration was performed.
