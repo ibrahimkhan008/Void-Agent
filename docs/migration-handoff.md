@@ -1,6 +1,6 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 20:34 IST
+Updated: 2026-11-07 20:41 IST
 
 ## Current continuation status - 2026-11-07 20:34 IST
 The user resumed migration work and asked that implementation continue in the existing verified-batch format while docs/migration-handoff.md is kept current. This supersedes older historical statements in this file that say work is paused, pushing is disallowed, the build is unverified, or the worktree is wholly uncommitted. The last published migration code checkpoint is 6861227; handoff publication follow-up 7925cd2 is also on origin/main. Current worktree contains the two preserved, untracked CognixAI spec files plus the in-progress F010 status-synthesis change.
@@ -15,7 +15,7 @@ Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is t
 - Last published commit before this slice: 7925cd2 on origin/main; the earlier implementation checkpoint is 6861227.
 - Current local task: F010 accepted project-brain timeline events are now included in status synthesis. The bounded query requires current project, accepted event state, active source revision, ready attached source, current collection and owner scope. Source revision participates in the status cache fingerprint. Event-only status context is supported.
 - Verification for this slice: focused project-brain status tests **8/8 passed**; scoped Biome passed; integrated pnpm check-types passed with a 6 GiB heap; fresh pnpm build passed and generated **206/206 pages**. Existing build warnings include optional Redis/Upstash/E2B configuration, Next dynamic-session static probes, dependency-analysis warnings, workspace-root/multiple lockfiles, PostgreSQL SSL-mode notice, and <img> lint warnings.
-- The local F010 source/docs update is not yet committed or pushed. No schema change, database apply, or deployment was performed. The existing migrations 0070-0072 remain authored/journaled and unapplied.
+- The F010 source/docs update was committed and pushed successfully as `3539a8f`; local `HEAD` matches `origin/main`. No schema change, database apply, or deployment was performed. The existing migrations 0070-0072 remain authored/journaled and unapplied.
 - The two untracked user-owned files cognixai-app-spec.md and cognixai-rebuild-spec.md remain untouched and must stay excluded from commits.
 
 ## Migration completion assessment
@@ -60,3 +60,8 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Remote verification: local HEAD and origin/main both resolve to 6861227776178fd5424548805ac8bb700050b028; ahead/behind count is 0/0.
 - Commit contains 163 paths (13,183 insertions, 522 deletions) spanning migration implementation, tests, and docs. The two CognixAI spec files were not included and remain untracked locally.
 - This is one verified migration checkpoint only. The feature migration remains incomplete; see “Remaining major work” above. No production deploy or database migration was performed.
+
+## F010 publication result - 2026-11-07 20:41 IST
+- Commit 3539a8f73172aeae328ea4a958f1114db8ae79e6 (eat: include brain timeline in project status) was pushed to origin/main successfully as a fast-forward from 7925cd2.
+- Remote verification: ahead/behind count is 0/0. Commit contains the F010 implementation/tests and updated migration matrix, progress, testing report, and handoff.
+- The two untracked CognixAI specification files remain untouched and excluded. Overall migration remains incomplete; no DB apply or production deployment.
