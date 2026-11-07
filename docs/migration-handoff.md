@@ -43,7 +43,7 @@ Full test suite on the prior published checkpoint: **404 files / 2,254 tests pas
 ## Repository safety
 Only modify Void-Agent. Keep Void-Agent-V2 read-only. Preserve existing user changes and the two CognixAI spec files; do not reset/clean/stash. Keep temporary logs in ignored .audit/, outside .git; do not expose secrets. No production deployment or database migration has occurred.
 
-Historical pause and publication entries below are retained as a timeline; the current status above supersedes their old “paused,” “no push,” build-pending, and unpublished statements.
+Historical pause and publication entries below are retained as a timeline; the current status above supersedes their old ï¿½paused,ï¿½ ï¿½no push,ï¿½ build-pending, and unpublished statements.
 ## Resumed task checkpoint - 2026-11-07 19:52 IST
 - User resumed the migration and requested one completed task, continuous handoff updates, and a GitHub push.
 - Selected task: finish aggregate verification and publish the already implemented, locally accumulated migration batch as one reviewable commit. Current branch is `main`, and `HEAD` matches `origin/main` (0 ahead/0 behind before this batch). Push target is the Void-Agent `origin` remote only.
@@ -66,7 +66,7 @@ Historical pause and publication entries below are retained as a timeline; the c
 - Published migration checkpoint commit 6861227776178fd5424548805ac8bb700050b028 (eat: extend verified Void-Agent migration) to origin/main successfully. Push was fast-forward from 5eb27b2; no force operation was used.
 - Remote verification: local HEAD and origin/main both resolve to 6861227776178fd5424548805ac8bb700050b028; ahead/behind count is 0/0.
 - Commit contains 163 paths (13,183 insertions, 522 deletions) spanning migration implementation, tests, and docs. The two CognixAI spec files were not included and remain untracked locally.
-- This is one verified migration checkpoint only. The feature migration remains incomplete; see “Remaining major work” above. No production deploy or database migration was performed.
+- This is one verified migration checkpoint only. The feature migration remains incomplete; see ï¿½Remaining major workï¿½ above. No production deploy or database migration was performed.
 
 ## F010 publication result - 2026-11-07 20:41 IST
 - Commit 3539a8f73172aeae328ea4a958f1114db8ae79e6 (eat: include brain timeline in project status) was pushed to origin/main successfully as a fast-forward from 7925cd2.
@@ -131,3 +131,6 @@ Historical pause and publication entries below are retained as a timeline; the c
 - The batch adds query-matched accepted project facts/events as separately labeled untrusted evidence for eligible interactive project chats. Retrieval rechecks current project/collection/source-owner access and active source revision; failures/timeouts omit this optional context. No database schema or citation marker behavior changed.
 - Verification: focused suites 20/20, scoped Biome, pnpm check-types, pnpm build (206/206), and staged diff check passed. Live PostgreSQL query-plan/latency and authenticated browser verification remain outstanding. No DB apply/deploy.
 - The two CognixAI spec files remain untracked and excluded. F010 remains PARTIAL pending broader workflows and related voice/scheduler consumers. Continue with the next substantial feature gap; no overall parity percentage claimed.
+
+### Handoff publication follow-up - 2026-11-07 23:19:21 +05:30
+- Published the handoff update as edbca8fb2aefb00eadd033849230e78b6a1c1771 to origin/main. Remote and local HEAD match; no other paths were committed.
