@@ -1200,3 +1200,14 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Integrated pnpm check-types with 6 GiB Node heap: **PASS**.
 - Fresh pnpm build: **PASS**, static generation 206/206 pages. Known non-fatal E2B/unpdf dependency warnings, optional service config, dynamic-session static probes, workspace-root/multiple lockfiles, PostgreSQL SSL notice and existing <img> warnings remain.
 - No live PostgreSQL/browser/provider/voice workflow; no migration applied.
+
+
+## F010 voice project status reader (2026-11-07 21:23 IST)
+- `pnpm exec vitest run src/app/api/voice/project-status/route.test.ts src/lib/voice/project-status.test.ts src/lib/ai/tools/project-status.test.ts src/lib/ai/tools/project-knowledge.test.ts`: PASS, 4 files / 15 tests.
+- Scoped `pnpm exec biome check` over 13 touched files: PASS.
+- Integrated `pnpm check-types`: PASS.
+- Production build not yet run for this batch; live PostgreSQL, authenticated browser, and OpenAI/KonvO voice provider flows were not available.
+
+
+### F010 voice project status final build (2026-11-07 21:40 IST)
+- The initially pending build was rerun after the malformed-tool-argument guard: `NODE_OPTIONS=--max-old-space-size=6144 pnpm build` PASS, static generation 206/206, exit 0. Non-fatal build warnings are recorded in the migration checkpoint; no live DB/provider/browser flow. The default-heap typecheck attempt OOMed at 2 GB; the configured 6 GiB `pnpm check-types` rerun passed.

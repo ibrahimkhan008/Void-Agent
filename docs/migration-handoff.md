@@ -1,21 +1,20 @@
 # Better Chatbot to Void-Agent migration handoff
 
-Updated: 2026-11-07 21:08 IST
+Updated: 2026-11-07 21:40 IST
 
-## Current continuation status - 2026-11-07 21:08 IST
-The user resumed the migration and asked implementation to continue in verified batches while this handoff stays current. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
+## Current continuation status - 2026-11-07 21:23 IST
+The user asked to continue implementing in verified batches and keep this file updated. Pushes of verified changes to Void-Agent origin are authorized; never force push, deploy, or apply production migrations. This status supersedes older historical pause/no-push statements retained later in this file.
 
-Published implementation commit: 5aaa4ec adds recent accepted events to the project knowledge chat tool. Handoff follow-up 845da7b is also on origin/main. Current local task adds a distinct read-only getProjectStatus tool to project-attached chats; source code and docs are uncommitted pending staged review. The two untracked CognixAI specs remain untouched.
+Published checkpoints include `5ee73aa` for project status chat and `04a25a3` for its handoff record. Current local batch adds the same read-only project status capability to OpenAI Realtime and KonvO voice sessions, with server-derived project scope and tests. Focused tests, scoped Biome, and integrated TypeScript pass; fresh production build passed (206/206 pages). Do not push until the fresh build and staged-diff review pass. The two untracked CognixAI specs remain untouched.
 Workspace: `C:\Users\Ikra\Desktop\Void-Agent`
 
 ## Current goal
 Continue the Better Chatbot V2 to original Void-Agent migration. Void-Agent is the implementation target; V2 is read-only. Preserve Void-Agent's architecture, features, branding, and security improvements while integrating each valuable compatible reference capability. The user has resumed work and authorized verified changes to be pushed to the origin Void-Agent repository. Never force push, deploy, or apply migrations to production.
 
-## Current checkpoint - 2026-11-07 21:08 IST
-- getProjectStatus is wired into project-attached chats. It rechecks project access, derives current attached collection/source-owner scope, loads accepted current-revision facts/tasks/events, and returns a snapshot only on exact current-evidence fingerprint match. It reports no snapshot explicitly without calling a model. Tool output is bounded and read-only.
-- Focused project-status + project-knowledge tests passed **8/8**; scoped Biome and integrated typecheck passed; fresh production build passed, generating **206/206 pages**. Known non-fatal build warnings are listed in docs/testing-report.md.
-- The project status tool change was committed and pushed successfully as `5ee73aa`; `HEAD` matches `origin/main`. No schema change, DB apply, production deploy or live DB/provider/browser/voice test. Existing migrations 0070-0072 are unapplied.
-- Overall migration remains incomplete; the broad parity matrix is not a completion percentage. Keep the CognixAI spec files out of all commits.
+## Current checkpoint - 2026-11-07 21:40 IST
+- The chat `getProjectStatus` tool remains source-revision/fingerprint bound and read-only. This local batch adds a voice executor through `POST /api/voice/project-status`, available in OpenAI Realtime and KonvO only when server-side session setup confirms an owned thread with current project access. Every status request rechecks thread ownership, project access, and current collection scope. Voice transcript persistence's separate generated thread is not used as project context.
+- Voice status route/scope plus project status/knowledge tests passed **15/15**. Scoped Biome and integrated `pnpm check-types` passed. Fresh production build passed with 206/206 pages.
+- No schema change, DB apply, production deploy, or live PostgreSQL/provider/browser voice workflow. Existing migrations 0070-0072 remain unapplied. Source and docs are local and not yet published. Do not stage the CognixAI specs.
 ## Migration completion assessment
 The migration remains incomplete and there is no trustworthy overall completion percentage: the 206 reference surfaces have not all received individual behavioral comparisons. The coarse F001-F036 matrix remains **0 COMPLETE, 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED**; F037 is PARTIAL. EXISTING is not end-to-end verification. Do not treat test counts or family labels as a parity percentage.
 

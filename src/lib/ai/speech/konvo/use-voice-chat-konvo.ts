@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
+import { appStore } from "@/app/store";
 import { TextPart, ToolUIPart } from "ai";
 import {
   DEFAULT_VOICE_TOOLS,
@@ -10,9 +11,8 @@ import {
 } from "lib/ai/speech";
 import { generateUUID } from "lib/utils";
 import { useTheme } from "next-themes";
-import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestVoiceMcpApproval } from "../mcp-voice-approval";
-import { appStore } from "@/app/store";
 
 // -- Types --
 type Content =
@@ -30,7 +30,10 @@ interface SessionConfig {
   instructions: string;
   tools: any[];
   groqModel: string;
-  toolIdMap?: Record<string, { serverId: string; serverName: string; toolName: string }>;
+  toolIdMap?: Record<
+    string,
+    { serverId: string; serverName: string; toolName: string }
+  >;
 }
 
 type SupportedSpeechLanguage = "en-IN" | "hi-IN";
@@ -592,7 +595,18 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
       for (const tc of toolCalls) {
         const toolName = tc.function.name;
-        const toolArgs = JSON.parse(tc.function.arguments || "{}");
+        let toolArgs: Record<string, unknown> = {};
+        let argsValid = true;
+        try {
+          const parsed = JSON.parse(tc.function.arguments || "{}");
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            toolArgs = parsed;
+          } else {
+            argsValid = false;
+          }
+        } catch {
+          argsValid = false;
+        }
         const callId = tc.id;
 
         // Show tool call in UI
@@ -614,15 +628,39 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         let result: any = "success";
 
         // Handle built-in voice tools
-        if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
+        if (!argsValid) {
+          result = { success: false, error: "Invalid tool arguments." };
+        } else if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
           switch (toolName) {
             case "changeBrowserTheme":
-              setTheme(toolArgs?.theme);
+              if (toolArgs.theme === "light" || toolArgs.theme === "dark") {
+                setTheme(toolArgs.theme);
+              }
               result = `Theme changed to ${toolArgs?.theme}`;
               break;
             case "endConversation":
               // Will be handled after tool loop
               result = "Conversation ended";
+              break;
+            case "getProjectStatus":
+              try {
+                const response = await fetch("/api/voice/project-status", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ threadId: props?.threadId }),
+                });
+                result = response.ok
+                  ? await response.json()
+                  : {
+                      success: false,
+                      error: "No project status is available for this chat.",
+                    };
+              } catch {
+                result = {
+                  success: false,
+                  error: "Project status could not be loaded.",
+                };
+              }
               break;
           }
         } else {
@@ -630,12 +668,23 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           try {
             if (sessionRef.current?.toolIdMap?.[toolName]) {
               const mapped = sessionRef.current.toolIdMap[toolName];
-              const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: toolArgs });
+              const approvalToken = await requestVoiceMcpApproval({
+                ...mapped,
+                payload: toolArgs,
+              });
               result = approvalToken
-                ? await callApprovedMcpToolAction(mapped.serverId, mapped.serverName, mapped.toolName, toolArgs, approvalToken)
+                ? await callApprovedMcpToolAction(
+                    mapped.serverId,
+                    mapped.serverName,
+                    mapped.toolName,
+                    toolArgs,
+                    approvalToken,
+                  )
                 : { approved: false, reason: "The user rejected this action." };
             } else {
-              throw new Error("MCP tool mapping is unavailable; the action was not run.");
+              throw new Error(
+                "MCP tool mapping is unavailable; the action was not run.",
+              );
             }
           } catch (toolError) {
             console.error("Tool execution failed:", toolError);
@@ -688,7 +737,7 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
       return results;
     },
-    [appendMessage, updateUIMessage, setTheme],
+    [appendMessage, updateUIMessage, setTheme, props?.threadId],
   );
 
   // -- Stream Groq response --
@@ -1194,6 +1243,7 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         body: JSON.stringify({
           mentions: props?.toolMentions ?? [],
           agentId: props?.agentId,
+          threadId: props?.threadId,
         }),
       });
 
@@ -1224,6 +1274,7 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     isLoading,
     props?.agentId,
     props?.toolMentions,
+    props?.threadId,
     startMicCapture,
   ]);
 

@@ -1,25 +1,25 @@
-import { NextRequest } from "next/server";
-import { getSession } from "auth/server";
 import { ChatMention } from "app-types/chat";
+import { getSession } from "auth/server";
+import { colorize } from "consola/utils";
+import {
+  buildMcpServerCustomizationsSystemPrompt,
+  buildSpeechSystemPrompt,
+} from "lib/ai/prompts";
+import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import globalLogger from "lib/logger";
+import { getUserPreferences } from "lib/user/server";
+import { NextRequest } from "next/server";
+import { safe } from "ts-safe";
+import {
+  rememberAgentAction,
+  rememberMcpServerCustomizationsAction,
+} from "../../../chat/actions";
 import {
   filterMcpServerCustomizations,
   getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../../../chat/shared.chat";
-import {
-  buildMcpServerCustomizationsSystemPrompt,
-  buildSpeechSystemPrompt,
-} from "lib/ai/prompts";
-import { safe } from "ts-safe";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
-import {
-  rememberAgentAction,
-  rememberMcpServerCustomizationsAction,
-} from "../../../chat/actions";
-import globalLogger from "lib/logger";
-import { colorize } from "consola/utils";
-import { getUserPreferences } from "lib/user/server";
 
 export const runtime = "nodejs";
 
@@ -64,7 +64,10 @@ export async function POST(request: NextRequest) {
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
 
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
+    const allowedMcpTools = await loadMcpTools({
+      mentions: enabledMentions,
+      userId: session.user.id,
+    });
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
     if (toolNames.length > 0) {
@@ -84,12 +87,24 @@ export async function POST(request: NextRequest) {
       .map((value) => filterMcpServerCustomizations(allowedMcpTools!, value))
       .orElse({});
 
-    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> = {};
+    const toolIdMap: Record<
+      string,
+      { serverId: string; serverName: string; toolName: string }
+    > = {};
     const openAiStyleTools = Object.entries(allowedMcpTools ?? {}).map(
       ([name, tool]) => {
-        toolIdMap[name] = { serverId: tool._mcpServerId, serverName: tool._mcpServerName, toolName: tool._originToolName };
+        toolIdMap[name] = {
+          serverId: tool._mcpServerId,
+          serverName: tool._mcpServerName,
+          toolName: tool._originToolName,
+        };
         const definition = getVoiceMcpToolDefinition(tool);
-        return { name, type: "function", description: definition.description, parameters: definition.parameters };
+        return {
+          name,
+          type: "function",
+          description: definition.description,
+          parameters: definition.parameters,
+        };
       },
     );
 
@@ -102,7 +117,11 @@ export async function POST(request: NextRequest) {
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );
 
-    const bindingTools = [...openAiStyleTools, ...DEFAULT_VOICE_TOOLS];
+    // This provider does not expose the project-status client executor yet.
+    const bindingTools = [
+      ...openAiStyleTools,
+      ...DEFAULT_VOICE_TOOLS.filter((tool) => tool.name !== "getProjectStatus"),
+    ];
 
     const elevenLabsToken = await requestElevenLabsToken({
       agentId: process.env.ELEVENLABS_AGENT_ID!,

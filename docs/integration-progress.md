@@ -1212,3 +1212,14 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Added getProjectStatus alongside searchProjectKnowledgeGraph for chats attached to projects. It returns a current evidence-fingerprinted status snapshot, accepted task proposals and recent accepted timeline events.
 - Access checks run at execution time. The tool uses current attached collections and source owners and the shared active-source-revision context loader; snapshots must match the current context fingerprint. The tool is read-only and performs no inference/provider call.
 - Verification: 8/8 focused tool tests, scoped Biome, integrated TypeScript, and production build (206/206 pages) passed. No DB schema changes; no live Postgres/browser/voice workflow. F010 remains PARTIAL.
+
+
+## F010 voice project status reader (2026-11-07 21:23 IST)
+- Added a read-only `getProjectStatus` built-in for OpenAI Realtime and KonvO voice sessions attached to an active main chat thread. It is registered only when server-side session setup confirms the thread belongs to the signed-in user and currently has an accessible project.
+- Added `POST /api/voice/project-status`; it validates a strict bounded UUID thread request, same-origin, session, per-user rate limit, thread ownership, current project membership, and current collection intersection. It then calls the shared source-revision/fingerprint-aware status reader. The client cannot submit project or collection IDs.
+- Voice transcript persistence continues to use its separate generated thread ID; that ID is not used as project context. Kimi ElevenLabs explicitly excludes the new function until its client executor supports it.
+- Verification: 4 focused files / 15 tests passed; scoped Biome and integrated `pnpm check-types` passed. Production build and live PostgreSQL/provider/browser test pending. F010 and F026 remain PARTIAL.
+
+
+### F010 voice status final verification correction (2026-11-07 21:40 IST)
+- Fresh production build passed with 206/206 static pages after the final voice argument-validation change. Existing E2B/unpdf dependency-analysis, missing optional Redis/Upstash/E2B configuration, dynamic-session probes, multiple-lockfile root inference, PostgreSQL SSL-mode notice, and `<img>` warnings remain. No live voice/provider/PostgreSQL journey; F010/F026 remain PARTIAL.

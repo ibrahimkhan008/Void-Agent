@@ -1,25 +1,26 @@
-import { NextRequest } from "next/server";
-import { getSession } from "auth/server";
 import { ChatMention } from "app-types/chat";
+import { getSession } from "auth/server";
+import { colorize } from "consola/utils";
+import {
+  buildMcpServerCustomizationsSystemPrompt,
+  buildSpeechSystemPrompt,
+} from "lib/ai/prompts";
+import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import globalLogger from "lib/logger";
+import { getUserPreferences } from "lib/user/server";
+import { getOwnedProjectThreadScope } from "lib/voice/project-status";
+import { NextRequest } from "next/server";
+import { safe } from "ts-safe";
+import {
+  rememberAgentAction,
+  rememberMcpServerCustomizationsAction,
+} from "../../../chat/actions";
 import {
   filterMcpServerCustomizations,
   getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../../../chat/shared.chat";
-import {
-  buildMcpServerCustomizationsSystemPrompt,
-  buildSpeechSystemPrompt,
-} from "lib/ai/prompts";
-import { safe } from "ts-safe";
-import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
-import {
-  rememberAgentAction,
-  rememberMcpServerCustomizationsAction,
-} from "../../../chat/actions";
-import globalLogger from "lib/logger";
-import { colorize } from "consola/utils";
-import { getUserPreferences } from "lib/user/server";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,7 @@ const logger = globalLogger.withDefaults({
 interface SessionRequest {
   mentions?: ChatMention[];
   agentId?: string;
+  threadId?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       body = undefined;
     }
 
-    const { mentions = [], agentId } = body ?? {};
+    const { mentions = [], agentId, threadId } = body ?? {};
 
     const agent = await rememberAgentAction(agentId);
     if (agentId) {
@@ -57,7 +59,10 @@ export async function POST(request: NextRequest) {
     }
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
+    const allowedMcpTools = await loadMcpTools({
+      mentions: enabledMentions,
+      userId: session.user.id,
+    });
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
     if (toolNames.length > 0) {
@@ -77,8 +82,10 @@ export async function POST(request: NextRequest) {
       .map((value) => filterMcpServerCustomizations(allowedMcpTools!, value))
       .orElse({});
 
-    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> =
-      {};
+    const toolIdMap: Record<
+      string,
+      { serverId: string; serverName: string; toolName: string }
+    > = {};
 
     // Convert tools to OpenAI-style function definitions for the Groq API
     const openAiStyleTools = Object.entries(allowedMcpTools ?? {}).map(
@@ -112,7 +119,14 @@ export async function POST(request: NextRequest) {
       : "llama-3.1-8b-instant";
 
     // Also convert the default voice tools
-    const defaultTools = DEFAULT_VOICE_TOOLS.map((tool) => ({
+    const projectThreadScope = await getOwnedProjectThreadScope(
+      session.user.id,
+      threadId,
+    );
+    const availableDefaultTools = DEFAULT_VOICE_TOOLS.filter(
+      (tool) => tool.name !== "getProjectStatus" || projectThreadScope,
+    );
+    const defaultTools = availableDefaultTools.map((tool) => ({
       type: "function" as const,
       function: {
         name: tool.name,

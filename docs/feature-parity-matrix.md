@@ -1617,3 +1617,14 @@ Public HTTPS per-user provider management is implemented and source/type checked
 - Added getProjectStatus to project-attached chats. It revalidates current project access at tool execution, intersects chat collections with current project attachments, derives source-owner scope, and calls the source-revision-aware accepted knowledge context loader. A persisted status snapshot is returned only when its fingerprint exactly matches that current visible evidence; no model is called and no status is fabricated. Output bounds summary/blockers/tasks/events.
 - Verification: project status and knowledge tool suites passed 8/8; scoped Biome passed; integrated typecheck passed; fresh production build passed with 206/206 static pages. No live PostgreSQL/browser/voice run.
 - This is a read-only project-attached chat tool, not a separate voice navigator, arbitrary project-name resolver, or automatic status generator. F010 remains PARTIAL.
+
+
+## F010 and F026 project status through voice chat (2026-11-07 21:23 IST)
+- Reference evidence: Better Chatbot V2 project navigator status tools plus its authenticated project-scoped voice tool behavior.
+- Void-Agent implementation: `src/lib/voice/project-status.ts` resolves only a UUID thread owned by the signed-in user, rechecks current project access, and intersects the thread's collection IDs with current project attachments. OpenAI Realtime and KonvO session setup exposes `getProjectStatus` only for a thread with current project access; Kimi ElevenLabs omits it because it has no matching client executor. Both browser voice executors call `POST /api/voice/project-status`, which repeats same-origin, authentication, rate-limit, ownership, project-access, and request-scope validation before reusing the source-fingerprint-bound read-only status implementation.
+- Security: client sends only the active thread ID; project and collection scope are server-derived. Responses are no-store and bounded by the existing status serializer. No mutations or provider call occur in the status endpoint.
+- Verification: voice status route/scope and project status/knowledge focused suites passed 15/15; scoped Biome and integrated TypeScript passed. Production build and live provider/browser/PostgreSQL workflow are pending for this slice.
+- Status remains PARTIAL for F010/F026: no live voice-provider journey, project brain voice navigator beyond status, scheduled voice consumer, or full provider/device parity has been verified.
+
+### F010/F026 voice status build verification (2026-11-07 21:40 IST)
+- The focused source/type checks remained green after rejecting malformed provider tool arguments before execution. Fresh production `pnpm build` passed; Next generated 206/206 pages. Existing dependency, optional-service, dynamic-session, SSL, and `<img>` warnings were non-fatal and are not evidence of live provider or database verification.

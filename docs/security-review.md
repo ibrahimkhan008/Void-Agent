@@ -762,3 +762,14 @@ Personal API keys use the existing AES-256-GCM encryption helper in a dedicated 
 - getProjectStatus is available only in project-attached chat and rechecks project membership on each execution. It intersects thread collection IDs with the current project scope, derives allowed source owners, and builds context only from accepted facts/tasks/events tied to active source revisions and ready sources.
 - It returns a status snapshot only when the stored fingerprint matches the current scoped evidence; snapshot query is project + fingerprint bound. Without a current snapshot it returns an explicit unavailable note and does not call a model or claim a status. Output is capped. The tool has no mutation or external-effect path.
 - Unit coverage checks revoked access, exact scope derivation, fingerprint-constrained snapshot lookup, empty-current-context behavior, and no-fabricated-snapshot behavior. Live PostgreSQL authorization was not available.
+
+
+## Voice project status read boundary (2026-11-07 21:23 IST)
+- Voice status accepts only a strict UUID `threadId`; no project ID, collection IDs, or user ID are accepted from the client. The server requires same-origin, authenticated user, a per-user rate allowance, and a bounded JSON body.
+- The server loads the persisted thread, checks ownership, requires its project association, revalidates project access, and intersects thread collections against current project attachments. The same checks run at session setup (to control tool exposure) and each endpoint call (to authorize data access).
+- Status reads use active source revisions and the current evidence fingerprint via the shared reader; no snapshot means no inferred status. Response is private/no-store; query and output remain bounded. Kimi ElevenLabs does not advertise the function because its client has no executor.
+- Regression coverage: malformed/extra scope, auth, same-origin, rate limit, missing/foreign/non-project thread, revoked access and collection intersection. No live database or provider run.
+
+
+### Voice project status final verification (2026-11-07 21:40 IST)
+- Malformed or non-object provider tool arguments are rejected before invoking built-in or MCP actions in both browser voice executors. Focused route/scope/tool tests passed 15/15, integrated TypeScript passed with the documented 6 GiB Node heap, scoped Biome passed, and the production build passed with 206/206 pages. Live authorization against PostgreSQL remains untested.

@@ -1,23 +1,23 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { TextPart, ToolUIPart } from "ai";
+import { generateUUID } from "lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_VOICE_TOOLS,
   UIMessageWithCompleted,
   VoiceChatOptions,
   VoiceChatSession,
 } from "..";
-import { generateUUID } from "lib/utils";
-import { TextPart, ToolUIPart } from "ai";
 import {
   OpenAIRealtimeServerEvent,
   OpenAIRealtimeSession,
 } from "./openai-realtime-event";
 
-import { useTheme } from "next-themes";
 import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
-import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 import { appStore } from "@/app/store";
+import { useTheme } from "next-themes";
+import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 
 export const OPENAI_VOICE = {
   Alloy: "alloy",
@@ -94,7 +94,9 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
   const { setTheme } = useTheme();
   const tracks = useRef<RTCRtpSender[]>([]);
-  const toolIdMapRef = useRef<NonNullable<OpenAIRealtimeSession["toolIdMap"]>>({});
+  const toolIdMapRef = useRef<NonNullable<OpenAIRealtimeSession["toolIdMap"]>>(
+    {},
+  );
 
   const ensureGetUserMedia = useCallback(() => {
     if (typeof navigator === "undefined") {
@@ -161,6 +163,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
             voice,
             agentId: props?.agentId,
             mentions: props?.toolMentions,
+            threadId: props?.threadId,
           }),
         },
       );
@@ -173,7 +176,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       }
 
       return session;
-    }, [model, voice, props?.toolMentions, props?.agentId]);
+    }, [model, voice, props?.toolMentions, props?.agentId, props?.threadId]);
 
   const updateUIMessage = useCallback(
     (
@@ -208,11 +211,26 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     }: { callId: string; toolName: string; args: string; id: string }) => {
       let toolResult: any = "success";
       stopListening();
-      const toolArgs = JSON.parse(args);
-      if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
+      let toolArgs: Record<string, unknown> = {};
+      let argsValid = true;
+      try {
+        const parsed = JSON.parse(args || "{}");
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          toolArgs = parsed;
+        } else {
+          argsValid = false;
+        }
+      } catch {
+        argsValid = false;
+      }
+      if (!argsValid) {
+        toolResult = { success: false, error: "Invalid tool arguments." };
+      } else if (DEFAULT_VOICE_TOOLS.some((t) => t.name === toolName)) {
         switch (toolName) {
           case "changeBrowserTheme":
-            setTheme(toolArgs?.theme);
+            if (toolArgs.theme === "light" || toolArgs.theme === "dark") {
+              setTheme(toolArgs.theme);
+            }
             break;
           case "endConversation":
             await stop();
@@ -226,17 +244,49 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               },
             }));
             break;
+          case "getProjectStatus":
+            try {
+              const response = await fetch("/api/voice/project-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threadId: props?.threadId }),
+              });
+              toolResult = response.ok
+                ? await response.json()
+                : {
+                    success: false,
+                    error: "No project status is available for this chat.",
+                  };
+            } catch {
+              toolResult = {
+                success: false,
+                error: "Project status could not be loaded.",
+              };
+            }
+            break;
         }
       } else {
         try {
           const mapped = toolIdMapRef.current[toolName];
           if (!mapped) throw new Error("MCP tool mapping is unavailable.");
-          const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: toolArgs });
+          const approvalToken = await requestVoiceMcpApproval({
+            ...mapped,
+            payload: toolArgs,
+          });
           toolResult = approvalToken
-            ? await callApprovedMcpToolAction(mapped.serverId, mapped.serverName, mapped.toolName, toolArgs, approvalToken)
+            ? await callApprovedMcpToolAction(
+                mapped.serverId,
+                mapped.serverName,
+                mapped.toolName,
+                toolArgs,
+                approvalToken,
+              )
             : { approved: false, reason: "The user rejected this action." };
         } catch (error) {
-          toolResult = { isError: true, error: error instanceof Error ? error.message : "MCP action failed" };
+          toolResult = {
+            isError: true,
+            error: error instanceof Error ? error.message : "MCP action failed",
+          };
         }
       }
       startListening();
@@ -270,7 +320,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       dataChannel.current?.send(JSON.stringify({ type: "response.create" }));
       dataChannel.current?.send(JSON.stringify({ type: "response.create" }));
     },
-    [updateUIMessage],
+    [props?.threadId, updateUIMessage],
   );
 
   const handleServerEvent = useCallback(

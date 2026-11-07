@@ -1,27 +1,28 @@
-import { NextRequest } from "next/server";
 import { getSession } from "auth/server";
+import {
+  buildMcpServerCustomizationsSystemPrompt,
+  buildSpeechSystemPrompt,
+} from "lib/ai/prompts";
+import { NextRequest } from "next/server";
 import {
   filterMcpServerCustomizations,
   getVoiceMcpToolDefinition,
   loadMcpTools,
   mergeSystemPrompt,
 } from "../shared.chat";
-import {
-  buildMcpServerCustomizationsSystemPrompt,
-  buildSpeechSystemPrompt,
-} from "lib/ai/prompts";
 
-import { safe } from "ts-safe";
+import { ChatMention } from "app-types/chat";
+import { colorize } from "consola/utils";
 import { DEFAULT_VOICE_TOOLS } from "lib/ai/speech";
+import globalLogger from "lib/logger";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import { getUserPreferences } from "lib/user/server";
+import { getOwnedProjectThreadScope } from "lib/voice/project-status";
+import { safe } from "ts-safe";
 import {
   rememberAgentAction,
   rememberMcpServerCustomizationsAction,
 } from "../actions";
-import globalLogger from "lib/logger";
-import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
-import { colorize } from "consola/utils";
-import { getUserPreferences } from "lib/user/server";
-import { ChatMention } from "app-types/chat";
 
 const logger = globalLogger.withDefaults({
   message: colorize("blackBright", `OpenAI Realtime API: `),
@@ -64,12 +65,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { model, voice, mentions, agentId } = (await request.json()) as {
-      model: string;
-      voice: string;
-      agentId?: string;
-      mentions: ChatMention[];
-    };
+    const { model, voice, mentions, agentId, threadId } =
+      (await request.json()) as {
+        model: string;
+        voice: string;
+        agentId?: string;
+        mentions: ChatMention[];
+        threadId?: string | null;
+      };
     // Never forward an arbitrary model string to the upstream provider.
     const realtimeModel =
       typeof model === "string" && REALTIME_MODEL_ALLOWLIST.has(model)
@@ -82,7 +85,10 @@ export async function POST(request: NextRequest) {
 
     const enabledMentions = agent ? agent.instructions.mentions : mentions;
 
-    const allowedMcpTools = await loadMcpTools({ mentions: enabledMentions, userId: session.user.id });
+    const allowedMcpTools = await loadMcpTools({
+      mentions: enabledMentions,
+      userId: session.user.id,
+    });
 
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
@@ -103,12 +109,24 @@ export async function POST(request: NextRequest) {
       .map((v) => filterMcpServerCustomizations(allowedMcpTools!, v))
       .orElse({});
 
-    const toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }> = {};
+    const toolIdMap: Record<
+      string,
+      { serverId: string; serverName: string; toolName: string }
+    > = {};
     const openAITools = Object.entries(allowedMcpTools ?? {}).map(
       ([name, tool]) => {
-        toolIdMap[name] = { serverId: tool._mcpServerId, serverName: tool._mcpServerName, toolName: tool._originToolName };
+        toolIdMap[name] = {
+          serverId: tool._mcpServerId,
+          serverName: tool._mcpServerName,
+          toolName: tool._originToolName,
+        };
         const definition = getVoiceMcpToolDefinition(tool);
-        return { name, type: "function", description: definition.description, parameters: definition.parameters };
+        return {
+          name,
+          type: "function",
+          description: definition.description,
+          parameters: definition.parameters,
+        };
       },
     );
 
@@ -125,7 +143,14 @@ export async function POST(request: NextRequest) {
       buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
     );
 
-    const bindingTools = [...openAITools, ...DEFAULT_VOICE_TOOLS];
+    const projectThreadScope = await getOwnedProjectThreadScope(
+      session.user.id,
+      threadId,
+    );
+    const defaultVoiceTools = DEFAULT_VOICE_TOOLS.filter(
+      (tool) => tool.name !== "getProjectStatus" || projectThreadScope,
+    );
+    const bindingTools = [...openAITools, ...defaultVoiceTools];
 
     const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -147,7 +172,10 @@ export async function POST(request: NextRequest) {
 
     const sessionResponse = await r.json().catch(() => null);
     if (!r.ok || !sessionResponse || typeof sessionResponse !== "object") {
-      return Response.json({ error: "Realtime voice session could not be created" }, { status: 502 });
+      return Response.json(
+        { error: "Realtime voice session could not be created" },
+        { status: 502 },
+      );
     }
     return Response.json({ ...sessionResponse, toolIdMap }, { status: 200 });
   } catch (error: any) {

@@ -179,6 +179,7 @@ export function ChatBotVoice() {
     voiceChat,
     allowedMcpServers,
     mcpList,
+    currentThreadId,
   ] = appStore(
     useShallow((state) => [
       state.voiceChat.agentId,
@@ -186,6 +187,7 @@ export function ChatBotVoice() {
       state.voiceChat,
       state.allowedMcpServers,
       state.mcpList,
+      state.currentThreadId,
     ]),
   );
 
@@ -235,11 +237,13 @@ export function ChatBotVoice() {
   const openAiVoiceChat = useOpenAIVoiceChat({
     toolMentions,
     agentId,
+    threadId: currentThreadId,
     ...(providerOptionsMap.openai ?? {}),
   });
   const konvoVoiceChat = useKonvOVoiceChat({
     toolMentions,
     agentId,
+    threadId: currentThreadId,
     ...(providerOptionsMap.konvo ?? {}),
   });
 
@@ -270,7 +274,9 @@ export function ChatBotVoice() {
   const voiceMessagesRef = useRef(messages);
   voiceMessagesRef.current = messages;
   const voiceFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [savedVoiceThreadId, setSavedVoiceThreadId] = useState<string | null>(null);
+  const [savedVoiceThreadId, setSavedVoiceThreadId] = useState<string | null>(
+    null,
+  );
 
   const flushVoiceTurns = useCallback(async () => {
     const current = voicePersistenceRef.current;
@@ -290,13 +296,21 @@ export function ChatBotVoice() {
     });
     current.inFlight = false;
     if (!saved) {
-      voiceFlushTimerRef.current = setTimeout(() => void flushVoiceTurns(), 5_000);
+      voiceFlushTimerRef.current = setTimeout(
+        () => void flushVoiceTurns(),
+        5_000,
+      );
       return;
     }
-    for (const [id, signature] of signatures) current.signatures.set(id, signature);
+    for (const [id, signature] of signatures)
+      current.signatures.set(id, signature);
     setSavedVoiceThreadId(current.threadId);
-    const remaining = selectVoiceTurnsToPersist(voiceMessagesRef.current, current.signatures).turns;
-    if (remaining.length) voiceFlushTimerRef.current = setTimeout(() => void flushVoiceTurns(), 0);
+    const remaining = selectVoiceTurnsToPersist(
+      voiceMessagesRef.current,
+      current.signatures,
+    ).turns;
+    if (remaining.length)
+      voiceFlushTimerRef.current = setTimeout(() => void flushVoiceTurns(), 0);
   }, []);
 
   useEffect(() => {
@@ -308,10 +322,13 @@ export function ChatBotVoice() {
     }, VOICE_THREAD_FLUSH_DEBOUNCE_MS);
   }, [messages, flushVoiceTurns]);
 
-  useEffect(() => () => {
-    if (voiceFlushTimerRef.current) clearTimeout(voiceFlushTimerRef.current);
-    void flushVoiceTurns();
-  }, [flushVoiceTurns]);
+  useEffect(
+    () => () => {
+      if (voiceFlushTimerRef.current) clearTimeout(voiceFlushTimerRef.current);
+      void flushVoiceTurns();
+    },
+    [flushVoiceTurns],
+  );
 
   useEffect(() => {
     if (voiceChat.options.provider !== providerId) {
@@ -591,9 +608,11 @@ export function ChatBotVoice() {
                 <Button variant="outline" size="sm" asChild>
                   <Link
                     href={`/chat/${savedVoiceThreadId}`}
-                    onClick={() => appStoreMutate((prev) => ({
-                      voiceChat: { ...prev.voiceChat, isOpen: false },
-                    }))}
+                    onClick={() =>
+                      appStoreMutate((prev) => ({
+                        voiceChat: { ...prev.voiceChat, isOpen: false },
+                      }))
+                    }
                   >
                     Open saved conversation
                   </Link>
