@@ -1,4 +1,5 @@
 import { PgDialect } from "drizzle-orm/pg-core";
+import { ProjectDocumentTable } from "lib/db/pg/schema.pg";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -56,7 +57,13 @@ beforeEach(() => {
     "creator-1",
   ]);
   mocks.hasSameOrigin.mockReturnValue(true);
-  mocks.select.mockReturnValue(builder({ id: itemId }));
+  mocks.select.mockReturnValue(
+    builder({
+      id: itemId,
+      collectionId,
+      collectionOwnerId: "creator-1",
+    }),
+  );
   mocks.delete.mockReturnValue({ where: vi.fn().mockResolvedValue([]) });
 });
 
@@ -75,6 +82,9 @@ describe("project document unlink API", () => {
     expect(query.params).toContain(itemId);
     expect(query.params).toContain(collectionId);
     expect(mocks.delete).toHaveBeenCalledOnce();
+    // Unlinking deletes only the project mapping. Collection source bytes and
+    // extracted content remain available to collections and other projects.
+    expect(mocks.delete).toHaveBeenCalledWith(ProjectDocumentTable);
   });
 
   it("denies viewers and refuses sources outside the attached project scope", async () => {
@@ -119,5 +129,72 @@ describe("project document unlink API", () => {
       ).status,
     ).toBe(403);
     expect(mocks.select).not.toHaveBeenCalled();
+  });
+
+  it("rechecks editor access, attachment, and source-owner scope before unlinking", async () => {
+    const currentEditor = {
+      project: { id: projectId, collectionIds: [collectionId] },
+      role: "editor",
+    };
+    mocks.getProjectAccess
+      .mockResolvedValueOnce(currentEditor)
+      .mockResolvedValueOnce(null);
+    expect(
+      (
+        await DELETE(
+          new Request("http://localhost", { method: "DELETE" }),
+          params,
+        )
+      ).status,
+    ).toBe(404);
+    expect(mocks.delete).not.toHaveBeenCalled();
+
+    mocks.getProjectAccess
+      .mockResolvedValueOnce(currentEditor)
+      .mockResolvedValueOnce({
+        project: { id: projectId, collectionIds: [collectionId] },
+        role: "viewer",
+      });
+    expect(
+      (
+        await DELETE(
+          new Request("http://localhost", { method: "DELETE" }),
+          params,
+        )
+      ).status,
+    ).toBe(403);
+    expect(mocks.delete).not.toHaveBeenCalled();
+
+    mocks.getProjectAccess
+      .mockResolvedValueOnce(currentEditor)
+      .mockResolvedValueOnce({
+        project: { id: projectId, collectionIds: [] },
+        role: "editor",
+      });
+    expect(
+      (
+        await DELETE(
+          new Request("http://localhost", { method: "DELETE" }),
+          params,
+        )
+      ).status,
+    ).toBe(404);
+    expect(mocks.delete).not.toHaveBeenCalled();
+
+    mocks.getProjectAccess
+      .mockResolvedValueOnce(currentEditor)
+      .mockResolvedValueOnce(currentEditor);
+    mocks.getProjectCollectionSourceOwnerIds
+      .mockResolvedValueOnce(["creator-1"])
+      .mockResolvedValueOnce([]);
+    expect(
+      (
+        await DELETE(
+          new Request("http://localhost", { method: "DELETE" }),
+          params,
+        )
+      ).status,
+    ).toBe(404);
+    expect(mocks.delete).not.toHaveBeenCalled();
   });
 });

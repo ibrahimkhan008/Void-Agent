@@ -956,3 +956,14 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - `pnpm db:check` passed; this checks Drizzle migration journal consistency only and does not apply migrations.
 - `pnpm build` exited 0 and generated **202/202 static pages**. Existing E2B/unpdf dependency-analysis, dynamic-session prerender, optional Redis/Upstash/E2B configuration, and PostgreSQL SSL notices remain.
 - `git diff --check` passed with Windows LF/CRLF normalization notices. No live PostgreSQL migration, provider, authenticated browser, voice device, Electron GUI, production DB or deployment run was performed.
+## F030 Cockpit overview focused verification (2026-11-07)
+- `pnpm vitest run src/lib/cockpit/overview.test.ts src/components/cockpit/cockpit-overview.test.tsx`: PASS, 2 files / 4 tests. Coverage checks connection-state classification, invalid payload handling, six existing endpoint paths, secret-field omission, and failed status requests rendering unavailable instead of disconnected.
+- `pnpm biome check` passed on nine new/modified formatted files; `pnpm biome lint src/components/cockpit/seo-dashboard.tsx` passed (the pre-existing SEO dashboard is intentionally not reformatted). No full typecheck/build, live provider, Postgres or browser E2E was run by this slice.
+## F037 unlink scope regression (2026-11-07 10:22 IST)
+- `pnpm vitest run 'src/app/api/projects/[id]/documents/[itemId]/route.test.ts'`: PASS, 1 file / 4 tests. Coverage verifies authorized mapping-only unlink, viewer/origin rejection, live access revocation, role downgrade, detached collection, and source-owner scope loss.
+- Scoped `pnpm biome check` passed for the route/test; scoped `git diff --check` passed with Windows LF/CRLF notices. No DB schema/migration or live PostgreSQL/storage/browser operation was performed.
+- This is focused verification only; F037 remains PARTIAL and object cleanup is not implemented.
+## F010/F030/F037 follow-up batch verification (2026-11-07)
+- Focused changes: nightly project-brain dream discovery, unified Cockpit provider status overview, and current-scope revalidation before project-document unlink. Combined focused Vitest passed **4 files / 9 tests**; the components add 1 dream-run, 4 unlink, 2 status-classification, and 2 overview-rendering tests.
+- Integrated `pnpm check-types` passed with a 6 GiB heap; full `pnpm test` passed **1,994/1,994 across 351 files**; `pnpm lint` exited 0 with existing `<img>` and multiple-lockfile warnings; `pnpm db:check` passed (journal only; no migration was applied); production `pnpm build` exited 0 with **203/203 pages**; `git diff --check` passed with line-ending notices.
+- Existing non-blocking build warnings include E2B/unpdf dependency analysis, dynamic-session prerender probes, optional Redis/Upstash/E2B configuration, and PostgreSQL SSL notices. No live Postgres, provider, browser, or Electron verification was performed.

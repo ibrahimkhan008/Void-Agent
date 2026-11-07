@@ -548,52 +548,60 @@ export async function processProjectBrainDreamQueue(now = new Date()) {
 export async function enqueueNightlyProjectBrainDreams(now = new Date()) {
   const since = new Date(now.getTime() - 24 * 60 * 60_000);
   const dailyKey = makeProjectBrainDreamIdempotencyKey("nightly", now);
-  const recent = await pgDb
-    .selectDistinctOn([ProjectBrainFactTable.projectId], {
-      projectId: ProjectBrainFactTable.projectId,
-      userId: ProjectBrainRunTable.requestedByUserId,
-    })
-    .from(ProjectBrainFactTable)
-    .innerJoin(
-      ProjectBrainRunTable,
-      eq(ProjectBrainRunTable.id, ProjectBrainFactTable.runId),
-    )
-    .where(
-      and(
-        eq(ProjectBrainRunTable.status, "succeeded"),
-        gt(ProjectBrainRunTable.updatedAt, since),
-        notExists(
-          pgDb
-            .select({ id: ProjectBrainDreamRunTable.id })
-            .from(ProjectBrainDreamRunTable)
-            .where(
-              and(
-                eq(
-                  ProjectBrainDreamRunTable.projectId,
-                  ProjectBrainFactTable.projectId,
-                ),
-                eq(ProjectBrainDreamRunTable.idempotencyKey, dailyKey),
-              ),
-            ),
-        ),
-      ),
-    )
-    .orderBy(
-      ProjectBrainFactTable.projectId,
-      desc(ProjectBrainRunTable.updatedAt),
-    )
-    .limit(100);
   let queued = 0;
-  for (const item of recent) {
-    const access = await getProjectAccess(item.projectId, item.userId);
-    if (!access || !mayEditProject(access.role)) continue;
-    const result = await enqueueProjectBrainDream({
-      projectId: item.projectId,
-      userId: item.userId,
-      reason: "nightly",
-      idempotencyKey: dailyKey,
-    });
-    if (result.created) queued += 1;
+  let afterProjectId: string | undefined;
+  while (true) {
+    const predicates = [
+      eq(ProjectBrainRunTable.status, "succeeded"),
+      gt(ProjectBrainRunTable.updatedAt, since),
+      notExists(
+        pgDb
+          .select({ id: ProjectBrainDreamRunTable.id })
+          .from(ProjectBrainDreamRunTable)
+          .where(
+            and(
+              eq(
+                ProjectBrainDreamRunTable.projectId,
+                ProjectBrainRunTable.projectId,
+              ),
+              eq(ProjectBrainDreamRunTable.idempotencyKey, dailyKey),
+            ),
+          ),
+      ),
+      ...(afterProjectId
+        ? [gt(ProjectBrainRunTable.projectId, afterProjectId)]
+        : []),
+    ];
+    // Match the reference's source-run scheduling, but page in stable project
+    // ID order so installations with more than one batch cannot starve later
+    // projects. Reading the run table directly also includes successful ingests
+    // that legitimately yielded zero accepted fact rows.
+    const recent = await pgDb
+      .selectDistinctOn([ProjectBrainRunTable.projectId], {
+        projectId: ProjectBrainRunTable.projectId,
+        userId: ProjectBrainRunTable.requestedByUserId,
+      })
+      .from(ProjectBrainRunTable)
+      .where(and(...predicates))
+      .orderBy(
+        ProjectBrainRunTable.projectId,
+        desc(ProjectBrainRunTable.updatedAt),
+      )
+      .limit(100);
+    if (!recent.length) break;
+
+    for (const item of recent) {
+      afterProjectId = item.projectId;
+      const access = await getProjectAccess(item.projectId, item.userId);
+      if (!access || !mayEditProject(access.role)) continue;
+      const result = await enqueueProjectBrainDream({
+        projectId: item.projectId,
+        userId: item.userId,
+        reason: "nightly",
+        idempotencyKey: dailyKey,
+      });
+      if (result.created) queued += 1;
+    }
   }
   return { queued };
 }

@@ -280,7 +280,7 @@ export function VercelDashboard() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link href="/cockpit">Stripe finance</Link>
+            <Link href="/cockpit/stripe">Stripe finance</Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href="/cockpit/website">Website analytics</Link>

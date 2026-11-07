@@ -35,7 +35,11 @@ export async function DELETE(
 
   const ownerIds = await getProjectCollectionSourceOwnerIds(access);
   const [source] = await pgDb
-    .select({ id: ProjectDocumentTable.collectionItemId })
+    .select({
+      id: ProjectDocumentTable.collectionItemId,
+      collectionId: CollectionItemTable.collectionId,
+      collectionOwnerId: CollectionTable.userId,
+    })
     .from(ProjectDocumentTable)
     .innerJoin(
       CollectionItemTable,
@@ -55,6 +59,21 @@ export async function DELETE(
     )
     .limit(1);
   if (!source) return new Response("Not found", { status: 404 });
+
+  // Project access and collection ownership can change while the source row
+  // is being resolved. Recheck the current editor scope before removing the
+  // link. This operation intentionally never deletes the collection item or
+  // its original storage object; those may be shared with other projects.
+  const currentAccess = await getProjectAccess(projectId, session.user.id);
+  if (!currentAccess) return new Response("Not found", { status: 404 });
+  if (!mayEditProject(currentAccess.role))
+    return new Response("Forbidden", { status: 403 });
+  if (!currentAccess.project.collectionIds.includes(source.collectionId))
+    return new Response("Not found", { status: 404 });
+  const currentOwnerIds =
+    await getProjectCollectionSourceOwnerIds(currentAccess);
+  if (!currentOwnerIds.includes(source.collectionOwnerId))
+    return new Response("Not found", { status: 404 });
 
   await pgDb
     .delete(ProjectDocumentTable)

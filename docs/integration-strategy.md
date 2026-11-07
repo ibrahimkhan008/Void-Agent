@@ -561,3 +561,10 @@ The channel-subscription/agent-task lifecycle is excluded because the reference 
 
 ## n8n effect review policy (F025; 2026-11-07)
 The n8n path now follows a fail-closed node allowlist. Safe logic nodes have no external effect; literal HTTP Request nodes expose method, URL, and parameters after secret handling. HTTP expressions, inline credential values, secret-bearing URL query/userinfo, unsupported node types, and previews exceeding structural/byte bounds are not approvable. JSON/form-style strings and header/query name-value pairs are scanned and redacted before being rejected. Credential references are represented by type only. Any future n8n integration node requires a dedicated sanitizer/preview adapter and regression tests before approval can be enabled.
+### F030 overview adaptation (2026-11-07)
+- Preserve each provider's authorization and data contract by calling its existing read-only connection endpoint from the client overview. Validate and project the response down to the common status fields, render failed checks as unavailable (not disconnected), and never request provider summary data from the overview.
+- Keep the previous Stripe dashboard behavior at `/cockpit/stripe` while `/cockpit` becomes the overview. Use current authenticated `/api/projects/teams` options for selecting scope; each provider endpoint independently enforces access.
+## F037 unlink revalidation (2026-11-07 10:22 IST)
+- Project document removal remains a mapping-only operation; do not delete collection source bytes during project unlink because collections and other projects may share that source.
+- The unlink route revalidates current editor access, attached collection IDs, and eligible source-owner scope before deleting the project mapping. This narrows the stale-ACL window without adding a second document/storage system.
+- Object cleanup for actual collection-item deletion is deliberately deferred: it requires a transactional cleanup outbox and retry worker; no schema/migration was introduced in this slice.

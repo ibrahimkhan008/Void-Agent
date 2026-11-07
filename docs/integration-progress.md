@@ -941,3 +941,13 @@ Agent file bindings are now validated server-side using the authenticated user's
 ## Published verified batch (2026-11-07)
 - Commit `bebde2d` (`feat: expand Void-Agent feature parity and security`) was pushed to `origin/main` after typecheck, full test, lint, Drizzle journal check, production build and `git diff --check` passed.
 - This publishes the verified local implementation batch only. Full reference parity remains incomplete: 20 original capability families are PARTIAL; F037 is PARTIAL. No deployment or database migration application occurred.
+## F030 unified provider-status overview (2026-11-07)
+- Added a `/cockpit` overview for six provider connection states with personal/team scope selection and provider-dashboard links. It uses existing no-store authenticated status APIs only and strips unneeded response data before display. Stripe's original dashboard moved intact to `/cockpit/stripe`.
+- Focused tests passed 4/4; scoped Biome and SEO lint passed. No provider summary API, credential, database schema or migration behavior changed. F030 remains PARTIAL for unified metrics/alerts, OpenSEO and live workflow validation.
+## F037 unlink ACL recheck (2026-11-07 10:22 IST)
+- Hardened the existing project Remove workflow with a second live project/editor/collection-owner scope check before deleting only the project-document mapping.
+- Focused API tests: 4/4 passed. Scoped Biome and `git diff --check` passed. Shared collection source bytes remain intact after project unlink.
+- F037 remains PARTIAL. No collection-item destructive delete or object cleanup is claimed; durable storage cleanup needs an outbox/worker and migration, while tracked DOCX editing and project-independent file spaces are still outstanding.
+## F010 zero-fact and paged nightly dream coverage (2026-11-07)
+- Nightly dream scheduling now selects successful ingest runs directly, including runs that produced zero accepted facts, and uses stable project cursor paging instead of a fixed first-100 project list. Existing daily idempotency and current project access checks remain enforced.
+- Regression coverage: 102-project paging, zero-fact run, cursor progression and unauthorized-project exclusion. Focused batch tests and integrated checks are recorded in the verification entry below. F010 remains PARTIAL pending live PostgreSQL execution and remaining model-dedupe/stage parity.

@@ -161,7 +161,7 @@ export function SuperlogDashboard() {
           aria-label="Cockpit providers"
           className="flex flex-wrap gap-2 text-sm"
         >
-          <Link className="rounded-md border px-3 py-2" href="/cockpit">
+          <Link className="rounded-md border px-3 py-2" href="/cockpit/stripe">
             Stripe
           </Link>
           <Link className="rounded-md border px-3 py-2" href="/cockpit/vercel">

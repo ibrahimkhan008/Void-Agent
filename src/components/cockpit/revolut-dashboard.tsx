@@ -230,7 +230,7 @@ export function RevolutDashboard() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href="/cockpit">Stripe</Link>
+            <Link href="/cockpit/stripe">Stripe</Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href="/cockpit/vercel">Vercel</Link>

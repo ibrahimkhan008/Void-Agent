@@ -828,3 +828,9 @@ Reference behavior from `Void-Agent-V2/apps/web/src/lib/cockpit/providers/revolu
 
 ## F025 reference comparison — n8n run approval (2026-11-07)
 - The existing n8n execution integration had a revision-bound approval token but exposed only node classifications and an HTTP host, which did not describe the exact effect. It now previews bounded literal HTTP method/URL/parameters and blocks dynamic, unknown, credential-bearing, or oversized effects. Configured credential metadata is not exposed. This hardens the primary approval path; it does not establish complete upstream parity.
+### Cockpit provider overview UI (Void-Agent adaptation, 2026-11-07)
+- Primary now has one `/cockpit` page listing connection health for Stripe, Website analytics, Vercel, Revolut, Superlog, and DataForSEO, plus links to each provider dashboard. It reads existing authenticated status routes only; no provider metrics are combined. Stripe's prior root dashboard is preserved at `/cockpit/stripe`.
+## F037 unlink scope and current-ACL recheck (2026-11-07 10:22 IST)
+- The project Remove action is explicitly unlink-only. `DELETE /api/projects/[id]/documents/[itemId]` removes the project mapping and preserves the underlying collection item and original bytes. The route now rechecks live project access/editor role, collection attachment, and collection-owner scope after reading the item and before mutation.
+- Focused tests cover authorized mapping-only deletion, viewer and same-origin rejection, access revocation, role downgrade, collection detachment, and source-owner scope loss: 4/4 passed. Scoped Biome and diff check passed.
+- Correction: older F037 entries that list the unlink UI/API as missing are superseded by implementation already present. Persistent object cleanup when a collection source is actually deleted remains unimplemented; no destructive source-delete control was added. F037 remains PARTIAL.

@@ -1,5 +1,5 @@
-import { StripeDashboard } from "@/components/cockpit/stripe-dashboard";
+import { CockpitOverview } from "@/components/cockpit/cockpit-overview";
 
 export default function CockpitPage() {
-  return <StripeDashboard />;
+  return <CockpitOverview />;
 }

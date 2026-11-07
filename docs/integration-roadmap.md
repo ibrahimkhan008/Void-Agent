@@ -588,3 +588,7 @@ No implementation batch is scheduled for the reference Slack channel-subscriptio
 - Next: implement OpenSEO through an explicitly approval-aware OAuth MCP read-only adapter, then integrate unified provider connection/status and alert aggregation. F030 stays PARTIAL.
 ### F030 SEO verification update (2026-11-07)
 - Final focused SEO + Superlog rerun: 16/16 passed across 4 files; scoped Biome and git diff --check passed; pnpm db:check passed. Earlier 15/15 count is superseded. Integrated typecheck/build still belong to root verification.
+
+## F030 continuation - provider connection hub (2026-11-07)
+- Implemented the shared provider connection-status overview at `/cockpit`; Stripe finance remains available at `/cockpit/stripe`. The hub intentionally stops at connection health and deep links; provider-specific metrics remain in their current dashboards until a safe, common summary contract is designed.
+- Verification: 4 focused tests passed, scoped Biome passed, SEO dashboard lint passed. Whole-project typecheck/build are delegated to root's integrated batch verification.
