@@ -79,7 +79,8 @@ describe("Cockpit overview", () => {
     const requestedUrls = fetchMock.mock.calls.map(([url]) => String(url));
     for (const provider of COCKPIT_PROVIDERS)
       expect(requestedUrls).toContain(provider.statusEndpoint);
-    expect(requestedUrls.some((url) => url.includes("/summary"))).toBe(false);
+    expect(requestedUrls).toContain("/api/cockpit/stripe/summary");
+    expect(requestedUrls).toContain("/api/cockpit/revolut/summary");
   });
 
   it("shows an unavailable state instead of claiming a failed request is disconnected", async () => {

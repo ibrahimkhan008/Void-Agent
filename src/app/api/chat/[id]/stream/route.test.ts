@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getSession.mockResolvedValue({ user: { id: "user-1" } });
   mocks.selectThread.mockResolvedValue({ id: threadId, userId: "user-1" });
+  mocks.clearActiveStream.mockResolvedValue(undefined);
   mocks.getStreamContext.mockReturnValue({
     resumeExistingStream: vi.fn().mockResolvedValue(null),
   });
@@ -67,5 +68,16 @@ describe("chat resumable stream endpoint", () => {
     const response = await GET(new Request("https://void.test"), params);
     expect(response.status).toBe(200);
     expect(response.headers.get("x-vercel-ai-ui-message-stream")).toBe("v1");
+  });
+
+  it("retires only the stale pointer when its resumable buffer has expired", async () => {
+    const resumeExistingStream = vi.fn().mockResolvedValue(null);
+    mocks.getStreamContext.mockReturnValue({ resumeExistingStream });
+
+    const response = await GET(new Request("https://void.test"), params);
+
+    expect(response.status).toBe(204);
+    expect(resumeExistingStream).toHaveBeenCalledWith("stream-1");
+    expect(mocks.clearActiveStream).toHaveBeenCalledWith(threadId, "stream-1");
   });
 });

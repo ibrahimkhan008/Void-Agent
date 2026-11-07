@@ -741,3 +741,9 @@ The latest reference HITL audit found four no-execute proposal/decision tools an
 
 ## F021 native menu data boundary (2026-11-07)
 The connected-server menu label uses only `URL.host` from the validated selected origin, is limited to 253 characters, and never includes credentials, path, query, or fragment. The new menu only wires existing server-selection and updater actions. Electron DevTools are hidden in packaged builds; the main window continues to use context isolation, disabled Node integration, and sandboxing. No new process-spawn, shell, or network capability was added.
+
+## F037 project DOCX edit controls (2026-11-07)
+Project edit proposals are limited to authenticated project members and a private storage backend. The processing path enforces input/output byte limits, OOXML/ZIP and DOCTYPE checks, validates source identity/hash, rejects ambiguous or cross-run anchors, and preserves formatting through true Word tracked revisions. Only generated revision IDs are eligible for accept/reject; existing document revisions are not altered. Candidate resolution is creator-bound; stale/rejected candidates and project/document deletion enqueue blob cleanup transactionally. The original document is never overwritten. Migration 0069 is authored but unapplied. Unit/route/component tests and the integrated typecheck/build passed; live PostgreSQL and storage permission tests remain outstanding.
+
+## Other changes in verified batch (2026-11-07)
+Published-page revocation now rate-limits before repository mutation. Voice intent preview is authenticated and read-only and cannot execute a tool. Finance overview reuses existing authorization-protected summaries without adding payment actions. Resumable stream stale-pointer cleanup is covered by a regression test.

@@ -628,3 +628,5 @@ No implementation batch is scheduled for the reference Slack channel-subscriptio
 
 ## F021 remaining verification (2026-11-07)
 The compatible native menu gap is implemented. Next F021 closure requires platform runtime verification for first-run and server switching, OAuth deep-link return, native notifications/downloads, and signed package update installation. No checkout-window port is planned until Dodo's checkout host and return handling are validated by the primary payments integration.
+## 2026-11-07 checkpoint
+F037 now has a complete local implementation slice for tracked DOCX proposals/review/accept/reject with migration 0069 authored, but it is not closed until safe disposable PostgreSQL migration and authenticated browser/storage flows are verified. F030 finance cockpit and F026 intent preview landed as bounded UI slices. Next major parity work must continue from the existing matrix; no broad family is marked COMPLETE from this batch. The validated local batch is being staged selectively and pushed only after the current branch/remote check.

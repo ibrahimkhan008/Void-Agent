@@ -28,6 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "ui/card";
+import { FinanceOverview } from "./finance-overview";
 
 type TeamChoice = {
   id: string;
@@ -233,9 +234,11 @@ export function CockpitOverview() {
         })}
       </section>
 
+      <FinanceOverview teamId={teamId} />
+
       <p className="text-xs text-muted-foreground">
-        This page reads only provider connection status. Credentials remain
-        encrypted server-side and are never returned to the overview.
+        Credentials remain encrypted server-side and are never returned to the
+        overview. Financial summaries use the selected personal or team scope.
       </p>
     </main>
   );

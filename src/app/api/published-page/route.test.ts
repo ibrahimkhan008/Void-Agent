@@ -95,6 +95,24 @@ describe("published page lifecycle API", () => {
     );
     expect(revoked.status).toBe(200);
     expect(mocks.revokeBySlug).toHaveBeenCalledWith(slug, userId);
+    expect(mocks.rate).toHaveBeenLastCalledWith({
+      kind: "published-page-revoke",
+      id: userId,
+      limit: 10,
+      windowMs: 60_000,
+    });
+  });
+
+  it("rate-limits revocation before touching page state", async () => {
+    mocks.rate.mockResolvedValueOnce({ allowed: false });
+    const response = await DELETE(
+      request(`/api/published-page?slug=${slug}`, { method: "DELETE" }),
+    );
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({
+      error: "Too many revoke requests",
+    });
+    expect(mocks.revokeBySlug).not.toHaveBeenCalled();
   });
 
   it("rejects anonymous create and malformed input before persistence", async () => {

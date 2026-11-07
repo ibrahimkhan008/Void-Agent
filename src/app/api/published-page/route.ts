@@ -113,6 +113,17 @@ export async function DELETE(request: Request) {
   const session = await getSession();
   const userId = session?.user?.id;
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const rate = await checkApiRateLimit({
+    kind: "published-page-revoke",
+    id: userId,
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed)
+    return Response.json(
+      { error: "Too many revoke requests" },
+      { status: 429 },
+    );
   const slug = new URL(request.url).searchParams.get("slug");
   if (!slug || !isValidPageSlug(slug))
     return Response.json({ error: "Invalid slug" }, { status: 400 });

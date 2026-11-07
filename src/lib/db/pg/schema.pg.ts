@@ -2346,9 +2346,106 @@ export const ProjectDocumentTable = pgTable(
       table.projectId,
       table.collectionItemId,
     ),
+    uniqueIndex("project_document_project_id_unique_idx").on(
+      table.projectId,
+      table.id,
+    ),
     index("project_document_project_id_idx").on(table.projectId),
   ],
 );
+
+export const PROJECT_DOCUMENT_EDIT_STATUSES = [
+  "pending",
+  "accepted",
+  "rejected",
+  "stale",
+] as const;
+
+/** One reviewable tracked-change artifact for an immutable project source version. */
+export const ProjectDocumentEditTable = pgTable(
+  "project_document_edit",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    projectDocumentId: uuid("project_document_id").notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    // SHA-256 of the exact original bytes. Resolution re-checks it so an
+    // artifact cannot be accepted against a replaced source file.
+    sourceRevisionHash: varchar("source_revision_hash", {
+      length: 64,
+    }).notNull(),
+    proposedEdits: jsonb("proposed_edits")
+      .$type<
+        Array<{
+          originalText: string;
+          suggestedText: string;
+          rationale: string;
+        }>
+      >()
+      .notNull(),
+    trackedChanges: jsonb("tracked_changes")
+      .$type<Array<{ id: string; delId?: string; insId?: string }>>()
+      .notNull(),
+    // Private object key for the generated OOXML package. Rejection atomically
+    // moves it to the cleanup outbox; accepted files remain downloadable.
+    candidateStorageKey: text("candidate_storage_key"),
+    outputStorageKey: text("output_storage_key"),
+    status: varchar("status", { enum: PROJECT_DOCUMENT_EDIT_STATUSES })
+      .notNull()
+      .default("pending"),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("project_document_edit_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index("project_document_edit_document_created_idx").on(
+      table.projectDocumentId,
+      table.createdAt,
+    ),
+    index("project_document_edit_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    foreignKey({
+      columns: [table.projectId, table.projectDocumentId],
+      foreignColumns: [ProjectDocumentTable.projectId, ProjectDocumentTable.id],
+      name: "project_document_edit_project_document_fk",
+    }).onDelete("cascade"),
+    check(
+      "project_document_edit_source_hash_check",
+      sql`${table.sourceRevisionHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "project_document_edit_edits_check",
+      sql`jsonb_typeof(${table.proposedEdits}) = 'array' AND jsonb_array_length(${table.proposedEdits}) BETWEEN 1 AND 50`,
+    ),
+    check(
+      "project_document_edit_tracked_changes_check",
+      sql`jsonb_typeof(${table.trackedChanges}) = 'array' AND jsonb_array_length(${table.trackedChanges}) BETWEEN 1 AND 50`,
+    ),
+    check(
+      "project_document_edit_status_check",
+      sql`${table.status} IN ('pending', 'accepted', 'rejected', 'stale')`,
+    ),
+    check(
+      "project_document_edit_lifecycle_check",
+      sql`(${table.status} = 'pending' AND ${table.candidateStorageKey} IS NOT NULL AND ${table.outputStorageKey} IS NULL AND ${table.resolvedAt} IS NULL) OR (${table.status} = 'accepted' AND ${table.candidateStorageKey} IS NULL AND ${table.outputStorageKey} IS NOT NULL AND ${table.resolvedAt} IS NOT NULL) OR (${table.status} IN ('rejected', 'stale') AND ${table.candidateStorageKey} IS NULL AND ${table.outputStorageKey} IS NULL AND ${table.resolvedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export type ProjectDocumentEditEntity =
+  typeof ProjectDocumentEditTable.$inferSelect;
 
 /** Project-scoped MCP connections only retain explicitly read-only tool names. */
 export const ProjectBrainMcpConnectorTable = pgTable(

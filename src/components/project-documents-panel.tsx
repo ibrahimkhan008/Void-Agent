@@ -2,6 +2,7 @@
 
 import { useCollections } from "@/hooks/queries/use-collections";
 import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
@@ -19,6 +20,18 @@ type AnalysisResult = {
   answer: string;
   filename: string;
   citations: { source: string; quote: string }[];
+};
+type TrackedProposal = {
+  originalText: string;
+  suggestedText: string;
+  rationale: string;
+};
+type TrackedEdit = {
+  id: string;
+  status: "pending" | "accepted" | "rejected" | "stale";
+  canResolve: boolean;
+  changes: TrackedProposal[];
+  createdAt: string;
 };
 
 export function ProjectDocumentsPanel({
@@ -46,6 +59,19 @@ export function ProjectDocumentsPanel({
   const [question, setQuestion] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [activeTrackedItemId, setActiveTrackedItemId] = useState<string | null>(
+    null,
+  );
+  const [trackedInstructions, setTrackedInstructions] = useState<
+    Record<string, string>
+  >({});
+  const [trackedEdits, setTrackedEdits] = useState<
+    Record<string, TrackedEdit[]>
+  >({});
+  const [trackedErrors, setTrackedErrors] = useState<Record<string, string>>(
+    {},
+  );
+  const [trackedBusy, setTrackedBusy] = useState<string | null>(null);
   const analysisRequestId = useRef(0);
   const availableCollections = useMemo(
     () =>
@@ -133,6 +159,114 @@ export function ProjectDocumentsPanel({
         toast.error(error instanceof Error ? error.message : "Analysis failed");
     } finally {
       if (analysisRequestId.current === requestId) setAnalyzing(false);
+    }
+  };
+
+  const loadTrackedEdits = async (itemId: string) => {
+    setTrackedBusy(itemId);
+    setTrackedErrors((current) => ({ ...current, [itemId]: "" }));
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents/${itemId}/edits`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        edits?: TrackedEdit[];
+        error?: string;
+      };
+      if (!response.ok || !Array.isArray(result.edits))
+        throw new Error(result.error ?? "Could not load tracked edits.");
+      setTrackedEdits((current) => ({ ...current, [itemId]: result.edits! }));
+    } catch (error) {
+      setTrackedErrors((current) => ({
+        ...current,
+        [itemId]:
+          error instanceof Error
+            ? error.message
+            : "Could not load tracked edits.",
+      }));
+    } finally {
+      setTrackedBusy((current) => (current === itemId ? null : current));
+    }
+  };
+
+  const proposeTrackedEdits = async (document: ProjectDocument) => {
+    const instruction = trackedInstructions[document.id]?.trim();
+    if (!instruction)
+      return toast.error("Describe the document changes you want");
+    setTrackedBusy(document.id);
+    setTrackedErrors((current) => ({ ...current, [document.id]: "" }));
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents/${document.id}/edits`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "propose", instruction }),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        edit?: TrackedEdit;
+        error?: string;
+      };
+      if (!response.ok || !result.edit)
+        throw new Error(result.error ?? "Could not generate tracked edits.");
+      setTrackedEdits((current) => ({
+        ...current,
+        [document.id]: [result.edit!, ...(current[document.id] ?? [])],
+      }));
+      setTrackedInstructions((current) => ({ ...current, [document.id]: "" }));
+      toast.success("Tracked changes are ready for review");
+    } catch (error) {
+      setTrackedErrors((current) => ({
+        ...current,
+        [document.id]:
+          error instanceof Error
+            ? error.message
+            : "Could not generate tracked edits.",
+      }));
+    } finally {
+      setTrackedBusy((current) => (current === document.id ? null : current));
+    }
+  };
+
+  const resolveTrackedEdit = async (
+    documentId: string,
+    editId: string,
+    decision: "accepted" | "rejected",
+  ) => {
+    setTrackedBusy(editId);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents/${documentId}/edits`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "resolve", editId, decision }),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        status?: string;
+        error?: string;
+      };
+      if (!response.ok || result.status !== decision)
+        throw new Error(result.error ?? "Could not resolve tracked edits.");
+      await loadTrackedEdits(documentId);
+      toast.success(
+        decision === "accepted" ? "Changes accepted" : "Changes rejected",
+      );
+    } catch (error) {
+      setTrackedErrors((current) => ({
+        ...current,
+        [documentId]:
+          error instanceof Error
+            ? error.message
+            : "Could not resolve tracked edits.",
+      }));
+    } finally {
+      setTrackedBusy((current) =>
+        current === editId || current === documentId ? null : current,
+      );
     }
   };
 
@@ -266,6 +400,23 @@ export function ProjectDocumentsPanel({
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => {
+                      const opening = activeTrackedItemId !== document.id;
+                      setActiveTrackedItemId(opening ? document.id : null);
+                      if (opening) void loadTrackedEdits(document.id);
+                    }}
+                    aria-expanded={activeTrackedItemId === document.id}
+                    aria-controls={`project-document-edits-${document.id}`}
+                    disabled={
+                      document.status !== "ready" ||
+                      !document.filename?.toLowerCase().endsWith(".docx")
+                    }
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     asChild
                     disabled={document.status !== "ready"}
                   >
@@ -333,6 +484,142 @@ export function ProjectDocumentsPanel({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+              {activeTrackedItemId === document.id && (
+                <div
+                  id={`project-document-edits-${document.id}`}
+                  className="mt-3 space-y-3 border-t pt-3"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    Describe the changes you want. The original stays unchanged;
+                    generated Word tracked changes require your review.
+                  </p>
+                  <Textarea
+                    aria-label={`Edit instructions for ${document.filename ?? "document"}`}
+                    maxLength={2000}
+                    placeholder="For example: make the introduction more concise and keep the original meaning"
+                    value={trackedInstructions[document.id] ?? ""}
+                    onChange={(event) =>
+                      setTrackedInstructions((current) => ({
+                        ...current,
+                        [document.id]: event.target.value,
+                      }))
+                    }
+                    disabled={!canEdit || trackedBusy === document.id}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => void proposeTrackedEdits(document)}
+                    disabled={
+                      !canEdit ||
+                      trackedBusy === document.id ||
+                      !trackedInstructions[document.id]?.trim()
+                    }
+                  >
+                    {trackedBusy === document.id ? (
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                    ) : null}
+                    Suggest tracked changes
+                  </Button>
+                  {trackedErrors[document.id] && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {trackedErrors[document.id]}
+                    </p>
+                  )}
+                  {trackedBusy === document.id &&
+                    !trackedErrors[document.id] && (
+                      <p
+                        role="status"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Loading tracked edits…
+                      </p>
+                    )}
+                  {(trackedEdits[document.id] ?? []).map((edit) => (
+                    <article
+                      key={edit.id}
+                      className="space-y-2 rounded-md border p-3"
+                      aria-label={`Tracked edit ${edit.status}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-medium capitalize">
+                          {edit.status} · {edit.changes.length} change
+                          {edit.changes.length === 1 ? "" : "s"}
+                        </p>
+                        {(edit.status === "pending" ||
+                          edit.status === "accepted") && (
+                          <a
+                            className="text-xs underline"
+                            href={`/api/projects/${projectId}/documents/${document.id}/edits/${edit.id}/download`}
+                          >
+                            {edit.status === "pending"
+                              ? "Download review copy"
+                              : "Download accepted DOCX"}
+                          </a>
+                        )}
+                      </div>
+                      <ul className="space-y-2">
+                        {edit.changes.map((change, index) => (
+                          <li
+                            key={`${index}:${change.originalText}`}
+                            className="space-y-1 text-xs"
+                          >
+                            <p className="text-destructive line-through">
+                              {change.originalText}
+                            </p>
+                            <p className="text-emerald-700 dark:text-emerald-400">
+                              {change.suggestedText}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {change.rationale}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                      {edit.status === "pending" &&
+                        canEdit &&
+                        edit.canResolve && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                void resolveTrackedEdit(
+                                  document.id,
+                                  edit.id,
+                                  "accepted",
+                                )
+                              }
+                              disabled={trackedBusy === edit.id}
+                            >
+                              Accept all
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void resolveTrackedEdit(
+                                  document.id,
+                                  edit.id,
+                                  "rejected",
+                                )
+                              }
+                              disabled={trackedBusy === edit.id}
+                            >
+                              Reject all
+                            </Button>
+                          </div>
+                        )}
+                      {edit.status === "pending" &&
+                        canEdit &&
+                        !edit.canResolve && (
+                          <p className="text-xs text-muted-foreground">
+                            Only the reviewer who created this proposal can
+                            resolve it.
+                          </p>
+                        )}
+                    </article>
+                  ))}
                 </div>
               )}
             </li>

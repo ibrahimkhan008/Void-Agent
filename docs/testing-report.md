@@ -1060,3 +1060,11 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Production `pnpm build` passed, generating 203/203 pages. Existing E2B/unpdf critical-dependency, optional Redis/Upstash/E2B configuration, dynamic-session prerender, and PostgreSQL SSL-mode warnings were non-fatal.
 - Initial full-suite run overlapped typecheck and had four timeout failures (auth permission and DOCX/PPTX parser/render tests). All four files passed 34/34 when rerun alone; a complete full-suite rerun with typecheck finished passed 2,051/2,051. The overlap run is classified as resource contention, not a product regression.
 - F025 had no missing executable reference mutation; the audit confirmed matching primary workflows and stronger server-side effect gates. F021/F025/F026 remain PARTIAL pending unavailable GUI/browser/live-service verification. No schema migration, database application, deployment, or production DB operation was performed.
+
+## Integrated verification (2026-11-07 13:54 IST)
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS.
+- `pnpm exec vitest run --maxWorkers=2`: PASS, 369 test files and 2,080 tests. A default-worker attempt encountered a transient Windows worker startup `stat` error; the controlled run passed. Earlier individual focused route, voice, finance, and DOCX suites also passed.
+- `pnpm lint`: PASS with existing `<img>` and Next workspace-root warnings.
+- `pnpm db:check`: PASS (Drizzle schema/journal consistency only; migration 0069 was not applied and no live PostgreSQL validation occurred).
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm build`: PASS; static generation completed 203/203 pages. Existing dependency-analysis, optional-service configuration, dynamic-session prerender, and PostgreSQL SSL notices remain non-fatal.
+- `git diff --check`: PASS. No browser, live OAuth/provider, storage, payment, device, or PostgreSQL-backed journey was run. No deployment occurred.

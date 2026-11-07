@@ -63,6 +63,11 @@ export { subscriptionRepository } from "./pg/repositories/subscription-repositor
 // always read document_chunk rows; this repository is what finally
 // writes them.
 export { pgCollectionRepository as collectionRepository } from "./pg/repositories/collection-repository.pg";
+export {
+  projectDocumentEditRepository,
+  projectDocumentEditProposalsSchema,
+  projectDocumentTrackedChangesSchema,
+} from "./pg/repositories/project-document-edit-repository.pg";
 
 // E2B Build (AI app builder). Restored with migration 0032 after the feature
 // was removed in 2026-05; sandboxId on the row is what makes a build resumable.

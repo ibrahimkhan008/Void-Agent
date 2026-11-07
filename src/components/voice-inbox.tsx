@@ -2,6 +2,7 @@
 
 import {
   AudioLines,
+  BrainCircuit,
   LoaderCircle,
   MessageSquareText,
   RefreshCw,
@@ -21,12 +22,94 @@ type VoiceInboxItem = {
   createdAt: string;
 };
 
+type VoiceIntentPreview = {
+  intent:
+    | "question"
+    | "task"
+    | "note"
+    | "workflow"
+    | "agent"
+    | "scheduled_agent"
+    | "unknown";
+  title: string;
+  summary: string;
+};
+
+function parseVoiceIntentPreview(value: unknown): VoiceIntentPreview | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const intents = [
+    "question",
+    "task",
+    "note",
+    "workflow",
+    "agent",
+    "scheduled_agent",
+    "unknown",
+  ];
+  if (
+    typeof candidate.intent !== "string" ||
+    !intents.includes(candidate.intent) ||
+    typeof candidate.title !== "string" ||
+    typeof candidate.summary !== "string"
+  )
+    return null;
+  return {
+    intent: candidate.intent as VoiceIntentPreview["intent"],
+    title: candidate.title,
+    summary: candidate.summary,
+  };
+}
+
 export function VoiceInbox() {
   const [items, setItems] = useState<VoiceInboxItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, VoiceIntentPreview>>(
+    {},
+  );
+  const [previewErrors, setPreviewErrors] = useState<Record<string, string>>(
+    {},
+  );
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const previewIntent = useCallback(async (messageId: string) => {
+    setPreviewingId(messageId);
+    setPreviewErrors((current) => {
+      const next = { ...current };
+      delete next[messageId];
+      return next;
+    });
+    try {
+      const response = await fetch("/api/voice/transcript/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        preview?: unknown;
+        error?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(payload?.error ?? "Could not preview this transcript.");
+      const preview = parseVoiceIntentPreview(payload?.preview);
+      if (!preview) throw new Error("The preview response was invalid.");
+      setPreviews((current) => ({ ...current, [messageId]: preview }));
+    } catch (cause) {
+      setPreviewErrors((current) => ({
+        ...current,
+        [messageId]:
+          cause instanceof Error
+            ? cause.message
+            : "Could not preview this transcript.",
+      }));
+    } finally {
+      setPreviewingId((current) => (current === messageId ? null : current));
+    }
+  }, []);
 
   const load = useCallback(async (nextCursor?: string | null) => {
     if (nextCursor) setLoadingMore(true);
@@ -148,18 +231,56 @@ export function VoiceInbox() {
                         ? "Voice device"
                         : "Browser voice"}
                     </span>
+                    {previews[item.id] ? (
+                      <div
+                        className="mt-3 rounded-md border bg-muted/40 p-3 text-sm"
+                        aria-label="Voice intent preview"
+                      >
+                        <p className="font-medium">
+                          {previews[item.id].title} · {previews[item.id].intent}
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                          {previews[item.id].summary}
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Preview only. No task or tool was run.
+                        </p>
+                      </div>
+                    ) : null}
+                    {previewErrors[item.id] ? (
+                      <p role="alert" className="mt-2 text-sm text-destructive">
+                        {previewErrors[item.id]}
+                      </p>
+                    ) : null}
                   </div>
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0"
-                  >
-                    <Link href={href}>
-                      <MessageSquareText className="mr-2 size-4" />
-                      Review in chat
-                    </Link>
-                  </Button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void previewIntent(item.id)}
+                      disabled={previewingId !== null}
+                      aria-label={`${previewErrors[item.id] ? "Retry" : previews[item.id] ? "Refresh" : "Preview"} intent for ${item.title || "voice transcript"}`}
+                    >
+                      {previewingId === item.id ? (
+                        <LoaderCircle className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <BrainCircuit className="mr-2 size-4" />
+                      )}
+                      {previewingId === item.id
+                        ? "Previewing"
+                        : previewErrors[item.id]
+                          ? "Retry preview"
+                          : previews[item.id]
+                            ? "Refresh preview"
+                            : "Preview intent"}
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={href}>
+                        <MessageSquareText className="mr-2 size-4" />
+                        Review in chat
+                      </Link>
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
