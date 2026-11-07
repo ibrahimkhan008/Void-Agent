@@ -2,6 +2,13 @@
 
 This checkpoint reviews capability families below; the surface census is broader. EXISTING means source implementation located, not a fresh end-to-end certification. PARTIAL includes equivalence still requiring detailed review. MISSING means no equivalent found in this pass, not proof of exhaustive absence. Feature counts are not derived from route counts. No full-parity claim.
 
+### Current family classification (2026-11-07)
+
+- For the original F001-F036 rows, current primary row classifications are: 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, and 1 DEPRECATED. Each family is counted once by its primary category; F030 is OPTIONAL and separately states that family parity is PARTIAL.
+- No F001-F036 family row is classified COMPLETE. A completion percentage is not available: EXISTING records located source, not verified end-to-end behavior, and the broad family rows are not a complete feature-level denominator.
+- F037 project document originals was added later and remains PARTIAL. It is separate from the historical F001-F036 denominator.
+- The initial-triage distribution (12 EXISTING, 10 PARTIAL, 9 MISSING, 4 OPTIONAL, 1 DEPRECATED) remains documented as a historical snapshot in `docs/integration-progress.md`; it is not the current distribution.
+
 ## F001 ? Chat CRUD and persistence
 
 - Category/status/priority: EXISTING, P0.
@@ -438,35 +445,27 @@ Integration checkpoint: implemented in the original architecture; focused tests 
 - Remaining: PostgreSQL-backed verification, browser permission flow and real endpoint delivery remain unverified. Configure `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `ENCRYPTION_MASTER_KEY`; migration 0038 is authored but unapplied. F029 remains PARTIAL.
 - Verification: Contract tests cover malformed/oversized keys, HTTP endpoint rejection, read batch caps and local-only hrefs; type/lint/focused/full suite pending.
 
-## F030 ? Cockpit external service connections
+## F030 — Cockpit external service connections
 
-- Category/status/priority: OPTIONAL, P3.
-- Reference evidence: `lib/cockpit` under `apps/web/src` unless prefixed `apps/` or `.github/`; resolve full paths through the source census.
-- Primary evidence: `src/components/admin`.
-- Implementation and missing components: Audit encrypted secrets, scopes and external egress individually.
-- Strategy: deferred integration.
-- Dependencies: Existing auth/user scoping, current database and AI SDK 5 contracts; additional requirements must be justified per implementation batch.
-- API/backend changes: None authorized by this row alone; define scoped contracts and failure paths before implementation.
-- Database changes: No schema copied or applied; append-only migration design required where persistence changes.
-- Frontend changes: Preserve current navigation, design and providers; add only missing affordances.
-- Security: Enforce per-user/team ownership, validate untrusted input, redact secrets and bound external execution.
-- Complexity/performance: Not estimated until per-surface semantic review; benchmark DB reads, stream work or job concurrency as applicable.
-- Verification: Unit failure cases plus integration/authorization tests and relevant existing journeys. Environment-dependent delivery/model calls remain explicitly unverified.
+- Category/status/priority: OPTIONAL, P3; **PARTIAL** (one complete Stripe provider slice; family parity is not complete).
+- Reference evidence: `Void-Agent-V2/apps/web/src/lib/cockpit/providers/stripe.ts`, `providers/schemas.ts`, `connections.ts`, `feeds.ts`, `finance.ts`, `data.ts`; routes `apps/web/src/app/api/cockpit/connections/route.ts`, `connections/test/route.ts`; UI `apps/web/src/components/cockpit/finance-console.tsx` and `connect-console.tsx`.
+- Primary implementation: `src/lib/cockpit/stripe.ts`, `access.ts`; `/api/cockpit/stripe/connection`, `/connection/test`, `/summary`; `src/components/cockpit/stripe-dashboard.tsx` and `/cockpit` navigation.
+- Integrated slice: user-owned personal connections and team-shared connections; team members can read financial data while owners/editors manage credentials. Secret is encrypted with the existing AES-256-GCM utility and never appears in API projections. Stripe requests use a fixed HTTPS host and GET-only endpoints for balance, active subscriptions, charges, and payouts. Pagination is capped at 10×100 per list; response bodies are streamed and capped at 2 MiB before JSON parsing; API requests are authenticated, mutation same-origin, bounded, and rate-limited. Summary includes balance, normalized MRR, successful 30-day payments, recent failed charges, and upcoming payout.
+- Database: additive migration `0063_cockpit_connections.sql`, with per-user and per-team unique partial indexes. Migration is authored and journaled but unapplied; no database was contacted.
+- Security: Team membership is verified before team reads; only owner/editor roles can manage, test, or delete team credentials. No Stripe write methods are exposed. Provider response bodies and exceptions are not returned to clients.
+- Verification: Focused Stripe, scope, and connection API tests pass 17/17; scoped Biome lint and Drizzle `pnpm db:check` pass; whole-project typecheck is reported separately in the F030 context entry. No PostgreSQL-backed migration, browser-authenticated journey, or live Stripe test was run.
+- Remaining: the wider Cockpit provider set and combined finance console are not integrated; team DB authorization and migration application require PostgreSQL verification, and the UI journey needs browser verification. Keep F030 PARTIAL.
 
-## F031 ? Problem reports
+## F031 - Problem reports
 
-- Category/status/priority: EXISTING, P2.
+- Category/status/priority: PARTIAL, P2.
 - Reference evidence: `app/api/problem-report` under `apps/web/src` unless prefixed `apps/` or `.github/`; resolve full paths through the source census.
-- Primary evidence: `src/lib/db/pg/schema.pg.ts`.
-- Implementation and missing components: Keep current bug-report data; never inherit upstream notification recipient.
-- Strategy: retain and verify.
-- Dependencies: Existing auth/user scoping, current database and AI SDK 5 contracts; additional requirements must be justified per implementation batch.
-- API/backend changes: None authorized by this row alone; define scoped contracts and failure paths before implementation.
-- Database changes: No schema copied or applied; append-only migration design required where persistence changes.
-- Frontend changes: Preserve current navigation, design and providers; add only missing affordances.
-- Security: Enforce per-user/team ownership, validate untrusted input, redact secrets and bound external execution.
-- Complexity/performance: Not estimated until per-surface semantic review; benchmark DB reads, stream work or job concurrency as applicable.
-- Verification: Unit failure cases plus integration/authorization tests and relevant existing journeys. Environment-dependent delivery/model calls remain explicitly unverified.
+- Primary evidence: `src/lib/db/pg/schema.pg.ts`, `src/app/api/problem-report/route.ts`, `src/app/api/admin/problem-reports/route.ts`, `src/app/api/admin/problem-reports/[id]/route.ts`, and `src/components/admin/problem-report-admin-page.tsx`.
+- Implementation: Users can submit and list their own reports. Staff triage has an admin-layout-protected page, a session/admin-checked list endpoint with bounded pagination and status filtering, and a same-origin status-only update endpoint. Admin listing is limited to 60 requests/minute per admin; status updates to 30/minute, with `Retry-After` on throttling.
+- Privacy/security: Existing user reads remain owner-scoped. Admin listing returns screenshot name, MIME type, and size only, never storage keys or object URLs; diagnostic context is allowlisted and URL query/fragment are removed. No screenshot download/preview route is provided to staff in this slice. Do not inherit an upstream notification recipient.
+- Database changes: No schema change for admin triage; existing migration state is unchanged.
+- Remaining: No notification workflow and no real PostgreSQL/browser end-to-end verification. F031 remains PARTIAL until those gaps and the existing user-facing submission/history workflow are verified as a whole.
+- Verification: User report tests and admin authorization, pagination/status, rate-limit, screenshot-key-redaction tests pass; scoped Biome passes. Live persistence/status refresh remains unverified.
 
 ## F032 ? Streaming markdown performance
 
@@ -1229,3 +1228,116 @@ These additions do not imply the overall migration is complete. The 36-family ma
 - **CreateAgent (F025):** integrated checks pass; the reviewed model pin and optional schedule slices have focused evidence. Keep PARTIAL because reference file bindings and complete browser/live scheduler/database journeys are not yet verified.
 - **F015 published pages:** integrated checks pass; keep PARTIAL because migration 0060 is unapplied and publish/republish/revoke/public-view behavior has not been exercised against PostgreSQL and a browser.
 - Build evidence: two attempts failed at compile with `undefined.length` and no stack; failed `.next` output was preserved at ignored `.audit/next-failed-20261107-0130`. Clean build session 42765 passed, 194/194 pages. See `docs/testing-report.md` for non-fatal warnings and limits.
+
+## F010/F014 verified parity addendum (2026-11-07)
+- **F010 project brain:** `processProjectBrainQueue` now collects successfully processed, currently authorized project scopes and runs existing salience recomputation plus source-revision-aware stale-page archival once per unique project after the queue batch. Archive work remains capped at 20 pages per scope/pass. Errors are logged without converting a successful extraction to failure. Evidence: `src/lib/projects/brain-queue.ts`, `src/lib/projects/brain-maintenance.ts`, `src/lib/projects/brain-page-archive.ts`, `src/lib/projects/recompute-brain-salience.ts` and focused tests. This adapts post-ingest portions of upstream `project-brain-dream.ts`; full scheduled dream stages, background deduplication and live PostgreSQL execution remain incomplete. F010 stays PARTIAL.
+- **F014 table review:** the manual dashboard now permits multiple custom extraction columns with text/date/boolean/list/score/citation types, bounded to eight total fields; labels/prompts are normalized and validated before posting. Citation type flows into existing schema and citation-validation behavior. Evidence: `src/components/tabular-reviews-dashboard.tsx`, `src/lib/tabular/review-columns.ts`, and focused component/helper tests. This augments, rather than replaces, the existing chat-driven review flow. Live PostgreSQL/browser/provider workflow is still unverified; F014 stays PARTIAL.
+- Verification for this slice: 13 focused tests across 5 files; scoped Biome and TypeScript check passed. No database, deployment, or browser E2E action was performed.
+
+## F027 finalized voice-device transcript review handoff (2026-11-07)
+- Upstream evidence includes `voice_command` and `long_capture` session modes and an external-device WebSocket route that requires a separate gateway; the community checkout does not contain the gateway bridge implementation. Its voice-command finalizer dispatches tools, so Void-Agent preserves its stronger review/approval boundary.
+- Primary now exposes the deterministic saved-message ID only for finalized, nonempty, owner-scoped device sessions and links the owner dashboard to the existing chat handoff preview. The user must explicitly choose to send the transcript; no device action or tool executes automatically. Evidence: `src/app/api/voice/devices/[id]/sessions/route.ts`, `src/components/voice-devices-dashboard.tsx`, `src/components/chat-bot.tsx`, and the owner-scoped `loadVoiceTranscriptForHandoffAction`.
+- Verification: route tests passed 7/7, scoped Biome passed, and diff check passed. Full typecheck remains blocked by errors in the concurrent Cockpit schema/UI slice; no voice-file diagnostic was reported. No DB/gateway/hardware/browser run. F027 remains PARTIAL.
+
+## F025 CreateAgent file-binding and sandbox staging addendum (2026-11-07)
+- The reference stores file bindings in agent instructions, reuses existing user-owned upload keys, and stages those files into the sandbox at runtime. Void-Agent now validates client bindings against authenticated owner prefixes; a shared agent may retain an existing valid creator-owned binding without trusting client-supplied owner metadata. Filename and binding counts are normalized and bounded.
+- At execution, the approved agent file bindings are passed through the existing sandbox-tool context and staged into the isolated workspace under safe unique basenames. A manifest makes retries idempotent and removal is limited to safe previously manifested names. Per-file staging is capped at 50 MiB and aggregate staging at 100 MiB.
+- Resource security: new `FileStorage.downloadLimited` preflights local stat/S3 HEAD/Vercel Blob metadata and applies a hard stream-byte cap to cover incorrect metadata or object replacement. Existing `download()` semantics remain unchanged for other callers. Never accept owner IDs or storage keys as trusted grants from the client.
+- Evidence: `src/lib/ai/agent/agent-files.ts`, `src/lib/sandbox/agent-files.ts`, `src/lib/file-storage/limited-download.ts`, `src/lib/file-storage/{local-file-storage,s3-file-storage,vercel-blob-storage}.ts`, CreateAgent routes, `src/app/api/chat/route.ts`, `src/app/api/chat/shared.chat.ts`, and sandbox tool-kit wiring.
+- Focused storage/agent tests passed 35/35 across 6 files; broader related route tests passed in the root 70-test batch. Scoped Biome passed. Current 6 GB whole-project typecheck was reported passing by the Cockpit integration agent after its fixes; root will rerun after all concurrent changes settle. No live object-storage/E2B/browser journey. CreateAgent remains PARTIAL.
+
+## F021 desktop server selection and origin rebinding (2026-11-07)
+- Reference audit: `Void-Agent-V2/apps/desktop/src/main/server-picker.ts`, `server-picker-page.ts`, `server-config.ts`, `menu.ts`, `preload/index.ts`, and `main/index.ts` implement a new-install server picker and a Change Server menu. `packages/mcp-core/src/mcp-tool-policy.ts` separately keeps desktop MCP tools on a default-deny read-style allowlist; `apps/desktop/src/main/mcp-spawner.ts` and `mcp-ipc.ts` handle local process calls. The server picker is distinct from local MCP execution.
+- Void-Agent gap: prior `apps/desktop/src/main/index.ts` used one build-time `VOID_AGENT_WEB_URL` and had no way to select a self-hosted instance or change the deployment. It already had the isolated Electron shell, system-browser auth, local consent-gated MCP, update, notification, and download bridges.
+- Implemented: new installs show an isolated server chooser; existing profiles with browser data continue at the configured cloud origin and keep their cookie store. Explicit selection of a custom HTTPS Void-Agent origin persists the canonical origin in `server.json` (0600 on creation) and relaunches the process. A fresh process reinitializes auth, updater, navigation, downloads, notifications and MCP against the selected origin. Dev builds alone may choose loopback HTTP; production ignores stored HTTP origins.
+- Server identity adaptation: upstream's `/api/auth/ok` probe is absent from primary. The chooser checks primary's actual `/api/health` response (`service: "flare-ai"`, `status: "ok"` on 200 or `status: "degraded"` on 503). Probe uses GET without credentials, manual redirect handling, 6-second timeout and an 8 KiB response cap. A degraded dependency status is allowed so optional cache failure does not make a valid server unselectable.
+- Security boundaries: dedicated picker preload exposes only `serverPicker.choose`; IPC requires the current picker window's main frame and self-contained `data:` URL. Picker navigation and new windows are blocked; inline page has CSP `default-src 'none'`. Server URLs reject credentials/non-HTTPS origins (except dev loopback); probe does not follow redirects. Main-window target, OAuth callback origin, navigation allowlist, and local MCP trusted origin are reconstructed only after process relaunch. Existing MCP consent, tool allowlist, audit, and process policy are unchanged.
+- Evidence: `apps/desktop/src/main/{server-config,server-picker,server-picker-page,server-picker-policy}.ts`, `apps/desktop/src/preload/server-picker.ts`, `apps/desktop/src/main/index.ts`, and `apps/desktop/scripts/build-main.mjs`.
+- Verification: server config/health identity/picker page/trust tests pass 16/16; desktop TypeScript check, desktop main/preload build, scoped Biome pass. No interactive Electron, live self-hosted health probe, OAuth/device login, or packaged installation test was run. Release signing/feed credentials remain unavailable and are not required by this slice.
+- Status: F021 remains PARTIAL pending Electron runtime/manual new-install and server-switch journeys, signed package/update verification, and other reference desktop features. This implementation chooses one server per profile (matching reference), not simultaneous multi-origin windows.
+
+
+## F030 Vercel Cockpit vertical slice (2026-11-07)
+- Reference evidence: `Void-Agent-V2/apps/web/src/lib/cockpit/providers/vercel.ts`, provider schemas, connection/data/feed helpers, and finance/connect console. It supports up to six configured projects, optional team scope discovery, production deployment reads, latest deployment status/URL/date, and ERROR count over the prior seven days; it has no spend/margin source.
+- Primary implementation: `src/lib/cockpit/vercel.ts`, `/api/cockpit/vercel/{connection,connection/test,deployments}`, `src/components/cockpit/vercel-dashboard.tsx`, and `/cockpit/vercel`. The UI labels the failure metric as a count over seven days and reports production deployment timestamps; no inferred billing units are shown.
+- Migration 0063 remains unapplied and is additive: Stripe legacy `secret_encrypted` remains supported; Vercel token/team/project config is one AES-GCM `config_encrypted` payload. API projections expose only `tokenSet`, team ID, and project metadata. Personal/team scopes use existing unique constraints and role checks.
+- Egress is fixed `https://api.vercel.com`, GET-only, redirect-rejecting, 20-second timeout, max 20 team results, six projects, 20 deployments per project, and a 2 MiB streamed body cap before JSON parse. Generic errors omit upstream bodies; no mutation endpoints are called.
+- Verification: focused Cockpit tests 28/28 across five files; scoped Biome lint passed on 15 files; `pnpm db:check` passed. Whole-project typecheck reports only the unrelated concurrent project-brain error at `src/app/api/projects/[id]/brain/status/route.ts:172`; no Vercel diagnostic remains. No migration apply, live Vercel request, authenticated browser workflow, or PostgreSQL team authorization test.
+- Remaining: website, Revolut, Superlog, SEO, unified finance composition/controls, and live workflow verification remain. F030 is PARTIAL.
+
+## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
+- Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
+- Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+
+## F030 Vercel integration addendum (2026-11-07 06:41:22 +05:30)
+- In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
+- Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
+- Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
+
+## Verified implementation addendum — 2026-11-07
+
+- **F008 PARTIAL:** title generation request bounded and team billing derives only from an owner-authorized persisted thread/project. Agent generation rejects arbitrary team fields and is authenticated/rate limited; it has no authoritative persisted team scope yet.
+- **F010/F011 PARTIAL:** durable dream-cycle stages are enqueued and processed through scheduler, revalidate current attached-source and owner scopes, and only produce review suggestions/classifications. Never auto-merges or resolves facts.
+- **F014 PARTIAL:** write routes now enforce same-origin and bounded bodies/rate controls; feature needs real database/provider/browser journey verification.
+- **F020 PARTIAL:** approved remote MCP call results are capped at 1 MiB; invalid/oversized values become safe protocol errors.
+- **F021 PARTIAL:** desktop audit viewer is restricted to the trusted MCP test page and returns validated event metadata plus hashes, not commands, arguments, results or env values.
+- **F022 PARTIAL:** saved-workflow approval previews effects and blocks dynamic/unknown effects; one-use authorization remains bound to graph revision and exact payload and is checked again before execution.
+- **F026/F028 PARTIAL:** voice transcript creates a user-triggered draft handoff; Slack connector ownership must match inbound endpoint ownership before signed event processing.
+- **F029 PARTIAL:** a persisted project-brain health transition creates a generic, deduplicated notification to current authorized project recipients.
+- **F030 PARTIAL:** Stripe, Vercel and Website provider slices use encrypted config, role gates, fixed-host read-only fetches and response bounds; other reference providers/console behavior remain.
+- **F031 PARTIAL:** report history/submission is private to the user; screenshot keys must be in their own storage namespace and page context is same-origin sanitized.
+
+No family is marked COMPLETE on the basis of route/component presence; environment-dependent end-to-end verification remains open.
+
+## F030 Revolut Business provider addendum (2026-11-07)
+- Implemented an encrypted Revolut Business OAuth connection with transient authorization-code exchange, server-side RS256 assertions and refresh-token exchange, personal/team owner/editor management, team-member reads, connection test/status/remove routes, and an account dashboard.
+- Data requests use only fixed production/sandbox Revolut hosts and read-only GET calls for active balances and a maximum of 1,000 transactions over 30 days. Response streams are capped at 2 MiB; API calls reject redirects and have a 15-second timeout. Access tokens are hashed-key cached and concurrent refreshes are coalesced.
+- Focused tests passed 6/6 across provider and connection API tests; scoped Biome lint and `pnpm db:check` passed. Whole-project typecheck was started but stopped at parent request to avoid contention with concurrent F023 work; status is inconclusive, not a pass.
+- Migration 0063 provider allowlist now includes Revolut and remains unapplied. No live Revolut/PostgreSQL request, browser workflow, or production build was performed for this slice. Superlog, SEO, unified finance console, and live verification remain. F030 stays PARTIAL.
+
+## F030 Superlog read-only provider addendum (2026-11-07)
+- Reference behavior: `Void-Agent-V2/apps/web/src/lib/cockpit/providers/superlog.ts` uses a Superlog MCP personal token to read `search_incidents`, `list_alerts`, and `query_logs`, filtering arguments to declared tool properties and producing bounded incident/service summaries.
+- Primary adaptation: `src/lib/cockpit/superlog.ts`, `/api/cockpit/superlog/*`, and `/cockpit/superlog` now provide encrypted PAT storage and summary views. The endpoint is fixed to `https://api.superlog.sh/mcp`, redirects are rejected, external response streams are capped at 1 MiB, calls time out after 6 seconds, and only bounded aggregate fields are exposed. Team reads require membership; writes/tests/removal require owner/editor access.
+- Database: migration 0063 provider allowlist includes `superlog`; it is still unapplied. No database was contacted.
+- Verification: focused provider and connection-route tests passed 8/8; scoped Biome and `git diff --check` passed. Integrated typecheck/build are pending root verification; no live Superlog, PostgreSQL, or browser journey was run.
+- Remaining: SEO provider, unified finance/connect console, broader data/alert integrations, and live provider/DB/browser verification. F030 remains PARTIAL.
+## F010/F011 durable dream status stage (2026-11-07)
+- Added a final `status` stage after dedupe, contradiction classification, salience refresh, and stale-page archive. It reuses Void-Agent's status synthesizer and snapshots; it revalidates current project/editor/source scope after inference, discards stale-fingerprint output, reuses an exact-fingerprint snapshot on retry, and calls the existing health-transition notifier.
+- Evidence: `src/lib/projects/brain-dream.ts`, `src/lib/projects/brain-dream-state.ts`, `src/lib/db/migrations/pg/0066_project_brain_dream_status_stage.sql`; focused stage-state tests 5/5 and `pnpm db:check` passed.
+- Migration 0066 is local and unapplied; no PostgreSQL-backed stage transaction or browser workflow was run. F010/F011 remain PARTIAL.
+
+## F025 approval and execution hardening (2026-11-07)
+- Internal saved-workflow execution continues to require a server-computed effect review and one-use approval bound to current graph revision and exact runtime input. Review rejects dynamic HTTP values, model-generated tool arguments, runtime LLM data, unsupported nodes, and excessive effect lists.
+- HTTP review now omits and rejects opaque, oversized, or too-complex request bodies; credential-like URL userinfo/query keys, header keys, and nested JSON body keys are redacted and suppress approval. Approval route regressions verify no token is issued for unreviewable/secret-bearing effects.
+- Standalone cloud MCP test and OpenAI Realtime/Konvo/ElevenLabs voice calls use the exact-payload user-bound approval helper and current MCP access checks. Desktop stdio MCP consent now displays the complete bounded argument JSON; cancellation prevents execution and records denial.
+- Evidence: `src/lib/ai/workflow/workflow-review.ts`, `src/app/api/approvals/workflow-run/route.ts`, `src/app/api/chat/shared.chat.ts`, `src/app/api/mcp/actions.ts`, `apps/desktop/src/main/mcp-ipc.ts`; focused approval/review/MCP tests passed (16/16 workflow review/approval; 15/15 desktop/voice/MCP API slices).
+- No live provider, PostgreSQL replay race, browser voice session, or Electron GUI was available. F025/F021 remain PARTIAL.
+
+## F023 saved-workflow draft editor compile repair (2026-11-07)
+- Kept draft editor graph writes isolated to `/api/saved-workflows/[id]/structure`; it accepts converter payloads but overwrites client workflow IDs with the authenticated owner-authorized path ID. Database node/edge timestamps and nullable descriptions now satisfy repository types. Metadata PATCH preserves required existing fields and reports non-2xx failures.
+- Focused APIs/component tests pass 10/10 after root type fixes; draft routes remain private/unpublished and do not establish publish/run/team-sharing parity. F023 remains PARTIAL.
+
+## F030 additional Superlog provider (2026-11-07)
+- Added an encrypted PAT-backed, fixed-host Superlog MCP connection and read-only incident/alert/error dashboard with declared-argument filtering, redirect rejection, a six-second timeout and 1 MiB streamed response cap. Team reads require membership; credential changes require owner/editor.
+- Focused provider/API tests pass 8/8; migration 0063 remains unapplied. SEO and unified console controls/live checks remain missing; F030 remains PARTIAL.
+
+### F028 recheck — reference channel lifecycle remains EXCLUDED (2026-11-07 09:20 IST)
+- Evidence: reference schema `Void-Agent-V2/apps/web/src/lib/db/pg/schema.pg.ts` (`SlackChannelSubscriptionTable`, `SlackAgentTaskTable`) and migration `Void-Agent-V2/apps/web/src/lib/db/migrations/pg/0030_slack_navigator_bot.sql`; settings UI `Void-Agent-V2/apps/web/src/components/slack/slack-integration-settings.tsx` calls `/api/slack`, `/api/slack/channels`, `/api/slack/sync`, `/api/slack/connect`.
+- No reference `apps/web/src/app/api/slack` handlers or repository consumers were found for the subscription/task tables, signed event/replay processing, task execution, or response delivery. These UI/schema declarations do not establish executable lifecycle behavior and are excluded on that source-completeness basis.
+- Void-Agent signed inbound event processing remains EXISTING/PARTIAL: endpoint-owner binding, HMAC verification, and queue delivery are present, but do not constitute parity with the reference's non-executable channel lifecycle. Focused verification: `pnpm vitest run 'src/app/api/inbound/[token]/route.test.ts' src/lib/inbound/slack.test.ts` — 8/8 passed. F028 remains PARTIAL overall.
+## F030 SEO provider slice (2026-11-07)
+- Status remains PARTIAL. Primary DataForSEO behavior is implemented at `src/lib/cockpit/seo.ts`, `src/app/api/cockpit/seo/**`, and `src/components/cockpit/seo-dashboard.tsx`; it stores login/password/domain/market config in encrypted Cockpit config and scopes personal/team reads with membership and team writes to owner/editor.
+- Provider tools are fetched only from fixed `https://mcp.dataforseo.com/v3/mcp`; redirects and alternate hosts/paths are rejected, response size is bounded, sessions time out, only schema-declared arguments are sent, and summary rows are capped. API mutations enforce same-origin, bounded JSON, rate limits, and ACLs.
+- Evidence: `src/lib/cockpit/seo.test.ts` and `src/app/api/cockpit/seo/connection/route.test.ts` passed 7/7; together with focused Superlog tests, 15/15 tests passed. Scoped `pnpm db:check` passed; migration 0063 is unapplied. No live DataForSEO/PostgreSQL/authenticated browser check. OpenSEO's connected-Navigator OAuth workflow and unified Cockpit console are outstanding.
+### F030 SEO verification update (2026-11-07)
+- Final focused run after adding rate-limit-store failure regression coverage: SEO + Superlog connection/provider tests passed 16/16 across 4 files. This supersedes earlier 15/15 totals and the SEO route count is now 8/8 with the new fail-closed test.
+
+## F025 n8n approval subfeature update (2026-11-07)
+- The n8n approval subfeature now provides an exact bounded preview for literal HTTP request method, URL, and parameters; configured credentials are shown by type without secret data. Dynamic/unknown/unreviewable effects are rejected both during preview and before token issuance. Coverage includes JSON-string and header name/value credential redaction; 13/13 focused tests passed.
+- F025 remains PARTIAL: non-HTTP integration adapters, live n8n workflow verification, and broader CreateAgent/MCP approval capabilities remain.
+## F008 project-brain status budget slice (2026-11-07)
+- Project status generation now reuses a snapshot for an unchanged evidence fingerprint, derives team scope from persisted project access, chooses an enabled configured model on the server, reserves before inference, settles reported usage (or the conservative estimate when usage metadata is absent), disables provider retries for the pinned billable call, and rechecks user role/team/evidence before persistence.
+- A ledger settlement failure after successful inference no longer releases the reservation as if the call had aborted. The failed settlement is surfaced as a safe server error and the reservation remains for reconciliation; the route does not persist or return status from that request.
+- Evidence: `src/app/api/projects/[id]/brain/status/route.ts`, `src/lib/projects/project-brain-status.ts`, and their route/service/budget tests. Focused tests pass 25/25 across three files; integrated typecheck passed.
+- F008 remains PARTIAL: migration 0062 is unapplied, no PostgreSQL-backed reservation/access concurrency journey was run, and team-cost enforcement is still limited to covered routes/models.

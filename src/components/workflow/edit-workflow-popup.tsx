@@ -37,6 +37,7 @@ import { cn, createDebounce } from "lib/utils";
 import { mutate } from "swr";
 import { useTranslations } from "next-intl";
 import { BACKGROUND_COLORS } from "lib/const";
+import { updateSavedWorkflowMetadata } from "lib/ai/workflow/saved-workflow-metadata";
 
 const colorUpdateDebounce = createDebounce();
 
@@ -79,6 +80,7 @@ export function EditWorkflowPopup({
   onSave,
   open,
   onOpenChange,
+  apiEndpoint = "/api/workflow",
 }: {
   children?: React.ReactNode;
   defaultValue?: Pick<DBWorkflow, "id" | "name" | "description" | "icon">;
@@ -86,6 +88,7 @@ export function EditWorkflowPopup({
   open?: boolean;
   onSave?: (workflow: DBWorkflow) => void;
   onOpenChange?: (open: boolean) => void;
+  apiEndpoint?: string;
 }) {
   const t = useTranslations();
   const { theme } = useTheme();
@@ -114,18 +117,34 @@ export function EditWorkflowPopup({
     toast.promise(
       safe(() => zodSchema.parse(config))
         .map(async (body) => {
-          const response = await fetch("/api/workflow", {
-            method: "POST",
-            body: JSON.stringify(body),
+          if (apiEndpoint === "/api/saved-workflows" && body.id) {
+            return (await updateSavedWorkflowMetadata(body.id, {
+              name: body.name,
+              description: body.description,
+            })) as DBWorkflow;
+          }
+          const response = await fetch(
+            apiEndpoint === "/api/workflow" || !body.id
+              ? apiEndpoint
+              : `${apiEndpoint}/${body.id}`,
+            {
+            method: apiEndpoint !== "/api/workflow" && body.id ? "PATCH" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              apiEndpoint !== "/api/workflow" && body.id
+                ? { name: body.name, description: body.description }
+                : body,
+            ),
           });
+          if (!response.ok) throw new Error("Unable to save workflow");
           const data = await response.json();
           return data as DBWorkflow;
         })
         .ifOk((workflow) => {
           onOpenChange?.(false);
-          mutate("/api/workflow");
+          mutate(apiEndpoint);
           if (submitAfterRoute) {
-            router.push(`/workflow/${workflow.id}`);
+            router.push(`${apiEndpoint === "/api/saved-workflows" ? "/saved-workflows" : "/workflow"}/${workflow.id}`);
           }
           onSave?.(workflow);
         })

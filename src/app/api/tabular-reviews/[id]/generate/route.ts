@@ -12,6 +12,7 @@ import {
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import { hasSameOrigin } from "lib/security/same-origin";
 import {
   type ReviewCellRegeneration,
   isReviewCellInScope,
@@ -61,6 +62,8 @@ export async function POST(
 ) {
   const session = await getSession();
   if (!session?.user.id) return new Response("Unauthorized", { status: 401 });
+  if (!hasSameOrigin(request))
+    return new Response("Forbidden", { status: 403 });
   const { id } = await params;
   let target: ReviewCellRegeneration | undefined;
   if (request.body) {

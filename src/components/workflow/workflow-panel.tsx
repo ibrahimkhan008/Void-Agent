@@ -37,6 +37,7 @@ export const WorkflowPanel = memo(
     workflow,
     addProcess,
     hasEditAccess,
+    savedDraftMode = false,
   }: {
     selectedNode?: UINode;
     onSave: () => Promise<void>;
@@ -44,6 +45,7 @@ export const WorkflowPanel = memo(
     workflow: DBWorkflow;
     addProcess: () => () => void;
     hasEditAccess?: boolean;
+    savedDraftMode?: boolean;
   }) {
     const { setNodes, getNodes, getEdges } = useReactFlow();
     const [showExecutePanel, setShowExecutePanel] = useState(false);
@@ -65,7 +67,7 @@ export const WorkflowPanel = memo(
         setIsSaving(true);
         const close = addProcess();
         safe(() =>
-          fetch(`/api/workflow/${workflow.id}`, {
+          fetch(`${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflow.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -75,14 +77,14 @@ export const WorkflowPanel = memo(
             if (res.status != 200) throw new Error(res.statusText);
           }),
         )
-          .ifOk(() => mutate(`/api/workflow/${workflow.id}`))
+          .ifOk(() => mutate(`${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflow.id}`))
           .ifFail((e) => handleErrorWithToast(e))
           .watch(() => {
             setIsSaving(false);
             close();
           });
       },
-      [workflow],
+      [workflow, savedDraftMode],
     );
 
     const updatePublished = useCallback(
@@ -114,7 +116,7 @@ export const WorkflowPanel = memo(
         const close = addProcess();
         safe(() => onSave())
           .ifOk(() =>
-            fetch(`/api/workflow/${workflow.id}`, {
+            fetch(`${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflow.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -124,17 +126,17 @@ export const WorkflowPanel = memo(
               if (res.status != 200) throw new Error(res.statusText);
             }),
           )
-          .ifOk(() => mutate(`/api/workflow/${workflow.id}`))
+          .ifOk(() => mutate(`${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflow.id}`))
           .ifFail((e) => handleErrorWithToast(e))
           .watch(close);
       },
-      [workflow],
+      [workflow, savedDraftMode, onSave, getNodes, getEdges, setNodes, addProcess],
     );
 
     const handleWorkflowMasterSave = useCallback((workflow: DBWorkflow) => {
-      mutate(`/api/workflow/${workflow.id}`);
+      mutate(`${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflow.id}`);
       setIsEditing(false);
-    }, []);
+    }, [savedDraftMode]);
 
     return (
       <div className="min-h-0 flex flex-col items-end">
@@ -179,7 +181,7 @@ export const WorkflowPanel = memo(
           <div className="h-6">
             <Separator orientation="vertical" />
           </div>
-          <Button
+          {!savedDraftMode && <Button
             variant="secondary"
             disabled={isProcessing}
             onClick={() => {
@@ -196,7 +198,7 @@ export const WorkflowPanel = memo(
           >
             <PlayIcon />
             {t("Common.run")}
-          </Button>
+          </Button>}
 
           {!workflow.isPublished && (
             <Tooltip>
@@ -221,7 +223,7 @@ export const WorkflowPanel = memo(
           <div className="h-6">
             <Separator orientation="vertical" />
           </div>
-          <Tooltip>
+          {!savedDraftMode && <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant={"secondary"}
@@ -241,14 +243,14 @@ export const WorkflowPanel = memo(
                   : t("Workflow.draftDescription")}
               </p>
             </TooltipContent>
-          </Tooltip>
-          <ShareableActions
+          </Tooltip>}
+          {!savedDraftMode && <ShareableActions
             type="workflow"
             visibility={workflow.visibility}
             isOwner={hasEditAccess || false}
             onVisibilityChange={hasEditAccess ? updateVisibility : undefined}
             isVisibilityChangeLoading={isSaving}
-          />
+          />}
         </div>
         <div className="flex gap-2">
           {selectedNode && <SelectedNodeConfigTab node={selectedNode} />}
@@ -267,6 +269,7 @@ export const WorkflowPanel = memo(
           onOpenChange={setIsEditing}
           defaultValue={workflow}
           onSave={handleWorkflowMasterSave}
+          apiEndpoint={savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}
         />
       </div>
     );

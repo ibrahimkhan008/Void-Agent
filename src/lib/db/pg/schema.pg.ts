@@ -10,8 +10,12 @@ import {
 } from "app-types/subscription";
 import { UserPreferences } from "app-types/user";
 import { DBEdge, DBNode, DBWorkflow } from "app-types/workflow";
+import type {
+  ProblemReportContext,
+  ProblemReportScreenshot,
+} from "../../../types/problem-report";
 import { sql } from "drizzle-orm";
-import { isNotNull } from "drizzle-orm";
+import { isNotNull, isNull } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
@@ -2583,6 +2587,76 @@ export const ProjectBrainRunTable = pgTable(
   ],
 );
 
+/** Durable, idempotent project-brain consolidation runs (separate from source ingests). */
+export const ProjectBrainDreamRunTable = pgTable(
+  "project_brain_dream_run",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    requestedByUserId: uuid("requested_by_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull().$type<"manual" | "nightly">(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    status: text("status")
+      .notNull()
+      .default("queued")
+      .$type<"queued" | "running" | "partial" | "succeeded" | "failed">(),
+    stage: text("stage")
+      .notNull()
+      .default("dedupe")
+      .$type<
+        "dedupe" | "contradictions" | "salience" | "archive" | "status" | "done"
+      >(),
+    attempts: integer("attempts").notNull().default(0),
+    metrics: jsonb("metrics")
+      .notNull()
+      .default(sql`'{}'::jsonb`)
+      .$type<Record<string, Record<string, unknown>>>(),
+    warnings: jsonb("warnings")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<string[]>(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
+  },
+  (table) => [
+    unique("project_brain_dream_project_idempotency_unique").on(
+      table.projectId,
+      table.idempotencyKey,
+    ),
+    index("project_brain_dream_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    index("project_brain_dream_project_created_idx").on(
+      table.projectId,
+      table.createdAt,
+    ),
+    check(
+      "project_brain_dream_reason_check",
+      sql`${table.reason} IN ('manual', 'nightly')`,
+    ),
+    check(
+      "project_brain_dream_status_check",
+      sql`${table.status} IN ('queued', 'running', 'partial', 'succeeded', 'failed')`,
+    ),
+    check(
+      "project_brain_dream_stage_check",
+      sql`${table.stage} IN ('dedupe', 'contradictions', 'salience', 'archive', 'status', 'done')`,
+    ),
+  ],
+);
+
 /** Stable project-scoped identity records backed by reviewed fact claims. */
 export const ProjectBrainPageTable = pgTable(
   "project_brain_page",
@@ -2996,3 +3070,87 @@ export const BuildJobTable = pgTable(
 
 export type BuildJobEntity = typeof BuildJobTable.$inferSelect;
 export type NewBuildJob = typeof BuildJobTable.$inferInsert;
+
+/** Encrypted, user-owned read-only Stripe connection for the Cockpit view. */
+export const CockpitConnectionTable = pgTable(
+  "cockpit_connection",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => TeamTable.id, {
+      onDelete: "cascade",
+    }),
+    provider: varchar("provider", { length: 32 }).notNull().default("stripe"),
+    // Stripe legacy single-secret column remains readable. Providers with
+    // structured credentials store a JSON config in configEncrypted instead.
+    secretEncrypted: text("secret_encrypted"),
+    configEncrypted: text("config_encrypted"),
+    lastTestedAt: timestamp("last_tested_at"),
+    lastTestOk: boolean("last_test_ok"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("cockpit_connection_personal_provider_unique")
+      .on(table.userId, table.provider)
+      .where(isNull(table.teamId)),
+    uniqueIndex("cockpit_connection_team_provider_unique")
+      .on(table.teamId, table.provider)
+      .where(isNotNull(table.teamId)),
+    index("cockpit_connection_user_idx").on(table.userId),
+    check(
+      "cockpit_connection_provider_check",
+      sql`${table.provider} IN ('stripe', 'vercel', 'website', 'revolut', 'superlog', 'seo')`,
+    ),
+    check(
+      "cockpit_connection_encrypted_config_check",
+      sql`${table.secretEncrypted} IS NOT NULL OR ${table.configEncrypted} IS NOT NULL`,
+    ),
+  ],
+);
+
+export type CockpitConnectionEntity =
+  typeof CockpitConnectionTable.$inferSelect;
+
+/** Private in-product issue reports and their user-visible triage status. */
+export const ProblemReportTable = pgTable(
+  "problem_report",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    screenshots: jsonb("screenshots")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<ProblemReportScreenshot[]>(),
+    context: jsonb("context").$type<ProblemReportContext>(),
+    status: varchar("status", { length: 16 }).notNull().default("open"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("problem_report_user_created_idx").on(table.userId, table.createdAt),
+    index("problem_report_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    check(
+      "problem_report_status_check",
+      sql`${table.status} IN ('open', 'in_review', 'resolved')`,
+    ),
+  ],
+);
+
+export type ProblemReportEntity = typeof ProblemReportTable.$inferSelect;

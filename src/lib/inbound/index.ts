@@ -35,7 +35,11 @@ export type {
   SlackParseResult,
   SlackRequestHeaders,
 } from "./slack";
-export { computeSlackSignature, parseSlackEvent } from "./slack";
+export {
+  computeSlackSignature,
+  isSlackEndpointOwner,
+  parseSlackEvent,
+} from "./slack";
 export type {
   InboundEndpointForValidation,
   ValidateInboundRequestInput,

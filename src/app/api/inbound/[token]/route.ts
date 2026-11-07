@@ -8,6 +8,7 @@ import { inboundRepository, webhookRepository } from "lib/db/repository";
 import {
   type EmailProvider,
   type NormalizedInbound,
+  isSlackEndpointOwner,
   normalizeEmail,
   normalizeSlack,
   normalizeWebhook,
@@ -275,6 +276,18 @@ async function handleSlack(
   if (!connector) {
     routeLogger.warn(
       `No Slack connector found for team ${teamId} (endpoint ${endpoint.id})`,
+    );
+    return new Response("No Slack connector for this workspace", {
+      status: 404,
+    });
+  }
+  // The connector lookup is global because Slack team IDs are workspace
+  // identifiers. Bind it back to this inbound endpoint before using its
+  // signature secret or enqueuing work; otherwise a valid event for another
+  // user's connected workspace could execute this endpoint's agent.
+  if (!isSlackEndpointOwner(endpoint.userId, connector.userId)) {
+    routeLogger.warn(
+      `Slack connector owner did not match inbound endpoint ${endpoint.id}`,
     );
     return new Response("No Slack connector for this workspace", {
       status: 404,

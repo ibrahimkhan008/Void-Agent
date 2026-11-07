@@ -2,7 +2,7 @@ import "server-only";
 import { workflowRunApprovalSchema } from "lib/ai/tools/hitl/workflow-run-approval";
 import { workflowRunApprovalRepository } from "lib/db/pg/repositories/workflow-run-approval-repository.pg";
 import { workflowRepository } from "lib/db/repository";
-import { getWorkflowGraphRevision } from "./workflow-review";
+import { getWorkflowEffectReview, getWorkflowGraphRevision } from "./workflow-review";
 import { assertWorkflowMcpAccess } from "./assert-workflow-mcp-access";
 
 export async function loadApprovedWorkflow(input: {
@@ -37,6 +37,10 @@ export async function loadApprovedWorkflow(input: {
 
   const graphRevision = getWorkflowGraphRevision(workflow.nodes, workflow.edges);
   await assertWorkflowMcpAccess(input.userId, workflow.nodes);
+  const effectReview = getWorkflowEffectReview(workflow.nodes);
+  if (!effectReview.reviewable) {
+    throw new Error("This workflow contains actions that cannot be previewed safely. Review its action arguments before running.");
+  }
   const approval = workflowRunApprovalSchema.safeParse({ ...approvalBase, graphRevision });
   if (!approval.success) throw new Error("Saved workflow approval is invalid.");
 

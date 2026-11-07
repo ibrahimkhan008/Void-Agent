@@ -172,6 +172,30 @@ type BrainPagesData = {
     archivedAt: string;
   }>;
 };
+type BrainDreamData = {
+  runs: Array<{
+    id: string;
+    status: string;
+    stage: string;
+    metrics: Record<
+      string,
+      {
+        suggestions?: Array<{
+          firstPageId: string;
+          secondPageId: string;
+          firstTitle: string;
+          secondTitle: string;
+          verdict: string;
+          explanation: string;
+        }>;
+        [key: string]: unknown;
+      }
+    >;
+    warnings: string[];
+    errorMessage: string | null;
+    createdAt: string;
+  }>;
+};
 type NodeDetailData = {
   detail: null | {
     node: { id: string; label: string; factCount: number };
@@ -298,6 +322,46 @@ export function ProjectBrainPanel({
       revalidateOnFocus: false,
       errorRetryCount: 0,
     });
+  const { data: dreamData, mutate: mutateDream } = useSWR<BrainDreamData>(
+    `/api/projects/${projectId}/brain/dream`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      errorRetryCount: 0,
+      refreshInterval: (value) =>
+        value?.runs.some(
+          (run) => run.status === "queued" || run.status === "running",
+        )
+          ? 2500
+          : 0,
+    },
+  );
+  const [startingDream, setStartingDream] = useState(false);
+  const startBrainDream = async () => {
+    setStartingDream(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/brain/dream`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error || "Could not start the brain cycle");
+      toast.success(
+        payload.deduplicated
+          ? "A brain cycle is already queued this hour"
+          : "Project brain cycle queued",
+      );
+      await mutateDream();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not start the brain cycle",
+      );
+    } finally {
+      setStartingDream(false);
+    }
+  };
   const {
     data: nodeDetailData,
     error: nodeDetailError,
@@ -1617,6 +1681,75 @@ export function ProjectBrainPanel({
               >
                 {isRefreshingSalience ? "Refreshing…" : "Refresh graph ranking"}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={
+                  startingDream ||
+                  dreamData?.runs.some(
+                    (run) =>
+                      run.status === "queued" || run.status === "running",
+                  )
+                }
+                onClick={() => void startBrainDream()}
+              >
+                {startingDream ? "Queueing…" : "Run brain cycle"}
+              </Button>
+            </div>
+          )}
+          {(dreamData?.runs.length ?? 0) > 0 && (
+            <div className="rounded-md border p-3 text-xs text-muted-foreground">
+              <h5 className="font-medium text-foreground">
+                Latest brain cycle
+              </h5>
+              {dreamData!.runs.slice(0, 1).map((run) => (
+                <div key={run.id} className="mt-1 space-y-1">
+                  <p>
+                    {run.status} · {run.stage}
+                    {run.errorMessage ? ` · ${run.errorMessage}` : ""}
+                  </p>
+                  {Object.entries(run.metrics ?? {}).map(([stage, metrics]) => (
+                    <div key={stage}>
+                      <p>
+                        {stage}:{" "}
+                        {Object.entries(metrics)
+                          .filter(([key]) => key !== "suggestions")
+                          .map(([key, value]) => `${key} ${String(value)}`)
+                          .join(" · ")}
+                      </p>
+                      {metrics.suggestions?.map((suggestion) => (
+                        <div
+                          key={`${suggestion.firstPageId}:${suggestion.secondPageId}`}
+                          className="mt-1 flex flex-wrap items-center gap-2"
+                        >
+                          <span>
+                            {suggestion.firstTitle} may match{" "}
+                            {suggestion.secondTitle}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setSelectedMergePageIds([
+                                suggestion.firstPageId,
+                                suggestion.secondPageId,
+                              ])
+                            }
+                          >
+                            Review merge
+                          </Button>
+                          <span>{suggestion.explanation}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  {run.warnings?.map((warning, index) => (
+                    <p key={`${run.id}-${index}`} className="text-destructive">
+                      {warning}
+                    </p>
+                  ))}
+                </div>
+              ))}
             </div>
           )}
           {(brainPagesData?.duplicateCandidates.length ?? 0) > 0 && (

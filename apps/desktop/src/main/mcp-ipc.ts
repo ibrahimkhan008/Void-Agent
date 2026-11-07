@@ -7,6 +7,7 @@ import {
   dialog,
   ipcMain,
 } from "electron";
+import { readRecentDesktopMcpAuditEvents } from "./mcp-audit-log.js";
 import {
   desktopStdioConfigSchema,
   desktopToolCallSchema,
@@ -109,6 +110,11 @@ async function writeAudit(input: {
 }
 
 export function registerMcpIpcHandlers() {
+  ipcMain.handle("mcp:get-audit-history", async (event) => {
+    assertTrustedMcpPage(event);
+    return readRecentDesktopMcpAuditEvents(app.getPath("userData"));
+  });
+
   ipcMain.handle("mcp:list-tools", async (event, payload: unknown) => {
     const configInput = (payload as { config?: unknown } | null)?.config;
     try {
@@ -150,7 +156,7 @@ export function registerMcpIpcHandlers() {
       type: "warning",
       title: "Run a local MCP tool?",
       message: `Ask the local MCP server to run “${call.toolName}”?`,
-      detail: `This program can perform actions beyond what its tool name suggests. Arguments: ${JSON.stringify(call.params).slice(0, 3_000)}\n\nIts result will be returned to ${trustedOrigin}. Review the command, server settings, and arguments in Void-Agent before continuing.`,
+      detail: `This program can perform actions beyond what its tool name suggests. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nIts result will be returned to ${trustedOrigin}. Review the command, server settings, and complete arguments in Void-Agent before continuing.`,
       buttons: ["Run tool", "Cancel"],
       defaultId: 1,
       cancelId: 1,

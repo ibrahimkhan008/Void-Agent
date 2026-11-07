@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   callDesktopMcpTool: vi.fn(),
   getMcpConfigFingerprint: vi.fn(),
   hashMcpAuditValue: vi.fn(),
+  readRecentDesktopMcpAuditEvents: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
@@ -24,6 +25,9 @@ vi.mock("./mcp-spawner.js", () => ({
   getMcpConfigFingerprint: mocks.getMcpConfigFingerprint,
   hashMcpAuditValue: mocks.hashMcpAuditValue,
   listDesktopMcpTools: mocks.listDesktopMcpTools,
+}));
+vi.mock("./mcp-audit-log.js", () => ({
+  readRecentDesktopMcpAuditEvents: mocks.readRecentDesktopMcpAuditEvents,
 }));
 
 import type { BrowserWindow } from "electron";
@@ -54,6 +58,7 @@ function setup() {
     event,
     callTool: mocks.handlers.get("mcp:tool-call")!,
     listTools: mocks.handlers.get("mcp:list-tools")!,
+    getAuditHistory: mocks.handlers.get("mcp:get-audit-history")!,
   };
 }
 
@@ -68,6 +73,9 @@ describe("desktop MCP IPC config consent", () => {
     );
     mocks.hashMcpAuditValue.mockReturnValue("audit-hash");
     mocks.listDesktopMcpTools.mockResolvedValue([]);
+    mocks.readRecentDesktopMcpAuditEvents.mockResolvedValue([
+      { action: "mcp.tool-call", outcome: "success", toolName: "read_file" },
+    ]);
     mocks.callDesktopMcpTool.mockResolvedValue({
       content: [{ type: "text", text: "read result" }],
     });
@@ -92,6 +100,46 @@ describe("desktop MCP IPC config consent", () => {
     expect(result).toMatchObject({
       content: [{ type: "text", text: "read result" }],
     });
+  });
+
+  it("shows the complete exact arguments even when they exceed the former preview limit", async () => {
+    const { event, callTool } = setup();
+    const testConfig = { ...config, command: "node-long-argument-test" };
+    const longValue = "x".repeat(5_000);
+    const exactCall = {
+      toolName: "read_file",
+      params: { path: "notes.txt", context: longValue },
+    };
+
+    await callTool(event, { config: testConfig, ...exactCall });
+
+    const toolPrompt = mocks.showMessageBox.mock.calls[1]?.[1];
+    expect(toolPrompt?.detail).toContain("Exact arguments (full JSON):");
+    expect(toolPrompt?.detail).toContain(longValue);
+    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(
+      testConfig,
+      exactCall,
+    );
+  });
+
+  it("does not execute a local tool when its exact-arguments consent is declined", async () => {
+    const { event, callTool } = setup();
+    const testConfig = { ...config, command: "node-declined-tool-test" };
+    mocks.showMessageBox
+      .mockResolvedValueOnce({ response: 0 })
+      .mockResolvedValueOnce({ response: 1 });
+
+    await expect(
+      callTool(event, { config: testConfig, ...call }),
+    ).rejects.toThrow("Local MCP tool call was not approved");
+
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
+    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
+    expect(mocks.appendFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining('"outcome":"denied"'),
+      expect.any(Object),
+    );
   });
 
   it("requires new process consent when the executable config changes after listing", async () => {
@@ -137,5 +185,23 @@ describe("desktop MCP IPC config consent", () => {
     );
     expect(mocks.showMessageBox).not.toHaveBeenCalled();
     expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
+  });
+
+  it("returns only the main-process safe audit projection to the MCP test page", async () => {
+    const { event, getAuditHistory } = setup();
+    await expect(getAuditHistory(event)).resolves.toEqual([
+      { action: "mcp.tool-call", outcome: "success", toolName: "read_file" },
+    ]);
+    expect(mocks.readRecentDesktopMcpAuditEvents).toHaveBeenCalledWith(
+      "/tmp/void-agent-desktop-test",
+    );
+
+    const untrustedEvent = {
+      sender: {},
+      senderFrame: { url: `${origin}/mcp/test/server-1` },
+    };
+    await expect(getAuditHistory(untrustedEvent)).rejects.toThrow(
+      "Untrusted desktop IPC sender",
+    );
   });
 });

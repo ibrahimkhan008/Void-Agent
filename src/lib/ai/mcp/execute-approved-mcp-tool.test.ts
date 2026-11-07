@@ -34,4 +34,69 @@ describe("executeApprovedMcpTool", () => {
     expect(result).toEqual({ content: [{ type: "text", text: "done" }] });
     expect(execute).toHaveBeenCalledOnce();
   });
+
+  it("does not forward oversized MCP tool results into chat", async () => {
+    mocks.consume.mockResolvedValue(true);
+    const execute = vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "x".repeat(1_100_000) }],
+    });
+    const result = await executeApprovedMcpTool({
+      userId: "user-1",
+      token: "t".repeat(48),
+      approvalPayload,
+      execute,
+    });
+
+    expect(result).toEqual({
+      isError: true,
+      error: {
+        name: "McpResultTooLarge",
+        message:
+          "MCP server returned a result above the 1 MiB display limit. Request a smaller result from the server.",
+      },
+      content: [],
+    });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("keeps small MCP results unchanged and rejects non-serializable results", async () => {
+    mocks.consume.mockResolvedValue(true);
+    const small = { content: [{ type: "text", text: "done" }] };
+    await expect(
+      executeApprovedMcpTool({
+        userId: "user-1",
+        token: "t".repeat(48),
+        approvalPayload,
+        execute: vi.fn().mockResolvedValue(small),
+      }),
+    ).resolves.toBe(small);
+
+    const cyclic: { self?: unknown } = {};
+    cyclic.self = cyclic;
+    await expect(
+      executeApprovedMcpTool({
+        userId: "user-1",
+        token: "t".repeat(48),
+        approvalPayload,
+        execute: vi.fn().mockResolvedValue(cyclic),
+      }),
+    ).resolves.toMatchObject({
+      isError: true,
+      error: { name: "McpResultUnavailable" },
+      content: [],
+    });
+
+    await expect(
+      executeApprovedMcpTool({
+        userId: "user-1",
+        token: "t".repeat(48),
+        approvalPayload,
+        execute: vi.fn().mockResolvedValue(undefined),
+      }),
+    ).resolves.toMatchObject({
+      isError: true,
+      error: { name: "McpResultUnavailable" },
+      content: [],
+    });
+  });
 });

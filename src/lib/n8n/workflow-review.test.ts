@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getN8nRunAcknowledgement,
   getN8nWorkflowEffectManifest,
+  getN8nWorkflowEffectReview,
   getN8nWorkflowRevision,
 } from "./workflow-review";
 
@@ -18,8 +19,13 @@ const workflow = {
       name: "Send request",
       type: "n8n-nodes-base.httpRequest",
       parameters: {
-        url: "https://api.example.test/private/path?token=secret",
+        method: "POST",
+        url: "https://api.example.test/private/path",
         authentication: "predefinedCredentialType",
+        jsonBody: '{"action":"archive"}',
+      },
+      credentials: {
+        httpBasicAuth: { id: "credential-secret", name: "secret" },
       },
     },
     { id: "2", name: "Filter", type: "n8n-nodes-base.if", parameters: {} },
@@ -41,18 +47,79 @@ describe("n8n workflow review", () => {
     expect(getN8nWorkflowRevision(workflow)).toMatch(/^[a-f0-9]{64}$/u);
   });
 
-  it("summarizes steps without exposing URL paths, query strings, or credentials", () => {
+  it("previews literal HTTP effects in full and only names protected credentials", () => {
+    const review = getN8nWorkflowEffectReview(workflow);
     const effects = getN8nWorkflowEffectManifest(workflow);
-    expect(effects).toEqual([
-      "Send request: action or integration (n8n-nodes-base.httpRequest) to api.example.test",
-      "Filter: logic (n8n-nodes-base.if)",
-    ]);
-    expect(JSON.stringify(effects)).not.toContain("private");
-    expect(JSON.stringify(effects)).not.toContain("secret");
+    expect(review.reviewable).toBe(true);
+    expect(review.issues).toEqual([]);
+    expect(effects).toHaveLength(1);
+    expect(effects[0]).toContain(
+      "HTTP POST https://api.example.test/private/path",
+    );
+    expect(effects[0]).toContain("archive");
+    expect(effects[0]).toContain("httpBasicAuth: [configured]");
+    expect(JSON.stringify(review)).not.toContain("credential-secret");
+    expect(JSON.stringify(review)).not.toContain('"name":"secret"');
+  });
+
+  it("rejects dynamic and unsupported effects without echoing secret values", () => {
+    const dynamic = getN8nWorkflowEffectReview({
+      ...workflow,
+      nodes: [
+        {
+          id: "http",
+          name: "Dynamic request",
+          type: "n8n-nodes-base.httpRequest",
+          parameters: {
+            method: "POST",
+            url: "https://api.example.test/{{ $json.destination }}",
+            body: { apiKey: "do-not-return-this" },
+          },
+        },
+      ],
+    });
+    expect(dynamic.reviewable).toBe(false);
+    expect(dynamic.effects).toEqual([]);
+    expect(JSON.stringify(dynamic)).not.toContain("do-not-return-this");
+
+    const unsupported = getN8nWorkflowEffectReview({
+      ...workflow,
+      nodes: [
+        {
+          id: "mail",
+          name: "Send mail",
+          type: "n8n-nodes-base.gmail",
+          parameters: { operation: "send" },
+        },
+      ],
+    });
+    expect(unsupported.reviewable).toBe(false);
+    expect(unsupported.issues[0]).toContain("unsupported action type");
+  });
+
+  it("does not claim truncated action arguments are exact", () => {
+    const review = getN8nWorkflowEffectReview({
+      ...workflow,
+      nodes: [
+        {
+          id: "http",
+          name: "Large request",
+          type: "n8n-nodes-base.httpRequest",
+          parameters: {
+            method: "POST",
+            url: "https://api.example.test/path",
+            body: "x".repeat(1_001),
+          },
+        },
+      ],
+    });
+    expect(review.reviewable).toBe(false);
+    expect(review.effects).toEqual([]);
+    expect(review.issues[0]).toContain("exceed the safe review size");
   });
 
   it("caps the reviewed node count and summary output", () => {
-    const effects = getN8nWorkflowEffectManifest({
+    const review = getN8nWorkflowEffectReview({
       ...workflow,
       nodes: Array.from({ length: 210 }, (_, index) => ({
         id: String(index),
@@ -61,8 +128,10 @@ describe("n8n workflow review", () => {
         parameters: {},
       })),
     });
-    expect(effects).toHaveLength(31);
-    expect(effects.at(-1)).toBe("180 additional steps omitted");
+    expect(review.reviewable).toBe(false);
+    expect(review.issues.some((issue) => issue.includes("more than 200"))).toBe(
+      true,
+    );
   });
 
   it("returns only a bounded execution acknowledgement", () => {

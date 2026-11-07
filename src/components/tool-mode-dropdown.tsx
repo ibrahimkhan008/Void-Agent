@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "ui/button";
 import { useTranslations } from "next-intl";
 import {
@@ -19,6 +19,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
 import { cn } from "lib/utils";
+import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { appStore } from "@/app/store";
 import { useShallow } from "zustand/shallow";
 import {
@@ -45,8 +46,22 @@ export const ToolModeDropdown = ({
       none: "codemode",
       codemode: "auto",
     };
-    setToolChoice({ toolChoice: cycle[toolChoice] });
-  }, [toolChoice, setToolChoice]);
+    setToolChoice((current) => ({
+      toolChoice: cycle[current.toolChoice] ?? "auto",
+    }));
+  }, [setToolChoice]);
+
+  useEffect(() => {
+    if (disabled) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isShortcutEvent(event, Shortcuts.toolMode)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cycleMode();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cycleMode, disabled]);
 
   const modeIcons: Record<string, React.ReactNode> = {
     auto: <Infinity className="size-3.5" />,

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
     tx,
     getSession: vi.fn(),
     checkApiRateLimit: vi.fn(),
+    hasSameOrigin: vi.fn(),
     transaction: vi.fn(async (callback: (value: typeof tx) => unknown) =>
       callback(tx),
     ),
@@ -33,6 +34,9 @@ const mocks = vi.hoisted(() => {
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
+}));
+vi.mock("lib/security/same-origin", () => ({
+  hasSameOrigin: mocks.hasSameOrigin,
 }));
 vi.mock("lib/ai/models", () => ({
   customModelProvider: { getModelWithFailureFallbackAsync: vi.fn() },
@@ -82,7 +86,9 @@ describe("tabular review generation target validation", () => {
     mocks.tx.select.mockClear();
     mocks.tx.update.mockReset();
     mocks.getSession.mockResolvedValue({ user: { id: userId } });
+    mocks.checkApiRateLimit.mockClear();
     mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
+    mocks.hasSameOrigin.mockReturnValue(true);
     mocks.transaction.mockClear();
     mocks.transaction.mockImplementation(
       async (callback: (value: typeof mocks.tx) => unknown) =>
@@ -116,5 +122,22 @@ describe("tabular review generation target validation", () => {
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("Review cell not found");
     expect(mocks.tx.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cross-origin generation request before touching review state", async () => {
+    mocks.hasSameOrigin.mockReturnValue(false);
+    const response = await POST(
+      new Request(`http://localhost/api/tabular-reviews/${reviewId}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          origin: "https://attacker.example",
+        },
+      }),
+      { params: Promise.resolve({ id: reviewId }) },
+    );
+    expect(response.status).toBe(403);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.checkApiRateLimit).not.toHaveBeenCalled();
   });
 });

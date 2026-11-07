@@ -21,6 +21,17 @@ contextBridge.exposeInMainWorld("desktop", {
       }>,
   },
   mcp: {
+    getRecentAuditEvents: () =>
+      ipcRenderer.invoke("mcp:get-audit-history") as Promise<
+        Array<{
+          timestamp: string;
+          action: "mcp.list-tools" | "mcp.tool-call";
+          configHash: string;
+          toolName?: string;
+          argsHash?: string;
+          outcome: "success" | "denied" | "failure";
+        }>
+      >,
     listTools: (config: {
       command: string;
       args?: string[];

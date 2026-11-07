@@ -532,3 +532,59 @@ Published-page storage/lifecycle has an initial verified implementation (migrati
 ## F023 managed workflow generation/dashboard (2026-11-07)
 - Closed this reference-source audit as EXCLUDED for the hosted-only generation/dashboard layer: the community generator returns `null`, and the dashboard's schema-only fields have no corresponding provisioning/runtime/UI path.
 - Continue standard workflow parity independently. The next integration work should target executable reference capability families, not speculative hosted infrastructure.
+
+## F010/F014 implementation checkpoint (2026-11-07)
+- F010: bounded post-ingest salience refresh and stale-page archival are implemented and focused-test/typecheck verified; next close remaining scheduled dream-cycle stages only where they preserve live source scope and human review.
+- F014: manual table-review creation supports multiple validated typed custom columns; next verify broader generation, authorization, persistence and browser workflows.
+- Evidence and limitations: see `docs/feature-parity-matrix.md`; no live DB/browser/provider test for these slices.
+
+### F027 safe device handoff checkpoint (2026-11-07)
+- Implemented deterministic finalized-session message linking into the existing review-first chat flow. No schema change or auto-execution.
+- Remaining: external gateway/WebSocket transport is not in the reference community checkout; live device, PostgreSQL, and browser journeys remain unverified. F027 stays PARTIAL.
+
+
+## F030 Stripe Cockpit (2026-11-07)
+- Completed this implementation batch: personal/team-scoped Stripe restricted-key storage, read-only balance/subscription/charge/payout snapshot, connection CRUD/test UI, and focused tests.
+- Next: run migration 0063 against a disposable PostgreSQL instance and exercise authenticated personal/team access in a browser. Then separately port and verify reference website, Vercel, Revolut, Superlog, SEO providers and unified finance controls. Keep F030 PARTIAL until those systems are implemented and verified.
+
+
+## F030 Vercel provider checkpoint (2026-11-07)
+- Completed a second provider slice: encrypted Vercel config/token, optional team discovery, up to six projects, read-only production deployment summaries and seven-day failure counts. Migration 0063 remains additive/unapplied and backward-compatible with Stripe `secret_encrypted` rows.
+- The request boundary is fixed-host HTTPS GET-only with bounded team/project/deployment lists, response bytes, timeout, rate limit, same-origin mutations, and role-scoped team controls.
+- Next: integrate remaining website, Revolut, Superlog, and SEO sources; adapt unified finance/connect controls; then test migration in disposable PostgreSQL and verify the authenticated UI in a browser. F030 remains PARTIAL.
+
+## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
+- Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
+- Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+
+## F030 Vercel integration addendum (2026-11-07 06:41:22 +05:30)
+- In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
+- Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
+- Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
+
+## Next verified migration batch — 2026-11-07
+
+New slices are ready for broader reference work, not family closure. Continue with: (1) remaining Cockpit providers and reference-specific dashboard detail; (2) saved-workflow generation/dashboard parity, keeping generated workflows as drafts and preserving effect approval; (3) route-by-route team AI budget coverage only where server-owned team scope exists; (4) F028 channel-specific subscriptions/task lifecycle if behavior exists upstream; (5) live PostgreSQL migration, provider, browser and desktop MCP workflows in disposable/local environments. Continue investigating uncategorized surfaces from the 206-route census. Do not update completion percentage from this checkpoint alone.
+- F030 next provider batch: Revolut Business is now implemented through fixed-host OAuth/RS256, encrypted credential storage, scoped connection APIs, bounded read-only balances and 30-day transaction data, and a dashboard. Focused tests and schema checks pass; retain F030 PARTIAL until typecheck/build, PostgreSQL-backed migration/ACL, browser and live-provider verification, Superlog/SEO, and unified finance-console behavior are resolved.
+
+## F030 Superlog provider checkpoint (2026-11-07)
+- Added a Superlog read-only MCP connection/dashboard with fixed endpoint, encrypted PAT, same-origin/rate-limited changes, owner/team authorization, declared-argument filtering, bounded results and error-safe summaries.
+- Focused tests passed 8/8 and scoped Biome/diff checks passed. Root is running integrated typecheck/build after this batch. Migration 0063 is local and unapplied; live provider, PostgreSQL and browser verification remain unavailable.
+- Next F030 work: integrate SEO if its Navigator MCP access and DataForSEO credential paths can be safely adapted; then reconcile shared finance/connect UI and provider alert aggregation. Keep F030 PARTIAL.
+## Next substantial migration priorities â€” 2026-11-07
+- The stale 12/36 headline has been replaced with the current classification distribution; do not use family discovery labels as a completion percentage. Continue item-level traceability from the 206 reference surfaces.
+- F010/F011: status synthesis now runs as the last durable dream stage. Next close remaining project-brain source lifecycle and graph/history/consolidation behavior, with current-scope checks and human review retained; validate migration/stage replay on disposable PostgreSQL when available.
+- F025: continue auditing every mutating connector, workflow, MCP, voice, schedule and external execution entrypoint. The recent approval hardening closes secret leakage in effect previews but not all provider/browser journeys; keep PARTIAL.
+- F030: Stripe, Vercel, Website, Revolut, and Superlog slices now exist. Next inspect/integrate SEO and unified multi-provider composition/alert controls; then exercise migrations and owner/team ACLs against disposable PostgreSQL and browser workflows. Keep PARTIAL.
+- F023: community hosted workflow generation/dashboard is excluded because upstream implementation is a stub/schema-only; personal private draft dashboard/editor is present. Continue parity only for executable reference behavior; publishing/team-sharing remains separate.
+- F021/F027/F031 and other families still require item-level reference audit and available runtime verification. Do not run migrations against production, deploy, or push.
+
+## F028 evidence-based exclusion (2026-11-07 09:20 IST)
+No implementation batch is scheduled for the reference Slack channel-subscription/agent-task lifecycle: the reference evidence is limited to schema/migration declarations and a settings UI, with no `/api/slack` route tree or consumers for event verification, task execution, or Slack response delivery. This feature is EXCLUDED as a source stub, not deferred as an unfinished migration. Preserve the separate primary signed-inbound path as PARTIAL and focus its existing owner/HMAC tests (8/8 passed). Reassess only if executable reference handlers/workers become available.
+## F030 SEO provider checkpoint (2026-11-07)
+- Implemented DataForSEO domain summary, ranked keyword, optional backlink, credential save/test/remove and dashboard paths using the existing Cockpit connection store and ACL resolver.
+- Focused SEO + Superlog tests pass 15/15, scoped Biome and `pnpm db:check` passed. Database migration 0063 remains unapplied; live provider, Postgres ACL/migration, browser, and integrated typecheck/build verification remain unclaimed.
+- Next: implement OpenSEO through an explicitly approval-aware OAuth MCP read-only adapter, then integrate unified provider connection/status and alert aggregation. F030 stays PARTIAL.
+### F030 SEO verification update (2026-11-07)
+- Final focused SEO + Superlog rerun: 16/16 passed across 4 files; scoped Biome and git diff --check passed; pnpm db:check passed. Earlier 15/15 count is superseded. Integrated typecheck/build still belong to root verification.

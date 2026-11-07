@@ -28,6 +28,7 @@ import {
 } from "lib/ai/workflow/shared.workflow";
 import { NodeKind, UINode } from "lib/ai/workflow/workflow.interface";
 import { wouldCreateCycle } from "lib/ai/workflow/would-create-cycle";
+import { getWorkflowStructureEndpoint } from "lib/ai/workflow/workflow-endpoint";
 import { createDebounce, fetcher, generateUUID } from "lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
@@ -49,11 +50,13 @@ export default function Workflow({
   initialEdges,
   workflowId,
   hasEditAccess,
+  savedDraftMode = false,
 }: {
   workflowId: string;
   initialNodes: UINode[];
   hasEditAccess?: boolean;
   initialEdges: Edge[];
+  savedDraftMode?: boolean;
 }) {
   const { init, addProcess, processIds } = useWorkflowStore();
   const [nodes, setNodes] = useState<UINode[]>(initialNodes);
@@ -64,7 +67,7 @@ export default function Workflow({
     [processIds.length],
   );
   const { data: workflow } = useSWR<DBWorkflow>(
-    `/api/workflow/${workflowId}`,
+    `${savedDraftMode ? "/api/saved-workflows" : "/api/workflow"}/${workflowId}`,
     fetcher,
     {
       onSuccess: (workflow) => {
@@ -93,7 +96,7 @@ export default function Workflow({
     ) {
       const stop = addProcess();
       await safe()
-        .map(() => saveWorkflow(workflowId, diff))
+        .map(() => saveWorkflow(workflowId, diff, savedDraftMode))
         .ifOk(() => {
           snapshot.current = {
             edges,
@@ -305,6 +308,7 @@ export default function Workflow({
               selectedNode={selectedNode}
               workflow={workflow}
               isProcessing={isProcessing}
+              savedDraftMode={savedDraftMode}
             />
           )}
         </Panel>
@@ -322,12 +326,14 @@ export default function Workflow({
   );
 }
 
-function saveWorkflow(
+export function saveWorkflow(
   workflowId: string,
   diff: ReturnType<typeof extractWorkflowDiff>,
+  savedDraftMode = false,
 ) {
-  return fetch(`/api/workflow/${workflowId}/structure`, {
+  return fetch(getWorkflowStructureEndpoint(workflowId, savedDraftMode), {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       nodes: diff.updateNodes.map((node) =>
         convertUINodeToDBNode(workflowId, node),

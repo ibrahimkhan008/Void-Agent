@@ -20,6 +20,7 @@ import {
   ProjectBrainPageTable,
 } from "lib/db/pg/schema.pg";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+export { MAX_STALE_PAGE_ARCHIVES_PER_PASS } from "lib/projects/brain-maintenance-limits";
 
 const STALE_AFTER_DAYS = 30;
 const MAX_PAGE_RESULTS = 100;

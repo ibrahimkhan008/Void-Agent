@@ -152,7 +152,8 @@ export const pgWorkflowRepository: WorkflowRepository = {
       .select()
       .from(WorkflowTable)
       .where(eq(WorkflowTable.userId, userId))
-      .orderBy(desc(WorkflowTable.createdAt));
+      .orderBy(desc(WorkflowTable.createdAt))
+      .limit(100);
     return rows as DBWorkflow[];
   },
   async save(workflow, noGenerateInputNode = false) {

@@ -77,6 +77,7 @@ export interface AppState {
   }[];
   chatModel?: ChatModel;
   openShortcutsPopup: boolean;
+  openProblemReport: boolean;
   openChatPreferences: boolean;
   openCustomize: boolean;
   openUserSettings: boolean;
@@ -159,6 +160,7 @@ const initialState: AppState = {
   toolPresets: [],
   chatModel: undefined,
   openShortcutsPopup: false,
+  openProblemReport: false,
   openChatPreferences: false,
   mcpCustomizationPopup: undefined,
   temporaryChat: {

@@ -1,6 +1,5 @@
 import { streamObject } from "ai";
 
-import { ChatModel } from "app-types/chat";
 import { customModelProvider } from "lib/ai/models";
 import { buildAgentGenerationPrompt } from "lib/ai/prompts";
 import globalLogger from "logger";
@@ -10,6 +9,8 @@ import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
 import { workflowRepository } from "lib/db/repository";
+import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
+import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { objectFlow } from "lib/utils";
 import { safe } from "ts-safe";
 import { z } from "zod";
@@ -19,21 +20,60 @@ const logger = globalLogger.withDefaults({
   message: colorize("blackBright", `Agent Generate API: `),
 });
 
+const MAX_REQUEST_BYTES = 16 * 1024;
+const MAX_PROMPT_CHARS = 8_000;
+const MAX_MODEL_FIELD_CHARS = 160;
+const AgentGenerationRequestSchema = z
+  .object({
+    chatModel: z
+      .object({
+        provider: z.string().min(1).max(MAX_MODEL_FIELD_CHARS),
+        model: z.string().min(1).max(MAX_MODEL_FIELD_CHARS),
+      })
+      .strict()
+      .optional(),
+    message: z.string().max(MAX_PROMPT_CHARS).optional(),
+  })
+  .strict();
+
 export async function POST(request: Request) {
   try {
-    const json = await request.json();
-
-    const { chatModel, message = "hello" } = json as {
-      chatModel?: ChatModel;
-      message: string;
-    };
-
-    logger.info(`chatModel: ${chatModel?.provider}/${chatModel?.model}`);
-
     const session = await getSession();
-    if (!session) {
+    if (!session?.user?.id) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const rate = await checkApiRateLimit({
+      kind: "agent-generate-user",
+      id: session.user.id,
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!rate.allowed) {
+      return new Response("Too many requests", {
+        status: 429,
+        headers: {
+          "retry-after": String(
+            Math.max(1, Math.ceil(rate.retryAfterMs / 1000)),
+          ),
+        },
+      });
+    }
+
+    const bounded = await readBoundedJsonRequest(request, MAX_REQUEST_BYTES);
+    if (!bounded.ok) {
+      return Response.json({ error: bounded.error }, { status: bounded.status });
+    }
+    const parsed = AgentGenerationRequestSchema.safeParse(bounded.value);
+    if (!parsed.success) {
+      return Response.json(
+        { error: "Invalid agent generation request" },
+        { status: 400 },
+      );
+    }
+    const { chatModel, message = "hello" } = parsed.data;
+
+    logger.info(`chatModel: ${chatModel?.provider}/${chatModel?.model}`);
 
     const toolNames = new Set<string>();
 

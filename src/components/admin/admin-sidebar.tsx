@@ -1,49 +1,105 @@
 "use client";
 
-import { ReactNode, useState, useEffect, useRef } from "react";
 import {
   BotIcon,
-  WrenchIcon,
   BoxIcon,
-  SparklesIcon,
-  Settings2Icon,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboardIcon,
-  UsersIcon,
-  ShieldIcon,
-  HistoryIcon,
-  Mail,
-  Palette,
-  KeyRound,
-  Server,
-  MessageSquare,
-  Globe,
   CreditCard,
-  Moon,
-  Sun,
-  Monitor,
+  Globe,
+  HistoryIcon,
+  KeyRound,
+  LayoutDashboardIcon,
+  Mail,
   Menu,
+  MessageSquare,
+  MessageSquareWarning,
+  Monitor,
+  Moon,
+  Palette,
+  Server,
+  Settings2Icon,
+  ShieldIcon,
+  SparklesIcon,
+  Sun,
+  UsersIcon,
+  WrenchIcon,
   X,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 const CONFIG_TABS = [
-  { id: "models", label: "Models", icon: BotIcon, href: "/admin/settings/models" },
-  { id: "tools", label: "Tools", icon: WrenchIcon, href: "/admin/settings/tools" },
-  { id: "canvas", label: "Canvas", icon: BoxIcon, href: "/admin/settings/canvas" },
-  { id: "artifacts", label: "Artifacts", icon: SparklesIcon, href: "/admin/settings/artifacts" },
-  { id: "branding", label: "Branding", icon: Palette, href: "/admin/settings/branding" },
+  {
+    id: "models",
+    label: "Models",
+    icon: BotIcon,
+    href: "/admin/settings/models",
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    icon: WrenchIcon,
+    href: "/admin/settings/tools",
+  },
+  {
+    id: "canvas",
+    label: "Canvas",
+    icon: BoxIcon,
+    href: "/admin/settings/canvas",
+  },
+  {
+    id: "artifacts",
+    label: "Artifacts",
+    icon: SparklesIcon,
+    href: "/admin/settings/artifacts",
+  },
+  {
+    id: "branding",
+    label: "Branding",
+    icon: Palette,
+    href: "/admin/settings/branding",
+  },
   { id: "email", label: "Email", icon: Mail, href: "/admin/settings/email" },
-  { id: "oauth", label: "OAuth", icon: KeyRound, href: "/admin/settings/oauth" },
-  { id: "security", label: "Security", icon: ShieldIcon, href: "/admin/settings/security" },
+  {
+    id: "oauth",
+    label: "OAuth",
+    icon: KeyRound,
+    href: "/admin/settings/oauth",
+  },
+  {
+    id: "security",
+    label: "Security",
+    icon: ShieldIcon,
+    href: "/admin/settings/security",
+  },
   { id: "mcp", label: "MCP", icon: Server, href: "/admin/settings/mcp" },
-  { id: "chat", label: "Chat", icon: MessageSquare, href: "/admin/settings/chat" },
-  { id: "community", label: "Community", icon: Globe, href: "/admin/settings/community" },
-  { id: "payments", label: "Payments", icon: CreditCard, href: "/admin/settings/payments" },
-  { id: "general", label: "General", icon: Settings2Icon, href: "/admin/settings/general" },
+  {
+    id: "chat",
+    label: "Chat",
+    icon: MessageSquare,
+    href: "/admin/settings/chat",
+  },
+  {
+    id: "community",
+    label: "Community",
+    icon: Globe,
+    href: "/admin/settings/community",
+  },
+  {
+    id: "payments",
+    label: "Payments",
+    icon: CreditCard,
+    href: "/admin/settings/payments",
+  },
+  {
+    id: "general",
+    label: "General",
+    icon: Settings2Icon,
+    href: "/admin/settings/general",
+  },
 ];
 
 interface Props {
@@ -92,8 +148,18 @@ export function AdminSidebar({ children }: Props) {
   const themeTitle =
     theme === "system" ? "System" : theme === "dark" ? "Dark" : "Light";
 
-  const activeConfigTab = CONFIG_TABS.find((t) => pathname.includes(`/${t.id}`));
-  const crumb2 = activeConfigTab ? "Configuration" : pathname.startsWith("/admin/users") ? "Users" : pathname.startsWith("/admin/health") ? "Health" : pathname.startsWith("/admin/audit") ? "Audit Log" : "Dashboard";
+  const activeConfigTab = CONFIG_TABS.find((t) =>
+    pathname.includes(`/${t.id}`),
+  );
+  const crumb2 = activeConfigTab
+    ? "Configuration"
+    : pathname.startsWith("/admin/users")
+      ? "Users"
+      : pathname.startsWith("/admin/health")
+        ? "Health"
+        : pathname.startsWith("/admin/audit")
+          ? "Audit Log"
+          : "Dashboard";
 
   const sidebar = (
     <div
@@ -142,8 +208,27 @@ export function AdminSidebar({ children }: Props) {
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2">
-        <SidebarLink href="/admin" icon={<LayoutDashboardIcon className="size-4 shrink-0" />} label="Dashboard" collapsed={collapsed} active={pathname === "/admin"} />
-        <SidebarLink href="/admin/users" icon={<UsersIcon className="size-4 shrink-0" />} label="Users" collapsed={collapsed} active={pathname.startsWith("/admin/users")} />
+        <SidebarLink
+          href="/admin"
+          icon={<LayoutDashboardIcon className="size-4 shrink-0" />}
+          label="Dashboard"
+          collapsed={collapsed}
+          active={pathname === "/admin"}
+        />
+        <SidebarLink
+          href="/admin/users"
+          icon={<UsersIcon className="size-4 shrink-0" />}
+          label="Users"
+          collapsed={collapsed}
+          active={pathname.startsWith("/admin/users")}
+        />
+        <SidebarLink
+          href="/admin/problem-reports"
+          icon={<MessageSquareWarning className="size-4 shrink-0" />}
+          label="Problem reports"
+          collapsed={collapsed}
+          active={pathname.startsWith("/admin/problem-reports")}
+        />
 
         {/* Configuration section */}
         <div className="mt-2">
@@ -160,7 +245,7 @@ export function AdminSidebar({ children }: Props) {
               )}
             </button>
           )}
-          {(!collapsed && settingsOpen) && (
+          {!collapsed && settingsOpen && (
             <div className="space-y-0.5">
               {CONFIG_TABS.map((tab) => {
                 const Icon = tab.icon;
@@ -196,8 +281,20 @@ export function AdminSidebar({ children }: Props) {
           )}
         </div>
 
-        <SidebarLink href="/admin/health" icon={<ShieldIcon className="size-4 shrink-0" />} label="Health" collapsed={collapsed} active={pathname === "/admin/health"} />
-        <SidebarLink href="/admin/audit" icon={<HistoryIcon className="size-4 shrink-0" />} label="Audit Log" collapsed={collapsed} active={pathname === "/admin/audit"} />
+        <SidebarLink
+          href="/admin/health"
+          icon={<ShieldIcon className="size-4 shrink-0" />}
+          label="Health"
+          collapsed={collapsed}
+          active={pathname === "/admin/health"}
+        />
+        <SidebarLink
+          href="/admin/audit"
+          icon={<HistoryIcon className="size-4 shrink-0" />}
+          label="Audit Log"
+          collapsed={collapsed}
+          active={pathname === "/admin/audit"}
+        />
       </nav>
     </div>
   );
@@ -210,11 +307,7 @@ export function AdminSidebar({ children }: Props) {
         className="fixed top-4 left-4 z-50 p-2 rounded-md border border-border bg-background shadow-sm md:hidden"
         aria-label="Toggle menu"
       >
-        {mobileOpen ? (
-          <X className="size-5" />
-        ) : (
-          <Menu className="size-5" />
-        )}
+        {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
       </button>
 
       {/* Mobile sidebar overlay */}
@@ -241,7 +334,12 @@ export function AdminSidebar({ children }: Props) {
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Breadcrumb */}
         <div className="border-b border-border px-6 py-3 pl-16 md:pl-6 flex items-center gap-1.5 text-sm shrink-0">
-          <Link href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">Admin</Link>
+          <Link
+            href="/admin"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Admin
+          </Link>
           <span className="text-muted-foreground">/</span>
           <span className="text-foreground">{crumb2}</span>
           {activeConfigTab && (
@@ -253,9 +351,7 @@ export function AdminSidebar({ children }: Props) {
         </div>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </div>
     </div>
   );

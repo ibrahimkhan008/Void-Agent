@@ -7,6 +7,7 @@ import {
 } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
 import JsonView from "@/components/ui/json-view";
+import { McpAuditHistory } from "@/components/desktop/mcp-audit-history";
 import { useChatModels } from "@/hooks/queries/use-chat-models";
 import { useObjectState } from "@/hooks/use-object-state";
 import { ChatModel } from "app-types/chat";
@@ -539,6 +540,12 @@ export default function Page() {
       </div>
 
       {client?.config && isMaybeStdioConfig(client.config) && !isDesktopClient() && <Alert className="mb-3"><AlertTitle>Local MCP server</AlertTitle><AlertDescription>This server runs on your computer. Open this page in the Void-Agent desktop app to test its read-only tools.</AlertDescription></Alert>}
+
+      {client?.config && isMaybeStdioConfig(client.config) && isDesktopClient() && (
+        <div className="flex justify-end">
+          <McpAuditHistory />
+        </div>
+      )}
 
       <ResizablePanelGroup direction="horizontal" className="mt-4">
         {/* Tool List Panel */}

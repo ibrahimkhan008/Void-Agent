@@ -1,4 +1,7 @@
 import type { ProjectBrainPageEntity } from "lib/db/pg/schema.pg";
+import { MAX_STALE_PAGE_ARCHIVES_PER_PASS } from "lib/projects/brain-maintenance-limits";
+
+export { MAX_STALE_PAGE_ARCHIVES_PER_PASS } from "lib/projects/brain-maintenance-limits";
 
 export type ProjectBrainMaintenanceScope = {
   projectId: string;
@@ -25,9 +28,6 @@ export type ProjectBrainMaintenanceDependencies = {
     scope: ProjectBrainMaintenanceScope & { pageId: string },
   ) => Promise<boolean>;
 };
-
-/** Keep scheduler work bounded while the queue drains backlogs incrementally. */
-export const MAX_STALE_PAGE_ARCHIVES_PER_PASS = 20;
 
 /**
  * Refresh the graph ranking and archive stale pages after a successful source

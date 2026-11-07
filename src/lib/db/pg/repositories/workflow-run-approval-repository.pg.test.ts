@@ -36,4 +36,13 @@ describe("workflowRunApprovalRepository", () => {
     expect(query.params).toContain(`workflow-run-approval:user-1:${hashWorkflowApprovalToken("opaque-workflow-token")}`);
     expect(query.params).toContain(hashWorkflowRunApproval(payload));
   });
+
+  it("does not consume an approval when the input payload has changed", async () => {
+    mocks.returning.mockResolvedValueOnce([]);
+    const changedPayload = { ...payload, payload: { ...payload.payload, userId: "attacker" } };
+    expect(await workflowRunApprovalRepository.consume("user-1", "opaque-workflow-token", changedPayload)).toBe(false);
+    const query = new PgDialect().sqlToQuery(mocks.predicates[0] as never);
+    expect(query.params).toContain(hashWorkflowRunApproval(changedPayload));
+    expect(query.params).not.toContain(hashWorkflowRunApproval(payload));
+  });
 });

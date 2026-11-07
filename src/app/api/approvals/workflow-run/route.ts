@@ -2,7 +2,7 @@ import { getSession } from "auth/server";
 import { workflowRunApprovalSchema } from "lib/ai/tools/hitl/workflow-run-approval";
 import { assertWorkflowMcpAccess } from "lib/ai/workflow/assert-workflow-mcp-access";
 import {
-  getWorkflowEffectManifest,
+  getWorkflowEffectReview,
   getWorkflowGraphRevision,
 } from "lib/ai/workflow/workflow-review";
 import { workflowRunApprovalRepository } from "lib/db/pg/repositories/workflow-run-approval-repository.pg";
@@ -10,7 +10,7 @@ import { workflowRepository } from "lib/db/repository";
 import { createUserClient } from "lib/n8n/client";
 import { ensureN8nUser } from "lib/n8n/provision";
 import {
-  getN8nWorkflowEffectManifest,
+  getN8nWorkflowEffectReview,
   getN8nWorkflowRevision,
 } from "lib/n8n/workflow-review";
 import { readBoundedJson } from "lib/notifications/contracts";
@@ -71,13 +71,14 @@ export async function POST(request: Request) {
       )
         return new Response("Workflow not found", { status: 404 });
       await assertWorkflowMcpAccess(session.user.id, workflow.nodes);
+      const review = getWorkflowEffectReview(workflow.nodes);
       return Response.json(
         {
           graphRevision: getWorkflowGraphRevision(
             workflow.nodes,
             workflow.edges,
           ),
-          effects: getWorkflowEffectManifest(workflow.nodes),
+          ...review,
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -101,11 +102,23 @@ export async function POST(request: Request) {
       const workflow = await client.getWorkflowDefinition(
         n8nPreview.previewN8nWorkflowId,
       );
+      const review = getN8nWorkflowEffectReview(workflow);
+      if (!review.reviewable) {
+        return Response.json(
+          {
+            error:
+              "Workflow contains actions that cannot be reviewed safely and cannot be approved.",
+            graphRevision: getN8nWorkflowRevision(workflow),
+            ...review,
+          },
+          { status: 422, headers: { "Cache-Control": "no-store" } },
+        );
+      }
       return Response.json(
         {
           workflowName: workflow.name,
           graphRevision: getN8nWorkflowRevision(workflow),
-          effects: getN8nWorkflowEffectManifest(workflow),
+          ...review,
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -156,6 +169,16 @@ export async function POST(request: Request) {
         );
       }
       await assertWorkflowMcpAccess(session.user.id, workflow.nodes);
+      const review = getWorkflowEffectReview(workflow.nodes);
+      if (!review.reviewable) {
+        return Response.json(
+          {
+            error:
+              "Workflow contains actions that cannot be previewed safely. Make the action arguments explicit and review again.",
+          },
+          { status: 422, headers: { "Cache-Control": "no-store" } },
+        );
+      }
     }
     if (parsed.data.platform === "n8n") {
       const n8nUser = await ensureN8nUser(session);
@@ -174,6 +197,16 @@ export async function POST(request: Request) {
               "Workflow changed while it was being reviewed. Review it again before running.",
           },
           { status: 409 },
+        );
+      }
+      const review = getN8nWorkflowEffectReview(workflow);
+      if (!review.reviewable) {
+        return Response.json(
+          {
+            error:
+              "Workflow contains actions that cannot be reviewed safely and cannot be approved.",
+          },
+          { status: 422, headers: { "Cache-Control": "no-store" } },
         );
       }
     }

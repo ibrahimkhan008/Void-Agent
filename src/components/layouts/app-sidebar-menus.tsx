@@ -22,6 +22,7 @@ import {
   TableProperties,
   Users,
   Waypoints,
+  WalletCards,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -76,6 +77,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                   {t("Layout.newChat")}
                 </TooltipContent>
               )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
+                <Link href="/cockpit">
+                  <SidebarMenuButton className="font-semibold">
+                    <WalletCards className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Cockpit</span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right" align="center">Cockpit</TooltipContent>}
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>

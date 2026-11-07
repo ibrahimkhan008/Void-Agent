@@ -611,3 +611,73 @@ Model selection is implemented in the CreateAgent HITL proposal and runtime. The
 - Authenticated publishers are bounded to 50 stored snapshots per owner (approximately 100 MiB maximum HTML at the existing 2 MiB snapshot bound); each slug retains at most its newest 10 versions. Owner-scoped advisory lock precedes slug lock so concurrent publishes to different slugs cannot race the quota check. Existing active pages are never pruned; revoked snapshots may be reclaimed. A full owner quota returns HTTP 409.
 - Upstream page-generation instructions explicitly require absolute HTTPS image URLs, so the public CSP continues to allow HTTPS/data images and HTTPS font/media assets. `no-referrer`, `connect-src 'none'`, and opaque-origin sandbox remain. Remote asset hosts can nevertheless observe viewer IP/request metadata; this is documented privacy behavior, not presented as hidden.
 - Focused mocks verify quota/retention selection, route/tool errors, and lock use. No PostgreSQL concurrency test or public browser security journey was run; migration 0060 remains unapplied.
+
+
+## F030 Stripe connection security review (2026-11-07)
+- Restricted API keys are encrypted using the existing AES-256-GCM ENCRYPTION_MASTER_KEY helper. Connection projections never select or return encrypted values; decrypt happens only server-side during provider execution.
+- Personal reads/changes are keyed by authenticated user ID. Team access resolves membership before lookup; members may read, while owner/editor roles alone may store, probe, or delete. Mutations require same-origin requests and API calls use per-user rate limits; request bodies are streamed and bounded.
+- Egress is pinned to https://api.stripe.com/v1, GET-only, with bounded timeout, list pages, row counts and 2 MiB response bodies. Stripe response bodies are not included in errors/logs. No Stripe write or payout-creation action exists.
+- Residual verification: migration 0063 is authored but unapplied; no PostgreSQL authorization test, authenticated browser workflow, or live Stripe restricted-key probe was performed. Security behavior has focused mock coverage only.
+
+## F025 file binding security update (2026-11-07)
+Treat every agent file binding as a read grant because server-side storage credentials download it into a sandbox. Validate new keys against the authenticated owner prefix, derive existing binding ownership from the stored agent (never request-supplied owner IDs), restrict carried-forward keys to prior bindings, normalize basenames, and bound count/bytes. For staging, preflight metadata and then enforce the byte cap while streaming; delete only safe names recorded in the sandbox manifest. Existing general file downloads retain their prior behavior. Tests cover ownership, bounds, idempotency, size rejection and stream cancellation. No live storage credentials were used; live sandbox isolation remains to verify.
+
+## F021 desktop server-selection security review (2026-11-07)
+- Existing profiles with browser data keep the compiled cloud origin; switching is initiated from a trusted native menu and does not clear cookies. Per-origin browser storage remains owned by Electron; after selection, process restart rebuilds appOrigin-dependent auth, navigation, download, updater, notification and MCP trust controls.
+- The chooser's preload exposes only `serverPicker.choose`; it has no MCP, OAuth, updater or notification methods. The handler requires the active picker window, its main frame, and its self-contained data URL. The picker blocks navigation/window creation and uses a restrictive CSP.
+- Production URLs must normalize to HTTPS origin without embedded credentials. Local HTTP is allowed only for loopback in development and stored HTTP is rejected in packaged startup. The selected origin must answer the primary health identity contract. The fetch is GET without cookies, disables redirects, times out after six seconds, and caps body reads at 8 KiB. Health status 503/degraded is accepted only with `service: flare-ai`; redirections and unrelated service markers fail closed.
+- No change was made to local MCP per-launch/per-call consent, allowed tool names, process environment policy, bounds, or audit records. No remote/local tool execution was enabled by server selection.
+- Remaining verification: malicious/legacy profile runtime, actual custom host, and packaged Electron UI have not been exercised; F021 remains PARTIAL.
+
+
+## F030 Vercel connection security review (2026-11-07)
+- Vercel API calls are pinned to `https://api.vercel.com`, reject redirects, use GET only, carry the token only in the server-side Authorization header, and have a 20-second timeout. No deploy, promote, cancel, or project mutation calls exist.
+- Response streams are capped at 2 MiB before JSON parsing; team/project/deployment enumeration is bounded. Generic failures omit upstream bodies. Config is AES-GCM encrypted as one payload, and status/snapshot projections omit token and ciphertext.
+- Personal records are user-scoped; team access checks membership and owner/editor permissions. Same-origin, body-size, and rate-limit guards protect mutation/test endpoints.
+- Focused tests cover encrypted config/redaction, viewer restrictions, pagination/config/body bounds, malformed/oversized responses, and GET-only behavior. No live token, PostgreSQL authorization, migration, or authenticated browser validation was performed.
+
+## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
+- Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
+- Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+
+## F030 Vercel integration addendum (2026-11-07 06:41:22 +05:30)
+- In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
+- Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
+- Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
+
+## Security verification addendum — 2026-11-07
+
+- Saved workflow actions are summarized with bounded input/output details and secret redaction. Token issuance and execution both reject unreviewable effects; token consumption is one-use and revision/input-bound, and execute/MCP access is rechecked immediately before the workflow loads. Dynamic HTTP values, runtime LLM prompts, model-generated tool parameters and unknown nodes fail closed.
+- Approved MCP results are serialized and capped at 1 MiB. Oversized, cyclic, or non-JSON results do not flow into user-visible chat output.
+- Desktop MCP audit IPC requires the registered trusted main frame and expected origin/path; log reads are capped to 256 KiB, strict-schema validated and capped at 100 rows. Returned data omits raw process configuration, arguments and results.
+- Slack workspace lookup is global by workspace ID, so the inbound path now verifies that the connector owner equals the configured inbound endpoint owner before parsing signatures or enqueueing work.
+- Problem-report screenshots are restricted to allowed image types, bounded size/count and the authenticated user's storage-key prefix. Page URL context only stores same-origin URLs without query/hash.
+- Title and agent-generation AI routes have bounded strict request bodies and per-user rate limits. A team-budget bypass is not solved by accepting request team IDs; agent generation remains outside the team ledger until trusted persisted team context exists.
+- Tests verify route/unit boundaries, but no real PostgreSQL ACL/migration, provider secrets, desktop GUI, or browser push workflow was available. Migrations 0063–0065 are additive and unapplied.
+
+## F030 Revolut security addendum (2026-11-07)
+- Client private key and refresh token are serialized only into the existing AES-GCM encrypted config column; authorization codes are transient. Status responses expose only client ID and boolean credential-presence flags. Errors omit upstream response bodies and credential values.
+- OAuth and API egress are pinned to Revolut production/sandbox API origins; redirects are rejected. Only the OAuth token POST and read-only GET endpoints are used. API reads enforce 15-second abort timeouts, 2 MiB streaming response caps, and 1,000-row/30-day bounds.
+- Mutations require authenticated same-origin requests with bounded JSON and per-user rate limits. Team membership is required for reads; only team owner/editor may save, test, or remove credentials.
+- Token cache keys hash the client/refresh credential tuple; concurrent refresh calls are coalesced in-process. This is not a distributed lock. No actual credential, live Revolut API, or PostgreSQL-backed ACL/migration test was available. F030 remains PARTIAL.
+
+## F030 Superlog security addendum (2026-11-07)
+- Superlog egress is pinned to `https://api.superlog.sh/mcp`; query/fragment, other host/path, non-HTTPS destinations and redirects are rejected. This avoids allowing a stored endpoint to target internal services.
+- MCP response streams are capped at 1 MiB and each session aborts after six seconds. Tool arguments are filtered to declared schema properties; summaries cap incidents/services and truncate provider strings. Provider error bodies are not surfaced to users.
+- The PAT is stored only in the existing AES-GCM encrypted config column and is omitted from status responses. Team reads require membership; only owner/editor can save, test or remove. Mutations enforce same-origin, body bounds, and rate limits.
+- Mocked tests cover endpoint rejection, redirects and stream bounds; live Superlog/PostgreSQL/browser verification remains unavailable. Migration 0063 remains unapplied; F030 stays PARTIAL.
+## Security verification â€” workflow effect previews and MCP (2026-11-07)
+- Internal workflow approvals remain server-side, one-use, and bound to current graph revision plus exact input. Effect review suppresses approval for dynamic arguments, runtime prompt data, unknown node types, opaque/non-JSON bodies, oversized/deep bodies, and credential-like literals. URLs/headers/query/body structures are redacted before display; a hidden credential value causes fail-closed review rather than a misleading approval summary.
+- Standalone cloud MCP and voice execution routes bind approval to the current user and exact server/tool/payload and recheck current access. Local desktop MCP requires trusted IPC, server/process consent, allowlisted tools, and per-call native consent that displays the full accepted bounded arguments; cancel prevents execution.
+- Added regression coverage for no approval-token issuance on unsafe HTTP effects, no literal credential leakage, full >3 KiB desktop argument display, and cancelled local execution. Focused suites passed 31/31 across the related workflow, approval API, desktop, and voice paths.
+- No external provider/browser/Electron/PostgreSQL security journey was available. No production database or migration was touched.
+## F030 SEO security addendum (2026-11-07)
+- SEO credentials and configuration are stored only in `config_encrypted`; status returns credential-presence and domain metadata, never login/password. Team reads require membership, while saves/tests/removal require owner/editor. Mutations require same-origin requests, bounded JSON, and per-user rate limits; limiter errors fail closed.
+- DataForSEO calls are pinned to `https://mcp.dataforseo.com/v3/mcp`, reject URL variations and redirects, cap the declared and streamed body at 1 MiB, and abort after six seconds. Domain/credential inputs are validated; tool arguments are built from declared schema properties and candidates with common mutation verbs are skipped. Output keywords and nested data traversal are bounded.
+- Focused tests cover credential/domain validation, URL rejection, redirect rejection, declared/streamed body cap cancellation, team scope, same-origin mutation, and secret-free status. No live DataForSEO, OAuth MCP, PostgreSQL, or authenticated browser verification. OpenSEO is unimplemented; F030 remains PARTIAL.
+
+## F025 n8n workflow effect approval hardening (2026-11-07)
+- n8n run approval now permits only explicitly classified safe logic nodes and literal n8n-nodes-base.httpRequest effects. The preview shows method, full bounded URL, and bounded parameters; configured credentials are identified by type only and their IDs/names/values are not exposed.
+- Dynamic expressions, unknown/action integration nodes without a dedicated adapter, inline credential-like keys and header/query name-value pairs, secrets inside JSON/form-style strings, sensitive URL query/userinfo, excess nodes, oversized values, and over-complex payloads fail closed. Preview and approval issuance independently reload and classify the workflow.
+- Focused review and approval tests passed 13/13; scoped Biome and diff checks passed. No live n8n execution or credentialed workflow was run. Unsupported integration node types need a node-specific preview adapter before approval can be enabled.

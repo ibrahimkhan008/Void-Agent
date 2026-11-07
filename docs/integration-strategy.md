@@ -515,3 +515,49 @@ Remaining CreateAgent migration work includes reference file-binding parity and 
 ## F023 evidence-based scope decision (2026-11-07)
 - Do not invent a managed GitHub-source-to-container workflow builder from schema columns alone. The checked V2 community generator is an explicit null stub; dashboard provisioning/session/hosting has no executable route, UI, worker, or implementation.
 - Record this hosted-only surface as EXCLUDED. Preserve standard workflow CRUD/editor/execution parity tracking separately; primary n8n integration and internal graph workflow execution remain supported, with their existing auth/review boundaries.
+
+## F010/F014 strategy update (2026-11-07)
+Preserve the fact-backed, owner/source-scoped project-brain architecture; attach lightweight salience/archive maintenance to the existing durable ingest worker and keep human review for identity merges. Extend the existing typed table-review schema/UI rather than introducing a competing review model. The new slices passed focused tests and typecheck; schedule the remaining dream-cycle stages and integration verification as separate dependency-aware work. Both families remain PARTIAL.
+
+## F027 integration strategy update (2026-11-07)
+Reuse the existing owner-scoped chat transcript handoff and human approval UI for completed voice-device captures. Do not copy the reference's direct tool-dispatch finalizer into this product. Preserve partial status until the absent gateway dependency and live device/browser workflow are resolved.
+
+
+## F030 Stripe Cockpit vertical slice (2026-11-07)
+Adapt only the reference read-only Stripe finance provider first. Store restricted keys in the existing AES-GCM envelope; scope personal records to the signed-in user and team records to a verified team ID. Match existing Team roles: members can read the shared dashboard; owners/editors may save, test or remove keys. Use fixed Stripe HTTPS endpoints and GET only, with rate-limited API entry points, explicit request/response bounds, and generic provider failures. Keep each unported provider separate in the matrix; a Stripe slice does not establish full Cockpit parity.
+
+
+### Vercel provider adaptation (2026-11-07)
+Vercel is a second independent read-only source. Keep token plus team/project configuration in one AES-GCM `config_encrypted` payload; preserve Stripe's legacy encrypted-secret column. Expose only redacted project config and `tokenSet`. Use fixed Vercel HTTPS host, GET-only production deployments, bounded team discovery/project/page/body/time, and owner/editor team mutation permissions. Report only supported deployment state/date/URL and seven-day ERROR count; do not invent spend or margin. This does not establish unified Cockpit parity.
+
+## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
+- Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
+- Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+
+## F030 Vercel integration addendum (2026-11-07 06:41:22 +05:30)
+- In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
+- Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
+- Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
+
+## Reconciliation notes — 2026-11-07
+
+- Project-brain consolidation extends the existing fact/source-revision/visibility model; dream stages use current collection-owner scope and preserve human review for entity/contradiction decisions.
+- Workflow approvals are layered on the existing saved-workflow/N8N execution paths. Static reviewed actions are authorized by a one-use token bound to graph revision and input; actions whose runtime effects cannot be previewed are blocked pending per-effect review.
+- MCP tool output is treated as untrusted external data and bounded before entering chat/UI. Desktop audit visibility exposes metadata/hashes only through sender/origin-gated IPC.
+- Cockpit connections reuse the shared encrypted connection store and access resolver, keeping Stripe's existing encrypted-secret representation while using encrypted config for Vercel/Website.
+- Report and Slack inbound handling preserve the primary's per-user ownership and signed-webhook boundaries rather than inheriting reference assumptions.
+- F030 Revolut adaptation reuses the primary Cockpit connection store and role resolver. OAuth client assertion and access-token exchange remain on the server; temporary codes never enter persistence. Existing upstream semantics are retained for the bounded 30-day balance/transaction summary while data access is further restricted to fixed hosts and read-only routes. Migration 0063 is still un-applied.
+
+## F030 Superlog provider adaptation (2026-11-07)
+- Reused the encrypted Cockpit connection config and existing team scope resolver. Kept Superlog's MCP tool discovery and incident/alert/error summary behavior while replacing its user-configurable endpoint with the documented fixed `https://api.superlog.sh/mcp` host.
+- Added redirect rejection, hostname/path validation at the fetch boundary, a streamed 1 MiB response cap, a 6-second abort deadline, declared-argument filtering, output row/text limits, and generic errors that do not echo upstream response text.
+- Stored the PAT only in encrypted config. Personal/team reads are scoped; team changes require owner/editor. Migration 0063 remains unapplied. The SEO provider and unified upstream Cockpit console remain open; F030 stays PARTIAL.
+## F028 source-stub exclusion clarification (2026-11-07 09:20 IST)
+The channel-subscription/agent-task lifecycle is excluded because the reference only defines `SlackChannelSubscriptionTable` and `SlackAgentTaskTable` in `Void-Agent-V2/apps/web/src/lib/db/pg/schema.pg.ts` and migration `apps/web/src/lib/db/migrations/pg/0030_slack_navigator_bot.sql`, plus a settings component (`apps/web/src/components/slack/slack-integration-settings.tsx`) that calls `/api/slack`, `/api/slack/channels`, `/api/slack/sync`, and `/api/slack/connect`. There is no `/api/slack` route tree and no repository consumer implementing event verification/replay protection, task execution, or response delivery. Adding lookalike persistence/UI would not migrate working behavior, so no new lifecycle implementation is appropriate absent executable upstream source. Keep Void-Agent's signed inbound processing classified PARTIAL, not as channel-subscription parity; focused owner/HMAC tests passed 8/8.
+## F030 SEO provider adaptation (2026-11-07)
+- Adapted the reference DataForSEO path to primary encrypted Cockpit config and `resolveStripeScope`, retaining per-user/team isolation and owner/editor-only mutations. Domain inputs are bare-domain validated; requests use a hard-coded DataForSEO MCP host, reject redirects, cap the response stream, set an abort deadline, select only non-mutating overview/keyword/backlink-named tools, and include only declared input fields.
+- Did not call connected OAuth MCP servers from Cockpit. OpenSEO requires an approval-aware Navigator OAuth adapter, while the current manager tool-call API can invoke arbitrary registered tools directly; preserving the MCP approval boundary is required before implementing that path. The DataForSEO-only slice is not whole-provider parity; F030 remains PARTIAL.
+
+## n8n effect review policy (F025; 2026-11-07)
+The n8n path now follows a fail-closed node allowlist. Safe logic nodes have no external effect; literal HTTP Request nodes expose method, URL, and parameters after secret handling. HTTP expressions, inline credential values, secret-bearing URL query/userinfo, unsupported node types, and previews exceeding structural/byte bounds are not approvable. JSON/form-style strings and header/query name-value pairs are scanned and redacted before being rejected. Credential references are represented by type only. Any future n8n integration node requires a dedicated sanitizer/preview adapter and regression tests before approval can be enabled.

@@ -15,13 +15,25 @@ feature parity are NOT complete. No production or database changes or push.
 
 - 1,290 primary and 1,656 reference source/config/test/document files indexed.
 - 206 reference route/page/tool surfaces catalogued; these are NOT 206 features.
-- 36 capability families triaged: 12 EXISTING, 10 PARTIAL, 9 MISSING,
-  4 OPTIONAL, 1 DEPRECATED (baseline classifications).
-- 2 reference behaviors implemented: secure post-auth destination continuity and bounded history pagination.
-  Unit/middleware and live redirect verified; full interactive Google/deep-link
-  completion and production build remain pending.
-- 2 baseline reliability/security fixes: side-effect-free storage diagnostics;
-  canonical HMAC signature encoding. No new packages, schema, API routes or env vars.
+- Historical initial-triage distribution for F001-F036 (not current parity or
+  completion): 12 EXISTING, 10 PARTIAL, 9 MISSING, 4 OPTIONAL, 1 DEPRECATED.
+  EXISTING meant source was located, not end-to-end verified. This original
+  snapshot is retained here as historical evidence.
+- Current primary classification of the F001-F036 rows in the parity matrix
+  (2026-11-07): 11 EXISTING, 20 PARTIAL, 2 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED.
+  Counts use each row's primary category once; F030 is also explicitly PARTIAL
+  at the family level despite its OPTIONAL primary category. No F001-F036 row is
+  marked COMPLETE, and this classification does not produce a completion
+  percentage: EXISTING is not an end-to-end completion status and the families
+  are not a feature-level denominator.
+- F037 project document originals was added after the original 36-family
+  baseline and is tracked separately; its current status is PARTIAL. Do not
+  silently add it to, or use it to reinterpret, the historical 36-family count.
+- Initial-checkpoint work count (historical only): 2 reference behaviors
+  (secure post-auth destination continuity and bounded history pagination) and
+  2 baseline reliability/security fixes (side-effect-free storage diagnostics;
+  canonical HMAC signature encoding). Subsequent work is recorded in dated
+  entries below; there is no roll-up completion count across those slices.
 - Reference content hash comparison: zero changed source files.
 
 ## Implementation traceability
@@ -846,3 +858,83 @@ Verified migration snapshot pushed to private ibrahimkhan008/Void-Agent as commi
 ## F023 managed generator/dashboard adjudication (2026-11-07)
 - The reference community source has no executable hosted workflow generator or dashboard. Its registered `generate_workflow` tool calls a stub that explicitly returns `null`; dashboard URL/database fields exist only in schema and migration 0064, with no provisioning, session route, UI, or worker.
 - Classification: managed generator/dashboard EXCLUDED as source-incomplete/hosted-only. Ordinary workflow list/create/editor/execute remains a separate implemented capability in both projects. Primary additionally retains internal graph workflows and its authenticated n8n integration. No live deployment/provider workflow was run.
+
+## F010/F014 verified implementation update (2026-11-07)
+Project-brain queue completions now run scoped salience refresh and bounded stale-page archiving once per affected project per queue batch. Table review manual creation now supports multiple typed custom extraction columns, including citation, with an eight-column ceiling. See matrix evidence files/tests. Both families remain PARTIAL: F010 still lacks full scheduled dream/dedupe and live DB workflow verification; F014 still lacks live DB/browser/provider workflow verification.
+
+## F027 voice-device review path (2026-11-07)
+Finalized nonempty device sessions now expose the deterministic saved transcript message ID to the authenticated owner dashboard. The link opens the existing explicit assistant review/preview workflow; there is no automatic command execution. Focused route tests (7/7), scoped Biome, and diff check pass. Reference WebSocket transport requires an external gateway absent from the community checkout, and hardware/browser/PostgreSQL journeys remain unverified; F027 remains PARTIAL.
+
+## F030 Stripe Cockpit slice (2026-11-07)
+- Implemented an end-to-end Stripe-only connection and finance overview in `src/lib/cockpit/stripe.ts`, the `/api/cockpit/stripe/*` routes, and `/cockpit` UI. Personal connections belong to the signed-in user; team connections are readable by current members and manageable/testable/removable only by owner/editor roles.
+- Added AES-256-GCM secret storage and migration 0063 with separate partial unique keys for personal and team scope. Secrets are not returned. Stripe egress is fixed-host HTTPS GET, request-rate-limited, timeout-bounded, limited to 10 pages × 100 list records, and response-body capped at 2 MiB.
+- Focused tests pass 17/17, scoped Biome lint passes, `pnpm db:check` passes, and the 6 GB project typecheck passes after fixing the status type. No PostgreSQL migration was applied; no authenticated browser journey or live Stripe call was run.
+- Scope is one of six discovered Cockpit providers. Website, Vercel, Revolut, Superlog, SEO, unified finance composition and reference console controls remain; F030 stays PARTIAL pending remaining provider work and DB/browser verification.
+
+
+## F030 Stripe Cockpit slice (2026-11-07)
+- Implemented an end-to-end Stripe-only connection and finance overview in src/lib/cockpit/stripe.ts, the /api/cockpit/stripe/* routes, and /cockpit UI. Personal connections belong to the signed-in user; team connections are readable by current members and manageable/testable/removable only by owner/editor roles.
+- Added AES-256-GCM secret storage and migration 0063 with separate partial unique keys for personal and team scope. Secrets are not returned. Stripe egress is fixed-host HTTPS GET, request-rate-limited, timeout-bounded, limited to 10 pages x 100 list records, and response-body capped at 2 MiB.
+- Focused tests pass 17/17, scoped Biome lint passes, pnpm db:check passes, and the 6 GB project typecheck passes. No PostgreSQL migration was applied; no authenticated browser journey or live Stripe call was run.
+- Scope is one of six discovered Cockpit providers. Website, Vercel, Revolut, Superlog, SEO, unified finance composition and reference console controls remain; F030 stays PARTIAL pending remaining provider work and DB/browser verification.
+
+## F025 CreateAgent file binding implementation update (2026-11-07)
+Agent file bindings are now validated server-side using the authenticated user's storage prefix; existing valid creator-owned bindings can be retained when editing a shared agent, with owner metadata sourced from the server record. At runtime, bindings flow into sandbox tool construction and stage into a persistent workspace with bounded safe names, an idempotent manifest, safe cleanup, 50 MiB per-file and 100 MiB aggregate caps. FileStorage's new metadata-preflight + streamed `downloadLimited` prevents oversized objects from being fully buffered before the cap. Focused tests pass 35/35 across 6 files; scoped Biome passes. CreateAgent remains PARTIAL pending integrated check after all changes and live storage/E2B/browser journey.
+
+## F021 desktop server chooser implementation checkpoint (2026-11-07)
+- Added reference-backed first-run and Change Server selection for the standalone Electron companion. New user profiles choose configured cloud or a self-hosted Void-Agent server; legacy profiles with existing browser data keep the configured cloud origin and cookies through upgrade. Explicit choices persist and restart the main process so all origin-bound policies are rebound.
+- Custom server URLs are HTTPS-only in production, reject URL credentials, are identity-checked against the primary `/api/health` marker with bounded no-credential/no-redirect probing, and accept the recognized degraded health response. Development may choose loopback HTTP only.
+- A dedicated minimal preload and trusted data-page IPC isolate server selection. Existing desktop MCP local consent, default-deny tool policy, and audit controls remain unchanged. The upstream `/api/auth/ok` endpoint was not copied because it is absent in primary.
+- Verification: 16 focused tests; desktop typecheck, desktop build, and scoped Biome pass. No live Electron/server/OAuth/package journey. F021 remains PARTIAL; next verification is first-run, server switch, and legacy-profile behavior in an actual desktop runtime.
+
+
+## F030 Vercel provider checkpoint (2026-11-07)
+- Added a Vercel read-only connection/dashboard slice: encrypted token+configuration, optional team discovery, up to six projects, production deployment status/date/URL, and seven-day ERROR counts. It does not claim spend/margin support.
+- Generalized unapplied migration 0063 with encrypted config while preserving Stripe's existing encrypted-secret path and personal/team uniqueness. Team members may read; only owner/editor may manage/test/remove.
+- Focused tests pass 28/28 across five files; scoped Biome lint passes (15 files); `pnpm db:check` passes. Whole-project typecheck has no F030 errors and is blocked by concurrent project-brain error at `src/app/api/projects/[id]/brain/status/route.ts:172`.
+- No database migration, live Vercel call, or browser workflow was run. Other providers, unified console and PostgreSQL authorization remain. F030 stays PARTIAL.
+
+## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
+- Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
+- Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+
+## F030 Vercel integration addendum (2026-11-07 06:41:22 +05:30)
+- In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
+- Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
+- Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
+
+## Checkpoint 17 � verified cross-family implementation batch (2026-11-07)
+
+- Completed local implementation slices for F008, F010/F011, F014, F020/F021, F022, F026, F028, F029, F030, and F031; see the per-family addenda in the feature matrix and security review. They remain PARTIAL where full provider/Postgres/browser verification or additional reference behavior is absent.
+- F008 agent-generation route remains unbilled because it has no persisted server-side team scope. Do not trust a client team ID to fill this gap.
+- Full verification for the resulting source snapshot: typecheck passed; full Vitest passed **1,921/1,921 across 331 files**; `pnpm lint` passed with existing `<img>` and workspace-root warnings; `pnpm db:check` and `git diff --check` passed; production build passed and generated **198/198 static pages**.
+- Build still emits existing E2B/unpdf dependency-analysis, Next dynamic-session/static-probe, PostgreSQL SSL, memory-cache/Upstash, and optional E2B warnings. No migration was applied and no live Postgres/provider/browser workflow was run.
+- Local only. No commit/push/deploy. Reference checkout was not written; its read-only status query showed 3,072 staged entries whose previous baseline could not be independently established, so these are preserved untouched. Two untracked CognixAI specification files in primary remain unrelated and excluded.
+- Next: continue the remaining feature roadmap; current full checks only certify this snapshot, not global reference parity.
+- F030 Revolut slice: encrypted OAuth client ID/private key/refresh token persistence, server-side RS256 assertion and refresh flow, fixed-host read-only balances/30-day transactions, bounded response handling, same-origin/rate-limited writes, personal/team ACLs, and dashboard are implemented. Focused tests 6/6, scoped Biome, and db journal check passed. Migration 0063, live provider/Postgres/browser verification remain outstanding; F030 PARTIAL.
+
+## F030 Superlog provider checkpoint (2026-11-07)
+- Added an encrypted, read-only Superlog MCP connection and dashboard using the fixed hosted endpoint; the workflow includes incident search, firing alerts, error logs, and per-service counts, filtered to the actual declared MCP arguments.
+- Focused tests: 8/8; scoped Biome and diff check passed. Integrated project typecheck/build are pending root verification. Migration 0063 is not applied, and live provider/Postgres/browser journeys were not run.
+- F030 remains PARTIAL: SEO and unified Cockpit/data/alert behavior plus environment-backed end-to-end checks are not complete. No push or deployment.
+## F028 lifecycle audit follow-up (2026-11-07 09:20 IST)
+- Rechecked complete reference sources: Slack subscription/task schema and migration plus settings UI calls exist, but no `/api/slack` route tree or table consumers implement event validation/replay protection, task execution, or response delivery. The reference channel lifecycle is therefore source-stub-only and EXCLUDED; no imitation code or migration was added.
+- Primary inbound processing remains PARTIAL and separate: owner binding and HMAC validation protect its existing queue delivery. Focused current owner/HMAC tests passed 8/8; this is not reference channel-lifecycle parity. Overall F028 remains PARTIAL.
+## F030 additional SEO provider (2026-11-07)
+- Added DataForSEO domain overview, ranked-keyword list and optional backlink summary on Cockpit's encrypted credential store; added personal/team scoped connection APIs, same-origin/rate-limited writes, manager-only mutations and `/cockpit/seo` dashboard.
+- Fixed egress host, redirect rejection, timeout, streamed body cap, validated bare domain, filtered MCP arguments to declared properties, and reject obviously mutating tool names. Added SEO to Cockpit provider allowlist in `schema.pg.ts` and migration `0063_cockpit_connections.sql`.
+- Focused SEO + Superlog tests pass 15/15; scoped Biome and `pnpm db:check` pass. OpenSEO/Navigator OAuth, unified Cockpit, PostgreSQL-backed checks and live provider/browser verification remain. F030 remains PARTIAL.
+### F030 SEO rate-limit regression verification (2026-11-07)
+- Added coverage for GET, POST, and DELETE returning 503 when rate-limit storage fails, with no save/remove action. Final SEO + Superlog focused suite passed 16/16 across 4 files; scoped Biome and diff check passed. F030 remains PARTIAL.
+
+## F025 verification batch — n8n approval (2026-11-07)
+- Completed and locally verified the n8n blind-approval fix: only understood logic and literal HTTP effects are reviewable; exact bounded method/URL/parameters appear in the effect preview; credential references are type-only; unsafe dynamic, unknown, secret-bearing, oversized, and complex effects cannot receive approval tokens.
+- Focused tests 13/13; scoped Biome and git diff --check passed. No live n8n or credentialed execution. F025 remains PARTIAL for unsupported integration adapters and broader agent/tool parity.
+## F008 project-brain status budget slice (2026-11-07)
+- Added server-authoritative team-budget handling to project status generation: unchanged fingerprints reuse snapshots; current project team scope and enabled model selection are server-derived; successful calls settle actual usage or the reserved estimate; pinned billable model calls do not retry; authorization and evidence are rechecked before persistence.
+- Fixed settlement failure handling so successful inference cannot release its reservation on a later ledger error. Focused status/service/runtime tests pass 25/25; integrated typecheck passes.
+- F008 remains PARTIAL: 0062 is unapplied, live PostgreSQL verification is unavailable, and the remaining AI route/model surface is not all billed through this budget.
+## Integrated verification after F008/F025 security follow-ups (2026-11-07)
+- Current combined worktree: 1,988/1,988 tests passed across 348 files; 6 GiB integrated typecheck passed; lint exited 0 with existing `<img>` and multiple-lockfile warnings; Drizzle journal check passed; production build exited 0 with 202/202 pages; `git diff --check` passed with line-ending notices.
+- This verifies the local source snapshot only. Database migrations remain unapplied and external provider, live PostgreSQL, browser, voice-device and Electron GUI journeys remain unverified. Families with documented gaps remain PARTIAL/EXCLUDED; no overall parity completion percentage is claimed.

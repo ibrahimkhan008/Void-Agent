@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { createHmac } from "node:crypto";
-import { computeSlackSignature, parseSlackEvent } from "./slack";
+import {
+  computeSlackSignature,
+  isSlackEndpointOwner,
+  parseSlackEvent,
+} from "./slack";
 
 const SIGNING_SECRET = "shhh_super_secret_slack_signing_key";
 
@@ -15,6 +19,14 @@ const sign = (rawBody: string, ts: number, secret = SIGNING_SECRET) => {
 };
 
 const now = () => 1_700_000_000_000; // fixed: 2023-11-14T22:13:20Z
+
+describe("Slack endpoint ownership binding", () => {
+  it("only allows a workspace connector owned by the endpoint owner", () => {
+    expect(isSlackEndpointOwner("user-1", "user-1")).toBe(true);
+    expect(isSlackEndpointOwner("user-1", "user-2")).toBe(false);
+    expect(isSlackEndpointOwner("", "user-1")).toBe(false);
+  });
+});
 
 describe("parseSlackEvent", () => {
   it("accepts a correctly signed message event within the 5-minute window", () => {

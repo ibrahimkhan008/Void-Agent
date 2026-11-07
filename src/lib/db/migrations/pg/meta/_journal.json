@@ -449,6 +449,34 @@
       "when": 1793977212000,
       "tag": "0062_team_member_ai_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793977213000,
+      "tag": "0063_cockpit_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793977214000,
+      "tag": "0064_project_brain_dream_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794027300000,
+      "tag": "0065_problem_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1794027300001,
+      "tag": "0066_project_brain_dream_status_stage",
+      "breakpoints": true
     }
   ]
 }

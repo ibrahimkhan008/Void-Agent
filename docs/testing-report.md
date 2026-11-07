@@ -869,3 +869,90 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Verified source paths: V2 `lib/voice/workflow-draft.ts` always returns `null` with a hosted-edition explanation; `lib/navigator-tools/tools/workflows.ts` reports unavailable generation; migration `0064_navigator_workflows_dashboard.sql` and the schema declare fields, but no dashboard/session/provisioning implementation exists.
 - Standard workflow list/create/editor/execution is present in both codebases. Primary n8n and internal workflow paths remain distinct and are not marked excluded.
 - No tests were run because there is no executable managed generator/dashboard path to exercise. No source changes or external calls were made for this adjudication.
+
+## 2026-11-07 F010/F014 focused verification
+- Focused brain maintenance/archive/salience and table-review component/helper tests passed: 13 tests across 5 files.
+- Scoped Biome passed for the seven F010/F014 files. `pnpm check-types` exited successfully.
+- These results verify only the listed code-level slices. No production build, browser journey, configured AI provider, or PostgreSQL-backed workflow was run for this slice. F010/F014 remain PARTIAL.
+
+## 2026-11-07 F027 handoff verification
+- Voice device session route tests passed 7/7; scoped Biome and `git diff --check` passed.
+- The route returns deterministic review targets only for finalized nonempty transcripts and preserves existing auth/rate/limit behavior. The chat side loads the transcript through its owner-scoped action and requires an explicit user choice before sending.
+- Whole-project typecheck is not yet green because concurrent Cockpit edits have reported `Status.canManage` and `isNull` errors. No PostgreSQL, gateway, hardware, or browser end-to-end test was run. F027 remains PARTIAL.
+
+
+## F030 Stripe Cockpit slice verification (2026-11-07)
+- Focused pnpm test -- src/lib/cockpit/stripe.test.ts src/lib/cockpit/access.test.ts src/app/api/cockpit/stripe/connection/route.test.ts: 17/17 passed (3 files).
+- Scoped pnpm exec biome lint over 12 Cockpit/API/UI/schema files passed. pnpm db:check reported the Drizzle migration journal is consistent. pnpm check-types with 6 GB heap exited 0 after fixing the status type.
+- Tests cover personal/team role resolution, connection metadata redaction, cross-origin/unauthenticated requests, manager-only changes, body bounds, rate limiting, key format, summary aggregation, fixed Stripe host/GET, response-body cap and generic provider errors.
+- Migration 0063 was not applied. No live PostgreSQL, browser-authenticated journey, or Stripe account request was made. F030 remains PARTIAL.
+
+## 2026-11-07 F025 file binding and bounded staging verification
+- Focused tests passed: 35/35 across 6 files, covering owner-bound normalization, foreign-key rejection, safe staging/idempotent manifest, per-file/aggregate bounds, stream cancellation, and S3/Vercel oversized metadata rejection before body download.
+- Scoped Biome checks passed on 15 feature/storage files. Root combined test batch passed 70/70 across 15 files including agent API, storage, Cockpit, voice, F010/F014 suites. Cockpit agent reports whole-project `pnpm check-types` passed after current fixes; root will rerun after desktop F021 work settles. `pnpm db:check` passes.
+- No live storage provider, E2B sandbox, PostgreSQL-backed agent lifecycle, browser journey, or production build was run for the new file-binding workflow. F025 remains PARTIAL.
+
+
+## F030 Vercel Cockpit verification (2026-11-07)
+- `pnpm test -- src/lib/cockpit/vercel.test.ts src/app/api/cockpit/vercel/connection/route.test.ts src/lib/cockpit/access.test.ts src/lib/cockpit/stripe.test.ts src/app/api/cockpit/stripe/connection/route.test.ts`: 28/28 passed across five files.
+- Scoped `pnpm exec biome lint` over 15 Cockpit API/service/UI/schema files passed. `pnpm db:check` passed.
+- Whole-project `pnpm check-types` (6 GiB heap) has no Vercel/Stripe errors; it exits on separate concurrent `src/app/api/projects/[id]/brain/status/route.ts:172` (`string` not assignable to `Health | null`).
+- No PostgreSQL connection/migration, browser workflow, or live Vercel request. Migration remains unapplied; F030 is PARTIAL.
+
+## 2026-11-07 integrated current-worktree verification (2026-11-07 06:41:22 +05:30)
+- F029 project health notification: focused tests passed 19/19 across 4 files; scoped Biome passed; whole-project check-types passed after health schema validation and restoration of the prior route regression tests.
+- F030 Vercel + Stripe: focused Cockpit tests passed 28/28 across 5 files; scoped Biome passed; pnpm db:check passed. No external account or PostgreSQL was contacted.
+- Full pnpm test passed 1,862 tests across 320 files. pnpm build passed and generated 196/196 pages. Existing non-fatal dependency, workspace-root, lint, dynamic-route, optional-service configuration and PostgreSQL SSL notices remain.
+- No live database migration/authorization, browser workflow, VAPID delivery, or Stripe/Vercel credential test was performed. F029 and F030 remain PARTIAL.
+
+## Integrated migration snapshot � 2026-11-07
+
+- Typecheck: `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`.
+- Full suite: `pnpm test` passed **1,921 tests across 331 files**.
+- Lint: `pnpm lint` exited 0. Existing `<img>` optimization and multiple-lockfile workspace-root warnings remain.
+- Database journal: `pnpm db:check` exited 0 for the current journal. This checks migration metadata consistency only; it does not apply migrations or validate against PostgreSQL.
+- Production build: `pnpm build` exited 0; 198/198 static pages generated. Build emitted dependency-analysis warnings for E2B/unpdf, dynamic-session probes, missing optional E2B/Upstash configuration and PostgreSQL SSL-mode notices.
+- Additional focused verification: desktop F021 tests 8/8 plus desktop typecheck/build; workflow effect review 21 tests; tabular review route security 19 tests; Slack inbound owner guard 8 tests; F031 reports 6 tests; F008 agent generation 4 tests; F020 MCP result/approval tests 5 tests; F010 queue tests 8 tests; F030 Website 7 tests and Vercel 28 tests. Several of these are included in the full suite.
+- No PostgreSQL-backed migration test, live AI/provider test, browser E2E, VAPID/Slack/Supabase/Revolut access, or hardware/desktop GUI execution. Do not equate passing mocked/unit suites and static build with functional parity.
+
+## F030 Revolut provider focused verification (2026-11-07)
+- `pnpm exec vitest run src/lib/cockpit/revolut.test.ts src/app/api/cockpit/revolut/connection/route.test.ts`: **6/6 passed**. Covered RS256 assertion claims/issuer validation, fixed sandbox host, OAuth refresh, read-only bounded 30-day requests, internal-transfer/exchange aggregation, active balances, redacted status, team manager access, same-origin rejection, and request-size limit.
+- Scoped `pnpm exec biome lint` across 12 changed source/test/schema files: passed.
+- `pnpm db:check`: passed.
+- `pnpm check-types`: started but stopped on parent request to avoid resource contention while F023 work was in progress; inconclusive, not counted as passed. No production build, live PostgreSQL, Revolut API or browser workflow was run for this slice.
+
+## F030 Superlog provider focused verification (2026-11-07)
+- `pnpm exec vitest run src/lib/cockpit/superlog.test.ts src/app/api/cockpit/superlog/connection/route.test.ts`: **8/8 passed**. Coverage includes MCP summary aggregation, declared-argument filtering, fixed endpoint/redirect policy, streamed response bounds, invalid token types, secret-free status, same-origin/team-manager checks, and bounded config input.
+- Scoped Biome passed on Superlog API, service, dashboard, provider navigation, and tests. `git diff --check` passed with existing line-ending conversion notices.
+- Integrated typecheck and build are pending root verification. No live Superlog token/provider, PostgreSQL, or authenticated browser journey was available. Migration 0063 remains unapplied; F030 remains PARTIAL.
+## Integrated verified migration batch (2026-11-07 09:16 IST)
+- Added/finished implementation slices across F023 saved-workflow draft editing, F025 human-review effect hardening and desktop MCP consent, F010/F011 dream-cycle status synthesis, F030 Website analytics breakdown UI and Superlog provider, and F031 administrator report rate limiting. Each family remains PARTIAL where broader functionality or external verification remains.
+- Integrated checks on the current combined primary worktree: `pnpm check-types` passed with a 6 GiB heap; full `pnpm test` passed **1,968 tests across 346 files**; `pnpm lint` exited 0 with existing `<img>` and workspace-root warnings; `pnpm db:check` passed; `pnpm build` exited 0 and generated **201/201 static pages**; `git diff --check` passed (line-ending notices only).
+- Build warnings include existing E2B/unpdf dependency analysis, dynamic-session prerender probes, missing optional Redis/Upstash/E2B settings, and PostgreSQL SSL-mode notices. These do not prove live service behavior.
+- Focused additions: F023 draft APIs/UI 10/10 after type repair; F025 approval/review/desktop/voice checks 31/31 combined; F010 dream status stage tests 5/5; F030 Superlog tests 8/8 and Website analytics component test 1/1; F031 report-list/status rate-limit tests 6/6. Focused tests are included in the full suite where collected.
+- Migration files remain unapplied. No live PostgreSQL, external provider, browser E2E, hardware/desktop GUI, production DB, deployment, or GitHub push was performed. No completion percentage is claimed.
+
+## F028 Slack inbound focused recheck (2026-11-07 09:20 IST)
+- Re-ran `pnpm vitest run 'src/app/api/inbound/[token]/route.test.ts' src/lib/inbound/slack.test.ts`: **2 files passed, 8/8 tests passed**. This verifies the current primary inbound owner-binding/HMAC route and Slack parsing/helper tests only.
+- Reference lifecycle audit is source-evidence based: schema/migration and UI calls exist, but no `/api/slack` handlers, task worker/table consumers, event replay verification, or response delivery were found. No upstream lifecycle parity is claimed and no lifecycle implementation was added.
+## F030 SEO provider focused verification (2026-11-07)
+- `pnpm vitest run --reporter=dot src/lib/cockpit/seo.test.ts src/app/api/cockpit/seo/connection/route.test.ts src/lib/cockpit/superlog.test.ts src/app/api/cockpit/superlog/connection/route.test.ts`: **4 files, 15/15 tests passed**. SEO assertions cover bare-domain/credential validation, response summary bounds, fixed-host and redirect rejection, declared and streamed content-length cap cancellation; API tests cover team membership/manager role, same-origin mutation, endpoint override rejection, bounded request body and scoped removal.
+- `pnpm db:check`: passed (Drizzle journal consistency only, not an applied migration). Initial scoped Biome found one unused test callback binding; fixed; scoped Biome rerun and integrated typecheck/build are pending. No live DataForSEO, PostgreSQL, or browser authentication workflow was run. F030 remains PARTIAL.
+### F030 SEO verification correction (2026-11-07)
+- Final rerun after adding a rate-limit-store failure test: SEO + Superlog focused suites passed **16/16 across 4 files** (SEO alone: 8/8 across 2 files). This supersedes the prior 15/15 and 7/7 counts.
+- Scoped Biome passed across 9 SEO source/test/schema files; git diff --check passed with only a schema LF/CRLF notice. pnpm db:check passed. Integrated typecheck/build remains with root's verification batch.
+
+## F025 n8n approval focused verification (2026-11-07)
+- pnpm vitest run src/lib/n8n/workflow-review.test.ts src/app/api/approvals/workflow-run/route.test.ts — PASS, 2 files / 13 tests. Coverage: exact literal HTTP preview, configured credential metadata redaction, inline header and JSON-string secret redaction, dynamic expression rejection, unknown action rejection, oversized effect rejection, and no approval-token issuance for unreviewable n8n definitions.
+- pnpm exec biome check on the four touched review/route implementation and test files — PASS. Scoped git diff --check — PASS with Windows LF/CRLF normalization notices. No live n8n, PostgreSQL, provider, or browser flow was run.
+## F008 project-brain status budget regression (2026-11-07)
+- Focused Vitest: 3 files / 25 tests passed across `src/app/api/projects/[id]/brain/status/route.test.ts`, `src/lib/projects/project-brain-status.test.ts`, and `src/lib/ai/team-member-ai-budget-runtime.test.ts`.
+- Coverage includes server-derived persisted team scope/model, matching-snapshot reuse, usage settlement, conservative estimate when provider usage is absent, stale-evidence rejection after billing, and no reservation release if settlement fails after provider inference.
+- Integrated `pnpm check-types` passed with a 6 GiB heap. Full-suite/lint/database-journal results are recorded in the current verification checkpoint; production build is pending. No PostgreSQL migration was applied.
+## Integrated verification after F008/F025 security follow-ups (2026-11-07)
+- `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`.
+- `pnpm test` passed: **1,988 tests across 348 files**.
+- `pnpm lint` exited 0; existing Next `<img>` and multiple-lockfile workspace-root warnings remain.
+- `pnpm db:check` passed; this checks Drizzle migration journal consistency only and does not apply migrations.
+- `pnpm build` exited 0 and generated **202/202 static pages**. Existing E2B/unpdf dependency-analysis, dynamic-session prerender, optional Redis/Upstash/E2B configuration, and PostgreSQL SSL notices remain.
+- `git diff --check` passed with Windows LF/CRLF normalization notices. No live PostgreSQL migration, provider, authenticated browser, voice device, Electron GUI, production DB or deployment run was performed.

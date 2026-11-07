@@ -100,6 +100,15 @@ export type SlackParseResult =
   | { ok: true; kind: "challenge"; challenge: string }
   | { ok: false; status: 400 | 401; error: string };
 
+/** Slack credentials and the inbound agent endpoint must belong to the same user. */
+export const isSlackEndpointOwner = (
+  endpointOwnerId: string,
+  connectorOwnerId: string,
+): boolean =>
+  endpointOwnerId.length > 0 &&
+  connectorOwnerId.length > 0 &&
+  endpointOwnerId === connectorOwnerId;
+
 /**
  * Compute the Slack signing header value for a given body. Exposed
  * (and tested) so future cron / replay tooling can re-sign payloads

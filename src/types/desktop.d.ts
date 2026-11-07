@@ -23,6 +23,16 @@ declare global {
         startBrowserSignIn(input: { page: "sign-in" | "sign-up"; provider: "google" | "github" | "microsoft"; callbackUrl?: string }): Promise<{ ok: boolean }>;
       };
       mcp: {
+        getRecentAuditEvents(): Promise<
+          Array<{
+            timestamp: string;
+            action: "mcp.list-tools" | "mcp.tool-call";
+            configHash: string;
+            toolName?: string;
+            argsHash?: string;
+            outcome: "success" | "denied" | "failure";
+          }>
+        >;
         listTools(config: MCPServerConfig): Promise<MCPToolInfo[]>;
         callTool(input: { config: MCPServerConfig; toolName: string; params?: Record<string, unknown> }): Promise<unknown>;
       };

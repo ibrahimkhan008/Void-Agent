@@ -1,5 +1,6 @@
 "use client";
 
+import { buildVoiceDraftHandoff } from "lib/voice/draft-handoff";
 import { isCurrentVoiceRequest } from "lib/voice/handoff";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "ui/button";
@@ -135,6 +136,48 @@ export function VoiceTranscriptReviewPanel({
           <p className="mt-2 text-xs text-muted-foreground">
             Preview only. No action was run.
           </p>
+        </div>
+      )}
+      {preview &&
+        (preview.intent === "agent" ||
+          preview.intent === "scheduled_agent") && (
+          <div className="mt-3 rounded-md border p-3">
+            <p className="text-sm font-medium">Prepare an agent proposal</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The assistant will prepare its normal editable CreateAgent review
+              card. Saving an agent or schedule still requires your approval.
+            </p>
+            <Button
+              type="button"
+              className="mt-2"
+              size="sm"
+              disabled={sending}
+              onClick={() =>
+                onSend(buildVoiceDraftHandoff(transcript, preview.intent))
+              }
+            >
+              Prepare editable agent proposal
+            </Button>
+          </div>
+        )}
+      {preview?.intent === "workflow" && (
+        <div className="mt-3 rounded-md border p-3">
+          <p className="text-sm font-medium">Prepare a workflow plan</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This creates a planning response in chat only. Build in the Workflow
+            editor; running a workflow still needs its normal approval card.
+          </p>
+          <Button
+            type="button"
+            className="mt-2"
+            size="sm"
+            disabled={sending}
+            onClick={() =>
+              onSend(buildVoiceDraftHandoff(transcript, preview.intent))
+            }
+          >
+            Plan workflow in chat
+          </Button>
         </div>
       )}
       {previewError && (

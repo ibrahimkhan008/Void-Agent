@@ -29,6 +29,7 @@ import {
   Settings,
   FolderOpenIcon,
   PlusIcon,
+  MessageSquareWarning,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { appStore } from "@/app/store";
@@ -39,7 +40,6 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { getLocaleAction } from "@/i18n/get-locale";
 import { Suspense, useCallback, useMemo, useState } from "react";
-import { GithubIcon } from "ui/github-icon";
 import { TelegramIcon } from "ui/telegram-icon";
 import { useThemeStyle } from "@/hooks/use-theme-style";
 import { BasicUser } from "app-types/user";
@@ -201,16 +201,11 @@ export function AppSidebarUserInner(props: {
               <Command className="size-4 text-foreground" />
               <span>{t("keyboardShortcuts")}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                window.open(
-                  "https://github.com/Flare-Labs/flare-ai/issues/new",
-                  "_blank",
-                );
-              }}
-            >
-              <GithubIcon className="size-4 fill-foreground" />
-              <span>{t("reportAnIssue")}</span>
+            <DropdownMenuItem asChild>
+              <Link href="/problem-reports" className="cursor-pointer">
+                <MessageSquareWarning className="size-4" />
+                <span>{t("reportAnIssue")}</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link

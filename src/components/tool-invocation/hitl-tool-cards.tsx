@@ -801,7 +801,7 @@ function WorkflowRunApprovalCard({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [isApproving, setIsApproving] = useState(false);
-  const [review, setReview] = useState<{ graphRevision: string; effects: string[] } | null>(null);
+  const [review, setReview] = useState<{ graphRevision: string; effects: string[]; reviewable: boolean; issues: string[] } | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const settled = submitted !== null;
   const approved = submitted?.approved === true;
@@ -813,14 +813,14 @@ function WorkflowRunApprovalCard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ previewWorkflowId: draft.target, workflowName: draft.workflowName }),
     }).then(async (response) => {
-      const payload = await response.json().catch(() => null) as { graphRevision?: unknown; effects?: unknown; error?: unknown } | null;
-      if (!response.ok || typeof payload?.graphRevision !== "string" || !Array.isArray(payload.effects) || !payload.effects.every((item) => typeof item === "string")) throw new Error(typeof payload?.error === "string" ? payload.error : "Could not inspect workflow actions");
-      if (active) setReview({ graphRevision: payload.graphRevision, effects: payload.effects as string[] });
+      const payload = await response.json().catch(() => null) as { graphRevision?: unknown; effects?: unknown; issues?: unknown; reviewable?: unknown; error?: unknown } | null;
+      if (!response.ok || typeof payload?.graphRevision !== "string" || !Array.isArray(payload.effects) || !payload.effects.every((item) => typeof item === "string") || !Array.isArray(payload.issues) || !payload.issues.every((item) => typeof item === "string") || typeof payload.reviewable !== "boolean") throw new Error(typeof payload?.error === "string" ? payload.error : "Could not inspect workflow actions");
+      if (active) setReview({ graphRevision: payload.graphRevision, effects: payload.effects as string[], issues: payload.issues as string[], reviewable: payload.reviewable });
     }).catch((error) => { if (active) setReviewError(error instanceof Error ? error.message : "Could not inspect workflow actions"); });
     return () => { active = false; };
   }, [draft.platform, draft.target, draft.workflowName]);
   const approve = async () => {
-    if (disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && !review)) return;
+    if (disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && (!review || !review.reviewable))) return;
     let parsed: unknown;
     try { parsed = JSON.parse(draft.payload); } catch { toast.error("Payload must be valid JSON"); return; }
     if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") { toast.error("Payload must be a JSON object"); return; }
@@ -834,10 +834,10 @@ function WorkflowRunApprovalCard({
       <p className="font-medium">{settled ? (approved ? "Workflow run approved" : "Workflow run rejected") : draft.platform === "saved-workflow" ? "Review saved workflow run" : "Review automation run"}</p>
       <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Platform</span><p>{draft.platform === "saved-workflow" ? "Void-Agent workflow" : draft.platform}</p></label>
       {draft.workflowName && <p className="text-sm"><span className="text-muted-foreground">Workflow: </span>{draft.workflowName}</p>}
-      {draft.platform === "saved-workflow" && !settled && <div className="rounded-md border p-3 text-sm"><p className="mb-2 font-medium">Actions in this workflow</p>{review ? <ul className="list-disc space-y-1 pl-5">{review.effects.map((effect, index) => <li key={`${index}-${effect}`}>{effect}</li>)}</ul> : <p className="text-muted-foreground">{reviewError ?? "Inspecting workflow actions…"}</p>}</div>}
+      {draft.platform === "saved-workflow" && !settled && <div className="rounded-md border p-3 text-sm"><p className="mb-2 font-medium">Actions in this workflow</p>{review ? <><ul className="list-disc space-y-1 pl-5">{review.effects.map((effect, index) => <li key={`${index}-${effect}`}>{effect}</li>)}</ul>{review.issues.length > 0 && <div className="mt-2 text-destructive"><p>Approval is disabled because these actions cannot be previewed exactly:</p><ul className="list-disc pl-5">{review.issues.map((issue, index) => <li key={`${index}-${issue}`}>{issue}</li>)}</ul></div>}</> : <p className="text-muted-foreground">{reviewError ?? "Inspecting workflow actions…"}</p>}</div>}
       <label className="block space-y-1 text-sm"><span className="text-muted-foreground">{draft.platform === "saved-workflow" ? "Workflow ID" : "Target"}</span>{settled ? <p className="break-all">{draft.target}</p> : <Input maxLength={256} value={draft.target} onChange={(event) => setDraft((current) => ({ ...current, target: event.target.value }))} disabled={disabled || draft.platform === "saved-workflow"} />}</label>
       <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Complete JSON payload</span>{settled ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">{draft.payload}</pre> : <Textarea maxLength={16_000} rows={8} value={draft.payload} onChange={(event) => setDraft((current) => ({ ...current, payload: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && !review)} onClick={() => void approve()}>{isApproving ? "Approving..." : "Approve and run"}</Button></div>}
+      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && (!review || !review.reviewable))} onClick={() => void approve()}>{isApproving ? "Approving..." : "Approve and run"}</Button></div>}
     </section>
   );
 }

@@ -7,6 +7,10 @@ import { schedulerRepository } from "lib/db/pg/repositories/scheduler-repository
 import { chatRepository } from "lib/db/repository";
 import { notifyScheduledRun } from "lib/notifications/scheduled-run";
 import { processProjectBrainQueue } from "lib/projects/brain-queue";
+import {
+  enqueueNightlyProjectBrainDreams,
+  processProjectBrainDreamQueue,
+} from "lib/projects/brain-dream";
 import logger from "logger";
 
 import { computeNextRun } from "./cron-parser";
@@ -107,6 +111,7 @@ export interface SchedulerTickResult {
   failed: number;
   skippedAsNotLeader: boolean;
   projectBrain: { claimed: number; completed: number; failed: number };
+  projectBrainDream: { claimed: number; completed: number; failed: number };
 }
 
 export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
@@ -125,6 +130,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
       failed: 0,
       skippedAsNotLeader: true,
       projectBrain: { claimed: 0, completed: 0, failed: 0 },
+      projectBrainDream: { claimed: 0, completed: 0, failed: 0 },
     };
   }
 
@@ -134,6 +140,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
     failed: 0,
     skippedAsNotLeader: false,
     projectBrain: { claimed: 0, completed: 0, failed: 0 },
+    projectBrainDream: { claimed: 0, completed: 0, failed: 0 },
   };
 
   try {
@@ -141,6 +148,15 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
       result.projectBrain = await processProjectBrainQueue();
     } catch (error) {
       logger.error("[scheduler] project brain queue failed:", error);
+    }
+    try {
+      await enqueueNightlyProjectBrainDreams();
+      // Avoid spending a second model-sized budget in the same 60s tick as an ingest.
+      if (result.projectBrain.claimed === 0) {
+        result.projectBrainDream = await processProjectBrainDreamQueue();
+      }
+    } catch (error) {
+      logger.error("[scheduler] project brain dream queue failed:", error);
     }
     const dueJobs = await schedulerRepository.claimDueScheduledJobs(
       new Date(),
