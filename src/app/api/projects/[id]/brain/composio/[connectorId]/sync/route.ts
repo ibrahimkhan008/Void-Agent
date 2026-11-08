@@ -198,7 +198,11 @@ export async function POST(
   }
 
   try {
-    const account = (await listComposioAccountsForUser(session.user.id)).find(
+    const account = (
+      await listComposioAccountsForUser(session.user.id, {
+        includeShared: true,
+      })
+    ).find(
       (item) =>
         item.id === connector.connectedAccountId &&
         item.status === "ACTIVE" &&

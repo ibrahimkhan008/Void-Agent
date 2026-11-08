@@ -6,6 +6,7 @@ import {
   getAvailableDefaultVoiceTools,
 } from "lib/ai/speech";
 import { useKonvOVoiceChat } from "lib/ai/speech/konvo/use-voice-chat-konvo";
+import { DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS } from "lib/ai/speech/open-ai/openai-realtime-settings";
 import { useOpenAIVoiceChat } from "lib/ai/speech/open-ai/use-voice-chat.openai";
 import { type VoiceChatProviderId } from "lib/ai/speech/providers";
 import { cn, generateUUID, groupBy, isNull } from "lib/utils";
@@ -63,7 +64,10 @@ const VOICE_PROVIDER_DEFAULTS: Record<
   VoiceChatProviderId,
   Record<string, any>
 > = {
-  openai: { voice: "ash" },
+  openai: {
+    voice: "ash",
+    realtimeSettings: DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS,
+  },
   konvo: {
     voice: "shubh",
     micSensitivity: "balanced",
@@ -228,6 +232,31 @@ export function ChatBotVoice() {
     () => normalizeProviderOptions(voiceChat.options.providerOptions),
     [voiceChat.options.providerOptions],
   );
+
+  const updateOpenAIRealtimeSettings = (patch: Record<string, unknown>) => {
+    const normalized = normalizeProviderOptions(
+      voiceChat.options.providerOptions,
+    );
+    appStoreMutate((prev) => ({
+      voiceChat: {
+        ...prev.voiceChat,
+        options: {
+          ...prev.voiceChat.options,
+          providerOptions: {
+            ...normalized,
+            openai: {
+              ...normalized.openai,
+              realtimeSettings: {
+                ...DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS,
+                ...(normalized.openai.realtimeSettings ?? {}),
+                ...patch,
+              },
+            },
+          },
+        },
+      },
+    }));
+  };
 
   const openAiVoiceChat = useOpenAIVoiceChat({
     toolMentions,
@@ -822,6 +851,82 @@ export function ChatBotVoice() {
                               {voice}
                             </DropdownMenuRadioItem>
                           ))}
+                        </DropdownMenuRadioGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>
+                          Voice activity sensitivity
+                        </DropdownMenuLabel>
+                        <DropdownMenuRadioGroup
+                          value={String(
+                            providerOptionsMap.openai?.realtimeSettings
+                              ?.threshold ??
+                              DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS.threshold,
+                          )}
+                          onValueChange={(value) =>
+                            updateOpenAIRealtimeSettings({
+                              threshold: Number(value),
+                            })
+                          }
+                        >
+                          <DropdownMenuRadioItem value="0.3">
+                            High sensitivity
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="0.5">
+                            Balanced
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="0.7">
+                            Noise resistant
+                          </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>
+                          Background noise reduction
+                        </DropdownMenuLabel>
+                        <DropdownMenuRadioGroup
+                          value={
+                            providerOptionsMap.openai?.realtimeSettings
+                              ?.noiseReduction ??
+                            DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS.noiseReduction
+                          }
+                          onValueChange={(value) =>
+                            updateOpenAIRealtimeSettings({
+                              noiseReduction: value,
+                            })
+                          }
+                        >
+                          <DropdownMenuRadioItem value="near_field">
+                            Headset microphone
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="far_field">
+                            Room microphone
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="off">
+                            Off
+                          </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Wait after speech</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup
+                          value={String(
+                            providerOptionsMap.openai?.realtimeSettings
+                              ?.silenceDurationMs ??
+                              DEFAULT_OPENAI_REALTIME_VOICE_SETTINGS.silenceDurationMs,
+                          )}
+                          onValueChange={(value) =>
+                            updateOpenAIRealtimeSettings({
+                              silenceDurationMs: Number(value),
+                            })
+                          }
+                        >
+                          <DropdownMenuRadioItem value="300">
+                            Fast
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="500">
+                            Balanced
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="900">
+                            More pause
+                          </DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
                       </>
                     )}

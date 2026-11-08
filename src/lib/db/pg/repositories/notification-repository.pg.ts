@@ -47,15 +47,20 @@ export const notificationRepository = {
       .limit(1);
     return existing ?? null;
   },
-  async list(userId: string, limit = 30) {
+  async list(userId: string, limit = 30, types?: string[]) {
     return db
       .select()
       .from(NotificationTable)
-      .where(eq(NotificationTable.userId, userId))
+      .where(
+        and(
+          eq(NotificationTable.userId, userId),
+          ...(types?.length ? [inArray(NotificationTable.type, types)] : []),
+        ),
+      )
       .orderBy(desc(NotificationTable.createdAt), desc(NotificationTable.id))
       .limit(Math.max(1, Math.min(100, limit)));
   },
-  async unreadCount(userId: string) {
+  async unreadCount(userId: string, types?: string[]) {
     const [row] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(NotificationTable)
@@ -63,6 +68,7 @@ export const notificationRepository = {
         and(
           eq(NotificationTable.userId, userId),
           isNull(NotificationTable.readAt),
+          ...(types?.length ? [inArray(NotificationTable.type, types)] : []),
         ),
       );
     return row?.count ?? 0;

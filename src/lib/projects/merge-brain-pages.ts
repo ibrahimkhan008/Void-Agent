@@ -97,6 +97,7 @@ export async function mergeProjectBrainPages(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
         inArray(ProjectBrainFactTable.subjectPageId, [
           survivorPageId,

@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         ...(params.get("cursor") ? { cursor: params.get("cursor")! } : {}),
         limit,
       }),
-      listComposioAccountsForUser(session.user.id),
+      listComposioAccountsForUser(session.user.id, { includeShared: true }),
     ]);
     const connected = new Map<string, string>();
     for (const account of accounts) {
@@ -84,6 +84,10 @@ export async function GET(request: Request) {
           id: account.id,
           toolkit: account.toolkit?.slug ?? "unknown",
           status: "ACTIVE",
+          accountType:
+            account.experimental?.accountType === "SHARED"
+              ? "SHARED"
+              : "PRIVATE",
         })),
         nextCursor: page.nextCursor ?? null,
       },

@@ -4,7 +4,8 @@ import { Loader2, UserPlus, X } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "ui/button";
 
-export type CollaboratorRole = "viewer" | "editor";
+export type CollaboratorRole = "owner" | "viewer" | "editor";
+export type EditableCollaboratorRole = Exclude<CollaboratorRole, "owner">;
 export type ProjectAccessMode = "team" | "selected";
 
 export type ProjectCollaborator = {
@@ -13,6 +14,7 @@ export type ProjectCollaborator = {
   name: string | null;
   email: string | null;
   image: string | null;
+  accessSource?: "project" | "team" | "explicit";
 };
 
 type CollaboratorData = {
@@ -72,12 +74,12 @@ export function ProjectCollaboratorsPanelView({
   error: string | null;
   pendingAction: PendingAction;
   selectedUserId: string;
-  newRole: CollaboratorRole;
-  memberRoleDrafts: Record<string, CollaboratorRole>;
+  newRole: EditableCollaboratorRole;
+  memberRoleDrafts: Record<string, EditableCollaboratorRole>;
   onModeChange: (mode: ProjectAccessMode) => void;
   onSelectUser: (userId: string) => void;
-  onRoleChange: (role: CollaboratorRole) => void;
-  onMemberRoleChange: (userId: string, role: CollaboratorRole) => void;
+  onRoleChange: (role: EditableCollaboratorRole) => void;
+  onMemberRoleChange: (userId: string, role: EditableCollaboratorRole) => void;
   onSaveMemberRole: (userId: string) => void;
   onAdd: () => void;
   onRemove: (userId: string) => void;
@@ -184,7 +186,7 @@ export function ProjectCollaboratorsPanelView({
                 className="h-9 rounded-md border bg-background px-3 text-sm"
                 value={newRole}
                 onChange={(event) =>
-                  onRoleChange(event.target.value as CollaboratorRole)
+                  onRoleChange(event.target.value as EditableCollaboratorRole)
                 }
                 disabled={busy || Boolean(error)}
               >
@@ -226,9 +228,18 @@ export function ProjectCollaboratorsPanelView({
                         {member.email}
                       </span>
                     )}
+                    {member.role === "owner" && member.accessSource && (
+                      <span className="block text-xs text-muted-foreground">
+                        {member.accessSource === "project"
+                          ? "Project owner"
+                          : member.accessSource === "team"
+                            ? "Team owner"
+                            : "Owner"}
+                      </span>
+                    )}
                   </span>
                   <span className="flex items-center gap-2">
-                    {canEditMembers && (
+                    {canEditMembers && member.role !== "owner" && (
                       <>
                         <label
                           className="sr-only"
@@ -244,7 +255,7 @@ export function ProjectCollaboratorsPanelView({
                           onChange={(event) =>
                             onMemberRoleChange(
                               member.userId,
-                              event.target.value as CollaboratorRole,
+                              event.target.value as EditableCollaboratorRole,
                             )
                           }
                           disabled={busy || Boolean(error)}
@@ -269,12 +280,12 @@ export function ProjectCollaboratorsPanelView({
                           )}
                       </>
                     )}
-                    {!canEditMembers && (
+                    {(!canEditMembers || member.role === "owner") && (
                       <span className="text-xs capitalize text-muted-foreground">
-                        {member.role}
+                        {member.role === "owner" ? "Owner" : member.role}
                       </span>
                     )}
-                    {canEditMembers && (
+                    {canEditMembers && member.role !== "owner" && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -329,9 +340,9 @@ export function ProjectCollaboratorsPanel({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [newRole, setNewRole] = useState<CollaboratorRole>("viewer");
+  const [newRole, setNewRole] = useState<EditableCollaboratorRole>("viewer");
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<
-    Record<string, CollaboratorRole>
+    Record<string, EditableCollaboratorRole>
   >({});
 
   const load = useCallback(async () => {

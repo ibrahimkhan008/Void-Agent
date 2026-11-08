@@ -14,6 +14,10 @@ vi.mock("lib/db/repository", () => ({
   voiceDeviceRepository: { listRecentSessionsByDevice: mocks.list },
 }));
 
+import {
+  decodeVoiceDeviceSessionCursor,
+  encodeVoiceDeviceSessionCursor,
+} from "lib/voice/device-session-cursor";
 import { voiceDeviceUuid } from "lib/voice/device-transcript";
 import { GET } from "./route";
 
@@ -88,7 +92,8 @@ describe("GET owner-scoped voice device sessions", () => {
     expect(mocks.list).toHaveBeenCalledWith({
       deviceId,
       userId: "owner-1",
-      limit: 20,
+      limit: 21,
+      cursor: undefined,
     });
   });
 
@@ -110,12 +115,97 @@ describe("GET owner-scoped voice device sessions", () => {
     expect(mocks.list).toHaveBeenCalledWith({
       deviceId,
       userId: "owner-1",
-      limit: 7,
+      limit: 8,
+      cursor: undefined,
     });
   });
 
   it("rejects limits above the endpoint bound before reading sessions", async () => {
     const response = await GET(request("?limit=51"), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(response.status).toBe(400);
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable cursor for the next owner-scoped page", async () => {
+    mocks.list.mockResolvedValueOnce([
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        sessionId: "session-newer",
+        status: "completed",
+        segmentCount: 1,
+        startedAt: new Date("2026-11-07T12:00:00Z"),
+        cursorStartedAt: "2026-11-07T12:00:00.000123Z",
+        lastSegmentAt: null,
+        finalizedAt: null,
+        transcript: "newest",
+      },
+      {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        sessionId: "session-cursor",
+        status: "completed",
+        segmentCount: 1,
+        startedAt: new Date("2026-11-07T11:59:00Z"),
+        cursorStartedAt: "2026-11-07T11:59:00.000456Z",
+        lastSegmentAt: null,
+        finalizedAt: null,
+        transcript: "cursor row",
+      },
+      {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        sessionId: "session-sentinel",
+        status: "completed",
+        segmentCount: 1,
+        startedAt: new Date("2026-11-07T11:58:00Z"),
+        cursorStartedAt: "2026-11-07T11:58:00.000789Z",
+        lastSegmentAt: null,
+        finalizedAt: null,
+        transcript: "sentinel",
+      },
+    ]);
+    const response = await GET(request("?limit=2"), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.items).toHaveLength(2);
+    expect(body.items[1].transcript).toBe("cursor row");
+    expect(body.items[1]).not.toHaveProperty("cursorStartedAt");
+    expect(decodeVoiceDeviceSessionCursor(body.nextCursor)).toEqual({
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      startedAt: "2026-11-07T11:59:00.000456Z",
+    });
+    expect(mocks.list).toHaveBeenCalledWith({
+      deviceId,
+      userId: "owner-1",
+      limit: 3,
+      cursor: undefined,
+    });
+
+    const nextCursor = encodeVoiceDeviceSessionCursor({
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      startedAt: "2026-11-07T11:59:00.000456Z",
+    });
+    mocks.list.mockResolvedValueOnce([]);
+    const nextResponse = await GET(request(`?limit=2&cursor=${nextCursor}`), {
+      params: Promise.resolve({ id: deviceId }),
+    });
+    expect(nextResponse.status).toBe(200);
+    expect(mocks.list).toHaveBeenLastCalledWith({
+      deviceId,
+      userId: "owner-1",
+      limit: 3,
+      cursor: {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        startedAt: "2026-11-07T11:59:00.000456Z",
+      },
+    });
+    expect((await nextResponse.json()).nextCursor).toBeNull();
+  });
+
+  it("rejects malformed cursors before reading sessions", async () => {
+    const response = await GET(request("?cursor=not-a-cursor"), {
       params: Promise.resolve({ id: deviceId }),
     });
     expect(response.status).toBe(400);

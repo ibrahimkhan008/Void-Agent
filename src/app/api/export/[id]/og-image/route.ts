@@ -1,4 +1,5 @@
 import { chatExportRepository } from "lib/db/repository";
+import { loadPublicChatExport } from "@/lib/chat/load-public-export";
 import { ImageResponse } from "next/og";
 import { createElement, type ReactElement } from "react";
 import { ExportOgFallback, ExportOgImage } from "./template";
@@ -77,10 +78,13 @@ function getTextFromMessages(messages: ExportMessage[]) {
 }
 
 function renderImage(element: ReactElement) {
-  return new ImageResponse(element, {
+  const response = new ImageResponse(element, {
     width: IMAGE_WIDTH,
     height: IMAGE_HEIGHT,
   });
+  response.headers.set("cache-control", "no-store");
+  response.headers.set("x-robots-tag", "noindex, nofollow");
+  return response;
 }
 
 export async function GET(
@@ -89,7 +93,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const exportChat = await chatExportRepository.selectByIdWithUser(id);
+    const exportChat = await loadPublicChatExport(id);
 
     if (!exportChat) {
       return renderImage(
@@ -100,7 +104,7 @@ export async function GET(
       );
     }
 
-    const isExpired = await chatExportRepository.isExpired(id);
+    const isExpired = await chatExportRepository.isExpired(exportChat.id);
     if (isExpired) {
       return renderImage(
         createElement(ExportOgFallback, {
@@ -129,8 +133,7 @@ export async function GET(
     return renderImage(
       createElement(ExportOgFallback, {
         title: "Shared chat preview",
-        subtitle:
-          "Open this export in Flare AI to view the full conversation.",
+        subtitle: "Open this export in Flare AI to view the full conversation.",
       }),
     );
   }

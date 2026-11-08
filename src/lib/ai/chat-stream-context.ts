@@ -53,6 +53,35 @@ export async function setActiveStream(threadId: string, streamId: string) {
   );
 }
 
+/**
+ * Start buffering before publishing the thread pointer used by reconnects.
+ * `createNewResumableStream` resolves only after its Redis sentinel and request
+ * subscription are ready; publishing the pointer first lets a reconnect race
+ * that initialization and incorrectly conclude that there is no stream.
+ *
+ * A short response may finish before the pointer write completes. Recheck its
+ * sentinel after publishing and compare-and-delete only this stream's pointer
+ * if the buffer is already terminal, so a newer run is never cleared.
+ */
+export async function bufferAndPublishActiveStream(
+  context: ResumableStreamContext,
+  threadId: string,
+  streamId: string,
+  stream: ReadableStream<string>,
+): Promise<boolean> {
+  const buffered = await context.createNewResumableStream(
+    streamId,
+    () => stream,
+  );
+  if (!buffered) return false;
+
+  await setActiveStream(threadId, streamId);
+  if ((await context.hasExistingStream(streamId)) === "DONE") {
+    await clearActiveStream(threadId, streamId);
+  }
+  return true;
+}
+
 export async function getActiveStream(threadId: string) {
   return (await getKeyClient()?.get(activeKey(threadId))) ?? null;
 }

@@ -36,12 +36,20 @@ export function ChatExportPopup(props: Props) {
       }),
     )
       .watch(() => setIsExporting(false))
-      .ifOk((exportId) => {
-        const link = `${window.location.origin}/export/${exportId}`;
-        navigator.clipboard.writeText(link).then(() => {
-          toast.success(t("Chat.Thread.linkCopied"));
-        });
-        router.push(`/export/${exportId}`);
+      .ifOk(({ token }) => {
+        const path = `/export/${token}`;
+        const link = `${window.location.origin}${path}`;
+        navigator.clipboard
+          .writeText(link)
+          .then(() => {
+            toast.success(t("Chat.Thread.linkCopied"));
+          })
+          .catch(() => {
+            toast.error(
+              "Share link created, but could not copy it to the clipboard.",
+            );
+          });
+        router.push(path);
       })
       .ifFail((error) => {
         toast.error(error.message || "Failed to export chat");

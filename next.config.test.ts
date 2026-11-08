@@ -55,3 +55,13 @@ describe("embed route security headers", () => {
     });
   });
 });
+
+describe("native server package externals", () => {
+  it("keeps PDF canvas binaries out of the webpack server bundle", async () => {
+    const config =
+      typeof nextConfigFactory === "function"
+        ? await nextConfigFactory()
+        : nextConfigFactory;
+    expect(config.serverExternalPackages).toContain("@napi-rs/canvas");
+  });
+});

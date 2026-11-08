@@ -3,11 +3,30 @@ import { serverFileStorage, storageDriver } from "lib/file-storage";
 import { NextResponse } from "next/server";
 import { checkStorageAction } from "../actions";
 
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_MULTIPART_REQUEST_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
+
 export async function POST(request: Request) {
   const session = await getSession();
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    if (!/^\d+$/u.test(contentLength)) {
+      return NextResponse.json(
+        { error: "Invalid Content-Length" },
+        { status: 400 },
+      );
+    }
+    if (Number(contentLength) > MAX_MULTIPART_REQUEST_BYTES) {
+      return NextResponse.json(
+        { error: "Upload request is too large" },
+        { status: 413 },
+      );
+    }
   }
 
   // Check storage configuration first
@@ -25,18 +44,24 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const uploadedValue = formData.get("file");
 
-    if (!file) {
+    if (
+      !uploadedValue ||
+      typeof uploadedValue !== "object" ||
+      typeof uploadedValue.size !== "number" ||
+      typeof uploadedValue.arrayBuffer !== "function"
+    ) {
       return NextResponse.json(
         { error: "No file provided. Use 'file' field in FormData." },
         { status: 400 },
       );
     }
+    const file = uploadedValue as File;
 
-    // Size limit BEFORE buffering: file.arrayBuffer() would load the whole
-    // body into memory, so reject oversized uploads first.
-    const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15 MB
+    // The multipart request is bounded before parsing when Content-Length is
+    // available; this file-size check also protects chunked/unknown-length
+    // requests before arrayBuffer() allocates another full copy in memory.
     if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json(
         {

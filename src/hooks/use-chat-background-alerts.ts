@@ -8,12 +8,14 @@ import {
   chatBackgroundAlertCopy,
   chatBackgroundAlertHref,
   createChatBackgroundAlertDeduper,
-  isChatBackgroundAlertEnabled,
+  isChatUserAway,
+  isViewingChatThread,
+  resolveChatBackgroundAlertPreferences,
   shouldSendChatBackgroundAlert,
   shouldSendChatForegroundAlert,
 } from "lib/agent-alerts/chat-background-alerts";
 import { fetcher } from "lib/utils";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
@@ -44,10 +46,26 @@ export function findPendingUserAction(messages: UIMessage[]): {
   return null;
 }
 
-function notify(alert: ChatBackgroundAlert, enabled: boolean): void {
+function notify(
+  alert: ChatBackgroundAlert,
+  preferences: { enabled: boolean; onlyWhenAway: boolean },
+): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
+  const focused = document.hasFocus();
+  const away = isChatUserAway(document.hidden, focused);
+  if (
+    isViewingChatThread(
+      alert.threadId,
+      window.location.pathname,
+      document.hidden,
+    )
+  ) {
+    return;
+  }
+  if (preferences.onlyWhenAway && !away) return;
+
   const desktopNotifications = window.desktop?.notifications;
-  if (document.hidden && desktopNotifications) {
+  if (away && desktopNotifications) {
     if (deduper.claim(alert)) {
       void desktopNotifications
         .show({
@@ -58,9 +76,13 @@ function notify(alert: ChatBackgroundAlert, enabled: boolean): void {
     }
     return;
   }
-  if (!document.hidden) {
+  if (!away && !preferences.onlyWhenAway) {
     if (
-      !shouldSendChatForegroundAlert(enabled, document.hidden) ||
+      !shouldSendChatForegroundAlert(
+        preferences.enabled,
+        document.hidden,
+        preferences.onlyWhenAway,
+      ) ||
       !deduper.claim(alert)
     ) {
       return;
@@ -79,8 +101,8 @@ function notify(alert: ChatBackgroundAlert, enabled: boolean): void {
   }
   if (
     !shouldSendChatBackgroundAlert({
-      enabled,
-      hidden: document.hidden,
+      enabled: preferences.enabled,
+      away,
       permission:
         "Notification" in window ? Notification.permission : "unsupported",
     }) ||
@@ -115,7 +137,14 @@ export function useChatBackgroundAlerts({
     "/api/user/preferences",
     fetcher,
   );
-  const enabled = isChatBackgroundAlertEnabled(preferences?.notifications);
+  const alertPreferences = useMemo(
+    () => resolveChatBackgroundAlertPreferences(preferences?.notifications),
+    [
+      preferences?.notifications?.backgroundChatAlerts,
+      preferences?.notifications?.chatAlertsOnlyWhenAway,
+    ],
+  );
+  const enabled = alertPreferences.enabled;
   const previous = useRef({ threadId, status });
 
   useEffect(() => {
@@ -143,15 +172,15 @@ export function useChatBackgroundAlerts({
           threadId,
           eventId: latestMessage?.id ?? `${threadId}:${kind}`,
         },
-        enabled,
+        alertPreferences,
       );
     }
-  }, [enabled, messages, status, threadId]);
+  }, [alertPreferences, enabled, messages, status, threadId]);
 
   useEffect(() => {
     if (!enabled) return;
     const pending = findPendingUserAction(messages);
     if (!pending) return;
-    notify({ ...pending, threadId }, enabled);
-  }, [enabled, messages, threadId]);
+    notify({ ...pending, threadId }, alertPreferences);
+  }, [alertPreferences, enabled, messages, threadId]);
 }

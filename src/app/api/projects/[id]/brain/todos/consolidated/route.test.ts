@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   getProjectAccess: vi.fn(),
   getProjectCollectionSourceOwnerIds: vi.fn(),
+  getActiveProjectBrainChatSourceOwnerIds: vi.fn(),
   checkApiRateLimit: vi.fn(),
   select: vi.fn(),
   preflightWhere: vi.fn(),
@@ -26,6 +27,10 @@ vi.mock("lib/projects/access", () => ({
   getProjectAccess: mocks.getProjectAccess,
   getProjectCollectionSourceOwnerIds: mocks.getProjectCollectionSourceOwnerIds,
   mayEditProject: (role: string) => role === "owner" || role === "editor",
+}));
+vi.mock("lib/projects/project-chat-brain-source", () => ({
+  getActiveProjectBrainChatSourceOwnerIds:
+    mocks.getActiveProjectBrainChatSourceOwnerIds,
 }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
@@ -53,13 +58,17 @@ const taskRows = [
     sourceItemId: "00000000-0000-4000-8000-000000000011",
   },
 ];
-const request = (origin = "http://localhost", ids = todoIds) =>
+const request = (
+  origin = "http://localhost",
+  ids = todoIds,
+  status: "accepted" | "completed" = "completed",
+) =>
   new Request(
     `http://localhost/api/projects/${projectId}/brain/todos/consolidated`,
     {
       method: "PATCH",
       headers: { Origin: origin, "Content-Type": "application/json" },
-      body: JSON.stringify({ todoIds: ids }),
+      body: JSON.stringify({ todoIds: ids, status }),
     },
   );
 const params = { params: Promise.resolve({ id: projectId }) };
@@ -73,16 +82,25 @@ beforeEach(() => {
     role: "editor",
   });
   mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue(["member-1"]);
+  mocks.getActiveProjectBrainChatSourceOwnerIds.mockResolvedValue(["member-1"]);
   mocks.checkApiRateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0 });
-  const preflight = {
-    from: () => preflight,
-    innerJoin: () => preflight,
-    where: (predicate: unknown) => {
-      mocks.preflightWhere(predicate);
-      return Promise.resolve(mocks.visibleRows);
-    },
+  const selectBuilder = (resultRows?: unknown[]) => {
+    const builder = {
+      from: () => builder,
+      innerJoin: () => builder,
+      where: (predicate: unknown) => {
+        mocks.preflightWhere(predicate);
+        return builder;
+      },
+      getSQL: () => sql`SELECT 1`,
+      then: (
+        resolve: (value: unknown[]) => unknown,
+        reject?: (error: unknown) => unknown,
+      ) => Promise.resolve(resultRows ?? []).then(resolve, reject),
+    };
+    return builder;
   };
-  mocks.select.mockReturnValue(preflight);
+  mocks.select.mockImplementation(() => selectBuilder(mocks.visibleRows));
   const subquery = {
     from: () => subquery,
     innerJoin: () => subquery,
@@ -92,7 +110,7 @@ beforeEach(() => {
     },
     getSQL: () => sql`SELECT 1`,
   };
-  mocks.txSelect.mockReturnValue(subquery);
+  mocks.txSelect.mockImplementation(() => subquery);
   const updateQuery = {
     set: vi.fn().mockReturnThis(),
     where: (predicate: unknown) => {
@@ -123,6 +141,25 @@ describe("PATCH consolidated project-brain tasks", () => {
     expect(predicate.sql).toContain('"project_brain_source_state"');
     expect(predicate.sql).toContain("EXISTS");
     expect(predicate.params).toContain("accepted");
+  });
+
+  it("reopens completed exact-match groups under the same source and revision guards", async () => {
+    const response = await PATCH(
+      request("http://localhost", todoIds, "accepted"),
+      params,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ reopenedTodoIds: todoIds });
+    expect(mocks.update.mock.results.at(-1)?.value.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "accepted" }),
+    );
+    const predicates = mocks.updateWhere.mock.calls.map((call) =>
+      new PgDialect().sqlToQuery(call[0] as never),
+    );
+    expect(predicates.at(-1)?.sql).toContain('"project_brain_source_state"');
+    expect(predicates.at(-1)?.sql).toContain('"project_brain_todo"."status"');
+    expect(predicates.at(-1)?.params).toContain("completed");
+    expect(predicates.at(-1)?.sql).toContain('"project_brain_chat_source"');
   });
 
   it("rejects missing and cross-origin Origin before database access", async () => {
@@ -180,5 +217,28 @@ describe("PATCH consolidated project-brain tasks", () => {
     expect(await response.json()).toMatchObject({
       error: expect.stringContaining("changed"),
     });
+  });
+
+  it("rejects a stale concurrent reopen without partially changing the group", async () => {
+    const updateQuery = {
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: todoIds[0] }]),
+    };
+    mocks.update.mockReturnValue(updateQuery);
+    mocks.transaction.mockImplementation(async (callback) =>
+      callback({ select: mocks.txSelect, update: mocks.update }),
+    );
+    const response = await PATCH(
+      request("http://localhost", todoIds, "accepted"),
+      params,
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: expect.stringContaining("changed"),
+    });
+    expect(updateQuery.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "accepted" }),
+    );
   });
 });

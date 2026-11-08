@@ -1,64 +1,12 @@
 import { getSession } from "auth/server";
 import { eq } from "drizzle-orm";
 import { isProviderConfigured } from "lib/connectors/credentials";
+import type { ConnectorProvider as ConnectorProviderType } from "lib/connectors/providers-list";
 import { pgDb as db } from "lib/db/pg/db.pg";
 import { UserConnectorTable } from "lib/db/pg/schema.pg";
 import { NextResponse } from "next/server";
 
-export type ConnectorProvider =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "google-docs"
-  | "google-forms"
-  | "google-keep"
-  | "google-meet"
-  | "google-sheets"
-  | "google-slides"
-  | "google-tasks"
-  | "youtube"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github"
-  // 42 new providers added 2026-06-03
-  | "confluence"
-  | "jira"
-  | "linear"
-  | "asana"
-  | "clickup"
-  | "productboard"
-  | "testrail"
-  | "coda"
-  | "outline"
-  | "slab"
-  | "guru"
-  | "highspot"
-  | "document360"
-  | "gitlab"
-  | "bitbucket"
-  | "dropbox"
-  | "zendesk"
-  | "freshdesk"
-  | "salesforce"
-  | "hubspot"
-  | "airtable"
-  | "gong"
-  | "egnyte"
-  | "teams"
-  | "discord"
-  | "bookstack"
-  | "gitbook"
-  | "canvas"
-  | "loopio"
-  | "discourse"
-  | "xenforo"
-  | "drupal-wiki"
-  | "axero"
-  | "zulip"
-  | "mediawiki"
-  | "fireflies"
-  | "wikipedia";
+export type ConnectorProvider = ConnectorProviderType;
 
 export interface ConnectorInfo {
   provider: ConnectorProvider;

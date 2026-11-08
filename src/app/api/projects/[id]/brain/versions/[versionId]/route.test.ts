@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -7,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   checkApiRateLimit: vi.fn(),
   select: vi.fn(),
   predicates: [] as unknown[],
+  joins: [] as unknown[],
 }));
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
@@ -32,7 +34,10 @@ const sourceItemId = "00000000-0000-4000-8000-000000000004";
 function query(rows: unknown[]) {
   const builder = {
     from: () => builder,
-    innerJoin: () => builder,
+    innerJoin: (_table: unknown, predicate?: unknown) => {
+      if (predicate) mocks.joins.push(predicate);
+      return builder;
+    },
     where: (predicate: unknown) => {
       mocks.predicates.push(predicate);
       return builder;
@@ -45,6 +50,7 @@ function query(rows: unknown[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.predicates.length = 0;
+  mocks.joins.length = 0;
   mocks.getSession.mockResolvedValue({ user: { id: "member-1" } });
   mocks.getProjectAccess.mockResolvedValue({
     project: { id: projectId, collectionIds: [collectionId] },
@@ -91,6 +97,21 @@ describe("GET project brain source revision", () => {
       }),
     );
     expect(mocks.predicates).toHaveLength(1);
+    const predicate = new PgDialect().sqlToQuery(mocks.predicates[0] as never);
+    expect(predicate.sql).toContain('"project_brain_source_version"."id" =');
+    const versionRunJoin = mocks.joins
+      .map((join) => new PgDialect().sqlToQuery(join as never).sql)
+      .find((sql) => sql.includes('"project_brain_run"."source_version_id"'));
+    expect(versionRunJoin).toContain('"project_brain_source_version"."id"');
+    expect(predicate.sql).toContain('"collection_item"."collection_id" in');
+    expect(predicate.sql).toContain('"collection"."user_id" in');
+    expect(predicate.sql).toContain('"collection_item"."status" =');
+    expect(predicate.sql).toContain('"project_brain_source_state"');
+    expect(predicate.params).toContain(projectId);
+    expect(predicate.params).toContain(versionId);
+    expect(predicate.params).toContain(collectionId);
+    expect(predicate.params).toContain("owner-1");
+    expect(predicate.params).toContain("ready");
   });
 
   it("hides missing, legacy, and oversized revisions and applies rate limits", async () => {

@@ -127,7 +127,9 @@ describe("project brain Composio connector attachment", () => {
         readActionSlugs: ["GITHUB_GET_REPOS"],
       },
     });
-    expect(mocks.listAccounts).toHaveBeenCalledWith(userId);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
     expect(mocks.insert).toHaveBeenCalledTimes(1);
   });
 
@@ -155,11 +157,35 @@ describe("project brain Composio connector attachment", () => {
       { params: Promise.resolve({ id: projectId }) },
     );
     expect(response.status).toBe(201);
-    expect(mocks.listAccounts).toHaveBeenCalledWith(userId);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
     const scope = new PgDialect().sqlToQuery(mocks.wherePredicates[0] as never);
     expect(scope.sql).toContain('"collection"."org_id"');
     expect(scope.params).toContain(teamId);
     expect(scope.params).toContain(userId);
+  });
+
+  it("attaches a shared account visible to the current Composio user", async () => {
+    mocks.listAccounts.mockResolvedValue([
+      {
+        id: accountId,
+        status: "ACTIVE",
+        isDisabled: false,
+        experimental: { accountType: "SHARED" },
+        toolkit: { slug: "github" },
+      },
+    ]);
+
+    const response = await POST(
+      makeRequest({ connectedAccountId: accountId, collectionId }),
+      { params: Promise.resolve({ id: projectId }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
   });
 
   it("lists attached same-team collections for a current project member", async () => {
@@ -189,6 +215,9 @@ describe("project brain Composio connector attachment", () => {
     expect((await response.json()).collections).toEqual([
       { id: collectionId, name: "Shared docs" },
     ]);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
     const scope = new PgDialect().sqlToQuery(mocks.wherePredicates[1] as never);
     expect(scope.sql).toContain('"collection"."org_id"');
     expect(scope.params).toContain(teamId);

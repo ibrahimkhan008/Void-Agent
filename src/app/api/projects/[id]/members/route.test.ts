@@ -17,7 +17,7 @@ vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, insert: mocks.insert, delete: mocks.delete },
 }));
 
-import { DELETE, POST } from "./route";
+import { DELETE, GET, POST } from "./route";
 
 const params = Promise.resolve({ id: "project-1" });
 const actorAccess = {
@@ -67,6 +67,105 @@ describe("project member management", () => {
     vi.clearAllMocks();
     mocks.getSession.mockResolvedValue({ user: { id: "team-owner" } });
     mocks.getProjectAccess.mockResolvedValue(actorAccess);
+  });
+
+  it("returns implicit project and team owners as locked access principals", async () => {
+    const projectOwner = "00000000-0000-4000-8000-000000000002";
+    const teamOwner = "00000000-0000-4000-8000-000000000004";
+    const explicitMember = "00000000-0000-4000-8000-000000000003";
+    const eligible = "00000000-0000-4000-8000-000000000005";
+    mocks.getProjectAccess.mockResolvedValueOnce({
+      ...actorAccess,
+      project: { ...actorAccess.project, userId: projectOwner },
+    });
+    const query = (rows: unknown[], joined = true) => ({
+      from: () => ({
+        ...(joined ? { innerJoin: () => ({ where: async () => rows }) } : {}),
+        where: async () => rows,
+      }),
+    });
+    mocks.select
+      .mockReturnValueOnce(query([{ userId: explicitMember, role: "viewer" }]))
+      .mockReturnValueOnce(
+        query([
+          {
+            userId: teamOwner,
+            name: "Team owner",
+            email: "team@example.test",
+            image: null,
+          },
+          {
+            userId: explicitMember,
+            name: "Existing",
+            email: null,
+            image: null,
+          },
+          { userId: eligible, name: "Eligible", email: null, image: null },
+        ]),
+      )
+      .mockReturnValueOnce(
+        query([
+          {
+            ownerId: teamOwner,
+            name: "Team owner",
+            email: "team@example.test",
+            image: null,
+          },
+        ]),
+      )
+      .mockReturnValueOnce(
+        query(
+          [
+            {
+              userId: projectOwner,
+              name: "Project owner",
+              email: "project@example.test",
+              image: null,
+            },
+          ],
+          false,
+        ),
+      );
+
+    const response = await GET(
+      new Request("https://example.test/api/projects/project-1/members"),
+      { params },
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    const body = await response.json();
+    expect(body.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: projectOwner,
+          role: "owner",
+          accessSource: "project",
+        }),
+        expect.objectContaining({
+          userId: teamOwner,
+          role: "owner",
+          accessSource: "team",
+        }),
+        expect.objectContaining({
+          userId: explicitMember,
+          role: "viewer",
+          accessSource: "explicit",
+        }),
+      ]),
+    );
+    expect(
+      body.eligibleMembers.map((member: { userId: string }) => member.userId),
+    ).toEqual([eligible]);
+  });
+
+  it("does not expose access principals when the requester has no project access", async () => {
+    mocks.getProjectAccess.mockResolvedValueOnce(null);
+    const response = await GET(
+      new Request("https://example.test/api/projects/project-1/members"),
+      { params },
+    );
+    expect(response.status).toBe(404);
+    expect(mocks.select).not.toHaveBeenCalled();
   });
 
   it("rejects a user who is not a member of the project team", async () => {

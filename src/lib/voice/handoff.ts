@@ -19,7 +19,7 @@ export function isCurrentVoiceRequest(input: {
   );
 }
 
-/** Accept only an owned device transcript message; return bounded plain text for a user-requested chat handoff. */
+/** Accept only an owned saved voice message; return bounded plain text for a user-requested chat handoff. */
 export function getVoiceTranscriptForHandoff(input: {
   userId: string;
   requestedUserId: string;
@@ -34,7 +34,8 @@ export function getVoiceTranscriptForHandoff(input: {
     message.id !== input.messageId ||
     message.threadId !== input.threadId ||
     message.role !== "user" ||
-    message.metadata?.source !== "voice_device"
+    (message.metadata?.source !== "voice_device" &&
+      message.metadata?.source !== "voice_realtime")
   ) {
     return null;
   }

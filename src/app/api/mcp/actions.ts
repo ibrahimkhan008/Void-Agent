@@ -1,10 +1,14 @@
 "use server";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
-import { z } from "zod";
 import globalLogger from "logger";
+import { z } from "zod";
 
+import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
 import { isMaybeStdioConfig } from "lib/ai/mcp/is-mcp-config";
+import { getMcpApprovalTargetFingerprint } from "lib/ai/mcp/mcp-approval-target";
 import { validateMcpServerConfig } from "lib/ai/mcp/validate-mcp-server-config";
+import { agentMentionsMcpTool } from "lib/ai/speech/voice-agent-mcp-access";
+import { createMcpServerConfigFingerprint } from "lib/ai/tools/hitl/mcp-tool-approval";
 import {
   canCreateMCP,
   canManageMCPServer,
@@ -13,9 +17,12 @@ import {
 } from "lib/auth/permissions";
 import { IS_MCP_SERVER_REMOTE_ONLY } from "lib/const";
 import { McpServerTable } from "lib/db/pg/schema.pg";
-import { mcpOAuthRepository, mcpRepository } from "lib/db/repository";
+import {
+  agentRepository,
+  mcpOAuthRepository,
+  mcpRepository,
+} from "lib/db/repository";
 import { errorToString } from "lib/utils";
-import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
 
 // --- Authorization Helpers ---
 
@@ -86,9 +93,13 @@ export async function selectMcpClientAction(id: string) {
     if (!client) {
       throw new Error("Client not found");
     }
+    const info = client.client.getInfo();
     return {
-      ...client.client.getInfo(),
+      ...info,
       id,
+      _approvalConfigFingerprint: info.config
+        ? createMcpServerConfigFingerprint(info.config)
+        : undefined,
     };
   } catch (error) {
     throw new Error(errorToString(error));
@@ -191,9 +202,10 @@ export async function saveMcpClientAction(
   } catch (error) {
     // Check if the server is now in "authorizing" state (OAuth required).
     // This is a valid state — the server is saved and the user can authorize later.
-    const client = await mcpClientsManager
-      .getClient(persistedId)
-      .catch((e) => { globalLogger.debug("MCP getClient failed", e); return null; });
+    const client = await mcpClientsManager.getClient(persistedId).catch((e) => {
+      globalLogger.debug("MCP getClient failed", e);
+      return null;
+    });
     if (client?.client.status === "authorizing") {
       // Server requires OAuth — keep it saved; user will authorize from the dashboard.
       return persisted;
@@ -203,7 +215,10 @@ export async function saveMcpClientAction(
 
     if (!server.id) {
       // Roll back newly created entries if initial connection test fails.
-      await mcpClientsManager.removeClient(persistedId).catch((e) => { globalLogger.debug("MCP getClient failed", e); return null; });
+      await mcpClientsManager.removeClient(persistedId).catch((e) => {
+        globalLogger.debug("MCP getClient failed", e);
+        return null;
+      });
     } else if (previousServer) {
       // Attempt to restore previous server config on failed update.
       await mcpClientsManager
@@ -211,10 +226,14 @@ export async function saveMcpClientAction(
           ...previousServer,
           userId: previousServer.userId,
         })
-        .catch((e) => { globalLogger.debug("MCP getClient failed", e); return null; });
-      await mcpClientsManager
-        .refreshClient(previousServer.id)
-        .catch((e) => { globalLogger.debug("MCP getClient failed", e); return null; });
+        .catch((e) => {
+          globalLogger.debug("MCP getClient failed", e);
+          return null;
+        });
+      await mcpClientsManager.refreshClient(previousServer.id).catch((e) => {
+        globalLogger.debug("MCP getClient failed", e);
+        return null;
+      });
     }
 
     throw new Error(`MCP connection test failed: ${message}`);
@@ -262,7 +281,10 @@ export async function checkTokenMcpClientAction(id: string) {
   const session = await mcpOAuthRepository.getAuthenticatedSession(id);
 
   // for wait connect to mcp server
-  await mcpClientsManager.getClient(id).catch((e) => { globalLogger.debug("MCP getClient failed", e); return null; });
+  await mcpClientsManager.getClient(id).catch((e) => {
+    globalLogger.debug("MCP getClient failed", e);
+    return null;
+  });
 
   return !!session?.tokens;
 }
@@ -280,8 +302,26 @@ export async function callMcpToolAction(
   return executeApprovedMcpTool({
     userId: currentUser.id,
     token: approvalToken,
-    approvalPayload: { serverId: id, serverName: server.name, toolName, payload: input },
-    execute: () => mcpClientsManager.toolCall(id, toolName, input),
+    approvalPayload: {
+      serverId: id,
+      serverName: server.name,
+      toolName,
+      payload: input,
+    },
+    getCurrentConfigFingerprint: () =>
+      getMcpApprovalTargetFingerprint({
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        approval: { serverId: id, serverName: server.name },
+      }),
+    execute: (expectedConfigFingerprint) =>
+      mcpClientsManager.toolCall(
+        id,
+        toolName,
+        input,
+        expectedConfigFingerprint,
+        server.name,
+      ),
   });
 }
 
@@ -295,12 +335,31 @@ export async function callMcpToolByServerNameAction(
   await verifyMcpAccess(serverId);
   const currentUser = await getCurrentUser();
   const server = await mcpRepository.selectById(serverId);
-  if (!currentUser || !server || server.name !== serverName) throw new Error("MCP server not found");
+  if (!currentUser || !server || server.name !== serverName)
+    throw new Error("MCP server not found");
   return executeApprovedMcpTool({
     userId: currentUser.id,
     token: approvalToken,
-    approvalPayload: { serverId, serverName: server.name, toolName, payload: input },
-    execute: () => mcpClientsManager.toolCall(serverId, toolName, input),
+    approvalPayload: {
+      serverId,
+      serverName: server.name,
+      toolName,
+      payload: input,
+    },
+    getCurrentConfigFingerprint: () =>
+      getMcpApprovalTargetFingerprint({
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        approval: { serverId, serverName: server.name },
+      }),
+    execute: (expectedConfigFingerprint) =>
+      mcpClientsManager.toolCall(
+        serverId,
+        toolName,
+        input,
+        expectedConfigFingerprint,
+        server.name,
+      ),
   });
 }
 
@@ -314,12 +373,84 @@ export async function callApprovedMcpToolAction(
   await verifyMcpAccess(id);
   const currentUser = await getCurrentUser();
   const server = await mcpRepository.selectById(id);
-  if (!currentUser || !server || server.name !== serverName) throw new Error("MCP server not found");
+  if (!currentUser || !server || server.name !== serverName)
+    throw new Error("MCP server not found");
   return executeApprovedMcpTool({
     userId: currentUser.id,
     token: approvalToken,
-    approvalPayload: { serverId: id, serverName: server.name, toolName, payload: input },
-    execute: () => mcpClientsManager.toolCall(id, toolName, input),
+    approvalPayload: {
+      serverId: id,
+      serverName: server.name,
+      toolName,
+      payload: input,
+    },
+    getCurrentConfigFingerprint: () =>
+      getMcpApprovalTargetFingerprint({
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        approval: { serverId: id, serverName: server.name },
+      }),
+    execute: (expectedConfigFingerprint) =>
+      mcpClientsManager.toolCall(
+        id,
+        toolName,
+        input,
+        expectedConfigFingerprint,
+        server.name,
+      ),
+  });
+}
+
+/** Dispatch a voice-delegated MCP call only while the selected agent still has access to that exact tool. */
+export async function callApprovedVoiceMcpToolAction(
+  agentId: string,
+  id: string,
+  serverName: string,
+  toolName: string,
+  input: unknown,
+  approvalToken: unknown,
+) {
+  await verifyMcpAccess(id);
+  const currentUser = await getCurrentUser();
+  if (!currentUser) throw new Error("Unauthorized");
+  const agent = await agentRepository.selectAgentById(agentId, currentUser.id);
+  if (
+    !agent ||
+    !(await agentRepository.checkAccess(agentId, currentUser.id)) ||
+    !agentMentionsMcpTool(agent.instructions.mentions, id, toolName)
+  ) {
+    throw new Error("The delegated agent can no longer use this MCP tool");
+  }
+
+  const server = await mcpRepository.selectById(id);
+  if (!server || server.name !== serverName)
+    throw new Error("MCP server not found");
+
+  const approvalPayload = {
+    agentId,
+    serverId: id,
+    serverName: server.name,
+    toolName,
+    payload: input,
+  };
+  return executeApprovedMcpTool({
+    userId: currentUser.id,
+    token: approvalToken,
+    approvalPayload,
+    getCurrentConfigFingerprint: () =>
+      getMcpApprovalTargetFingerprint({
+        userId: currentUser.id,
+        userRole: currentUser.role,
+        approval: { serverId: id, serverName: server.name },
+      }),
+    execute: (expectedConfigFingerprint) =>
+      mcpClientsManager.toolCall(
+        id,
+        toolName,
+        input,
+        expectedConfigFingerprint,
+        server.name,
+      ),
   });
 }
 

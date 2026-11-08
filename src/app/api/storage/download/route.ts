@@ -20,6 +20,11 @@ const INLINE_TYPES = new Set([
   "image/gif",
   "image/webp",
   "audio/wav",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/webm",
+  "video/webm",
 ]);
 
 export async function GET(request: Request) {
@@ -43,7 +48,16 @@ export async function GET(request: Request) {
 
   try {
     const filename = safeDownloadFilename(key);
-    const contentType = getContentTypeFromFilename(filename);
+    const metadata = await serverFileStorage.getMetadata(key).catch(() => null);
+    const storedContentType = metadata?.contentType
+      ?.toLowerCase()
+      .split(";", 1)[0]
+      .trim();
+    const contentType = metadata
+      ? storedContentType && INLINE_TYPES.has(storedContentType)
+        ? storedContentType
+        : "application/octet-stream"
+      : getContentTypeFromFilename(filename);
     const inline =
       url.searchParams.get("disposition") === "inline" &&
       INLINE_TYPES.has(contentType);

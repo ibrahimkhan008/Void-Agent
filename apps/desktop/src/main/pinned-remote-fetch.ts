@@ -66,20 +66,62 @@ export function createPinnedLookup(
   };
 }
 
-function withPinnedBody(response: UndiciResponse, agent: Agent): Response {
-  const headers: Record<string, string> = {};
-  response.headers.forEach((value, name) => {
-    headers[name] = value;
-  });
+export const MAX_REMOTE_MCP_RESPONSE_BYTES = 4 * 1024 * 1024;
+
+type ResponseAgent = Pick<Agent, "close" | "destroy">;
+type BoundedResponse = Pick<
+  UndiciResponse,
+  "body" | "headers" | "status" | "statusText"
+>;
+
+/** Apply a byte limit before the MCP SDK consumes the remote response. */
+export async function withBoundedRemoteMcpBody(
+  response: BoundedResponse,
+  agent: ResponseAgent,
+  maxBytes = MAX_REMOTE_MCP_RESPONSE_BYTES,
+): Promise<Response> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new RangeError(
+      "Remote MCP response limit must be a positive integer",
+    );
+  }
+
+  const cancelAndDestroy = async (reason: Error) => {
+    await response.body?.cancel(reason).catch(() => undefined);
+    await agent.destroy(reason);
+  };
+
+  if (response.status >= 300 && response.status < 400) {
+    const error = new Error("Remote MCP redirects are disabled");
+    await cancelAndDestroy(error);
+    throw error;
+  }
+
+  const contentLength = response.headers.get("content-length");
+  if (contentLength && /^\d+$/u.test(contentLength)) {
+    const declaredBytes = Number(contentLength);
+    if (!Number.isSafeInteger(declaredBytes) || declaredBytes > maxBytes) {
+      const error = new Error("Remote MCP response exceeded the byte limit");
+      await cancelAndDestroy(error);
+      throw error;
+    }
+  }
+
   if (!response.body) {
-    void agent.close();
+    await agent.close();
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
     return new Response(null, {
       status: response.status,
       statusText: response.statusText,
       headers,
     });
   }
+
   const reader = response.body.getReader();
+  let bytesRead = 0;
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
@@ -88,6 +130,16 @@ function withPinnedBody(response: UndiciResponse, agent: Agent): Response {
           controller.close();
           await agent.close();
         } else {
+          bytesRead += value.byteLength;
+          if (bytesRead > maxBytes) {
+            const error = new Error(
+              "Remote MCP response exceeded the byte limit",
+            );
+            await reader.cancel(error).catch(() => undefined);
+            await agent.destroy(error);
+            controller.error(error);
+            return;
+          }
           controller.enqueue(value);
         }
       } catch (error) {
@@ -99,6 +151,10 @@ function withPinnedBody(response: UndiciResponse, agent: Agent): Response {
       await reader.cancel(reason).catch(() => undefined);
       await agent.destroy(reason instanceof Error ? reason : null);
     },
+  });
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
   });
   return new Response(body, {
     status: response.status,
@@ -160,7 +216,7 @@ export function createPinnedRemoteMcpFetch(
         redirect: "error",
         dispatcher: agent,
       } as UndiciRequestInit);
-      return withPinnedBody(response, agent);
+      return await withBoundedRemoteMcpBody(response, agent);
     } catch (error) {
       await agent.destroy(error instanceof Error ? error : null);
       throw error;

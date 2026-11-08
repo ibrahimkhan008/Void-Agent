@@ -2,18 +2,13 @@ import "server-only";
 
 import { getSession } from "auth/server";
 import { and, eq } from "drizzle-orm";
+import {
+  type ConnectorProvider,
+  isConnectorProvider,
+} from "lib/connectors/providers-list";
 import { pgDb as db } from "lib/db/pg/db.pg";
 import { UserConnectorTable } from "lib/db/pg/schema.pg";
 import { NextRequest, NextResponse } from "next/server";
-
-type PauseableProvider =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github";
 
 export async function POST(
   _request: NextRequest,
@@ -26,7 +21,10 @@ export async function POST(
     }
 
     const { provider } = await params;
-    const providerTyped = provider as PauseableProvider;
+    if (!isConnectorProvider(provider)) {
+      return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
+    }
+    const providerTyped: ConnectorProvider = provider;
 
     const rows = await db
       .select()
@@ -46,8 +44,15 @@ export async function POST(
       );
     }
 
+    if (!rows[0].isConnected) {
+      return NextResponse.json(
+        { error: "Connector is not connected" },
+        { status: 409 },
+      );
+    }
+
     // Resume: clear isPaused. isConnected remains true so no re-OAuth needed.
-    await db
+    const updatedRows = await db
       .update(UserConnectorTable)
       .set({
         isPaused: false,
@@ -57,8 +62,16 @@ export async function POST(
         and(
           eq(UserConnectorTable.userId, session.user.id),
           eq(UserConnectorTable.provider, providerTyped),
+          eq(UserConnectorTable.isConnected, true),
         ),
+      )
+      .returning({ id: UserConnectorTable.id });
+    if (updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: "Connector is no longer connected" },
+        { status: 409 },
       );
+    }
 
     return NextResponse.json({ success: true, status: "resumed" });
   } catch (error) {

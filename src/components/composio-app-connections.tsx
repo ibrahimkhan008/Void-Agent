@@ -11,7 +11,12 @@ type Toolkit = {
   isConnected: boolean;
   connectedAccountId: string | null;
 };
-type Account = { id: string; toolkit: string; status: string };
+type Account = {
+  id: string;
+  toolkit: string;
+  status: string;
+  accountType?: "PRIVATE" | "SHARED";
+};
 type Payload = {
   configured: boolean;
   toolkits: Toolkit[];
@@ -111,8 +116,8 @@ export function ComposioAppConnections() {
         Connected apps
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Connect apps through Composio OAuth. Connected accounts are scoped to
-        your account.
+        Connect apps through Composio OAuth. Accounts available to your Composio
+        user are listed below.
       </p>
       {!payload?.configured ? (
         <p className="mt-3 text-sm text-muted-foreground">
@@ -151,15 +156,20 @@ export function ComposioAppConnections() {
                 >
                   <span className="capitalize">
                     {account.toolkit.replaceAll("_", " ")}
+                    {account.accountType === "SHARED" && (
+                      <span className="ml-2 text-muted-foreground">Shared</span>
+                    )}
                   </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy === account.id}
-                    onClick={() => void disconnect(account)}
-                  >
-                    Disconnect
-                  </Button>
+                  {account.accountType !== "SHARED" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === account.id}
+                      onClick={() => void disconnect(account)}
+                    >
+                      Disconnect
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

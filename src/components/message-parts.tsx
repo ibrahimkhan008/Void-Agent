@@ -53,6 +53,7 @@ import { toast } from "sonner";
 import { safe } from "ts-safe";
 
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
+import { truncateMessageMentions } from "lib/chat/message-mentions";
 import { useTranslations } from "next-intl";
 import { Separator } from "ui/separator";
 
@@ -70,6 +71,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { TextShimmer } from "ui/text-shimmer";
 import { AudioAttachmentTranscription } from "./audio-attachment-transcription";
+import { UserMessageText } from "./message-parts/user-message-text";
+import { McpToolResult } from "./tool-invocation/mcp-tool-result";
 
 import { SavedNoteCitation } from "app-types/user";
 import { forkThread as forkThreadRequest } from "lib/chat/fork-thread";
@@ -85,6 +88,8 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle } from "ui/dialog";
 import { Input } from "ui/input";
 import { HitlToolCard } from "./tool-invocation/hitl-tool-cards";
+import { PlanArtifactCard } from "./tool-invocation/plan-artifact-card";
+import { ProjectDocumentEditProposal } from "./tool-invocation/project-document-edit-proposal";
 import { PublishedPageToolCard } from "./tool-invocation/published-page-tool";
 import { TabularReviewToolCard } from "./tool-invocation/tabular-review-tool";
 import { WorkflowInvocation } from "./tool-invocation/workflow-invocation";
@@ -340,7 +345,7 @@ export const UserMessagePart = memo(
     const displayText =
       expanded || !isLongText
         ? actualText
-        : truncateString(actualText, MAX_TEXT_LENGTH);
+        : truncateMessageMentions(actualText, MAX_TEXT_LENGTH);
 
     const deleteMessage = useCallback(async () => {
       if (!setMessages) return;
@@ -426,7 +431,7 @@ export const UserMessagePart = memo(
             <div className="absolute pointer-events-none bg-gradient-to-t from-accent to-transparent w-full h-40 bottom-0 left-0" />
           )}
           <p className={cn("whitespace-pre-wrap text-sm break-words")}>
-            {displayText}
+            <UserMessageText text={displayText} />
           </p>
           {isLongText && (
             <Button
@@ -1484,6 +1489,52 @@ export const ToolMessagePart = memo(
     );
 
     const CustomToolComponent = useMemo(() => {
+      if (toolName === "proposeProjectDocumentEdits") {
+        return (
+          <ProjectDocumentEditProposal
+            result={result && typeof result === "object" ? result : null}
+            loading={!isCompleted}
+          />
+        );
+      }
+
+      if (toolName === DefaultToolName.Sandbox) {
+        const artifacts =
+          result && typeof result === "object" && "artifacts" in result
+            ? (result as { artifacts?: unknown }).artifacts
+            : undefined;
+        if (!Array.isArray(artifacts)) return null;
+        return (
+          <div className="flex flex-col gap-3">
+            {artifacts.map((artifact, index) => {
+              if (
+                !artifact ||
+                typeof artifact !== "object" ||
+                typeof artifact.url !== "string" ||
+                typeof artifact.filename !== "string"
+              ) {
+                return null;
+              }
+              return (
+                <SourceUrlMessagePart
+                  key={`${toolCallId}-${artifact.filename}-${index}`}
+                  part={{
+                    type: "source-url",
+                    url: artifact.url,
+                    title: artifact.filename,
+                    mediaType:
+                      typeof artifact.mimeType === "string"
+                        ? artifact.mimeType
+                        : undefined,
+                  }}
+                  isUserMessage={false}
+                />
+              );
+            })}
+          </div>
+        );
+      }
+
       if (
         toolName === "askForPlanApproval" ||
         toolName === "requestInput" ||
@@ -1500,6 +1551,7 @@ export const ToolMessagePart = memo(
         toolName === "proposeWorkflowRun" ||
         toolName === "proposeMcpToolCall" ||
         toolName === "proposeHttpRequest" ||
+        toolName === "proposeComposioWriteAction" ||
         toolName === "createAgent"
       ) {
         return <HitlToolCard part={part} addToolResult={addToolResult} />;
@@ -1507,6 +1559,10 @@ export const ToolMessagePart = memo(
 
       if (toolName === "createTabularReview") {
         return <TabularReviewToolCard part={part} />;
+      }
+
+      if (toolName === DefaultToolName.CreatePlan) {
+        return <PlanArtifactCard part={part} />;
       }
 
       if (toolName === DefaultToolName.PublishPage) {
@@ -1752,7 +1808,7 @@ export const ToolMessagePart = memo(
                     </div>
                     {isExpanded && (
                       <div className="p-2 max-h-[300px] overflow-y-auto">
-                        <JsonView data={result} />
+                        <McpToolResult result={result} />
                       </div>
                     )}
                   </div>
@@ -1871,7 +1927,11 @@ export const FileMessagePart = memo(
       "FILE";
     const fileUrl = part.url;
     const isOwnerUpload = Boolean(fileUrl && isOwnerScopedUploadUrl(fileUrl));
-    const isWavAudio = part.mediaType === "audio/wav" || part.mediaType === "audio/x-wav" || fileUrl?.toLowerCase().split(/[?#]/, 1)[0]?.endsWith(".wav");
+    const isPlayableAudio =
+      part.mediaType?.toLowerCase().startsWith("audio/") ||
+      /\.(?:wav|mp3|ogg|m4a|webm)$/i.test(
+        fileUrl?.toLowerCase().split(/[?#]/, 1)[0] ?? "",
+      );
     const displayUrl = isOwnerUpload
       ? `/api/storage/download?url=${encodeURIComponent(fileUrl!)}&disposition=inline`
       : fileUrl;
@@ -2026,7 +2086,7 @@ export const FileMessagePart = memo(
             </Tooltip>
           )}
         </div>
-        {isWavAudio && isOwnerUpload && fileUrl && (
+        {isPlayableAudio && isOwnerUpload && fileUrl && (
           <AudioAttachmentTranscription url={fileUrl} />
         )}
       </div>
@@ -2051,7 +2111,19 @@ export function SourceUrlMessagePart({
   const isSpreadsheet = ext === "CSV" || ext === "XLSX";
   const isDocument = ["DOCX", "PDF", "PPTX", "TXT", "MD", "JSON"].includes(ext);
   const isOwnerUpload = isOwnerScopedUploadUrl(part.url);
-  const isWavAudio = ext === "WAV" || part.mediaType === "audio/wav" || part.mediaType === "audio/x-wav";
+  const isPlayableAudio =
+    part.mediaType !== undefined
+      ? part.mediaType.toLowerCase().startsWith("audio/")
+      : ["WAV", "MP3", "OGG", "M4A", "WEBM"].includes(ext);
+  const isPreviewableImage =
+    isOwnerUpload &&
+    ["PNG", "JPG", "JPEG", "GIF", "WEBP"].includes(ext) &&
+    (!part.mediaType || part.mediaType.startsWith("image/"));
+  const isPlayableVideo =
+    isOwnerUpload && ext === "WEBM" && part.mediaType === "video/webm";
+  const inlineMediaUrl = isOwnerUpload
+    ? `/api/storage/download?url=${encodeURIComponent(part.url)}&disposition=inline`
+    : undefined;
   const downloadHref = isOwnerUpload
     ? `/api/storage/download?url=${encodeURIComponent(part.url)}`
     : part.url;
@@ -2070,6 +2142,7 @@ export function SourceUrlMessagePart({
     }>;
   } | null>(null);
   const [activeSheet, setActiveSheet] = useState(0);
+  const [htmlPreviewOpen, setHtmlPreviewOpen] = useState(false);
   const [documentPreview, setDocumentPreview] = useState<{
     text?: string;
     html?: string;
@@ -2249,7 +2322,58 @@ export function SourceUrlMessagePart({
           </Button>
         </div>
       )}
-      {isWavAudio && isOwnerUpload && <AudioAttachmentTranscription url={part.url} />}
+      {ext === "HTML" && isOwnerUpload && (
+        <div className="mt-3 space-y-2">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-expanded={htmlPreviewOpen}
+              onClick={() => setHtmlPreviewOpen((open) => !open)}
+            >
+              {htmlPreviewOpen ? "Hide HTML preview" : "Preview HTML"}
+            </Button>
+          </div>
+          {htmlPreviewOpen && (
+            <iframe
+              className="h-[560px] max-h-[65vh] w-full rounded-lg border bg-background"
+              title={`${name} safe preview`}
+              src={`/api/storage/html-preview?url=${encodeURIComponent(part.url)}`}
+              sandbox=""
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+          )}
+        </div>
+      )}
+      {isPlayableAudio && isOwnerUpload && (
+        <AudioAttachmentTranscription url={part.url} />
+      )}
+      {isPreviewableImage && inlineMediaUrl && (
+        <a
+          className="mt-3 block max-h-[65vh] overflow-hidden rounded-lg bg-muted/40"
+          href={inlineMediaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open ${name}`}
+        >
+          <img
+            className="max-h-[65vh] w-full object-contain"
+            src={inlineMediaUrl}
+            alt={name}
+            loading="lazy"
+          />
+        </a>
+      )}
+      {isPlayableVideo && inlineMediaUrl && (
+        <video
+          className="mt-3 max-h-[65vh] w-full rounded-lg bg-black"
+          controls
+          preload="none"
+          src={inlineMediaUrl}
+        />
+      )}
       {isDocument && isOwnerUpload && (
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogContent className="flex max-h-[85vh] max-w-[min(94vw,900px)] flex-col overflow-hidden">

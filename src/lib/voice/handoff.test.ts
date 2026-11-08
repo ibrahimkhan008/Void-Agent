@@ -16,7 +16,7 @@ const valid = {
 };
 
 describe("voice transcript handoff contract", () => {
-  it("returns bounded plain text only for the owning user's saved device message", () => {
+  it("returns bounded plain text only for the owner's saved voice messages", () => {
     expect(getVoiceTranscriptForHandoff(valid)).toBe(
       "Summarize the new project notes",
     );
@@ -29,6 +29,15 @@ describe("voice transcript handoff contract", () => {
         message: { ...valid.message, metadata: {} },
       }),
     ).toBeNull();
+    expect(
+      getVoiceTranscriptForHandoff({
+        ...valid,
+        message: {
+          ...valid.message,
+          metadata: { source: "voice_realtime" },
+        },
+      }),
+    ).toBe("Summarize the new project notes");
     expect(
       getVoiceTranscriptForHandoff({
         ...valid,

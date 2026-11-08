@@ -40,6 +40,7 @@ const event = {
   status: "proposed" as const,
   createdAt: "2026-10-21T00:00:00.000Z",
   sourceItemId: "source-1",
+  sourceVersionId: "version-1",
   filename: "plan.md",
   collectionId: "collection-1",
 };
@@ -98,6 +99,37 @@ describe("ProjectBrainTimeline", () => {
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Dismiss event: Launch review" }),
+    ).toBeNull();
+  });
+
+  it("lets a reviewer inspect and hide the exact captured source revision", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        content: "Captured source text for the launch decision.",
+      }),
+    } as Response);
+    render(<ProjectBrainTimeline projectId="project-1" canReview={false} />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "View exact source revision: Launch review",
+      }),
+    );
+    expect(
+      await screen.findByText("Captured source text for the launch decision."),
+    ).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/brain/versions/version-1",
+      { cache: "no-store" },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "View exact source revision: Launch review",
+      }),
+    );
+    expect(
+      screen.queryByText("Captured source text for the launch decision."),
     ).toBeNull();
   });
 });

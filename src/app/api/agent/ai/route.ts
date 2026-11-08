@@ -7,8 +7,28 @@ import globalLogger from "logger";
 import { AgentGenerateSchema } from "app-types/agent";
 import { getSession } from "auth/server";
 import { colorize } from "consola/utils";
+import { getUnconnectedAgentGenerationApps } from "lib/ai/agent/generation-apps";
+import {
+  isComposioConfigured,
+  listComposioAccountsForUser,
+  listComposioToolkits,
+} from "lib/ai/composio";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
-import { workflowRepository } from "lib/db/repository";
+import {
+  TeamBudgetAuthorizationError,
+  TeamBudgetExceededError,
+  TeamBudgetPolicyError,
+} from "lib/ai/team-member-ai-budget";
+import {
+  TeamBudgetCurrencyMismatchError,
+  TeamBudgetModelUnpricedError,
+} from "lib/ai/team-member-ai-budget-gate";
+import {
+  type TeamBudgetLease,
+  reserveTeamBudgetForAiRequest,
+  settleTeamBudgetForAiRequest,
+} from "lib/ai/team-member-ai-budget-runtime";
+import { teamRepository, workflowRepository } from "lib/db/repository";
 import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { objectFlow } from "lib/utils";
@@ -37,8 +57,22 @@ const AgentGenerationRequestSchema = z
   .strict();
 
 export async function POST(request: Request) {
+  let teamBudgetLease: TeamBudgetLease | undefined;
+  let budgetSettled = false;
+  const settleBudget = async (input: {
+    aborted?: boolean;
+    usage?: unknown;
+  }) => {
+    if (!teamBudgetLease || budgetSettled) return;
+    // Mark before the async repository call so a second callback/catch cannot
+    // release a lease after a completed provider response failed to settle.
+    budgetSettled = true;
+    await settleTeamBudgetForAiRequest(teamBudgetLease, input);
+    teamBudgetLease = undefined;
+  };
+
   try {
-    const session = await getSession();
+    const session = await getSession({ disableCookieCache: true });
     if (!session?.user?.id) {
       return new Response("Unauthorized", { status: 401 });
     }
@@ -62,7 +96,10 @@ export async function POST(request: Request) {
 
     const bounded = await readBoundedJsonRequest(request, MAX_REQUEST_BYTES);
     if (!bounded.ok) {
-      return Response.json({ error: bounded.error }, { status: bounded.status });
+      return Response.json(
+        { error: bounded.error },
+        { status: bounded.status },
+      );
     }
     const parsed = AgentGenerationRequestSchema.safeParse(bounded.value);
     if (!parsed.success) {
@@ -72,6 +109,18 @@ export async function POST(request: Request) {
       );
     }
     const { chatModel, message = "hello" } = parsed.data;
+
+    // Active team context is app-owned session state, not request input or a
+    // Better Auth organization-plugin field. Revalidate membership on use.
+    const activeTeamId = session.session.activeTeamId;
+    const teamId = activeTeamId || undefined;
+    if (teamId) {
+      const member = await teamRepository.getTeamMember(
+        teamId,
+        session.user.id,
+      );
+      if (!member) return new Response("Forbidden", { status: 403 });
+    }
 
     logger.info(`chatModel: ${chatModel?.provider}/${chatModel?.model}`);
 
@@ -119,18 +168,108 @@ export async function POST(request: Request) {
         .default([]),
     });
 
-    const system = buildAgentGenerationPrompt(Array.from(toolNames));
+    let unconnectedApps: Array<{ slug: string; name: string }> = [];
+    if (isComposioConfigured()) {
+      try {
+        const [catalog, connectedAccounts] = await Promise.all([
+          listComposioToolkits(session.user.id, { limit: 50 }),
+          listComposioAccountsForUser(session.user.id, {
+            includeShared: true,
+          }),
+        ]);
+        const connectedSlugs = connectedAccounts.flatMap((account) =>
+          account.toolkit?.slug ? [account.toolkit.slug] : [],
+        );
+        unconnectedApps = getUnconnectedAgentGenerationApps(
+          (catalog as { items?: unknown[] }).items,
+          connectedSlugs,
+        );
+      } catch {
+        // The app catalog is optional; it must not block agent generation.
+        logger.warn("Could not load Composio app suggestions for generation");
+      }
+    }
+
+    const system = buildAgentGenerationPrompt(
+      Array.from(toolNames),
+      unconnectedApps,
+    );
+
+    try {
+      teamBudgetLease = await reserveTeamBudgetForAiRequest({
+        teamId,
+        userId: session.user.id,
+        model: chatModel,
+        promptCharacters: system.length + message.length,
+        idempotencyScope: "agent-generation",
+      });
+    } catch (error) {
+      if (error instanceof TeamBudgetExceededError) {
+        return Response.json(
+          { code: "team-member-budget-exceeded", message: error.message },
+          { status: 402 },
+        );
+      }
+      if (error instanceof TeamBudgetAuthorizationError) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      if (
+        error instanceof TeamBudgetModelUnpricedError ||
+        error instanceof TeamBudgetCurrencyMismatchError ||
+        error instanceof TeamBudgetPolicyError
+      ) {
+        return Response.json(
+          {
+            code: "team-budget-unavailable",
+            message: "The team AI budget could not be verified for this model.",
+          },
+          { status: 503 },
+        );
+      }
+      logger.error(
+        "Could not reserve team AI budget for agent generation",
+        error,
+      );
+      return Response.json(
+        {
+          code: "team-budget-unavailable",
+          message:
+            "The team AI budget could not be reserved. Try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
 
     const result = streamObject({
-      model:
-        await customModelProvider.getModelWithFailureFallbackAsync(chatModel),
+      model: teamBudgetLease
+        ? await customModelProvider.getModelAsync(chatModel)
+        : await customModelProvider.getModelWithFailureFallbackAsync(chatModel),
       system,
       prompt: message,
       schema: dynamicAgentTable,
+      abortSignal: request.signal,
+      onFinish: async ({ usage }) => {
+        await settleBudget({ usage }).catch((error) =>
+          logger.error(
+            "Could not settle team AI budget for agent generation",
+            error,
+          ),
+        );
+      },
+      onError: async () => {
+        await settleBudget({ aborted: true }).catch((error) =>
+          logger.error("Could not release agent generation budget", error),
+        );
+      },
     });
 
     return result.toTextStreamResponse();
   } catch (error) {
+    if (teamBudgetLease && !budgetSettled) {
+      await settleBudget({ aborted: true }).catch((releaseError) =>
+        logger.error("Could not release agent generation budget", releaseError),
+      );
+    }
     logger.error(error);
     return new Response(JSON.stringify({ error: "Failed to generate agent" }), {
       status: 500,

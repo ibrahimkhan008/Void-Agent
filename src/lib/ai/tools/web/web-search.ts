@@ -168,7 +168,11 @@ interface SearxngResponse {
   results: SearxngResult[];
 }
 
-const searchSearxng = async (query: string, numResults: number): Promise<ExaSearchResponse> => {
+const searchSearxng = async (
+  query: string,
+  numResults: number,
+  signal?: AbortSignal,
+): Promise<ExaSearchResponse> => {
   if (!SEARXNG_URL) {
     throw new Error("SEARXNG_URL is not configured");
   }
@@ -181,6 +185,7 @@ const searchSearxng = async (query: string, numResults: number): Promise<ExaSear
 
   const response = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
+    signal,
   });
 
   if (!response.ok) {
@@ -193,7 +198,9 @@ const searchSearxng = async (query: string, numResults: number): Promise<ExaSear
     title: r.title || "Untitled",
     url: r.url,
     publishedDate: r.publishedDate || "",
-    author: Array.isArray(r.engine) ? r.engine.join(", ") : String(r.engine || ""),
+    author: Array.isArray(r.engine)
+      ? r.engine.join(", ")
+      : String(r.engine || ""),
     text: r.content || "",
     image: r.img_src || r.thumbnail || undefined,
   }));
@@ -206,7 +213,10 @@ const searchSearxng = async (query: string, numResults: number): Promise<ExaSear
   };
 };
 
-const extractSearxng = async (url: string, maxCharacters: number): Promise<any> => {
+const extractSearxng = async (
+  url: string,
+  maxCharacters: number,
+): Promise<any> => {
   if (!SEARXNG_URL) {
     throw new Error("SEARXNG_URL is not configured");
   }
@@ -216,7 +226,9 @@ const extractSearxng = async (url: string, maxCharacters: number): Promise<any> 
   });
 
   if (!response.ok) {
-    throw new Error(`URL fetch error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `URL fetch error: ${response.status} ${response.statusText}`,
+    );
   }
 
   const html = await response.text();
@@ -232,30 +244,36 @@ const extractSearxng = async (url: string, maxCharacters: number): Promise<any> 
     .trim();
 
   return {
-    results: [{
-      id: "1",
-      title: url,
-      url,
-      text: text.slice(0, maxCharacters),
-    }],
+    results: [
+      {
+        id: "1",
+        title: url,
+        url,
+        text: text.slice(0, maxCharacters),
+      },
+    ],
   };
 };
 
 // --- Provider selection ---
 
-const searchWeb = async (request: ExaSearchRequest): Promise<any> => {
+const searchWeb = async (
+  request: ExaSearchRequest,
+  signal?: AbortSignal,
+): Promise<any> => {
   if (SEARXNG_URL) {
-    return searchSearxng(request.query, request.numResults || 5);
+    return searchSearxng(request.query, request.numResults || 5, signal);
   }
-  return fetchExa("/search", request);
+  return fetchExa("/search", request, signal);
 };
 
 const extractWebContent = async (request: ExaContentsRequest): Promise<any> => {
   if (SEARXNG_URL) {
     const [url] = request.ids;
-    const maxChars = typeof request.contents.text === "object" && request.contents.text
-      ? (request.contents.text.maxCharacters || 3000)
-      : 3000;
+    const maxChars =
+      typeof request.contents.text === "object" && request.contents.text
+        ? request.contents.text.maxCharacters || 3000
+        : 3000;
     if (url) {
       return extractSearxng(url, maxChars);
     }
@@ -266,7 +284,11 @@ const extractWebContent = async (request: ExaContentsRequest): Promise<any> => {
 
 // --- Exa provider ---
 
-const fetchExa = async (endpoint: string, body: any): Promise<any> => {
+const fetchExa = async (
+  endpoint: string,
+  body: any,
+  signal?: AbortSignal,
+): Promise<any> => {
   if (!API_KEY) {
     throw new Error("EXA_API_KEY is not configured");
   }
@@ -278,6 +300,7 @@ const fetchExa = async (endpoint: string, body: any): Promise<any> => {
       "x-api-key": API_KEY,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (response.status === 401) {
@@ -293,6 +316,25 @@ const fetchExa = async (endpoint: string, body: any): Promise<any> => {
 
   return await response.json();
 };
+
+/**
+ * Bounded read-only web search for voice sessions. It never accepts a URL and
+ * uses the same configured Exa/SearXNG search provider as the app tool.
+ */
+export async function searchPublicWebForVoice(
+  query: string,
+  signal?: AbortSignal,
+): Promise<ExaSearchResponse> {
+  return searchWeb(
+    {
+      query,
+      type: "auto",
+      numResults: 5,
+      contents: { text: { maxCharacters: 900 }, livecrawl: "fallback" },
+    },
+    signal,
+  ) as Promise<ExaSearchResponse>;
+}
 
 export const exaSearchToolForWorkflow = createTool({
   description:

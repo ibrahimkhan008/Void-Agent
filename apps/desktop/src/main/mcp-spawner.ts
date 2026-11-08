@@ -4,6 +4,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { stringifyBoundedJson } from "./bounded-json.js";
 import {
   buildMcpConfigFingerprint,
   desktopMcpConfigSchema,
@@ -167,13 +168,18 @@ export function createDesktopMcpOperations(
               ? tool.description.slice(0, 4_000)
               : "";
           let inputSchema: unknown = tool.inputSchema;
-          if (JSON.stringify(inputSchema ?? null).length > 32_000)
+          try {
+            inputSchema = JSON.parse(
+              stringifyBoundedJson(inputSchema ?? null, 32_000),
+            );
+          } catch {
             inputSchema = {
               type: "object",
               properties: {},
               description:
                 "Input schema omitted because it exceeded the desktop display limit.",
             };
+          }
           return { name: tool.name, description, inputSchema };
         });
     },
@@ -191,9 +197,12 @@ export function createDesktopMcpOperations(
         CALL_TIMEOUT_MS,
         remoteFetchFactory,
       );
-      const serialized = JSON.stringify(result ?? null);
-      if (serialized.length > MAX_RESULT_CHARS)
+      let serialized: string;
+      try {
+        serialized = stringifyBoundedJson(result ?? null, MAX_RESULT_CHARS);
+      } catch {
         throw new Error("MCP result exceeded the desktop display limit");
+      }
       return JSON.parse(serialized) as unknown;
     },
   };

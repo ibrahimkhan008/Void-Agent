@@ -11,6 +11,7 @@ import {
   shouldRunUpdateCheck,
 } from "./update-policy.js";
 import { resolveAutoUpdater } from "./updater-interop.js";
+import { createUpdaterLogger } from "./updater-log.js";
 
 export type DesktopUpdateState =
   | { status: "idle" }
@@ -75,7 +76,7 @@ export function initAutoUpdater() {
     .then((module) => {
       const updater = resolveAutoUpdater<AppUpdater>(module);
       autoUpdaterRef = updater;
-      updater.logger = console;
+      updater.logger = createUpdaterLogger();
       updater.autoDownload = true;
       updater.autoInstallOnAppQuit = true;
       updater.allowDowngrade = false;

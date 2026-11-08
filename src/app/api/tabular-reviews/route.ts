@@ -13,6 +13,7 @@ import {
 import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
+import { normalizeReviewColumn } from "lib/tabular/review-presets";
 import { createReviewSchema } from "lib/tabular/review-schema";
 import { groupReviewSourceDocuments } from "lib/tabular/review-source";
 
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       status: 409,
     });
   }
+  const columns = parsed.data.columns.map(normalizeReviewColumn);
 
   const review = await pgDb.transaction(async (tx) => {
     const [created] = await tx
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
       .values({
         userId: session.user.id,
         title: parsed.data.title,
-        columns: parsed.data.columns,
+        columns,
       })
       .returning();
     await tx.insert(TabularReviewItemTable).values(
@@ -131,7 +133,7 @@ export async function POST(request: Request) {
     );
     await tx.insert(TabularReviewCellTable).values(
       parsed.data.itemIds.flatMap((itemId) =>
-        parsed.data.columns.map((column) => ({
+        columns.map((column) => ({
           reviewId: created.id,
           itemId,
           columnId: column.id,

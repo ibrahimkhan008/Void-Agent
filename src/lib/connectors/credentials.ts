@@ -1,6 +1,10 @@
 import "server-only";
 import { getAdminConfigSection } from "lib/admin/site-config-reader";
-import { NEW_OAUTH_PROVIDERS, NEW_TOKEN_PROVIDERS } from "./providers-list";
+import {
+  type ConnectorProvider as ConnectorProviderType,
+  NEW_OAUTH_PROVIDERS,
+  NEW_TOKEN_PROVIDERS,
+} from "./providers-list";
 
 /**
  * Resolves connector credentials for a user connector, preferring values
@@ -20,61 +24,7 @@ import { NEW_OAUTH_PROVIDERS, NEW_TOKEN_PROVIDERS } from "./providers-list";
  *    single env var and shared across all users of the deployment.
  *    Wikipedia needs no credential at all.
  */
-export type ConnectorProvider =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "google-docs"
-  | "google-forms"
-  | "google-keep"
-  | "google-meet"
-  | "google-sheets"
-  | "google-slides"
-  | "google-tasks"
-  | "youtube"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github"
-  // 42 new providers added 2026-06-03. OAuth providers + token-only
-  // (server-side env-var) providers + Wikipedia (no auth).
-  | "confluence"
-  | "jira"
-  | "linear"
-  | "asana"
-  | "clickup"
-  | "productboard"
-  | "testrail"
-  | "coda"
-  | "outline"
-  | "slab"
-  | "guru"
-  | "highspot"
-  | "document360"
-  | "gitlab"
-  | "bitbucket"
-  | "dropbox"
-  | "zendesk"
-  | "freshdesk"
-  | "salesforce"
-  | "hubspot"
-  | "airtable"
-  | "gong"
-  | "egnyte"
-  | "teams"
-  | "discord"
-  | "bookstack"
-  | "gitbook"
-  | "canvas"
-  | "loopio"
-  | "discourse"
-  | "xenforo"
-  | "drupal-wiki"
-  | "axero"
-  | "zulip"
-  | "mediawiki"
-  | "fireflies"
-  | "wikipedia";
+export type ConnectorProvider = ConnectorProviderType;
 
 export type ConnectorOAuthAdminKey =
   | "google"

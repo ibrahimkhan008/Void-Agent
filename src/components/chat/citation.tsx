@@ -1,9 +1,9 @@
 "use client";
 
-import { FileIcon, ExternalLink } from "lucide-react";
-import { useTranslations } from "next-intl";
 import type { RetrievedChunk } from "lib/rag/format";
 import { cn, truncateString } from "lib/utils";
+import { ExternalLink, FileIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge } from "ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
@@ -36,6 +36,36 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
 const SNIPPET_MAX_CHARS = 280;
 const TITLE_MAX_CHARS = 78;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function getCitationSourceHref(chunk: RetrievedChunk): string | null {
+  if (chunk.projectId) {
+    if (
+      !chunk.projectDocumentVerified ||
+      !UUID_RE.test(chunk.projectId) ||
+      !UUID_RE.test(chunk.collectionItemId)
+    ) {
+      return null;
+    }
+    return `/api/projects/${encodeURIComponent(chunk.projectId)}/documents/${encodeURIComponent(chunk.collectionItemId)}/download`;
+  }
+
+  if (!chunk.sourceUrl) return null;
+  try {
+    const url = new URL(chunk.sourceUrl);
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:") ||
+      url.username ||
+      url.password
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
 
 const resolveSourceLabel = (chunk: RetrievedChunk): string => {
   const filename = chunk.filename?.trim();
@@ -72,10 +102,7 @@ export function CitationList({ chunks, className }: CitationListProps) {
   return (
     <div
       data-testid="citation-list"
-      className={cn(
-        "mt-2 flex flex-wrap items-center gap-1.5",
-        className,
-      )}
+      className={cn("mt-2 flex flex-wrap items-center gap-1.5", className)}
     >
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-1">
         {t?.("chat.sources") ?? "Sources"}
@@ -84,6 +111,7 @@ export function CitationList({ chunks, className }: CitationListProps) {
         const source = resolveSourceLabel(chunk);
         const snippet = truncateSnippet(chunk.content);
         const title = `${source}\n${snippet}`;
+        const sourceHref = getCitationSourceHref(chunk);
         return (
           <Tooltip key={chunk.id ?? `${index}`}>
             <TooltipTrigger asChild>
@@ -111,8 +139,7 @@ export function CitationList({ chunks, className }: CitationListProps) {
                   <span>{source}</span>
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  chunk {chunk.position} · score{" "}
-                  {chunk.score.toFixed(3)}
+                  chunk {chunk.position} · score {chunk.score.toFixed(3)}
                 </div>
                 {snippet ? (
                   <p
@@ -122,14 +149,16 @@ export function CitationList({ chunks, className }: CitationListProps) {
                     {snippet}
                   </p>
                 ) : null}
-                {chunk.sourceUrl ? (
+                {sourceHref ? (
                   <a
-                    href={chunk.sourceUrl}
-                    target="_blank"
+                    href={sourceHref}
+                    target={chunk.projectId ? undefined : "_blank"}
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
                   >
-                    Open source
+                    {chunk.projectId
+                      ? "Download project source"
+                      : "Open source"}
                     <ExternalLink className="size-2.5" aria-hidden="true" />
                   </a>
                 ) : null}

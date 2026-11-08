@@ -92,6 +92,7 @@ async function writeAudit(input: {
   config: unknown;
   toolName?: string;
   args?: unknown;
+  resultHash?: string;
   outcome: "success" | "denied" | "failure";
 }) {
   const event = {
@@ -103,6 +104,7 @@ async function writeAudit(input: {
     ...(input.args !== undefined
       ? { argsHash: hashMcpAuditValue(input.args) }
       : {}),
+    ...(input.resultHash ? { resultHash: input.resultHash } : {}),
     outcome: input.outcome,
   };
   try {
@@ -159,12 +161,20 @@ export function registerMcpIpcHandlers() {
     // with a changed executable/environment. Confirm and execute the exact
     // parsed config before showing the separate per-call consent dialog.
     const config = await confirmConfig(event, rawConfig);
+    const isRemote = "url" in config;
+    const destination = isRemote ? new URL(config.url).origin : undefined;
     const result = await dialog.showMessageBox(trustedWindow!, {
       type: "warning",
-      title: "Run a local MCP tool?",
-      message: `Ask the local MCP server to run “${call.toolName}”?`,
-      detail: `This program can perform actions beyond what its tool name suggests. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nIts result will be returned to ${trustedOrigin}. Review the command, server settings, and complete arguments in Void-Agent before continuing.`,
-      buttons: ["Run tool", "Cancel"],
+      title: isRemote
+        ? "Send a remote MCP tool request?"
+        : "Run a local MCP tool?",
+      message: isRemote
+        ? `Send “${call.toolName}” to ${destination}?`
+        : `Ask the local MCP server to run “${call.toolName}”?`,
+      detail: isRemote
+        ? `The request sends these exact arguments to ${destination}; the server's response will be returned to ${trustedOrigin} as untrusted content. DNS addresses are checked and pinned, and redirects are blocked. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nReview the destination and arguments before continuing.`
+        : `This program can perform actions beyond what its tool name suggests. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nIts result will be returned to ${trustedOrigin}. Review the command, server settings, and complete arguments in Void-Agent before continuing.`,
+      buttons: [isRemote ? "Send request" : "Run tool", "Cancel"],
       defaultId: 1,
       cancelId: 1,
       noLink: true,
@@ -177,15 +187,21 @@ export function registerMcpIpcHandlers() {
         args: call.params,
         outcome: "denied",
       });
-      throw new Error("Local MCP tool call was not approved");
+      throw new Error(
+        isRemote
+          ? "Remote MCP tool request was not approved"
+          : "Local MCP tool call was not approved",
+      );
     }
     try {
       const value = await callDesktopMcpTool(config, call);
+      const resultHash = hashMcpAuditValue(value);
       await writeAudit({
         action: "mcp.tool-call",
         config,
         toolName: call.toolName,
         args: call.params,
+        resultHash,
         outcome: "success",
       });
       return value;
@@ -197,7 +213,9 @@ export function registerMcpIpcHandlers() {
         args: call.params,
         outcome: "failure",
       });
-      throw new Error("Local MCP tool call failed");
+      throw new Error(
+        isRemote ? "Remote MCP tool call failed" : "Local MCP tool call failed",
+      );
     }
   });
 }

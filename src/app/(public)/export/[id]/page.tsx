@@ -1,4 +1,5 @@
 import ExportError from "@/components/export/error";
+import { loadPublicChatExport } from "@/lib/chat/load-public-export";
 import { chatExportRepository } from "lib/db/repository";
 import ChatPreview from "@/components/export/chat-preview";
 import { getUserId } from "@/app/api/chat/actions";
@@ -9,14 +10,20 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const thread = await chatExportRepository.selectByIdWithUser(id);
+  const thread = await loadPublicChatExport(id);
 
   if (!thread) {
     return {
       title: "Chat Not Found | Flare AI",
       description: "This exported chat does not exist or has been removed.",
+      robots: { index: false, follow: false },
+      referrer: "no-referrer",
     };
   }
 
@@ -51,25 +58,43 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `Shared by ${authorName} on Flare AI`,
       images: [ogImageUrl],
     },
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
   };
 }
 
 export default async function ExportPage({ params }: Props) {
   const { id } = await params;
-  const isExpired = await chatExportRepository.isExpired(id);
+  const thread = await loadPublicChatExport(id);
+  if (!thread) {
+    return (
+      <ExportError message="This export does not exist or has been removed" />
+    );
+  }
+  const isExpired = await chatExportRepository.isExpired(thread.id);
   if (isExpired) {
     return <ExportError message="This export has expired" />;
-  }
-  const thread = await chatExportRepository.selectByIdWithUser(id);
-  if (!thread) {
-    return <ExportError message="This export does not exist" />;
   }
 
   const userId = await getUserId().catch(() => undefined);
 
-  const comments = userId
-    ? await chatExportRepository.selectCommentsByExportId(id, userId)
-    : [];
+  const comments =
+    thread.allowComments && userId
+      ? await chatExportRepository.selectCommentsByExportId(id, userId)
+      : [];
 
-  return <ChatPreview thread={thread} comments={comments} />;
+  return (
+    <ChatPreview
+      thread={{
+        id: thread.allowComments ? thread.id : "",
+        title: thread.title,
+        messages: thread.messages,
+        exportedAt: thread.exportedAt,
+        exporterName: thread.exporterName,
+        exporterImage: thread.exporterImage,
+      }}
+      comments={comments}
+      allowComments={thread.allowComments}
+    />
+  );
 }

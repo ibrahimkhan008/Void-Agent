@@ -1,23 +1,25 @@
-import { NodeKind } from "../workflow.interface";
-import { createGraphStore, WorkflowRuntimeState } from "./graph-store";
-import { createStateGraph, graphNode, StateGraphRegistry } from "ts-edge";
-import {
-  conditionNodeExecutor,
-  outputNodeExecutor,
-  llmNodeExecutor,
-  NodeExecutor,
-  inputNodeExecutor,
-  toolNodeExecutor,
-  httpNodeExecutor,
-  templateNodeExecutor,
-} from "./node-executor";
-import { toAny } from "lib/utils";
-import { addEdgeBranchLabel } from "./add-edge-branch-label";
 import { DBEdge, DBNode } from "app-types/workflow";
-import { convertDBNodeToUINode } from "../shared.workflow";
-import globalLogger from "logger";
 import { ConsolaInstance } from "consola";
 import { colorize } from "consola/utils";
+import { toAny } from "lib/utils";
+import globalLogger from "logger";
+import { StateGraphRegistry, createStateGraph, graphNode } from "ts-edge";
+import type { WorkflowNodeCheckpoint } from "../execution-state";
+import { convertDBNodeToUINode } from "../shared.workflow";
+import { NodeKind } from "../workflow.interface";
+import { addEdgeBranchLabel } from "./add-edge-branch-label";
+import { WorkflowRuntimeState, createGraphStore } from "./graph-store";
+import {
+  NodeExecutor,
+  conditionNodeExecutor,
+  httpNodeExecutor,
+  inputNodeExecutor,
+  llmNodeExecutor,
+  outputNodeExecutor,
+  templateNodeExecutor,
+  toolNodeExecutor,
+} from "./node-executor";
+import type { WorkflowNodeExecutionHooks } from "./node-executor";
 
 /**
  * Maps node kinds to their corresponding executor functions.
@@ -68,6 +70,13 @@ export const createWorkflowExecutor = (workflow: {
   nodes: DBNode[];
   edges: DBEdge[];
   logger?: ConsolaInstance;
+  execution?: WorkflowNodeExecutionHooks & {
+    completedNodes?: Record<string, WorkflowNodeCheckpoint>;
+    onNodeCheckpoint?: (
+      nodeId: string,
+      checkpoint: WorkflowNodeCheckpoint,
+    ) => Promise<void>;
+  };
 }) => {
   // Create runtime state store for the workflow
   const store = createGraphStore({
@@ -91,6 +100,24 @@ export const createWorkflowExecutor = (workflow: {
     WorkflowRuntimeState,
     string
   >;
+  let executionTail = Promise.resolve();
+  let executionFailure: unknown;
+  const serializeExecution = <T>(task: () => Promise<T>) => {
+    const result = executionTail.then(async () => {
+      if (executionFailure) throw executionFailure;
+      try {
+        return await task();
+      } catch (error) {
+        executionFailure = error;
+        throw error;
+      }
+    });
+    executionTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
 
   // Add branch labels for condition node edges
   addEdgeBranchLabel(workflow.nodes, workflow.edges);
@@ -121,28 +148,50 @@ export const createWorkflowExecutor = (workflow: {
         kind: node.kind,
       },
       async execute(state) {
-        // Get the appropriate executor for this node type
-        const executor = getExecutorByKind(node.kind as NodeKind);
+        const runNode = async () => {
+          const checkpoint = workflow.execution?.completedNodes?.[node.id];
+          if (checkpoint) {
+            state.setInput(node.id, checkpoint.input);
+            state.setOutput({ nodeId: node.id, path: [] }, checkpoint.output);
+            return;
+          }
 
-        // Execute the node with current state
-        const result = await executor({
-          node: convertDBNodeToUINode(node).data,
-          state,
-        });
+          // Get the appropriate executor for this node type
+          const executor = getExecutorByKind(node.kind as NodeKind);
 
-        // Store the execution results in the workflow state
-        if (result?.output) {
-          state.setOutput(
-            {
-              nodeId: node.id,
-              path: [],
-            },
-            result.output,
-          );
-        }
-        if (result?.input) {
-          state.setInput(node.id, result.input);
-        }
+          // Execute the node with current state
+          const result = await executor({
+            node: convertDBNodeToUINode(node).data,
+            state,
+            execution: workflow.execution,
+          });
+
+          // Store the execution results in the workflow state
+          if (result?.output !== undefined) {
+            state.setOutput(
+              {
+                nodeId: node.id,
+                path: [],
+              },
+              result.output,
+            );
+          }
+          if (result?.input !== undefined) {
+            state.setInput(node.id, result.input);
+          }
+          await workflow.execution?.onNodeCheckpoint?.(node.id, {
+            input: result?.input ?? state.getInput(node.id) ?? null,
+            output:
+              result?.output ??
+              state.getOutput({ nodeId: node.id, path: [] }) ??
+              null,
+          });
+        };
+
+        // A durable execution pauses at one pending effect. Serial execution
+        // prevents parallel branches from racing its single approval slot.
+        if (workflow.execution) await serializeExecution(runNode);
+        else await runNode();
       },
     });
 

@@ -13,63 +13,9 @@ import { eq } from "drizzle-orm";
 import { pgDb as db } from "lib/db/pg/db.pg";
 import { UserConnectorTable } from "lib/db/pg/schema.pg";
 import { getConnectorCredentials } from "./credentials";
+import type { ConnectorProvider as ConnectorProviderType } from "./providers-list";
 
-export type ConnectorProvider =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "google-docs"
-  | "google-forms"
-  | "google-keep"
-  | "google-meet"
-  | "google-sheets"
-  | "google-slides"
-  | "google-tasks"
-  | "youtube"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github"
-  // 42 new providers added 2026-06-03. Their refresh behavior is decided
-  // in the switch below. Token-only providers never reach this function
-  // (their tools read directly from env via `getTokenProviderToken`).
-  | "confluence"
-  | "jira"
-  | "linear"
-  | "asana"
-  | "clickup"
-  | "productboard"
-  | "testrail"
-  | "coda"
-  | "outline"
-  | "slab"
-  | "guru"
-  | "highspot"
-  | "document360"
-  | "gitlab"
-  | "bitbucket"
-  | "dropbox"
-  | "zendesk"
-  | "freshdesk"
-  | "salesforce"
-  | "hubspot"
-  | "airtable"
-  | "gong"
-  | "egnyte"
-  | "teams"
-  | "discord"
-  | "bookstack"
-  | "gitbook"
-  | "canvas"
-  | "loopio"
-  | "discourse"
-  | "xenforo"
-  | "drupal-wiki"
-  | "axero"
-  | "zulip"
-  | "mediawiki"
-  | "fireflies"
-  | "wikipedia";
+export type ConnectorProvider = ConnectorProviderType;
 
 type ConnectorRow = typeof UserConnectorTable.$inferSelect;
 

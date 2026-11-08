@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
@@ -10,6 +11,7 @@ type Provider = {
   name: string;
   baseUrl: string;
   modelIds: string[];
+  capabilities: Record<string, { supportsToolCalling: boolean }>;
   hasApiKey: boolean;
 };
 
@@ -18,6 +20,10 @@ export function UserModelProvidersSettings() {
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [editingModelIds, setEditingModelIds] = useState<string[]>([]);
+  const [capabilities, setCapabilities] = useState<
+    Record<string, { supportsToolCalling: boolean }>
+  >({});
   const [editingProviderId, setEditingProviderId] = useState<string | null>(
     null,
   );
@@ -56,6 +62,7 @@ export function UserModelProvidersSettings() {
           name,
           baseUrl,
           apiKey: apiKey || undefined,
+          ...(editingProviderId ? { capabilities } : {}),
         }),
       });
       const body = await response.json();
@@ -65,8 +72,12 @@ export function UserModelProvidersSettings() {
       setBaseUrl("");
       setApiKey("");
       setEditingProviderId(null);
+      setEditingModelIds([]);
+      setCapabilities({});
       setNotice(
-        `${editingProviderId ? "Updated" : "Connected"}. Discovered ${body.provider.modelIds.length} model(s).`,
+        body.capabilitiesReset
+          ? `Updated endpoint and rediscovered ${body.provider.modelIds.length} model(s). Tool calling was disabled for this endpoint; verify and enable it in Edit provider.`
+          : `${editingProviderId ? "Updated" : "Connected"}. Discovered ${body.provider.modelIds.length} model(s).`,
       );
       await load();
     } catch (cause) {
@@ -83,6 +94,8 @@ export function UserModelProvidersSettings() {
     setName(provider.name);
     setBaseUrl(provider.baseUrl);
     setApiKey("");
+    setEditingModelIds(provider.modelIds);
+    setCapabilities(provider.capabilities ?? {});
     setError("");
     setNotice("Leave the API key blank to keep the saved encrypted key.");
   };
@@ -92,6 +105,8 @@ export function UserModelProvidersSettings() {
     setName("");
     setBaseUrl("");
     setApiKey("");
+    setEditingModelIds([]);
+    setCapabilities({});
     setNotice("");
     setError("");
   };
@@ -146,6 +161,37 @@ export function UserModelProvidersSettings() {
             onChange={(event) => setName(event.target.value)}
           />
         </div>
+        {editingProviderId && editingModelIds.length > 0 ? (
+          <fieldset className="grid gap-2 rounded-md border p-3">
+            <legend className="px-1 text-sm font-medium">
+              Verified model capabilities
+            </legend>
+            <p className="text-xs text-muted-foreground">
+              Enable tool calls only for models you have verified support them.
+              Void-Agent still applies its normal permissions and approvals.
+              Image input stays disabled for personal providers.
+            </p>
+            {editingModelIds.map((modelId) => (
+              <label key={modelId} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  aria-label={`Enable tool calling for ${modelId}`}
+                  checked={capabilities[modelId]?.supportsToolCalling === true}
+                  onChange={(event) => {
+                    const supportsToolCalling = event.currentTarget.checked;
+                    setCapabilities((current) => ({
+                      ...current,
+                      [modelId]: {
+                        supportsToolCalling,
+                      },
+                    }));
+                  }}
+                />
+                <span>{modelId}</span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
         <div className="grid gap-2">
           <Label htmlFor="personal-provider-url">Base URL</Label>
           <Input
@@ -228,7 +274,12 @@ export function UserModelProvidersSettings() {
                 </p>
                 <ul className="list-inside list-disc text-sm text-muted-foreground">
                   {provider.modelIds.map((model) => (
-                    <li key={model}>{model}</li>
+                    <li key={model}>
+                      {model} — tool calls{" "}
+                      {provider.capabilities?.[model]?.supportsToolCalling
+                        ? "enabled"
+                        : "disabled"}
+                    </li>
                   ))}
                 </ul>
               </div>

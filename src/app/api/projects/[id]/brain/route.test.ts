@@ -195,6 +195,179 @@ describe("POST /api/projects/[id]/brain", () => {
       }),
     );
   });
+
+  it("requeues the same stale queued source run without creating a duplicate", async () => {
+    const sourceQuery = {
+      from: vi.fn().mockReturnThis(),
+      innerJoin: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValue([
+          { itemId: collectionId, content: "Bounded source." },
+        ]),
+    };
+    mocks.select.mockReturnValue(sourceQuery);
+
+    const runId = "00000000-0000-4000-8000-000000000003";
+    const versionId = "00000000-0000-4000-8000-000000000004";
+    const versionInsert = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoNothing: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: versionId }]),
+    };
+    const sourceStateInsert = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoUpdate: vi.fn().mockResolvedValue([]),
+    };
+    const conflictingRunInsert = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoNothing: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([]),
+    };
+    const existingRun = {
+      id: runId,
+      projectId,
+      sourceItemId: collectionId,
+      status: "queued",
+      attempts: 2,
+      updatedAt: new Date("2026-11-08T05:50:00.000Z"),
+      errorMessage: "Previous dispatch failed",
+    };
+    const lockedRunQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      for: vi.fn().mockResolvedValue([existingRun]),
+    };
+    const updateReturning = vi
+      .fn()
+      .mockResolvedValue([
+        { ...existingRun, status: "queued", errorMessage: null },
+      ]);
+    const updateWhere = vi.fn().mockReturnValue({ returning: updateReturning });
+    const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
+    const tx = {
+      insert: vi
+        .fn()
+        .mockReturnValueOnce(versionInsert)
+        .mockReturnValueOnce(sourceStateInsert)
+        .mockReturnValueOnce(conflictingRunInsert),
+      select: vi.fn().mockReturnValue(lockedRunQuery),
+      update: vi.fn().mockReturnValue({ set: updateSet }),
+    };
+    mocks.transaction.mockImplementation(async (callback) => callback(tx));
+
+    const response = await POST(
+      new Request("http://localhost/api/projects/x/brain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: collectionId }),
+      }),
+      params,
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({
+      runId,
+      status: "queued",
+      reused: false,
+    });
+    expect(lockedRunQuery.for).toHaveBeenCalledWith("update");
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "queued",
+        attempts: existingRun.attempts,
+        errorMessage: null,
+        updatedAt: expect.any(Date),
+      }),
+    );
+    // The source fingerprint conflict is resolved to and updates the existing
+    // run row under the transaction lock; the retry never inserts a second run.
+    expect(conflictingRunInsert.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId,
+        sourceItemId: collectionId,
+        sourceFingerprint: expect.any(String),
+        status: "queued",
+      }),
+    );
+    expect(conflictingRunInsert.onConflictDoNothing).toHaveBeenCalledWith({
+      target: expect.arrayContaining([expect.anything(), expect.anything()]),
+    });
+    expect(tx.insert).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["queued", "running"] as const)(
+    "leaves a fresh %s run alone when a retry races a live worker",
+    async (status) => {
+      const sourceQuery = {
+        from: vi.fn().mockReturnThis(),
+        innerJoin: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi
+          .fn()
+          .mockResolvedValue([
+            { itemId: collectionId, content: "Current source." },
+          ]),
+      };
+      mocks.select.mockReturnValue(sourceQuery);
+      const versionInsert = {
+        values: vi.fn().mockReturnThis(),
+        onConflictDoNothing: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockResolvedValue([{ id: "version-1" }]),
+      };
+      const sourceStateInsert = {
+        values: vi.fn().mockReturnThis(),
+        onConflictDoUpdate: vi.fn().mockResolvedValue([]),
+      };
+      const conflictingRunInsert = {
+        values: vi.fn().mockReturnThis(),
+        onConflictDoNothing: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockResolvedValue([]),
+      };
+      const freshRun = {
+        id: "00000000-0000-4000-8000-000000000005",
+        status,
+        attempts: 1,
+        updatedAt: new Date(),
+      };
+      const lockedRunQuery = {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        for: vi.fn().mockResolvedValue([freshRun]),
+      };
+      const tx = {
+        insert: vi
+          .fn()
+          .mockReturnValueOnce(versionInsert)
+          .mockReturnValueOnce(sourceStateInsert)
+          .mockReturnValueOnce(conflictingRunInsert),
+        select: vi.fn().mockReturnValue(lockedRunQuery),
+        update: vi.fn(),
+      };
+      mocks.transaction.mockImplementation(async (callback) => callback(tx));
+
+      const response = await POST(
+        new Request("http://localhost/api/projects/x/brain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId: collectionId }),
+        }),
+        params,
+      );
+
+      expect(response.status).toBe(202);
+      expect(await response.json()).toEqual({
+        runId: freshRun.id,
+        status,
+        reused: true,
+      });
+      expect(lockedRunQuery.for).toHaveBeenCalledWith("update");
+      expect(tx.update).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("GET /api/projects/[id]/brain", () => {
@@ -203,6 +376,12 @@ describe("GET /api/projects/[id]/brain", () => {
       project: { id: projectId, collectionIds: [] },
       role: "editor",
     });
+    const chatOwnerQuery = {
+      from: vi.fn().mockReturnThis(),
+      innerJoin: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([]),
+    };
+    mocks.select.mockReturnValue(chatOwnerQuery);
 
     const response = await GET(
       new Request(`http://localhost/api/projects/${projectId}/brain`),
@@ -215,10 +394,13 @@ describe("GET /api/projects/[id]/brain", () => {
       runs: [],
       facts: [],
       sources: [],
+      chatSources: [],
       sourceVersions: [],
       todos: [],
       consolidatedTodos: [],
     });
-    expect(mocks.select).not.toHaveBeenCalled();
+    // Chat sources have a separate owner-validation query; document-backed
+    // source reads are skipped when no collections remain visible.
+    expect(mocks.select).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,10 +1,29 @@
+import {
+  MCPRemoteConfigZodSchema,
+  MCPStdioConfigZodSchema,
+} from "app-types/mcp";
 import { getSession } from "auth/server";
 import { logger } from "better-auth";
 import { canCreateMCP } from "lib/auth/permissions";
-import { McpServerTable } from "lib/db/pg/schema.pg";
+import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
 import { errorToString } from "lib/utils";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { saveMcpClientAction } from "./actions";
+
+const MAX_CREATE_BODY_BYTES = 64 * 1024;
+const CreateMcpServerSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .regex(/^[a-zA-Z0-9-]+$/),
+    config: z.union([MCPRemoteConfigZodSchema, MCPStdioConfigZodSchema]),
+    visibility: z.enum(["public", "private"]).optional(),
+  })
+  .strict();
 
 const inferMcpErrorStatus = (message: string): number => {
   const normalized = message.toLowerCase();
@@ -51,10 +70,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const json = (await request.json()) as typeof McpServerTable.$inferInsert;
+  const body = await readBoundedJsonRequest(request, MAX_CREATE_BODY_BYTES);
+  if (!body.ok) {
+    return NextResponse.json({ error: body.error }, { status: body.status });
+  }
+  const parsed = CreateMcpServerSchema.safeParse(body.value);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid MCP server configuration" },
+      { status: 400 },
+    );
+  }
 
   try {
-    const result = await saveMcpClientAction(json);
+    const result = await saveMcpClientAction({
+      ...parsed.data,
+      userId: session.user.id,
+    });
 
     return NextResponse.json({ success: true, id: result.client.getInfo().id });
   } catch (error: any) {

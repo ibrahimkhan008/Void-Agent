@@ -119,10 +119,7 @@ export class PgOAuthClientProvider implements OAuthClientProvider {
     const authData = await this.getAuthData();
     if (authData?.clientInfo) {
       // Check if redirect URI matches (security check)
-      if (
-        !authData.tokens &&
-        authData.clientInfo.redirect_uris[0] != this.redirectUrl
-      ) {
+      if (authData.clientInfo.redirect_uris[0] !== this.redirectUrl) {
         // Security guard: redirect URI mismatch → drop only this mismatched session by state
         if (authData.state) {
           await pgMcpOAuthRepository.deleteByState(authData.state);

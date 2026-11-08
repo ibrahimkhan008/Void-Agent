@@ -42,7 +42,13 @@ describe("GET /api/chat/models", () => {
     mocks.ensureDynamic.mockResolvedValue(undefined);
     mocks.getConfig.mockResolvedValue({
       providers: { Flare: { enabled: false } },
-      dynamicProviders: { "custom-gateway": { enabled: true } },
+      dynamicProviders: {
+        "custom-gateway": {
+          enabled: true,
+          apiKey: "server-secret-must-not-be-returned",
+        },
+      },
+      modelDisplayMetadata: {},
     });
     mocks.listUserProviders.mockResolvedValue([]);
   });
@@ -69,6 +75,9 @@ describe("GET /api/chat/models", () => {
         name: "My gateway",
         hasApiKey: true,
         modelIds: ["private-model"],
+        capabilities: {
+          "private-model": { supportsToolCalling: true },
+        },
       },
     ]);
     const providers = await (await GET()).json();
@@ -78,12 +87,70 @@ describe("GET /api/chat/models", () => {
       models: [
         {
           name: "private-model",
-          isToolCallUnsupported: true,
+          isToolCallUnsupported: false,
           isImageInputUnsupported: true,
         },
       ],
     });
     expect(mocks.listUserProviders).toHaveBeenCalledWith("user-1");
+  });
+
+  it("defaults legacy personal model records to tool-disabled", async () => {
+    mocks.listUserProviders.mockResolvedValueOnce([
+      {
+        id: "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658",
+        name: "Legacy gateway",
+        hasApiKey: false,
+        modelIds: ["legacy-model"],
+      },
+    ]);
+    const providers = await (await GET()).json();
+    expect(providers.at(-1).models[0]).toMatchObject({
+      name: "legacy-model",
+      isToolCallUnsupported: true,
+      isImageInputUnsupported: true,
+    });
+  });
+
+  it("adds validated public metadata only to returned models and omits provider secrets", async () => {
+    mocks.getConfig.mockResolvedValueOnce({
+      providers: { Flare: { enabled: false } },
+      dynamicProviders: {
+        "custom-gateway": {
+          enabled: true,
+          apiKey: "server-secret-must-not-be-returned",
+        },
+      },
+      modelDisplayMetadata: {
+        "GOOGLE/Model B": {
+          developer: "Google",
+          country: "US",
+          hiddenGem: true,
+          inputPriceUsd: 0.4,
+          outputPriceUsd: 1.2,
+          automaticRoutingPriority: 2,
+          automaticRoutingScores: { coding: 90, reasoning: 40 },
+        },
+        "google/not-in-catalog": { speed: true },
+      },
+    });
+    const response = await GET();
+    const providers = await response.json();
+    const google = providers.find(
+      (provider: { provider: string }) => provider.provider === "google",
+    );
+
+    expect(google.models[0].displayMetadata).toEqual({
+      developer: "Google",
+      country: "US",
+      hiddenGem: true,
+      inputPriceUsd: 0.4,
+      outputPriceUsd: 1.2,
+      automaticRoutingPriority: 2,
+      automaticRoutingScores: { coding: 90, reasoning: 40 },
+    });
+    expect(JSON.stringify(providers)).not.toContain("server-secret");
+    expect(JSON.stringify(providers)).not.toContain("not-in-catalog");
   });
 
   it("fails closed when provider enablement cannot be verified", async () => {

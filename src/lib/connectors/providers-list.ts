@@ -66,6 +66,39 @@ export const NEW_PROVIDERS = [
   ...NEW_TOKEN_PROVIDERS,
 ] as const;
 
+export const BASE_CONNECTOR_PROVIDERS = [
+  "gmail",
+  "google-drive",
+  "google-calendar",
+  "google-docs",
+  "google-forms",
+  "google-keep",
+  "google-meet",
+  "google-sheets",
+  "google-slides",
+  "google-tasks",
+  "youtube",
+  "outlook",
+  "slack",
+  "notion",
+  "github",
+] as const;
+
+export const CONNECTOR_PROVIDERS = [
+  ...BASE_CONNECTOR_PROVIDERS,
+  ...NEW_PROVIDERS,
+] as const;
+
+export type ConnectorProvider = (typeof CONNECTOR_PROVIDERS)[number];
+
+const CONNECTOR_PROVIDER_SET: ReadonlySet<string> = new Set(
+  CONNECTOR_PROVIDERS,
+);
+
+export function isConnectorProvider(value: string): value is ConnectorProvider {
+  return CONNECTOR_PROVIDER_SET.has(value);
+}
+
 export type NewOAuthProvider = (typeof NEW_OAUTH_PROVIDERS)[number];
 export type NewTokenProvider = (typeof NEW_TOKEN_PROVIDERS)[number];
 export type NewProvider = (typeof NEW_PROVIDERS)[number];

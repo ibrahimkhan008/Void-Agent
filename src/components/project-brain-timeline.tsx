@@ -17,6 +17,7 @@ type TimelineEvent = {
   status: "proposed" | "accepted" | "rejected";
   createdAt: string;
   sourceItemId: string;
+  sourceVersionId: string | null;
   filename: string | null;
   collectionId: string;
 };
@@ -34,6 +35,50 @@ export function ProjectBrainTimeline({
     `/api/projects/${projectId}/brain/timeline`,
     fetcher,
   );
+  const [loadingVersionId, setLoadingVersionId] = React.useState<string | null>(
+    null,
+  );
+  const [revisionPreview, setRevisionPreview] = React.useState<{
+    eventId: string;
+    versionId: string;
+    content: string;
+  } | null>(null);
+
+  const toggleRevision = async (event: TimelineEvent) => {
+    if (!event.sourceVersionId) return;
+    if (revisionPreview?.eventId === event.id) {
+      setRevisionPreview(null);
+      return;
+    }
+    setLoadingVersionId(event.sourceVersionId);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/brain/versions/${encodeURIComponent(event.sourceVersionId)}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => null)) as {
+        content?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || typeof result?.content !== "string")
+        throw new Error(
+          result?.error ?? "Could not load this source revision.",
+        );
+      setRevisionPreview({
+        eventId: event.id,
+        versionId: event.sourceVersionId,
+        content: result.content,
+      });
+    } catch (previewError) {
+      toast.error(
+        previewError instanceof Error
+          ? previewError.message
+          : "Could not load this source revision.",
+      );
+    } finally {
+      setLoadingVersionId(null);
+    }
+  };
 
   const review = async (eventId: string, status: "accepted" | "rejected") => {
     try {
@@ -113,6 +158,25 @@ export function ProjectBrainTimeline({
                       </Link>
                     </>
                   )}
+                  {event.sourceVersionId && (
+                    <>
+                      {" · "}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="link"
+                        aria-label={`View exact source revision: ${event.summary}`}
+                        disabled={loadingVersionId === event.sourceVersionId}
+                        onClick={() => void toggleRevision(event)}
+                      >
+                        {loadingVersionId === event.sourceVersionId
+                          ? "Loading revision…"
+                          : revisionPreview?.eventId === event.id
+                            ? "Hide exact revision"
+                            : "View exact revision"}
+                      </Button>
+                    </>
+                  )}
                 </p>
               </div>
               <span className="rounded bg-muted px-2 py-0.5 text-xs">
@@ -123,6 +187,16 @@ export function ProjectBrainTimeline({
             <blockquote className="mt-2 border-l-2 pl-3 text-xs text-muted-foreground">
               {event.evidence}
             </blockquote>
+            {revisionPreview?.eventId === event.id && (
+              <section className="mt-2" aria-label="Exact source revision">
+                <p className="text-xs text-muted-foreground">
+                  Captured source revision {revisionPreview.versionId}
+                </p>
+                <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs">
+                  {revisionPreview.content}
+                </pre>
+              </section>
+            )}
             {canReview && event.status === "proposed" && (
               <div className="mt-2 flex gap-1">
                 <Button

@@ -74,6 +74,8 @@ const getConfig = () => {
       "playwright-core",
       // Native (napi) binding — bundling it breaks the .node resolution.
       "@llamaindex/liteparse",
+      // PDF page rasterization loads the platform-specific canvas binary at runtime.
+      "@napi-rs/canvas",
     ],
     devIndicators: {
       position: "bottom-right",

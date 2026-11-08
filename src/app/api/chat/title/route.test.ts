@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   getFreeTierLimitCheck: vi.fn(),
   checkAccess: vi.fn(),
   selectThreadDetails: vi.fn(),
-  upsertThread: vi.fn(),
+  setThreadTitleIfEmpty: vi.fn(),
   getProjectAccess: vi.fn(),
   reserveTeamBudgetForAiRequest: vi.fn(),
   settleTeamBudgetForAiRequest: vi.fn(),
@@ -51,7 +51,7 @@ vi.mock("lib/db/repository", () => ({
   chatRepository: {
     checkAccess: mocks.checkAccess,
     selectThreadDetails: mocks.selectThreadDetails,
-    upsertThread: mocks.upsertThread,
+    setThreadTitleIfEmpty: mocks.setThreadTitleIfEmpty,
   },
   userRepository: { getUserById: mocks.getUserById },
 }));
@@ -85,13 +85,19 @@ const lease = {
 const request = (body: unknown) =>
   new Request("https://void.test/api/chat/title", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://void.test",
+    },
     body: JSON.stringify(body),
   });
 const rawRequest = (body: string) =>
   new Request("https://void.test/api/chat/title", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://void.test",
+    },
     body,
   });
 
@@ -116,7 +122,7 @@ describe("POST /api/chat/title team budget", () => {
     mocks.getModelWithFailureFallbackAsync.mockResolvedValue({
       id: "fallback-model",
     });
-    mocks.upsertThread.mockResolvedValue(undefined);
+    mocks.setThreadTitleIfEmpty.mockImplementation(async (_id, title) => title);
     mocks.handleError.mockReturnValue("request failed");
     mocks.streamText.mockImplementation(() => ({
       toUIMessageStreamResponse: vi.fn(() =>
@@ -149,13 +155,54 @@ describe("POST /api/chat/title team budget", () => {
     expect(mocks.settleTeamBudgetForAiRequest).toHaveBeenCalledWith(lease, {
       usage: { inputTokens: 20, outputTokens: 5 },
     });
-    expect(mocks.upsertThread).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "thread-1",
-        title: "Conversation title",
-        userId: "user-1",
-      }),
+    expect(mocks.setThreadTitleIfEmpty).toHaveBeenCalledWith(
+      "thread-1",
+      "Conversation title",
+      "user-1",
     );
+  });
+
+  it("normalizes model output and persists the deterministic user-text fallback", async () => {
+    await POST(
+      request({ threadId: "thread-1", message: "user: My first question" }),
+    );
+    const callbacks = mocks.streamText.mock.calls[0][0];
+    await callbacks.onFinish({ text: '  "A   title"  ', totalUsage: {} });
+    expect(mocks.setThreadTitleIfEmpty).toHaveBeenCalledWith(
+      "thread-1",
+      "A title",
+      "user-1",
+    );
+
+    mocks.setThreadTitleIfEmpty.mockClear();
+    await POST(
+      request({ threadId: "thread-1", message: "user: Original prompt" }),
+    );
+    const fallbackCallbacks = mocks.streamText.mock.calls[1][0];
+    await fallbackCallbacks.onFinish({ text: " \n ", totalUsage: {} });
+    expect(mocks.setThreadTitleIfEmpty).toHaveBeenCalledWith(
+      "thread-1",
+      "Original prompt",
+      "user-1",
+    );
+  });
+
+  it("does not overwrite the first title when a duplicate generation completes", async () => {
+    let storedTitle = "First title";
+    mocks.setThreadTitleIfEmpty.mockImplementationOnce(
+      async (_id, candidate) => storedTitle || (storedTitle = candidate),
+    );
+    await POST(request({ threadId: "thread-1", message: "user: prompt" }));
+    await mocks.streamText.mock.calls[0][0].onFinish({
+      text: "Later competing title",
+      totalUsage: {},
+    });
+    expect(mocks.setThreadTitleIfEmpty).toHaveBeenCalledWith(
+      "thread-1",
+      "Later competing title",
+      "user-1",
+    );
+    expect(storedTitle).toBe("First title");
   });
 
   it("never trusts a request team ID or bills a fresh personal thread", async () => {
@@ -187,6 +234,27 @@ describe("POST /api/chat/title team budget", () => {
 
     expect(response.status).toBe(404);
     expect(mocks.reserveTeamBudgetForAiRequest).not.toHaveBeenCalled();
+    expect(mocks.streamText).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-origin and origin-less title generation before authentication or provider work", async () => {
+    const crossOrigin = new Request("https://void.test/api/chat/title", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://attacker.test",
+      },
+      body: JSON.stringify({ threadId: "thread-1" }),
+    });
+    const noOrigin = new Request("https://void.test/api/chat/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: "thread-1" }),
+    });
+
+    expect((await POST(crossOrigin)).status).toBe(403);
+    expect((await POST(noOrigin)).status).toBe(403);
+    expect(mocks.getSession).not.toHaveBeenCalled();
     expect(mocks.streamText).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,7 @@
 import EditAgent from "@/components/agent/edit-agent";
-import { agentRepository } from "lib/db/repository";
 import { getSession } from "auth/server";
+import { canEditAgent } from "lib/auth/permissions";
+import { agentRepository } from "lib/db/repository";
 import { notFound, redirect } from "next/navigation";
 
 export default async function AgentPage({
@@ -29,6 +30,7 @@ export default async function AgentPage({
 
   const isOwner = agent.userId === session.user.id;
   const hasEditAccess = isOwner || agent.visibility === "public";
+  const canPublish = isOwner && (await canEditAgent());
 
   return (
     <EditAgent
@@ -37,6 +39,7 @@ export default async function AgentPage({
       userId={session.user.id}
       isOwner={isOwner}
       hasEditAccess={hasEditAccess}
+      canPublish={canPublish}
       isBookmarked={agent.isBookmarked || false}
     />
   );

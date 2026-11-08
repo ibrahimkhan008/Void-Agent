@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   rateLimit: vi.fn(),
   hasSameOrigin: vi.fn(),
+  getAccessibleProjectStatusScope: vi.fn(),
   getOwnedProjectThreadScope: vi.fn(),
   getProjectStatusForUser: vi.fn(),
 }));
@@ -16,6 +17,7 @@ vi.mock("lib/security/same-origin", () => ({
   hasSameOrigin: mocks.hasSameOrigin,
 }));
 vi.mock("lib/voice/project-status", () => ({
+  getAccessibleProjectStatusScope: mocks.getAccessibleProjectStatusScope,
   getOwnedProjectThreadScope: mocks.getOwnedProjectThreadScope,
 }));
 vi.mock("lib/ai/tools/project-status", () => ({
@@ -46,6 +48,10 @@ describe("POST /api/voice/project-status", () => {
     mocks.rateLimit.mockResolvedValue({ allowed: true });
     mocks.hasSameOrigin.mockReturnValue(true);
     mocks.getOwnedProjectThreadScope.mockResolvedValue({
+      projectId,
+      collectionIds: ["collection-1"],
+    });
+    mocks.getAccessibleProjectStatusScope.mockResolvedValue({
       projectId,
       collectionIds: ["collection-1"],
     });
@@ -88,10 +94,28 @@ describe("POST /api/voice/project-status", () => {
     expect(mocks.getOwnedProjectThreadScope).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed or client-supplied project scope", async () => {
-    expect((await POST(request({ threadId, projectId }))).status).toBe(400);
+  it("resolves another project only through the server-side accessible scope", async () => {
+    const response = await POST(request({ projectName: "Release" }));
+    expect(response.status).toBe(200);
+    expect(mocks.getAccessibleProjectStatusScope).toHaveBeenCalledWith(userId, {
+      projectId: undefined,
+      projectName: "Release",
+    });
+    expect(mocks.getOwnedProjectThreadScope).not.toHaveBeenCalled();
+    expect(mocks.getProjectStatusForUser).toHaveBeenCalledWith({
+      userId,
+      projectId,
+      collectionIds: ["collection-1"],
+    });
+  });
+
+  it("rejects malformed or competing project scope", async () => {
+    expect(
+      (await POST(request({ projectId, projectName: "Release" }))).status,
+    ).toBe(400);
     expect((await POST(request({ threadId: "bad" }))).status).toBe(400);
     expect(mocks.getOwnedProjectThreadScope).not.toHaveBeenCalled();
+    expect(mocks.getAccessibleProjectStatusScope).not.toHaveBeenCalled();
   });
 
   it("hides threads that are not owned or no longer project accessible", async () => {

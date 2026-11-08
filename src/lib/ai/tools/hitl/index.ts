@@ -7,7 +7,7 @@ import { freshdeskProposalInputSchema } from "./freshdesk-approval";
 import { httpRequestApprovalSchema } from "./http-request-approval";
 import { jiraCommentApprovalSchema } from "./jira-approval";
 import { linearIssueApprovalSchema } from "./linear-approval";
-import { mcpToolApprovalSchema } from "./mcp-tool-approval";
+import { mcpToolApprovalProposalSchema } from "./mcp-tool-approval";
 import { messagingApprovalSchema } from "./messaging-approval";
 import { slackMessageApprovalSchema } from "./slack-approval";
 import { taskCreationApprovalSchema } from "./task-creation-approval";
@@ -30,11 +30,40 @@ export const askForPlanApprovalTool = tool({
   inputSchema: askForPlanApprovalInputSchema,
 });
 
-const requestInputQuestionSchema = z.object({
-  header: z.string().trim().min(1).max(40),
-  question: z.string().trim().min(1).max(1000),
-  options: z.array(z.string().trim().min(1).max(160)).max(8).optional(),
-});
+const requestInputOptionSchema = z.union([
+  z.string().trim().min(1).max(160),
+  z
+    .object({
+      label: z.string().trim().min(1).max(160),
+      description: z.string().trim().max(240).optional(),
+    })
+    .strict(),
+]);
+
+const requestInputQuestionSchema = z
+  .object({
+    header: z.string().trim().min(1).max(40),
+    question: z.string().trim().min(1).max(1000),
+    options: z.array(requestInputOptionSchema).max(8).optional(),
+    multiSelect: z.boolean().optional().default(false),
+    placeholder: z.string().trim().max(200).optional(),
+    // Passwords are intentionally excluded: chat input must never collect secrets.
+    inputType: z
+      .enum(["text", "number", "email", "url"])
+      .optional()
+      .default("text"),
+  })
+  .strict()
+  .refine(
+    (question) =>
+      !question.options ||
+      new Set(
+        question.options.map((option) =>
+          typeof option === "string" ? option : option.label,
+        ),
+      ).size === question.options.length,
+    { message: "Option labels must be unique", path: ["options"] },
+  );
 
 export const requestInputInputSchema = z.object({
   questions: z.array(requestInputQuestionSchema).min(1).max(4),
@@ -42,7 +71,7 @@ export const requestInputInputSchema = z.object({
 
 export const requestInputTool = tool({
   description:
-    "When essential information is missing and only the user can provide it, ask up to four concise related questions together in one call and wait for the answers; do not create multiple unanswered question cards in one turn. Offer options when answers are enumerable and omit options for open-ended answers. Never ask for passwords, API keys, recovery codes, or other secrets in chat.",
+    "When essential information is missing and only the user can provide it, ask up to four concise related questions together in one call and wait for the answers; do not create multiple unanswered question cards in one turn. Offer labeled choices with brief descriptions when useful; enable multiSelect only when several choices may be selected. Use a suitable text, number, email, or URL input type and placeholder. Never ask for passwords, API keys, recovery codes, or other secrets in chat.",
   inputSchema: requestInputInputSchema,
 });
 
@@ -141,8 +170,8 @@ export const proposeWorkflowRunTool = tool({
 
 export const proposeMcpToolCallTool = tool({
   description:
-    "Before calling any remote MCP tool, show the user the exact server, tool name, and complete JSON arguments for review. Wait for explicit approval. Pass the one-use approvalToken and identical arguments to the MCP tool. Read-only tools also require approval because MCP servers declare their own effects.",
-  inputSchema: mcpToolApprovalSchema,
+    "Before calling any remote MCP tool, show the user the exact server, tool name, and complete JSON arguments for review. Copy serverConfigFingerprint exactly from that MCP tool's description; do not invent or replace it. Wait for explicit approval. Pass the one-use approvalToken and identical arguments to the MCP tool. Read-only tools also require approval because MCP servers declare their own effects.",
+  inputSchema: mcpToolApprovalProposalSchema,
 });
 
 export const proposeHttpRequestTool = tool({
@@ -215,7 +244,7 @@ export const HITL_TOOL_GUIDANCE = `Human-in-the-loop tools:
 - When user input is essential, ask related questions together in one requestInput call (up to four), offer choices for enumerable answers, and never ask for secrets.
 - Before any outbound HTTP request, use proposeHttpRequest to show the exact URL, method, headers, body, and timeout. Make only the exact HTTPS request explicitly approved by the user with its one-use token.
 - Before running a Windmill/Activepieces automation or saved workflow, use proposeWorkflowRun to show the exact target and complete JSON input. For saved workflows include workflowName and approvalTokenField exactly as exposed by the workflow tool. Run only reviewed values with the one-use token; discovery is read-only.
-- Before calling a remote MCP tool, use proposeMcpToolCall to show the server, tool and complete arguments. Execute only the exact reviewed call with its one-use token.
+- Before calling a remote MCP tool, use proposeMcpToolCall to show the server, tool and complete arguments, and copy its serverConfigFingerprint exactly from that tool's description. Execute only the exact reviewed call with its one-use token; a changed target must be reviewed again.
 - For a genuinely complex multi-step task with consequential actions, use askForPlanApproval once before beginning the plan; it does not replace effect-specific approval tokens listed below.
 - When essential details are missing and only the user can supply them, use one requestInput call for related questions and wait for the answers.
 - Before sending an email, use proposeEmail. Send only the user-approved recipient, subject, and body returned by the tool; never send a rejected draft.

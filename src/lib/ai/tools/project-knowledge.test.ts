@@ -139,6 +139,17 @@ describe("project knowledge graph chat tool", () => {
     expect(eventPredicate.sql).toContain('"collection_item"."status"');
     expect(eventPredicate.sql).toContain('"project_brain_source_state"');
     expect(eventPredicate.params).toContain("accepted");
+    const factPredicate = new PgDialect().sqlToQuery(
+      mocks.predicates[1] as never,
+    );
+    expect(factPredicate.sql).toContain('"project_brain_fact"."project_id"');
+    expect(factPredicate.sql).toContain('"project_brain_fact"."review_status"');
+    expect(factPredicate.sql).toContain(
+      '"project_brain_fact"."evidence" ilike',
+    );
+    expect(factPredicate.sql).toContain('"project_brain_source_state"');
+    expect(factPredicate.params).toContain("%postgresql%");
+    expect(factPredicate.params).toContain("%persistence%");
   });
 
   it("expands an accepted alias hit into canonical entity claims", async () => {

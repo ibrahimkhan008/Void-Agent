@@ -1,5 +1,6 @@
 import { Agent, AgentRepository, AgentSummary } from "app-types/agent";
 import { and, desc, eq, ne, or, sql } from "drizzle-orm";
+import type { PresetAgent } from "lib/ai/agent/presets";
 import { generateUUID } from "lib/utils";
 import { pgDb as db } from "../db.pg";
 import {
@@ -256,6 +257,76 @@ export const pgAgentRepository: AgentRepository = {
     return false;
   },
 };
+
+/** Create a private, user-owned copy of a built-in preset exactly once. */
+export async function createAgentFromPreset(
+  userId: string,
+  preset: {
+    presetId: string;
+    name: string;
+    description: string;
+    icon: Agent["icon"];
+    instructions: Agent["instructions"];
+  },
+): Promise<{ agentId: string; created: boolean }> {
+  const [inserted] = await db
+    .insert(AgentTable)
+    .values({
+      id: generateUUID(),
+      userId,
+      presetId: preset.presetId,
+      name: preset.name,
+      description: preset.description,
+      icon: preset.icon,
+      instructions: preset.instructions,
+      visibility: "private",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing()
+    .returning({ id: AgentTable.id });
+
+  if (inserted) return { agentId: inserted.id, created: true };
+
+  const [existing] = await db
+    .select({ id: AgentTable.id })
+    .from(AgentTable)
+    .where(
+      and(
+        eq(AgentTable.userId, userId),
+        eq(AgentTable.presetId, preset.presetId),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Could not create or locate preset agent.");
+  return { agentId: existing.id, created: false };
+}
+
+/** Seed private, owner-scoped preset copies without overwriting existing agents. */
+export async function seedPresetsForUser(
+  userId: string,
+  presets: PresetAgent[],
+): Promise<void> {
+  if (presets.length === 0) return;
+
+  await db
+    .insert(AgentTable)
+    .values(
+      presets.map((preset) => ({
+        id: generateUUID(),
+        userId,
+        presetId: preset.presetId,
+        name: preset.name,
+        description: preset.description,
+        icon: preset.icon,
+        instructions: preset.instructions,
+        visibility: "private" as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
+    )
+    .onConflictDoNothing();
+}
 
 export class AgentApprovalIdempotencyConflictError extends Error {
   constructor() {

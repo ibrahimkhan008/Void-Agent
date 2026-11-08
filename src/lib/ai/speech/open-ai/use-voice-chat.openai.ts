@@ -18,6 +18,8 @@ import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
 import { appStore } from "@/app/store";
 import { useTheme } from "next-themes";
 import { requestVoiceMcpApproval } from "../mcp-voice-approval";
+import { runVoiceAgent } from "../run-agent";
+import { searchVoiceWeb } from "../web-search";
 
 export const OPENAI_VOICE = {
   Alloy: "alloy",
@@ -161,6 +163,7 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           body: JSON.stringify({
             model,
             voice,
+            realtimeSettings: props?.realtimeSettings,
             agentId: props?.agentId,
             mentions: props?.toolMentions,
             threadId: props?.threadId,
@@ -176,7 +179,14 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       }
 
       return session;
-    }, [model, voice, props?.toolMentions, props?.agentId, props?.threadId]);
+    }, [
+      model,
+      voice,
+      props?.realtimeSettings,
+      props?.toolMentions,
+      props?.agentId,
+      props?.threadId,
+    ]);
 
   const updateUIMessage = useCallback(
     (
@@ -244,18 +254,56 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               },
             }));
             break;
+          case "runAgent":
+            try {
+              toolResult = await runVoiceAgent({
+                agent: toolArgs.agent,
+                question: toolArgs.question,
+              });
+            } catch (error) {
+              toolResult = {
+                success: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "The requested agent could not answer just now.",
+              };
+            }
+            break;
+          case "searchWeb":
+            try {
+              toolResult = await searchVoiceWeb(toolArgs.query);
+            } catch (error) {
+              toolResult = {
+                success: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Public web search is temporarily unavailable.",
+              };
+            }
+            break;
           case "getProjectStatus":
             try {
+              const projectSelector =
+                typeof toolArgs.projectId === "string"
+                  ? { projectId: toolArgs.projectId }
+                  : typeof toolArgs.projectName === "string"
+                    ? { projectName: toolArgs.projectName }
+                    : {};
               const response = await fetch("/api/voice/project-status", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ threadId: props?.threadId }),
+                body: JSON.stringify({
+                  ...(props?.threadId ? { threadId: props.threadId } : {}),
+                  ...projectSelector,
+                }),
               });
               toolResult = response.ok
                 ? await response.json()
                 : {
                     success: false,
-                    error: "No project status is available for this chat.",
+                    error: "No project status is available for that project.",
                   };
             } catch {
               toolResult = {
@@ -299,6 +347,37 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               };
             }
             break;
+        }
+      } else if (
+        toolName === "searchComposioReadActions" ||
+        toolName === "executeComposioReadAction"
+      ) {
+        try {
+          const response = await fetch("/api/voice/composio-tool", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              operation:
+                toolName === "searchComposioReadActions" ? "search" : "execute",
+              ...toolArgs,
+            }),
+          });
+          const payload = await response.json().catch(() => null);
+          toolResult = response.ok
+            ? payload
+            : {
+                success: false,
+                error:
+                  payload && typeof payload.error === "string"
+                    ? payload.error
+                    : "The connected-app read action could not complete.",
+              };
+        } catch {
+          toolResult = {
+            success: false,
+            error: "The connected-app read action could not complete.",
+          };
         }
       } else {
         try {

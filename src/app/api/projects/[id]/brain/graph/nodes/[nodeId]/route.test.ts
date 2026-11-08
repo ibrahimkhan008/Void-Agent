@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -96,5 +97,15 @@ describe("GET project brain graph node detail", () => {
     });
     expect(mocks.getProjectCollectionSourceOwnerIds).toHaveBeenCalled();
     expect(query.limit).toHaveBeenCalledWith(500);
+    const predicate = new PgDialect().sqlToQuery(query.where.mock.calls[0][0]);
+    expect(predicate.sql).toContain('"project_brain_fact"."project_id" =');
+    expect(predicate.sql).toContain('"collection_item"."collection_id" in');
+    expect(predicate.sql).toContain('"collection"."user_id" in');
+    expect(predicate.sql).toContain('"collection_item"."status" =');
+    expect(predicate.sql).toContain("project_brain_source_state");
+    expect(predicate.params).toContain(projectId);
+    expect(predicate.params).toContain(collectionId);
+    expect(predicate.params).toContain("owner-1");
+    expect(predicate.params).toContain("ready");
   });
 });

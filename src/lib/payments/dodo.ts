@@ -55,52 +55,53 @@ interface DodoPaymentsAdminConfig {
   webhookSecretSecret?: string;
 }
 
-const readAdminDodoConfig =
-  async (): Promise<DodoPaymentsAdminConfig> => {
-    try {
-      const [payments, tools] = await Promise.all([
-        siteConfigRepository.getConfig("payments"),
-        siteConfigRepository.getConfig("tools"),
-      ]);
-      const dodo =
-        payments &&
-        typeof (payments as Record<string, unknown>).dodo === "object" &&
-        (payments as Record<string, unknown>).dodo !== null
-          ? ((payments as Record<string, unknown>).dodo as Record<
-              string,
-              unknown
-            >)
-          : {};
-      const toolsRecord =
-        tools && typeof tools === "object" ? (tools as Record<string, unknown>) : {};
-      const secrets =
-        typeof toolsRecord.apiKeysSecrets === "object" &&
-        toolsRecord.apiKeysSecrets !== null
-          ? (toolsRecord.apiKeysSecrets as Record<string, unknown>)
-          : {};
-      return {
-        environment:
-          typeof dodo.environment === "string"
-            ? (dodo.environment as string)
-            : undefined,
-        productIds:
-          typeof dodo.productIds === "object" && dodo.productIds !== null
-            ? (dodo.productIds as Record<string, string>)
-            : undefined,
-        apiKeySecret:
-          typeof secrets.dodo_api_key === "string"
-            ? (secrets.dodo_api_key as string)
-            : undefined,
-        webhookSecretSecret:
-          typeof secrets.dodo_webhook_secret === "string"
-            ? (secrets.dodo_webhook_secret as string)
-            : undefined,
-      };
-    } catch (error) {
-      logger.error("[dodo] failed to read admin config", error);
-      return {};
-    }
-  };
+const readAdminDodoConfig = async (): Promise<DodoPaymentsAdminConfig> => {
+  try {
+    const [payments, tools] = await Promise.all([
+      siteConfigRepository.getConfig("payments"),
+      siteConfigRepository.getConfig("tools"),
+    ]);
+    const dodo =
+      payments &&
+      typeof (payments as Record<string, unknown>).dodo === "object" &&
+      (payments as Record<string, unknown>).dodo !== null
+        ? ((payments as Record<string, unknown>).dodo as Record<
+            string,
+            unknown
+          >)
+        : {};
+    const toolsRecord =
+      tools && typeof tools === "object"
+        ? (tools as Record<string, unknown>)
+        : {};
+    const secrets =
+      typeof toolsRecord.apiKeysSecrets === "object" &&
+      toolsRecord.apiKeysSecrets !== null
+        ? (toolsRecord.apiKeysSecrets as Record<string, unknown>)
+        : {};
+    return {
+      environment:
+        typeof dodo.environment === "string"
+          ? (dodo.environment as string)
+          : undefined,
+      productIds:
+        typeof dodo.productIds === "object" && dodo.productIds !== null
+          ? (dodo.productIds as Record<string, string>)
+          : undefined,
+      apiKeySecret:
+        typeof secrets.dodo_api_key === "string"
+          ? (secrets.dodo_api_key as string)
+          : undefined,
+      webhookSecretSecret:
+        typeof secrets.dodo_webhook_secret === "string"
+          ? (secrets.dodo_webhook_secret as string)
+          : undefined,
+    };
+  } catch (error) {
+    logger.error("[dodo] failed to read admin config", error);
+    return {};
+  }
+};
 
 export const getDodoConfig = async () => {
   const admin = await readAdminDodoConfig();
@@ -301,6 +302,91 @@ export const createCheckoutSession = async (
     paymentId: parsed.payment_id ?? null,
     clientSecret: parsed.client_secret ?? null,
   };
+};
+
+export const createDodoCustomerPortalSession = async (
+  customerId: string,
+  returnUrl?: string,
+): Promise<{ link: string }> => {
+  const config = await getDodoConfig();
+  if (!config.apiKey) {
+    throw new DodoPaymentsError(
+      "Dodo API key not configured",
+      503,
+      "DODO_NOT_CONFIGURED",
+    );
+  }
+  if (!/^[A-Za-z0-9_-]{3,128}$/.test(customerId)) {
+    throw new DodoPaymentsError("Invalid Dodo customer id", 400, "BAD_REQUEST");
+  }
+
+  const baseUrl = await getDodoBaseUrl();
+  const url = new URL(
+    `/customers/${encodeURIComponent(customerId)}/customer-portal/session`,
+    baseUrl,
+  );
+  if (returnUrl) url.searchParams.set("return_url", returnUrl);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    // Keep provider error bodies out of logs and responses; they can contain
+    // customer or operational details.
+    logger.warn("[dodo] customer portal session request failed", {
+      status: response.status,
+    });
+    throw new DodoPaymentsError(
+      `Dodo customer portal request failed: ${response.status}`,
+      response.status,
+      "",
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    throw new DodoPaymentsError(
+      "Dodo returned an invalid customer portal response",
+      response.status,
+      "",
+    );
+  }
+  const link =
+    typeof parsed === "object" && parsed !== null && "link" in parsed
+      ? (parsed as { link?: unknown }).link
+      : undefined;
+  if (typeof link !== "string") {
+    throw new DodoPaymentsError(
+      "Dodo response missing customer portal link",
+      response.status,
+      "",
+    );
+  }
+  let portalUrl: URL;
+  try {
+    portalUrl = new URL(link);
+  } catch {
+    throw new DodoPaymentsError(
+      "Dodo returned an invalid customer portal link",
+      response.status,
+      "",
+    );
+  }
+  if (portalUrl.protocol !== "https:") {
+    throw new DodoPaymentsError(
+      "Dodo returned an insecure customer portal link",
+      response.status,
+      "",
+    );
+  }
+  return { link: portalUrl.toString() };
 };
 
 // ---------- Webhook signature verification (Standard Webhooks) ----------
@@ -536,8 +622,7 @@ export const getDodoSubscription = async (
     asDateOrNull(obj.previous_billing_date) ??
     asDateOrNull(obj.current_period_start);
   const periodEnd =
-    asDateOrNull(obj.next_billing_date) ??
-    asDateOrNull(obj.current_period_end);
+    asDateOrNull(obj.next_billing_date) ?? asDateOrNull(obj.current_period_end);
 
   const cancelAtNextBillingDate =
     typeof obj.cancel_at_next_billing_date === "boolean"

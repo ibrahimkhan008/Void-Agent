@@ -13,6 +13,15 @@ export interface Project {
   goal: string | null;
   systemPrompt: string | null;
   collectionIds: string[];
+  onboardingStep?:
+    | "goal"
+    | "knowledge"
+    | "documents"
+    | "tools"
+    | "people"
+    | "agents"
+    | "complete";
+  onboardingCompletedAt?: string | null;
   role?: "owner" | "editor" | "viewer";
   createdAt: string;
   updatedAt: string;

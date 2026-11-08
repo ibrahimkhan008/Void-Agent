@@ -31,7 +31,9 @@ function toChatExport(data: typeof ChatExportTable.$inferSelect): ChatExport {
 function toChatExportInsert(
   data: z.infer<typeof ChatExportCreateSchema>,
 ): typeof ChatExportTable.$inferInsert {
-  return ChatExportCreateSchema.parse(data) as ChatExport;
+  return ChatExportCreateSchema.parse(
+    data,
+  ) as typeof ChatExportTable.$inferInsert;
 }
 
 export const pgChatExportRepository: ChatExportRepository = {
@@ -56,6 +58,7 @@ export const pgChatExportRepository: ChatExportRepository = {
       })),
       originalThreadId: threadId,
       expiresAt,
+      legacyShareEnabled: false,
     });
   },
 
@@ -91,6 +94,47 @@ export const pgChatExportRepository: ChatExportRepository = {
       .where(eq(ChatExportTable.id, id));
     return result as ChatExportWithUser;
   },
+  selectByShareTokenHash: async (tokenHash) => {
+    const [result] = await pgDb
+      .select({
+        id: ChatExportTable.id,
+        title: ChatExportTable.title,
+        exporterId: ChatExportTable.exporterId,
+        messages: ChatExportTable.messages,
+        exportedAt: ChatExportTable.exportedAt,
+        expiresAt: ChatExportTable.expiresAt,
+        originalThreadId: ChatExportTable.originalThreadId,
+        exporterName: UserTable.name,
+        exporterImage: UserTable.image,
+      })
+      .from(ChatExportTable)
+      .leftJoin(UserTable, eq(ChatExportTable.exporterId, UserTable.id))
+      .where(eq(ChatExportTable.shareTokenHash, tokenHash));
+    return (result as ChatExportWithUser | undefined) ?? null;
+  },
+  selectLegacyByIdWithUser: async (id) => {
+    const [result] = await pgDb
+      .select({
+        id: ChatExportTable.id,
+        title: ChatExportTable.title,
+        exporterId: ChatExportTable.exporterId,
+        messages: ChatExportTable.messages,
+        exportedAt: ChatExportTable.exportedAt,
+        expiresAt: ChatExportTable.expiresAt,
+        originalThreadId: ChatExportTable.originalThreadId,
+        exporterName: UserTable.name,
+        exporterImage: UserTable.image,
+      })
+      .from(ChatExportTable)
+      .leftJoin(UserTable, eq(ChatExportTable.exporterId, UserTable.id))
+      .where(
+        and(
+          eq(ChatExportTable.id, id),
+          eq(ChatExportTable.legacyShareEnabled, true),
+        ),
+      );
+    return (result as ChatExportWithUser | undefined) ?? null;
+  },
   selectByExporterId: async (exporterId) => {
     const result = await pgDb
       .select()
@@ -107,6 +151,8 @@ export const pgChatExportRepository: ChatExportRepository = {
         originalThreadId: ChatExportTable.originalThreadId,
         exportedAt: ChatExportTable.exportedAt,
         expiresAt: ChatExportTable.expiresAt,
+        shareTokenHash: ChatExportTable.shareTokenHash,
+        legacyShareEnabled: ChatExportTable.legacyShareEnabled,
         commentCount: count(ChatExportCommentTable.id),
       })
       .from(ChatExportTable)
@@ -123,6 +169,8 @@ export const pgChatExportRepository: ChatExportRepository = {
       originalThreadId: row.originalThreadId ?? undefined,
       expiresAt: row.expiresAt ?? undefined,
       commentCount: Number(row.commentCount) || 0,
+      hasActiveShare: row.shareTokenHash !== null,
+      legacyShareEnabled: row.legacyShareEnabled,
     })) as ChatExportSummary[];
   },
   checkAccess: async (id, userId) => {
@@ -134,6 +182,32 @@ export const pgChatExportRepository: ChatExportRepository = {
       .where(
         and(eq(ChatExportTable.id, id), eq(ChatExportTable.exporterId, userId)),
       );
+    return result.length > 0;
+  },
+  createShareToken: async (id, ownerId, tokenHash) => {
+    const result = await pgDb
+      .update(ChatExportTable)
+      .set({ shareTokenHash: tokenHash, legacyShareEnabled: false })
+      .where(
+        and(
+          eq(ChatExportTable.id, id),
+          eq(ChatExportTable.exporterId, ownerId),
+        ),
+      )
+      .returning({ id: ChatExportTable.id });
+    return result.length > 0;
+  },
+  revokeShareToken: async (id, ownerId) => {
+    const result = await pgDb
+      .update(ChatExportTable)
+      .set({ shareTokenHash: null, legacyShareEnabled: false })
+      .where(
+        and(
+          eq(ChatExportTable.id, id),
+          eq(ChatExportTable.exporterId, ownerId),
+        ),
+      )
+      .returning({ id: ChatExportTable.id });
     return result.length > 0;
   },
   deleteById: async (id) => {

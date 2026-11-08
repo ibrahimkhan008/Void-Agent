@@ -7,8 +7,12 @@ import { LanguageModelV2, createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { LanguageModel, wrapLanguageModel } from "ai";
 import { ChatModel } from "app-types/chat";
 import { getSession } from "auth/server";
+import { isChatProviderEnabled } from "lib/ai/model-provider-availability";
 import { fetchUserModelProvider } from "lib/ai/user-model-provider-transport";
-import { userModelProviderRepository } from "lib/db/repository";
+import {
+  siteConfigRepository,
+  userModelProviderRepository,
+} from "lib/db/repository";
 import {
   createOpenAICompatibleModels,
   openaiCompatibleModelsSafeParse,
@@ -708,6 +712,27 @@ export const isToolCallUnsupportedModel = (model: LanguageModel) => {
   return allUnsupportedModels.has(model);
 };
 
+export async function supportsToolCallingForChatModel(
+  userId: string,
+  chatModel: ChatModel | undefined,
+  resolvedModel: LanguageModel,
+): Promise<boolean> {
+  if (!chatModel?.provider.startsWith("user-")) {
+    return !isToolCallUnsupportedModel(resolvedModel);
+  }
+  const providerId = chatModel.provider.slice("user-".length);
+  if (!USER_PROVIDER_UUID.test(providerId) || !chatModel.model.trim()) {
+    return false;
+  }
+  const capabilities =
+    await userModelProviderRepository.getCapabilitiesForModel(
+      userId,
+      providerId,
+      chatModel.model,
+    );
+  return capabilities?.supportsToolCalling === true;
+}
+
 const isImageInputUnsupportedModel = (model: LanguageModelV2) => {
   return !staticSupportImageInputModels.has(model);
 };
@@ -748,6 +773,25 @@ const llama4ScoutFallbackModel = flare("bedrock_mantle/deepseek.v3.2");
 export interface AdminFallbackEntry {
   provider: string;
   model: string;
+}
+
+type FallbackEnablementConfig = Parameters<typeof isChatProviderEnabled>[1];
+
+/** Provider toggles also apply to models used only after a primary failure. */
+export function isFallbackProviderEnabled(
+  providerId: string,
+  config: FallbackEnablementConfig | null | undefined,
+) {
+  if (providerId.startsWith(USER_PROVIDER_ID_PREFIX)) return false;
+  return isChatProviderEnabled(providerId, config);
+}
+
+/** Keep configured fallbacks from routing through an unavailable provider. */
+export function filterFallbackEntries<T extends AdminFallbackEntry>(
+  entries: T[],
+  providerEnabled: (providerId: string) => boolean,
+) {
+  return entries.filter((entry) => providerEnabled(entry.provider));
 }
 
 /**
@@ -1159,7 +1203,26 @@ function resolveModelByName(name: string): LanguageModelV2 | null {
   }
 }
 
-const withFailureFallback = (model: LanguageModel): LanguageModel => {
+function modelProviderConfigId(model: LanguageModelV2): string {
+  for (const [providerId, models] of Object.entries(allModels)) {
+    if (
+      Object.values(models).some(
+        (candidate) =>
+          candidate === model ||
+          (candidate.provider === model.provider &&
+            candidate.modelId === model.modelId),
+      )
+    ) {
+      return providerId;
+    }
+  }
+  return model.provider.replace(/\.(?:chat|completion)$/iu, "");
+}
+
+const withFailureFallback = (
+  model: LanguageModel,
+  providerEnabled: (providerId: string) => boolean = () => true,
+): LanguageModel => {
   const primaryModel = model as unknown as LanguageModelV2;
 
   // Make sure admin-configured dynamic providers (including any provider
@@ -1171,7 +1234,10 @@ const withFailureFallback = (model: LanguageModel): LanguageModel => {
   void ensureDynamicProvidersHydrated();
 
   // Get the admin-configured chain for this provider
-  const adminChain = getAdminFallbackChain(primaryModel.provider);
+  const adminChain = filterFallbackEntries(
+    getAdminFallbackChain(primaryModel.provider),
+    providerEnabled,
+  );
 
   // Build the full fallback sequence: primary -> admin chain (in order) -> heuristic -> "fallback"-named model -> hidden
   // Each entry is a LanguageModelV2 or null
@@ -1197,6 +1263,7 @@ const withFailureFallback = (model: LanguageModel): LanguageModel => {
     heuristicFallback &&
     heuristicFallback.provider &&
     heuristicFallback.modelId &&
+    providerEnabled(modelProviderConfigId(heuristicFallback)) &&
     !chain.some(
       (m) =>
         m &&
@@ -1226,6 +1293,7 @@ const withFailureFallback = (model: LanguageModel): LanguageModel => {
     namedFallback &&
     namedFallback.provider &&
     namedFallback.modelId &&
+    providerEnabled(modelProviderConfigId(namedFallback)) &&
     !(
       primaryModel.provider === namedFallback.provider &&
       primaryModel.modelId === namedFallback.modelId
@@ -1255,10 +1323,15 @@ const withFailureFallback = (model: LanguageModel): LanguageModel => {
   let wrapped: any = primaryModel;
   for (let i = 0; i < dedupedChain.length; i++) {
     const nextModel = dedupedChain[i]!;
-    const finalFallback =
+    const configuredFinalFallback =
       i === dedupedChain.length - 1
         ? hiddenFailureFallbackModel
         : dedupedChain[i + 1]!;
+    const finalFallback = providerEnabled(
+      modelProviderConfigId(configuredFinalFallback),
+    )
+      ? configuredFinalFallback
+      : null;
     wrapped = wrapLanguageModel({
       model: wrapped,
       middleware: {
@@ -1504,7 +1577,17 @@ export const customModelProvider = {
       // data to deployment-owned fallback providers without the user's consent.
       if (userModel) return userModel;
     }
-    return withFailureFallback(resolveModel(model));
+    let providerConfig: FallbackEnablementConfig | null = null;
+    try {
+      providerConfig = await siteConfigRepository.getConfig("models");
+    } catch {
+      // If admin provider state is unavailable, retain the primary model but
+      // do not route user content to an unverified fallback provider.
+      return resolveModel(model);
+    }
+    return withFailureFallback(resolveModel(model), (providerId) =>
+      isFallbackProviderEnabled(providerId, providerConfig),
+    );
   },
   getModel: resolveModel,
   getModelWithFailureFallback: (model?: ChatModel): LanguageModel =>

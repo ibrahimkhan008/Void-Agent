@@ -76,8 +76,15 @@ beforeEach(() => {
 describe("buildRetrieveConditions", () => {
   it("includes the user-scope and embedding-not-null fragments by default", () => {
     const conditions = buildRetrieveConditions({ userId: "user-1" });
-    // 2 base fragments: userId, isNotNull(embedding).
-    expect(conditions).toHaveLength(2);
+    // Owner scope, ready source status, and non-null embedding.
+    expect(conditions).toHaveLength(3);
+    const compiled = conditions.map((condition) =>
+      new PgDialect().sqlToQuery(condition),
+    );
+    expect(
+      compiled.some(({ sql }) => sql.includes('"collection_item"."status" =')),
+    ).toBe(true);
+    expect(compiled.flatMap(({ params }) => params)).toContain("ready");
   });
 
   it("appends a collection-id inArray fragment when collectionIds is provided", () => {
@@ -85,7 +92,7 @@ describe("buildRetrieveConditions", () => {
       userId: "user-1",
       collectionIds: ["c1", "c2"],
     });
-    expect(conditions).toHaveLength(3);
+    expect(conditions).toHaveLength(4);
   });
 
   it("adds a false predicate for an explicitly empty collection scope", () => {
@@ -93,8 +100,8 @@ describe("buildRetrieveConditions", () => {
       userId: "user-1",
       collectionIds: [],
     });
-    expect(conditions).toHaveLength(3);
-    expect(conditions[2]).toBeDefined();
+    expect(conditions).toHaveLength(4);
+    expect(conditions[3]).toBeDefined();
   });
 
   it("rechecks current membership before including team-scoped collections", () => {

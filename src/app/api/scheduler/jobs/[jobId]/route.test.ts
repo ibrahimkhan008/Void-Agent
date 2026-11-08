@@ -6,12 +6,14 @@ const {
   updateJobMock,
   deleteJobMock,
   normalizeUpdateMock,
+  computeNextRunMock,
 } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   getJobMock: vi.fn(),
   updateJobMock: vi.fn(),
   deleteJobMock: vi.fn(),
   normalizeUpdateMock: vi.fn(),
+  computeNextRunMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -26,6 +28,9 @@ vi.mock("lib/db/repository", () => ({
 vi.mock("lib/scheduler/jobs", () => ({
   normalizeScheduleUpdateInput: normalizeUpdateMock,
   publicScheduledJob: (job: unknown) => job,
+}));
+vi.mock("lib/scheduler/cron-parser", () => ({
+  computeNextRun: computeNextRunMock,
 }));
 
 import { DELETE, PATCH } from "./route";
@@ -53,6 +58,7 @@ describe("PATCH scheduler job", () => {
       nextRunAt: new Date("2026-06-03T11:30:00Z"),
       payload: { triggerMessage: "updated" },
     });
+    computeNextRunMock.mockReturnValue(new Date("2026-11-08T09:00:00.000Z"));
     updateJobMock.mockImplementation(async (_id, _userId, patch) => ({
       ...existing,
       ...patch,
@@ -95,6 +101,56 @@ describe("PATCH scheduler job", () => {
     const response = await PATCH(request({ status: "paused" }), { params });
     expect(response.status).toBe(404);
     expect(updateJobMock).not.toHaveBeenCalled();
+  });
+
+  it("advances an inactive recurring schedule to the next cron slot when resumed", async () => {
+    getJobMock.mockResolvedValue({
+      ...existing,
+      status: "paused",
+      cron: "0 9 * * 1-5",
+      timezone: "Europe/London",
+      payload: { scheduleType: "recurring" },
+    });
+
+    const response = await PATCH(request({ status: "active" }), { params });
+
+    expect(response.status).toBe(200);
+    expect(computeNextRunMock).toHaveBeenCalledWith(
+      "0 9 * * 1-5",
+      expect.any(Date),
+      "Europe/London",
+    );
+    expect(updateJobMock).toHaveBeenCalledWith(
+      id,
+      "user-1",
+      expect.objectContaining({
+        status: "active",
+        nextRunAt: new Date("2026-11-08T09:00:00.000Z"),
+      }),
+    );
+  });
+
+  it("keeps a one-time schedule's original run time when re-enabled", async () => {
+    const nextRunAt = new Date("2026-11-08T09:00:00.000Z");
+    getJobMock.mockResolvedValue({
+      ...existing,
+      status: "paused",
+      cron: "0 9 8 11 *",
+      timezone: "UTC",
+      nextRunAt,
+      payload: { scheduleType: "once", runAt: nextRunAt.toISOString() },
+    });
+
+    const response = await PATCH(request({ status: "active" }), { params });
+
+    expect(response.status).toBe(200);
+    expect(computeNextRunMock).not.toHaveBeenCalled();
+    expect(updateJobMock).toHaveBeenCalledWith(
+      id,
+      "user-1",
+      expect.objectContaining({ status: "active" }),
+    );
+    expect(updateJobMock.mock.calls[0]?.[2]).not.toHaveProperty("nextRunAt");
   });
 
   it("rejects a missing Origin header before deleting", async () => {

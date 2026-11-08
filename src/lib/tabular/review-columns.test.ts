@@ -10,6 +10,7 @@ describe("buildReviewColumns", () => {
           label: "Summary",
           type: "text",
           prompt: "Summarize the source.",
+          preset: "summary",
         },
       ],
       [
@@ -32,6 +33,7 @@ describe("buildReviewColumns", () => {
         label: "Summary",
         type: "text",
         prompt: "Summarize the source.",
+        preset: "summary",
       },
       {
         id: "custom_1",

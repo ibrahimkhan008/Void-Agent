@@ -34,6 +34,7 @@ import {
   varchar,
   vector,
 } from "drizzle-orm/pg-core";
+import type { StoredUserProviderModel } from "lib/ai/user-model-provider-capabilities";
 import type {
   ProblemReportContext,
   ProblemReportScreenshot,
@@ -97,32 +98,45 @@ export const ChatMessageTable = pgTable("chat_message", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const AgentTable = pgTable("agent", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  name: text("name").notNull(),
-  description: text("description"),
-  icon: json("icon").$type<Agent["icon"]>(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => UserTable.id, { onDelete: "cascade" }),
-  instructions: json("instructions").$type<Agent["instructions"]>(),
-  visibility: varchar("visibility", {
-    enum: ["public", "private", "readonly"],
-  })
-    .notNull()
-    .default("private"),
-  // P4.0 — #15 Agent gallery. `published_at` is the wall-clock time the
-  // agent was first published; NULL = draft. `install_count` is
-  // denormalized cache; the source of truth is `agent_install`.
-  // `gallery_metadata` is a free-form jsonb (e.g. tags, hero copy,
-  // screenshots); `cover_image_url` is a CDN URL.
-  publishedAt: timestamp("published_at"),
-  installCount: integer("install_count").notNull().default(0),
-  galleryMetadata: jsonb("gallery_metadata").$type<Record<string, unknown>>(),
-  coverImageUrl: text("cover_image_url"),
-  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const AgentTable = pgTable(
+  "agent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    icon: json("icon").$type<Agent["icon"]>(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    instructions: json("instructions").$type<Agent["instructions"]>(),
+    visibility: varchar("visibility", {
+      enum: ["public", "private", "readonly"],
+    })
+      .notNull()
+      .default("private"),
+    presetId: varchar("preset_id", { length: 100 }),
+    // P4.0 — #15 Agent gallery. `published_at` is the wall-clock time the
+    // agent was first published; NULL = draft. `install_count` is
+    // denormalized cache; the source of truth is `agent_install`.
+    // `gallery_metadata` is a free-form jsonb (e.g. tags, hero copy,
+    // screenshots); `cover_image_url` is a CDN URL.
+    publishedAt: timestamp("published_at"),
+    installCount: integer("install_count").notNull().default(0),
+    galleryMetadata: jsonb("gallery_metadata").$type<Record<string, unknown>>(),
+    coverImageUrl: text("cover_image_url"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("agent_user_preset_id_unique")
+      .on(table.userId, table.presetId)
+      .where(isNotNull(table.presetId)),
+  ],
+);
 
 // Private replay records for explicit agent-creation approvals. Kept separate
 // from AgentTable so request keys and prompt hashes never appear in agent API
@@ -240,7 +254,10 @@ export const UserModelProviderTable = pgTable(
     name: varchar("name", { length: 80 }).notNull(),
     baseUrl: text("base_url").notNull(),
     encryptedApiKey: text("encrypted_api_key").notNull().default(""),
-    modelIds: jsonb("model_ids").$type<string[]>().notNull().default([]),
+    modelIds: jsonb("model_ids")
+      .$type<StoredUserProviderModel[]>()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
@@ -285,6 +302,8 @@ export const SessionTable = pgTable("session", {
   userId: uuid("user_id")
     .notNull()
     .references(() => UserTable.id, { onDelete: "cascade" }),
+  // App-owned active team context. Membership is revalidated at every use.
+  activeTeamId: uuid("active_team_id"),
   // Admin plugin field (from better-auth generated schema)
   impersonatedBy: text("impersonated_by"),
 });
@@ -427,6 +446,86 @@ export const WorkflowEdgeTable = pgTable("workflow_edge", {
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const WorkflowExecutionTable = pgTable(
+  "workflow_execution",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => WorkflowTable.id, { onDelete: "cascade" }),
+    workflowName: varchar("workflow_name", { length: 160 }).notNull(),
+    graphRevision: varchar("graph_revision", { length: 64 }).notNull(),
+    input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+    progress: jsonb("progress")
+      .$type<{
+        completedNodes: Record<string, { input: unknown; output: unknown }>;
+      }>()
+      .notNull()
+      .default(sql`'{"completedNodes":{}}'::jsonb`),
+    status: varchar("status", {
+      enum: [
+        "running",
+        "awaiting_approval",
+        "effect_uncertain",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+    })
+      .notNull()
+      .default("running"),
+    pendingEffect: jsonb("pending_effect").$type<Record<string, unknown>>(),
+    approvedEffect: jsonb("approved_effect").$type<Record<string, unknown>>(),
+    error: varchar("error", { length: 500 }),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "workflow_execution_status_check",
+      sql`${table.status} IN ('running', 'awaiting_approval', 'effect_uncertain', 'completed', 'failed', 'cancelled')`,
+    ),
+    check(
+      "workflow_execution_graph_revision_check",
+      sql`${table.graphRevision} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "workflow_execution_input_object_check",
+      sql`jsonb_typeof(${table.input}) = 'object'`,
+    ),
+    check(
+      "workflow_execution_progress_object_check",
+      sql`jsonb_typeof(${table.progress}) = 'object' AND jsonb_typeof(${table.progress}->'completedNodes') = 'object'`,
+    ),
+    check(
+      "workflow_execution_pending_effect_object_check",
+      sql`${table.pendingEffect} IS NULL OR jsonb_typeof(${table.pendingEffect}) = 'object'`,
+    ),
+    check(
+      "workflow_execution_approved_effect_object_check",
+      sql`${table.approvedEffect} IS NULL OR jsonb_typeof(${table.approvedEffect}) = 'object'`,
+    ),
+    check(
+      "workflow_execution_approval_state_check",
+      sql`${table.status} <> 'awaiting_approval' OR ${table.pendingEffect} IS NOT NULL`,
+    ),
+    index("workflow_execution_owner_status_updated_idx").on(
+      table.userId,
+      table.status,
+      table.updatedAt,
+    ),
+    index("workflow_execution_expiry_idx").on(table.expiresAt),
+  ],
+);
+
 export const ArchiveTable = pgTable("archive", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   name: text("name").notNull(),
@@ -496,26 +595,38 @@ export type ToolCustomizationEntity =
 export type McpServerCustomizationEntity =
   typeof McpServerCustomizationTable.$inferSelect;
 
-export const ChatExportTable = pgTable("chat_export", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  title: text("title").notNull(),
-  exporterId: uuid("exporter_id")
-    .notNull()
-    .references(() => UserTable.id, { onDelete: "cascade" }),
-  originalThreadId: uuid("original_thread_id"),
-  messages: json("messages").notNull().$type<
-    Array<{
-      id: string;
-      role: UIMessage["role"];
-      parts: UIMessage["parts"];
-      metadata?: ChatMetadata;
-    }>
-  >(),
-  exportedAt: timestamp("exported_at")
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  expiresAt: timestamp("expires_at"),
-});
+export const ChatExportTable = pgTable(
+  "chat_export",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    title: text("title").notNull(),
+    exporterId: uuid("exporter_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    originalThreadId: uuid("original_thread_id"),
+    messages: json("messages").notNull().$type<
+      Array<{
+        id: string;
+        role: UIMessage["role"];
+        parts: UIMessage["parts"];
+        metadata?: ChatMetadata;
+      }>
+    >(),
+    shareTokenHash: varchar("share_token_hash", { length: 64 }),
+    // Existing UUID-based export URLs stay valid until their owner rotates or
+    // revokes the link; new snapshots disable that compatibility path.
+    legacyShareEnabled: boolean("legacy_share_enabled").notNull().default(true),
+    exportedAt: timestamp("exported_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: timestamp("expires_at"),
+  },
+  (table) => [
+    uniqueIndex("chat_export_share_token_hash_unique")
+      .on(table.shareTokenHash)
+      .where(isNotNull(table.shareTokenHash)),
+  ],
+);
 
 export const ChatExportCommentTable = pgTable("chat_export_comment", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -2252,6 +2363,59 @@ export const TeamMemberTable = pgTable(
 export type TeamMember = typeof TeamMemberTable.$inferSelect;
 export type NewTeamMember = typeof TeamMemberTable.$inferInsert;
 
+/** Pending, email-bound invitations into an existing Void-Agent team. */
+export const TeamInvitationTable = pgTable(
+  "team_invitation",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => TeamTable.id, { onDelete: "cascade" }),
+    inviterId: uuid("inviter_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    email: text("email").notNull(),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    status: text("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at").notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    acceptedByUserId: uuid("accepted_by_user_id").references(
+      () => UserTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "team_invitation_role_check",
+      sql`${table.role} in ('member', 'viewer')`,
+    ),
+    check(
+      "team_invitation_status_check",
+      sql`${table.status} in ('pending', 'accepted', 'revoked', 'expired')`,
+    ),
+    check(
+      "team_invitation_email_canonical_check",
+      sql`${table.email} = lower(btrim(${table.email}))`,
+    ),
+    check(
+      "team_invitation_token_hash_check",
+      sql`${table.tokenHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    uniqueIndex("team_invitation_pending_team_email_unique")
+      .on(table.teamId, table.email)
+      .where(sql`${table.status} = 'pending'`),
+    index("team_invitation_team_status_idx").on(table.teamId, table.status),
+    index("team_invitation_email_idx").on(table.email),
+  ],
+);
+
+export type TeamInvitation = typeof TeamInvitationTable.$inferSelect;
+export type NewTeamInvitation = typeof TeamInvitationTable.$inferInsert;
+
 /** Per-team-seat monthly spend policy, reservation ledger and finalized usage. */
 export const TeamMemberAiPolicyTable = pgTable("team_member_ai_policy", {
   memberId: uuid("member_id")
@@ -2423,6 +2587,19 @@ export const ProjectTable = pgTable(
     description: text("description"),
     goal: text("goal"),
     systemPrompt: text("system_prompt"),
+    onboardingStep: text("onboarding_step")
+      .$type<
+        | "goal"
+        | "knowledge"
+        | "documents"
+        | "tools"
+        | "people"
+        | "agents"
+        | "complete"
+      >()
+      .notNull()
+      .default("goal"),
+    onboardingCompletedAt: timestamp("onboarding_completed_at"),
     collectionIds: uuid("collection_ids")
       .array()
       .notNull()
@@ -2469,6 +2646,67 @@ export const ProjectMemberTable = pgTable(
 );
 
 export type ProjectMemberEntity = typeof ProjectMemberTable.$inferSelect;
+
+/** Agents explicitly attached to a project by a project editor. */
+export const ProjectAgentTable = pgTable(
+  "project_agent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => AgentTable.id, { onDelete: "cascade" }),
+    addedByUserId: uuid("added_by_user_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_agent_project_id_agent_id_unique").on(
+      table.projectId,
+      table.agentId,
+    ),
+    index("project_agent_project_id_idx").on(table.projectId),
+    index("project_agent_agent_id_idx").on(table.agentId),
+  ],
+);
+
+/** Workflow configurations attached to a project; attachment does not execute them. */
+export const ProjectWorkflowTable = pgTable(
+  "project_workflow",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => WorkflowTable.id, { onDelete: "cascade" }),
+    addedByUserId: uuid("added_by_user_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    status: varchar("status", { enum: ["active", "paused"] })
+      .notNull()
+      .default("active"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_workflow_project_id_workflow_id_unique").on(
+      table.projectId,
+      table.workflowId,
+    ),
+    index("project_workflow_project_id_idx").on(table.projectId),
+    index("project_workflow_workflow_id_idx").on(table.workflowId),
+  ],
+);
+
+export type ProjectWorkflowEntity = typeof ProjectWorkflowTable.$inferSelect;
 
 /** Links a ready knowledge source to the project file-management surface. */
 export const ProjectDocumentTable = pgTable(
@@ -2808,6 +3046,44 @@ export const ProjectBrainComposioSyncSourceTable = pgTable(
   ],
 );
 
+/** Owner-bound chat source. Every queue attempt revalidates the live thread. */
+export const ProjectBrainChatSourceTable = pgTable(
+  "project_brain_chat_source",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => ChatThreadTable.id, { onDelete: "cascade" }),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    activeFingerprint: text("active_fingerprint"),
+    lastEnqueuedAt: timestamp("last_enqueued_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_chat_source_project_thread_unique").on(
+      table.projectId,
+      table.threadId,
+    ),
+    unique("project_brain_chat_source_identity_unique").on(
+      table.id,
+      table.projectId,
+    ),
+    index("project_brain_chat_source_thread_idx").on(table.threadId),
+    index("project_brain_chat_source_owner_idx").on(table.ownerUserId),
+  ],
+);
+
 /** Immutable metadata for one exact source-content revision analyzed by a project. */
 export const ProjectBrainSourceVersionTable = pgTable(
   "project_brain_source_version",
@@ -2816,9 +3092,18 @@ export const ProjectBrainSourceVersionTable = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => ProjectTable.id, { onDelete: "cascade" }),
-    sourceItemId: uuid("source_item_id")
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "cascade" },
+    ),
+    sourceType: text("source_type")
       .notNull()
-      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+      .default("document")
+      .$type<"document" | "chat">(),
+    chatSourceId: uuid("chat_source_id").references(
+      () => ProjectBrainChatSourceTable.id,
+      { onDelete: "cascade" },
+    ),
     sourceFingerprint: text("source_fingerprint").notNull(),
     contentSnapshot: text("content_snapshot"),
     contentLength: integer("content_length").notNull(),
@@ -2836,6 +3121,20 @@ export const ProjectBrainSourceVersionTable = pgTable(
       table.id,
       table.projectId,
       table.sourceItemId,
+    ),
+    unique("project_brain_source_version_chat_identity_unique").on(
+      table.id,
+      table.projectId,
+      table.chatSourceId,
+    ),
+    unique("project_brain_source_version_chat_revision_unique").on(
+      table.projectId,
+      table.chatSourceId,
+      table.sourceFingerprint,
+    ),
+    check(
+      "project_brain_source_version_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
     ),
     index("project_brain_source_version_item_created_idx").on(
       table.projectId,
@@ -2880,9 +3179,18 @@ export const ProjectBrainRunTable = pgTable(
     requestedByUserId: uuid("requested_by_user_id")
       .notNull()
       .references(() => UserTable.id, { onDelete: "cascade" }),
-    sourceItemId: uuid("source_item_id")
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "cascade" },
+    ),
+    sourceType: text("source_type")
       .notNull()
-      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+      .default("document")
+      .$type<"document" | "chat">(),
+    chatSourceId: uuid("chat_source_id").references(
+      () => ProjectBrainChatSourceTable.id,
+      { onDelete: "cascade" },
+    ),
     sourceVersionId: uuid("source_version_id")
       .notNull()
       .references(() => ProjectBrainSourceVersionTable.id, {
@@ -2908,6 +3216,14 @@ export const ProjectBrainRunTable = pgTable(
     index("project_brain_run_project_created_idx").on(
       table.projectId,
       table.createdAt,
+    ),
+    check(
+      "project_brain_run_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
+    ),
+    check(
+      "project_brain_run_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
     ),
   ],
 );
@@ -3067,9 +3383,18 @@ export const ProjectBrainFactTable = pgTable(
       .notNull()
       .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
     sourceVersionId: uuid("source_version_id").notNull(),
-    sourceItemId: uuid("source_item_id")
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "cascade" },
+    ),
+    sourceType: text("source_type")
       .notNull()
-      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+      .default("document")
+      .$type<"document" | "chat">(),
+    chatSourceId: uuid("chat_source_id").references(
+      () => ProjectBrainChatSourceTable.id,
+      { onDelete: "cascade" },
+    ),
     subjectPageId: uuid("subject_page_id").references(
       () => ProjectBrainPageTable.id,
       { onDelete: "set null" },
@@ -3099,6 +3424,19 @@ export const ProjectBrainFactTable = pgTable(
         ProjectBrainSourceVersionTable.sourceItemId,
       ],
     }).onDelete("cascade"),
+    foreignKey({
+      name: "project_brain_fact_chat_source_revision_fk",
+      columns: [table.sourceVersionId, table.projectId, table.chatSourceId],
+      foreignColumns: [
+        ProjectBrainSourceVersionTable.id,
+        ProjectBrainSourceVersionTable.projectId,
+        ProjectBrainSourceVersionTable.chatSourceId,
+      ],
+    }).onDelete("cascade"),
+    check(
+      "project_brain_fact_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
+    ),
     index("project_brain_fact_project_status_idx").on(
       table.projectId,
       table.reviewStatus,
@@ -3170,9 +3508,18 @@ export const ProjectBrainTodoTable = pgTable(
     runId: uuid("run_id")
       .notNull()
       .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
-    sourceItemId: uuid("source_item_id")
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "cascade" },
+    ),
+    sourceType: text("source_type")
       .notNull()
-      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+      .default("document")
+      .$type<"document" | "chat">(),
+    chatSourceId: uuid("chat_source_id").references(
+      () => ProjectBrainChatSourceTable.id,
+      { onDelete: "cascade" },
+    ),
     title: varchar("title", { length: 200 }).notNull(),
     details: varchar("details", { length: 1200 }).notNull().default(""),
     evidence: varchar("evidence", { length: 1200 }).notNull(),
@@ -3194,6 +3541,11 @@ export const ProjectBrainTodoTable = pgTable(
       table.status,
     ),
     index("project_brain_todo_source_idx").on(table.sourceItemId),
+    index("project_brain_todo_chat_source_idx").on(table.chatSourceId),
+    check(
+      "project_brain_todo_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
+    ),
   ],
 );
 
@@ -3209,9 +3561,18 @@ export const ProjectBrainEventTable = pgTable(
       .notNull()
       .references(() => ProjectBrainRunTable.id, { onDelete: "cascade" }),
     sourceVersionId: uuid("source_version_id").notNull(),
-    sourceItemId: uuid("source_item_id")
+    sourceItemId: uuid("source_item_id").references(
+      () => CollectionItemTable.id,
+      { onDelete: "cascade" },
+    ),
+    sourceType: text("source_type")
       .notNull()
-      .references(() => CollectionItemTable.id, { onDelete: "cascade" }),
+      .default("document")
+      .$type<"document" | "chat">(),
+    chatSourceId: uuid("chat_source_id").references(
+      () => ProjectBrainChatSourceTable.id,
+      { onDelete: "cascade" },
+    ),
     summary: varchar("summary", { length: 240 }).notNull(),
     detail: varchar("detail", { length: 1200 }),
     evidence: varchar("evidence", { length: 1200 }).notNull(),
@@ -3233,6 +3594,15 @@ export const ProjectBrainEventTable = pgTable(
         ProjectBrainSourceVersionTable.sourceItemId,
       ],
     }).onDelete("cascade"),
+    foreignKey({
+      name: "project_brain_event_chat_source_revision_fk",
+      columns: [table.sourceVersionId, table.projectId, table.chatSourceId],
+      foreignColumns: [
+        ProjectBrainSourceVersionTable.id,
+        ProjectBrainSourceVersionTable.projectId,
+        ProjectBrainSourceVersionTable.chatSourceId,
+      ],
+    }).onDelete("cascade"),
     unique("project_brain_event_run_dedupe_unique").on(
       table.runId,
       table.dedupeKey,
@@ -3246,6 +3616,11 @@ export const ProjectBrainEventTable = pgTable(
       table.status,
     ),
     index("project_brain_event_source_idx").on(table.sourceItemId),
+    index("project_brain_event_chat_source_idx").on(table.chatSourceId),
+    check(
+      "project_brain_event_source_kind_check",
+      sql`((${table.sourceType} = 'document' AND ${table.sourceItemId} IS NOT NULL AND ${table.chatSourceId} IS NULL) OR (${table.sourceType} = 'chat' AND ${table.sourceItemId} IS NULL AND ${table.chatSourceId} IS NOT NULL))`,
+    ),
   ],
 );
 

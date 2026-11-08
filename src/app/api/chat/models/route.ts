@@ -1,4 +1,8 @@
 import { getSession } from "auth/server";
+import {
+  findModelDisplayMetadata,
+  validateModelDisplayMetadataMap,
+} from "lib/ai/model-display-metadata";
 import { filterEnabledChatProviders } from "lib/ai/model-provider-availability";
 import {
   customModelProvider,
@@ -58,13 +62,29 @@ export const GET = async () => {
     hasAPIKey: provider.hasApiKey,
     models: provider.modelIds.map((name) => ({
       name,
-      isToolCallUnsupported: true,
+      isToolCallUnsupported:
+        provider.capabilities?.[name]?.supportsToolCalling !== true,
       isImageInputUnsupported: true,
       isBlackboxModel: false,
       supportedFileMimeTypes: [],
     })),
   }));
-  return Response.json(
-    sortProvidersFlareFirst([...providers, ...personalProviderCatalog]),
-  );
+  const displayMetadata =
+    validateModelDisplayMetadataMap(modelsConfig?.modelDisplayMetadata ?? {}) ??
+    {};
+  const catalog = sortProvidersFlareFirst([
+    ...providers,
+    ...personalProviderCatalog,
+  ]).map((provider) => ({
+    ...provider,
+    models: provider.models.map((model) => {
+      const metadata = findModelDisplayMetadata(
+        displayMetadata,
+        provider.provider,
+        model.name,
+      );
+      return metadata ? { ...model, displayMetadata: metadata } : model;
+    }),
+  }));
+  return Response.json(catalog);
 };

@@ -3,6 +3,7 @@
 import { appStore } from "@/app/store";
 import { useCompletion } from "@ai-sdk/react";
 import { ChatModel } from "app-types/chat";
+import { normalizeThreadTitle } from "lib/chat/thread-title";
 import { useCallback, useEffect } from "react";
 import { mutate } from "swr";
 import { safe } from "ts-safe";
@@ -17,6 +18,8 @@ export function useGenerateThreadTitle(option: {
 
   const updateTitle = useCallback(
     (title: string) => {
+      const normalizedTitle = normalizeThreadTitle(title);
+      if (!normalizedTitle) return;
       appStore.setState((prev) => {
         const threadExists = prev.threadList.some(
           (v) => v.id === option.threadId,
@@ -27,7 +30,7 @@ export function useGenerateThreadTitle(option: {
             threadList: [
               {
                 id: option.threadId,
-                title,
+                title: normalizedTitle,
                 userId: "",
                 createdAt: new Date(),
               },
@@ -38,7 +41,7 @@ export function useGenerateThreadTitle(option: {
 
         return {
           threadList: prev.threadList.map((v) =>
-            v.id === option.threadId ? { ...v, title } : v,
+            v.id === option.threadId ? { ...v, title: normalizedTitle } : v,
           ),
         };
       });

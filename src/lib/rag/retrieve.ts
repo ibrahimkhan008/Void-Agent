@@ -106,6 +106,9 @@ export function buildRetrieveConditions({
     : undefined;
   const conditions: SQL[] = [
     orgScope ? or(ownerScope, orgScope)! : ownerScope,
+    // Failed or still-ingesting sources can retain partial chunk rows; only
+    // expose citations after the collection item has reached its ready state.
+    eq(CollectionItemTable.status, "ready"),
     // Chunks without an embedding can't participate in vector search; the
     // HNSW index won't include them either. Filtering here keeps the
     // query plan simple.

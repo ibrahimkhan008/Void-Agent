@@ -44,6 +44,7 @@ describe("project-brain task consolidation", () => {
       status: "accepted",
       dueDate: "2026-11-09",
       taskIds: ["todo-2", "todo-1"],
+      completedTaskIds: [],
     });
     expect(duplicate?.evidence).toHaveLength(2);
   });
@@ -60,6 +61,7 @@ describe("project-brain task consolidation", () => {
     ]);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.status).toBe("accepted");
+    expect(groups[0]?.completedTaskIds).toEqual(["todo-1", "todo-3"]);
   });
 
   it("validates a proposed group against all exact task identities", () => {

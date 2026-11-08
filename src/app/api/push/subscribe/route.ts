@@ -15,10 +15,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await getSession();
   if (!session?.user.id) return new Response("Unauthorized", { status: 401 });
-  return Response.json({
-    publicKey: getVapidPublicKey(),
-    encryptionAvailable: isEncryptionAvailable(),
-  });
+  return Response.json(
+    {
+      publicKey: getVapidPublicKey(),
+      encryptionAvailable: isEncryptionAvailable(),
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 export async function POST(request: Request) {

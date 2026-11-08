@@ -26,6 +26,7 @@ describe("Void-Agent desktop application menu", () => {
   it("provides server switching, editing, viewing, and updates on Windows", () => {
     const onChangeServer = vi.fn();
     const onCheckForUpdates = vi.fn();
+    const onOpenUpdaterLogs = vi.fn();
     const onAbout = vi.fn();
     const menu = buildDesktopApplicationMenu({
       platform: "win32",
@@ -33,6 +34,7 @@ describe("Void-Agent desktop application menu", () => {
       canOpenDevTools: false,
       onChangeServer,
       onCheckForUpdates,
+      onOpenUpdaterLogs,
       onAbout,
     });
 
@@ -63,6 +65,11 @@ describe("Void-Agent desktop application menu", () => {
       role: undefined,
       type: undefined,
     });
+    expect(labels[3]?.children).toContainEqual({
+      label: "Open Update Logs Folder",
+      role: undefined,
+      type: undefined,
+    });
 
     const serverItem = childrenOf(menu, 0).find(
       (item) => "label" in item && item.label === "Change Server…",
@@ -77,6 +84,13 @@ describe("Void-Agent desktop application menu", () => {
     if (updateItem && "click" in updateItem && updateItem.click)
       updateItem.click({} as never, {} as never, {} as KeyboardEvent);
     expect(onCheckForUpdates).toHaveBeenCalledOnce();
+
+    const logsItem = childrenOf(menu, 3).find(
+      (item) => "label" in item && item.label === "Open Update Logs Folder",
+    );
+    if (logsItem && "click" in logsItem && logsItem.click)
+      logsItem.click({} as never, {} as never, {} as KeyboardEvent);
+    expect(onOpenUpdaterLogs).toHaveBeenCalledOnce();
 
     const aboutItem = childrenOf(menu, 3).find(
       (item) => "label" in item && item.label === "About Void-Agent",
@@ -94,6 +108,7 @@ describe("Void-Agent desktop application menu", () => {
       canOpenDevTools: true,
       onChangeServer: vi.fn(),
       onCheckForUpdates: vi.fn(),
+      onOpenUpdaterLogs: vi.fn(),
       onAbout,
     });
     const labels = menuLabels(menu);

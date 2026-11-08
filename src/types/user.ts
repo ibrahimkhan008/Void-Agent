@@ -14,8 +14,27 @@ export type UserPreferences = {
   skills?: UserSkill[];
   notifications?: {
     backgroundChatAlerts?: boolean;
+    chatAlertsOnlyWhenAway?: boolean;
   };
+  onboarding?: OnboardingPreference;
 };
+
+export const OnboardingStepSchema = z.enum([
+  "automation_overview",
+  "connect_tools",
+  "done",
+  // Read legacy progress written by the older Rube-backed wizard.
+  "connect_rube",
+]);
+export type OnboardingStep = z.infer<typeof OnboardingStepSchema>;
+
+export const OnboardingPreferenceSchema = z
+  .object({
+    step: OnboardingStepSchema,
+    completedAt: z.string().datetime().optional(),
+  })
+  .strict();
+export type OnboardingPreference = z.infer<typeof OnboardingPreferenceSchema>;
 
 export type SavedNoteCitation = {
   id: number;
@@ -37,6 +56,11 @@ export type UserSkill = {
   name: string;
   markdown: string;
   description?: string;
+  source?: string;
+  slug?: string;
+  license?: string;
+  licenseNotice?: string;
+  sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -91,6 +115,10 @@ export type UserRepository = {
     userId: string,
     preferences: UserPreferences,
   ) => Promise<User>;
+  updateOnboardingPreference: (
+    userId: string,
+    onboarding: OnboardingPreference,
+  ) => Promise<User>;
   getPreferences: (userId: string) => Promise<UserPreferences | null>;
   getUserById: (userId: string) => Promise<BasicUserWithLastLogin | null>;
   getUserCount: () => Promise<number>;
@@ -124,6 +152,10 @@ export const UserPreferencesZodSchema = z.object({
   responseStyleExample: z.string().optional(),
   botName: z.string().optional(),
   notifications: z
-    .object({ backgroundChatAlerts: z.boolean().optional() })
+    .object({
+      backgroundChatAlerts: z.boolean().optional(),
+      chatAlertsOnlyWhenAway: z.boolean().optional(),
+    })
     .optional(),
+  onboarding: OnboardingPreferenceSchema.optional(),
 });

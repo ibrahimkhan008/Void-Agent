@@ -7,6 +7,14 @@ import {
   type Node,
   ReactFlow,
 } from "@xyflow/react";
+import {
+  matchesProjectBrainGraphSearch,
+  searchProjectBrainGraphNodes,
+} from "lib/projects/brain-graph-search";
+import {
+  canOfferProjectBrainRunRetry,
+  isProjectBrainRunStale,
+} from "lib/projects/brain-run-state";
 import { fetcher } from "lib/utils";
 import { useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
@@ -16,6 +24,8 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
+import { ProjectBrainClaimEvidence } from "./project-brain-claim-evidence";
+import { ProjectBrainNodeNeighbors } from "./project-brain-node-neighbors";
 import {
   type ProjectBrainPageDetail,
   ProjectBrainPageDetailPanel,
@@ -30,30 +40,54 @@ type Source = {
   sourceUrl: string | null;
   status: string;
 };
+type ChatSource = {
+  id: string;
+  threadId: string;
+  title: string;
+  activeFingerprint: string | null;
+  updatedAt: string;
+};
 type Fact = {
   id: string;
-  sourceItemId: string;
+  sourceItemId: string | null;
+  chatSourceId: string | null;
   subject: string;
   predicate: string;
   object: string;
   evidence: string;
   confidence: number;
   reviewStatus: "proposed" | "accepted" | "rejected";
+  filename?: string | null;
+  sourceUrl?: string | null;
+  factCapturedAt?: string | null;
 };
 type BrainData = {
   sources: Source[];
+  chatSources: ChatSource[];
   facts: Fact[];
-  runs: Array<{ id: string; sourceItemId: string; status: string }>;
+  runs: Array<{
+    id: string;
+    sourceItemId: string | null;
+    chatSourceId?: string | null;
+    sourceType?: string;
+    status: string;
+    attempts: number;
+    errorMessage: string | null;
+    updatedAt: string;
+  }>;
   sourceVersions?: Array<{
     id: string;
-    sourceItemId: string;
+    sourceItemId: string | null;
+    chatSourceId?: string | null;
+    sourceType?: string;
     contentLength: number;
     snapshotAvailable: boolean;
     createdAt: string;
   }>;
   todos: Array<{
     id: string;
-    sourceItemId: string;
+    sourceItemId: string | null;
+    chatSourceId?: string | null;
     title: string;
     details: string;
     evidence: string;
@@ -69,6 +103,7 @@ type BrainData = {
     dueDate: string | null;
     status: "accepted" | "completed";
     taskIds: string[];
+    completedTaskIds: string[];
     sourceCount: number;
     evidence: Array<{
       todoId: string;
@@ -255,7 +290,9 @@ export function ProjectBrainPanel({
       errorRetryCount: 0,
       refreshInterval: (latest) =>
         latest?.runs.some(
-          (run) => run.status === "queued" || run.status === "running",
+          (run) =>
+            (run.status === "queued" || run.status === "running") &&
+            !isProjectBrainRunStale(run.status, run.updatedAt),
         )
           ? 2500
           : 0,
@@ -273,8 +310,10 @@ export function ProjectBrainPanel({
     { revalidateOnFocus: false, errorRetryCount: 0 },
   );
   const sources = data?.sources ?? [];
+  const chatSources = data?.chatSources ?? [];
   const facts = data?.facts ?? [];
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [graphSearch, setGraphSearch] = useState("");
   const [selectedEntityPageId, setSelectedEntityPageId] = useState<
     string | null
   >(null);
@@ -409,8 +448,16 @@ export function ProjectBrainPanel({
         id: node.id,
         position: { x: (index % 3) * 230, y: Math.floor(index / 3) * 130 },
         data: { label: node.label },
+        style: {
+          opacity: matchesProjectBrainGraphSearch(node, graphSearch) ? 1 : 0.18,
+          transition: "opacity 160ms",
+        },
       })),
-    [graphData?.nodes],
+    [graphData?.nodes, graphSearch],
+  );
+  const graphSearchMatches = useMemo(
+    () => searchProjectBrainGraphNodes(graphData?.nodes ?? [], graphSearch),
+    [graphData?.nodes, graphSearch],
   );
   const graphEdges = useMemo<Edge[]>(
     () =>
@@ -521,28 +568,35 @@ export function ProjectBrainPanel({
     }
   };
 
-  const completeConsolidatedTodo = async (todoIds: string[]) => {
+  const updateConsolidatedTodo = async (
+    todoIds: string[],
+    status: "accepted" | "completed",
+  ) => {
     try {
       const response = await fetch(
         `/api/projects/${projectId}/brain/todos/consolidated`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ todoIds }),
+          body: JSON.stringify({ todoIds, status }),
         },
       );
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
       if (!response.ok)
-        throw new Error(payload?.error ?? "Could not complete project task");
+        throw new Error(payload?.error ?? "Could not update project task");
       await mutate();
-      toast.success("Matching source tasks marked complete");
+      toast.success(
+        status === "completed"
+          ? "Matching source tasks marked complete"
+          : "Matching source tasks reopened",
+      );
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Could not complete project task",
+          : "Could not update project task",
       );
     }
   };
@@ -1338,6 +1392,15 @@ export function ProjectBrainPanel({
             const run = data?.runs.find(
               (entry) => entry.sourceItemId === source.itemId,
             );
+            const retryableRun =
+              run &&
+              canOfferProjectBrainRunRetry(
+                canReview,
+                run.status,
+                run.updatedAt,
+              );
+            const staleRun =
+              run && isProjectBrainRunStale(run.status, run.updatedAt);
             const revisions =
               data?.sourceVersions?.filter(
                 (entry) => entry.sourceItemId === source.itemId,
@@ -1353,7 +1416,12 @@ export function ProjectBrainPanel({
                     `Source ${source.itemId.slice(0, 8)}`}{" "}
                   <span className="text-xs text-muted-foreground">
                     · {source.status}
-                    {run ? ` · brain ${run.status}` : ""}
+                    {run
+                      ? ` · brain ${staleRun && run.status === "running" ? "stalled" : run.status}`
+                      : ""}
+                    {run && run.attempts > 0
+                      ? ` · attempt ${run.attempts}`
+                      : ""}
                     {revisions.length > 0
                       ? ` · ${revisions.length} recorded revision${revisions.length === 1 ? "" : "s"}`
                       : ""}
@@ -1365,14 +1433,43 @@ export function ProjectBrainPanel({
                   disabled={
                     !canReview ||
                     source.status !== "ready" ||
-                    run?.status === "queued" ||
-                    run?.status === "running"
+                    Boolean(
+                      run &&
+                        (run.status === "queued" || run.status === "running") &&
+                        !retryableRun,
+                    )
                   }
                   onClick={() => void analyze(source.itemId)}
                 >
                   <RotateCw className="mr-1 size-3.5" />
-                  Analyze
+                  {retryableRun ? "Retry analysis" : "Analyze"}
                 </Button>
+                {run?.status === "failed" && run.errorMessage && canReview && (
+                  <p
+                    className="basis-full text-xs text-destructive"
+                    role="status"
+                  >
+                    {run.errorMessage}
+                  </p>
+                )}
+                {staleRun && run?.status === "running" && (
+                  <p
+                    className="basis-full text-xs text-amber-700 dark:text-amber-400"
+                    role="status"
+                  >
+                    This analysis has not updated for five minutes. An editor
+                    can retry it.
+                  </p>
+                )}
+                {staleRun && run?.status === "queued" && (
+                  <p
+                    className="basis-full text-xs text-amber-700 dark:text-amber-400"
+                    role="status"
+                  >
+                    This analysis is waiting on the background worker. An editor
+                    can retry it.
+                  </p>
+                )}
                 {revisions.length > 0 && (
                   <div className="basis-full border-t pt-2">
                     <p className="text-xs font-medium text-muted-foreground">
@@ -1414,12 +1511,46 @@ export function ProjectBrainPanel({
           })}
         </ul>
       )}
+      {chatSources.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <h4 className="text-sm font-medium">Project chat sources</h4>
+          <ul className="space-y-2">
+            {chatSources.map((source) => {
+              const run = data?.runs.find(
+                (entry) => entry.chatSourceId === source.id,
+              );
+              return (
+                <li
+                  key={source.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                >
+                  <span className="min-w-0 truncate">
+                    {source.title || `Chat ${source.threadId.slice(0, 8)}`}
+                    <span className="text-xs text-muted-foreground">
+                      {run
+                        ? ` · brain ${run.status}`
+                        : " · queued for next analysis window"}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Chat evidence is bounded, rechecked against the live thread, and
+            kept as proposals until a project editor reviews it.
+          </p>
+        </div>
+      )}
       {facts.length > 0 && (
         <div className="mt-5 space-y-2">
           <h4 className="text-sm font-medium">Extracted claims</h4>
           {facts.map((fact) => {
             const source = sources.find(
               (entry) => entry.itemId === fact.sourceItemId,
+            );
+            const chatSource = chatSources.find(
+              (entry) => entry.id === fact.chatSourceId,
             );
             return (
               <article key={fact.id} className="rounded-md border p-3 text-sm">
@@ -1433,7 +1564,11 @@ export function ProjectBrainPanel({
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">
                     {fact.reviewStatus} · {Math.round(fact.confidence * 100)}%
-                    model confidence · {source?.filename || "Source"}
+                    model confidence ·{" "}
+                    {source?.filename ||
+                      (chatSource
+                        ? `Project chat: ${chatSource.title}`
+                        : "Source")}
                     {source && (
                       <>
                         {" "}
@@ -1510,6 +1645,9 @@ export function ProjectBrainPanel({
                   const source = sources.find(
                     (entry) => entry.itemId === evidence.sourceItemId,
                   );
+                  const chatSource = chatSources.find(
+                    (entry) => entry.id === evidence.sourceItemId,
+                  );
                   return (
                     <li
                       key={evidence.todoId}
@@ -1517,7 +1655,13 @@ export function ProjectBrainPanel({
                     >
                       <blockquote>{evidence.quote}</blockquote>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span>Source: {source?.filename || "Document"}</span>
+                        <span>
+                          Source:{" "}
+                          {source?.filename ||
+                            (chatSource
+                              ? `Project chat: ${chatSource.title}`
+                              : "Document")}
+                        </span>
                         {source && (
                           <Link
                             href={`/knowledge/${source.collectionId}`}
@@ -1536,9 +1680,26 @@ export function ProjectBrainPanel({
                   className="mt-3"
                   size="sm"
                   variant="outline"
-                  onClick={() => void completeConsolidatedTodo(todo.taskIds)}
+                  onClick={() =>
+                    void updateConsolidatedTodo(todo.taskIds, "completed")
+                  }
                 >
                   Complete matching tasks
+                </Button>
+              )}
+              {canReview && todo.status === "completed" && (
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void updateConsolidatedTodo(
+                      todo.completedTaskIds,
+                      "accepted",
+                    )
+                  }
+                >
+                  Reopen matching tasks
                 </Button>
               )}
             </article>
@@ -1562,6 +1723,9 @@ export function ProjectBrainPanel({
             .map((todo) => {
               const source = sources.find(
                 (entry) => entry.itemId === todo.sourceItemId,
+              );
+              const chatSource = chatSources.find(
+                (entry) => entry.id === todo.chatSourceId,
               );
               return (
                 <article
@@ -1591,7 +1755,11 @@ export function ProjectBrainPanel({
                   </blockquote>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
-                      Source: {source?.filename || "Document"}
+                      Source:{" "}
+                      {source?.filename ||
+                        (chatSource
+                          ? `Project chat: ${chatSource.title}`
+                          : "Document")}
                     </span>
                     {source && (
                       <Link
@@ -2021,6 +2189,45 @@ export function ProjectBrainPanel({
               </Button>
             )}
           </div>
+          <div className="mb-2 space-y-2">
+            <Input
+              aria-label="Search knowledge graph entities"
+              value={graphSearch}
+              onChange={(event) => setGraphSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && graphSearchMatches[0]) {
+                  setSelectedNodeId(graphSearchMatches[0].id);
+                }
+              }}
+              maxLength={160}
+              placeholder="Search entities"
+              className="h-8 max-w-sm text-xs"
+            />
+            {graphSearch.trim() && (
+              <div
+                className="flex flex-wrap gap-1"
+                aria-label="Matching graph entities"
+              >
+                {graphSearchMatches.length ? (
+                  graphSearchMatches.map((node) => (
+                    <Button
+                      key={node.id}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => setSelectedNodeId(node.id)}
+                    >
+                      {node.label}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No matching entities in the current graph view.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="h-[360px] overflow-hidden rounded-md border">
             <ReactFlow
               key={focusedNodeId ?? "all"}
@@ -2115,14 +2322,10 @@ export function ProjectBrainPanel({
                       {nodeDetailData.detail.aliases.join(", ")}
                     </p>
                   )}
-                  {nodeDetailData.detail.neighbors.length > 0 && (
-                    <p className="mt-2 text-xs">
-                      <span className="font-medium">Related: </span>
-                      {nodeDetailData.detail.neighbors
-                        .map((neighbor) => neighbor.label)
-                        .join(", ")}
-                    </p>
-                  )}
+                  <ProjectBrainNodeNeighbors
+                    neighbors={nodeDetailData.detail.neighbors}
+                    onSelect={setSelectedNodeId}
+                  />
                   <ul className="mt-3 space-y-2">
                     {nodeDetailData.detail.facts.map((fact) => (
                       <li key={fact.id} className="rounded border p-2 text-sm">
@@ -2264,10 +2467,20 @@ export function ProjectBrainPanel({
                     {explanation}
                   </p>
                 )}
-                <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
-                  <li>{first.evidence}</li>
-                  <li>{second.evidence}</li>
-                </ul>
+                <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                  {[first, second].map((fact) => (
+                    <ProjectBrainClaimEvidence
+                      key={fact.id}
+                      label={
+                        fact.id === first.id ? "First claim" : "Second claim"
+                      }
+                      filename={fact.filename}
+                      sourceUrl={fact.sourceUrl}
+                      factCapturedAt={fact.factCapturedAt}
+                      evidence={fact.evidence}
+                    />
+                  ))}
+                </div>
                 {canReview && (
                   <div className="mt-2 flex gap-2">
                     <Button
@@ -2330,6 +2543,18 @@ export function ProjectBrainPanel({
                 <span className="text-muted-foreground">vs.</span>{" "}
                 {second.object}
               </p>
+              <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                {[first, second].map((fact, index) => (
+                  <ProjectBrainClaimEvidence
+                    key={fact.id}
+                    label={index === 0 ? "First claim" : "Second claim"}
+                    filename={fact.filename}
+                    sourceUrl={fact.sourceUrl}
+                    factCapturedAt={fact.factCapturedAt}
+                    evidence={fact.evidence}
+                  />
+                ))}
+              </div>
               {canReview && (
                 <div className="mt-2 flex gap-2">
                   <Button

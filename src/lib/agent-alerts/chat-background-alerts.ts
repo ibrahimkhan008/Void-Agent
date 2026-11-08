@@ -12,9 +12,36 @@ export type ChatBackgroundAlert = {
 
 export type ChatBackgroundAlertEligibility = {
   enabled: boolean;
-  hidden: boolean;
+  away: boolean;
   permission: NotificationPermission | "unsupported";
 };
+
+export type ChatBackgroundAlertPreferences = {
+  enabled: boolean;
+  onlyWhenAway: boolean;
+};
+
+/** Preserve the existing foreground alert behavior unless the user opts in. */
+export function resolveChatBackgroundAlertPreferences(
+  value: unknown,
+): ChatBackgroundAlertPreferences {
+  const notifications =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    enabled: notifications.backgroundChatAlerts === true,
+    onlyWhenAway: notifications.chatAlertsOnlyWhenAway === true,
+  };
+}
+
+export function isViewingChatThread(
+  threadId: string,
+  pathname: string,
+  hidden: boolean,
+): boolean {
+  return !hidden && pathname === chatBackgroundAlertHref(threadId);
+}
 
 export function isChatBackgroundAlertEnabled(value: unknown): boolean {
   return (
@@ -30,7 +57,7 @@ export function shouldSendChatBackgroundAlert(
 ): boolean {
   return (
     eligibility.enabled &&
-    eligibility.hidden &&
+    eligibility.away &&
     eligibility.permission === "granted"
   );
 }
@@ -38,8 +65,13 @@ export function shouldSendChatBackgroundAlert(
 export function shouldSendChatForegroundAlert(
   enabled: boolean,
   hidden: boolean,
+  onlyWhenAway = false,
 ): boolean {
-  return enabled && !hidden;
+  return enabled && !hidden && !onlyWhenAway;
+}
+
+export function isChatUserAway(hidden: boolean, focused: boolean): boolean {
+  return hidden || !focused;
 }
 
 export function chatBackgroundAlertCopy(kind: ChatBackgroundAlertKind): {

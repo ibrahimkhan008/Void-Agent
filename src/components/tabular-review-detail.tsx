@@ -1,9 +1,11 @@
 "use client";
 
+import type { ReviewCitationEvidence } from "lib/tabular/review-source";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
+import { TabularReviewCitation } from "./tabular-review-citation";
 
 type Column = { id: string; label: string; type: string; prompt: string };
 type Cell = {
@@ -11,6 +13,7 @@ type Cell = {
   columnId: string;
   value: string | null;
   status: "pending" | "generating" | "done" | "error";
+  citationEvidence?: ReviewCitationEvidence | null;
 };
 type ReviewData = {
   review: { id: string; title: string; status: string; columns: Column[] };
@@ -94,6 +97,7 @@ export default function TabularReviewDetail({ id }: { id: string }) {
                                 ...cell,
                                 value: event.value ?? "",
                                 status: event.status ?? "done",
+                                citationEvidence: undefined,
                               }
                             : cell,
                         ),
@@ -138,7 +142,12 @@ export default function TabularReviewDetail({ id }: { id: string }) {
                 ...current,
                 cells: current.cells.map((cell) =>
                   cell.itemId === itemId && cell.columnId === columnId
-                    ? { ...cell, value: draft, status: "done" }
+                    ? {
+                        ...cell,
+                        value: draft,
+                        status: "done",
+                        citationEvidence: undefined,
+                      }
                     : cell,
                 ),
               }
@@ -275,8 +284,8 @@ export default function TabularReviewDetail({ id }: { id: string }) {
                       ? "No pinned source"
                       : (item.availableSourceDocumentCount ?? 0) !==
                           item.sourceDocumentCount
-                        ? `Pinned source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount} pages)`
-                        : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "page" : "pages"}${item.latestSourceCreatedAt ? ` · ${new Date(item.latestSourceCreatedAt).toLocaleDateString()}` : ""}`}
+                        ? `Pinned source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount} segments)`
+                        : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "source segment" : "source segments"}${item.latestSourceCreatedAt ? ` · ${new Date(item.latestSourceCreatedAt).toLocaleDateString()}` : ""}`}
                   </span>
                 </th>
                 {data.review.columns.map((column) => {
@@ -317,14 +326,20 @@ export default function TabularReviewDetail({ id }: { id: string }) {
                       ) : (
                         <>
                           <div className="whitespace-pre-wrap">
-                            {cell?.status === "generating"
-                              ? "Generating…"
-                              : cell?.value ||
-                                (cell?.status === "error"
-                                  ? "Generation failed"
-                                  : generating
-                                    ? "Waiting…"
-                                    : "—")}
+                            {cell?.status === "generating" ? (
+                              "Generating…"
+                            ) : cell?.citationEvidence ? (
+                              <TabularReviewCitation
+                                evidence={cell.citationEvidence}
+                              />
+                            ) : (
+                              cell?.value ||
+                              (cell?.status === "error"
+                                ? "Generation failed"
+                                : generating
+                                  ? "Waiting…"
+                                  : "—")
+                            )}
                           </div>
                           <div className="mt-2 flex gap-1">
                             <Button

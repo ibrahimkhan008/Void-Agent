@@ -165,11 +165,13 @@ async function visibleFacts(scope: Awaited<ReturnType<typeof liveScope>>) {
     .where(
       and(
         eq(ProjectBrainFactTable.projectId, scope.projectId),
+        eq(ProjectBrainFactTable.sourceType, "document"),
         eq(ProjectBrainFactTable.reviewStatus, "accepted"),
         projectBrainRunIsActiveSourceRevision(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, scope.collectionIds),
         inArray(CollectionTable.userId, scope.ownerIds),
@@ -177,7 +179,10 @@ async function visibleFacts(scope: Awaited<ReturnType<typeof liveScope>>) {
       ),
     )
     .orderBy(desc(ProjectBrainFactTable.createdAt))
-    .limit(MAX_VISIBLE_FACTS);
+    .limit(MAX_VISIBLE_FACTS)
+    .then((rows) =>
+      rows.map((row) => ({ ...row, sourceItemId: row.sourceItemId ?? "" })),
+    );
 }
 
 async function runDedupeStage(

@@ -12,7 +12,14 @@ const auditEventSchema = z
     action: z.enum(["mcp.list-tools", "mcp.tool-call"]),
     configHash: z.string().regex(/^[a-f0-9]{64}$/u),
     toolName: z.string().max(100).optional(),
-    argsHash: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    argsHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
+    resultHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
     outcome: z.enum(["success", "denied", "failure"]),
   })
   .strict();
@@ -20,7 +27,10 @@ const auditEventSchema = z
 export type DesktopMcpAuditEvent = z.infer<typeof auditEventSchema>;
 
 /** Parse only the safe projection written by the desktop main process. */
-export function parseDesktopMcpAuditLog(text: string, limit = MAX_RETURNED_EVENTS) {
+export function parseDesktopMcpAuditLog(
+  text: string,
+  limit = MAX_RETURNED_EVENTS,
+) {
   if (!Number.isFinite(limit) || limit <= 0) return [];
   const events: DesktopMcpAuditEvent[] = [];
   for (const line of text.split(/\r?\n/u).slice(-MAX_RETURNED_EVENTS * 2)) {
@@ -32,7 +42,9 @@ export function parseDesktopMcpAuditLog(text: string, limit = MAX_RETURNED_EVENT
       // A partial write or malformed local row is skipped, never surfaced raw.
     }
   }
-  return events.slice(-Math.max(0, Math.min(limit, MAX_RETURNED_EVENTS))).reverse();
+  return events
+    .slice(-Math.max(0, Math.min(limit, MAX_RETURNED_EVENTS)))
+    .reverse();
 }
 
 /** Read a bounded tail so a long-lived desktop install cannot force a large allocation. */

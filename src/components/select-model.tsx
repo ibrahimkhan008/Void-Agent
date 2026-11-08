@@ -2,7 +2,9 @@
 
 import { appStore } from "@/app/store";
 import { useChatModels } from "@/hooks/queries/use-chat-models";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatModel } from "app-types/chat";
+import type { ModelDisplayMetadata } from "lib/ai/model-display-metadata";
 import { cn } from "lib/utils";
 import {
   AlertTriangleIcon,
@@ -24,6 +26,7 @@ import {
   useState,
 } from "react";
 import { Button } from "ui/button";
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "ui/drawer";
 
 import {
   Command,
@@ -59,6 +62,12 @@ const isFastModel = (name: string) => {
 
 // Blackbox cooldown duration in milliseconds
 const BLACKBOX_COOLDOWN_MS = 5000;
+const METADATA_FILTERS = [
+  { key: "hiddenGem", label: "Hidden gem" },
+  { key: "speed", label: "Fast" },
+  { key: "thinking", label: "Thinking" },
+] as const;
+type MetadataFilter = (typeof METADATA_FILTERS)[number]["key"];
 
 interface SelectModelProps {
   onSelect: (model: ChatModel) => void;
@@ -70,6 +79,7 @@ interface SelectModelProps {
   onModelSpeedChange?: (speed: "fast" | "thinking") => void;
   disabled?: boolean;
   teamAutoRoutingStatus?: "enabled" | "disabled" | "loading" | "error";
+  personalAutoRoutingStatus?: "enabled" | "disabled" | "loading" | "error";
   filterModel?: (
     provider: string,
     model: {
@@ -78,18 +88,23 @@ interface SelectModelProps {
       isImageInputUnsupported: boolean;
       isBlackboxModel: boolean;
       supportedFileMimeTypes: string[];
+      displayMetadata?: ModelDisplayMetadata;
     },
   ) => boolean;
 }
 
 export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const { data: providers } = useChatModels();
   const [model, setModel] = useState(props.currentModel);
   const [localSpeed, setLocalSpeed] = useState<"fast" | "thinking">(
     props.modelSpeed || "fast",
   );
   const [blackboxCooldown, setBlackboxCooldown] = useState(true);
+  const [activeMetadataFilters, setActiveMetadataFilters] = useState<
+    Set<MetadataFilter>
+  >(() => new Set());
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Start the 5-second blackbox cooldown on mount
@@ -137,12 +152,26 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
   );
 
   const handleAutoRoutingSelect = useCallback(() => {
-    if (props.teamAutoRoutingStatus !== "enabled") return;
+    if (
+      props.teamAutoRoutingStatus !== "enabled" &&
+      props.personalAutoRoutingStatus !== "enabled"
+    ) {
+      return;
+    }
     const automaticModel = { provider: "auto", model: "auto" };
     setModel(automaticModel);
     props.onSelect(automaticModel);
     setOpen(false);
   }, [props]);
+
+  const toggleMetadataFilter = (filter: MetadataFilter) => {
+    setActiveMetadataFilters((previous) => {
+      const next = new Set(previous);
+      if (next.has(filter)) next.delete(filter);
+      else next.add(filter);
+      return next;
+    });
+  };
 
   const visibleProviders = useMemo(() => {
     if (!providers) return [];
@@ -182,6 +211,14 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
             )
           : provider.models;
 
+        if (activeMetadataFilters.size) {
+          models = models.filter((item) =>
+            [...activeMetadataFilters].every(
+              (filter) => item.displayMetadata?.[filter] === true,
+            ),
+          );
+        }
+
         // If showModeToggle is enabled, filter by speed mode
         if (props.showModeToggle) {
           models = models.filter((m) => {
@@ -196,206 +233,345 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
       .filter(
         (provider): provider is NonNullable<typeof provider> => !!provider,
       );
-  }, [providers, props.filterModel, props.showModeToggle, localSpeed]);
+  }, [
+    providers,
+    props.filterModel,
+    props.showModeToggle,
+    localSpeed,
+    activeMetadataFilters,
+  ]);
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {props.children || (
-          <Button
-            variant={"secondary"}
-            size={"sm"}
-            className="data-[state=open]:bg-input! hover:bg-input! "
-            data-testid="model-selector-button"
-            disabled={props.disabled}
-          >
-            <div className="mr-auto flex items-center gap-1">
-              {(props.showProvider ?? true) && (
-                <ModelProviderIcon
-                  provider={model?.provider || ""}
-                  className="size-2.5 mr-1"
-                />
-              )}
-              <p data-testid="selected-model-name">{model?.model || "model"}</p>
-            </div>
-            {!props.disabled && <ChevronDown className="size-3" />}
-          </Button>
+  const selectorTrigger = props.children || (
+    <Button
+      variant="secondary"
+      size="sm"
+      className="data-[state=open]:bg-input! hover:bg-input!"
+      data-testid="model-selector-button"
+      disabled={props.disabled}
+    >
+      <div className="mr-auto flex items-center gap-1">
+        {(props.showProvider ?? true) && (
+          <ModelProviderIcon
+            provider={model?.provider || ""}
+            className="size-2.5 mr-1"
+          />
         )}
-      </PopoverTrigger>
+        <p data-testid="selected-model-name">{model?.model || "model"}</p>
+      </div>
+      {!props.disabled && <ChevronDown className="size-3" />}
+    </Button>
+  );
+
+  const selectorContent = (
+    <Command
+      className={cn(
+        "relative",
+        isMobile ? "h-full rounded-none" : "rounded-lg shadow-md",
+      )}
+      value={JSON.stringify(model)}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Fast/Thinking Toggle */}
+      {props.showModeToggle && (
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <ZapIcon
+              className={cn(
+                "size-3.5 transition-colors",
+                localSpeed === "fast"
+                  ? "text-yellow-500"
+                  : "text-muted-foreground",
+              )}
+            />
+            <span
+              className={cn(
+                "text-sm font-medium transition-colors",
+                localSpeed === "fast"
+                  ? "text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              Fast
+            </span>
+          </div>
+          <Switch
+            checked={localSpeed === "thinking"}
+            onCheckedChange={handleSpeedChange}
+            className="data-[state=checked]:bg-purple-500"
+          />
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "text-sm font-medium transition-colors",
+                localSpeed === "thinking"
+                  ? "text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              Thinking
+            </span>
+            <BrainIcon
+              className={cn(
+                "size-3.5 transition-colors",
+                localSpeed === "thinking"
+                  ? "text-purple-500"
+                  : "text-muted-foreground",
+              )}
+            />
+          </div>
+        </div>
+      )}
+
+      <CommandInput
+        placeholder="search model..."
+        data-testid="model-search-input"
+      />
+      {providers?.some((provider) =>
+        provider.models.some((item) => item.displayMetadata),
+      ) && (
+        <div
+          aria-label="Filter models by catalog metadata"
+          className="flex flex-wrap gap-1.5 border-b px-3 py-2"
+        >
+          {METADATA_FILTERS.map((filter) => (
+            <Button
+              key={filter.key}
+              type="button"
+              size="sm"
+              variant={
+                activeMetadataFilters.has(filter.key) ? "default" : "outline"
+              }
+              aria-pressed={activeMetadataFilters.has(filter.key)}
+              onClick={() => toggleMetadataFilter(filter.key)}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+      )}
+      <CommandList className="p-2 max-h-64">
+        <CommandEmpty>No results found.</CommandEmpty>
+        {props.teamAutoRoutingStatus && (
+          <>
+            <CommandGroup heading="Team model routing" className="pb-3">
+              {props.teamAutoRoutingStatus === "enabled" ? (
+                <CommandItem
+                  value="team-auto-routing"
+                  data-testid="team-auto-model-option"
+                  onSelect={handleAutoRoutingSelect}
+                >
+                  <span>Team Auto</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    Route by task
+                  </span>
+                </CommandItem>
+              ) : (
+                <div
+                  role="status"
+                  data-testid="team-auto-model-unavailable"
+                  className="space-y-1 px-2 py-2 text-xs text-muted-foreground"
+                >
+                  <p>
+                    {props.teamAutoRoutingStatus === "loading"
+                      ? "Checking team routing availability…"
+                      : props.teamAutoRoutingStatus === "error"
+                        ? "Team routing could not be verified."
+                        : "Team automatic routing is not enabled."}
+                  </p>
+                  <Link
+                    className="text-primary underline underline-offset-2"
+                    href="/team-model-routing"
+                  >
+                    Open team routing settings
+                  </Link>
+                </div>
+              )}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
+        {props.personalAutoRoutingStatus && (
+          <>
+            <CommandGroup heading="Personal model routing" className="pb-3">
+              {props.personalAutoRoutingStatus === "enabled" ? (
+                <CommandItem
+                  value="personal-auto-routing"
+                  data-testid="personal-auto-model-option"
+                  onSelect={handleAutoRoutingSelect}
+                >
+                  <span>Automatic</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    Route by task
+                  </span>
+                </CommandItem>
+              ) : (
+                <div
+                  role="status"
+                  data-testid="personal-auto-model-unavailable"
+                  className="px-2 py-2 text-xs text-muted-foreground"
+                >
+                  {props.personalAutoRoutingStatus === "loading"
+                    ? "Checking automatic routing availability…"
+                    : props.personalAutoRoutingStatus === "error"
+                      ? "Automatic routing could not be verified."
+                      : "Automatic routing is not configured by an administrator."}
+                </div>
+              )}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
+        {visibleProviders.map((provider, i) => (
+          <Fragment key={provider.provider}>
+            <CommandGroup
+              heading={
+                <ProviderHeader
+                  provider={provider.provider}
+                  displayName={provider.displayName}
+                  hasAPIKey={provider.hasAPIKey}
+                />
+              }
+              className={cn(
+                "pb-4 group",
+                !provider.hasAPIKey &&
+                  !provider.provider.startsWith("user-") &&
+                  "opacity-50",
+              )}
+              onWheel={(e) => {
+                e.stopPropagation();
+              }}
+              data-testid={`model-provider-${provider.provider}`}
+            >
+              {provider.models.map((item) => {
+                const isDisabled =
+                  (!provider.hasAPIKey &&
+                    !provider.provider.startsWith("user-")) ||
+                  (item.isBlackboxModel && blackboxCooldown);
+
+                return (
+                  <CommandItem
+                    key={item.name}
+                    disabled={isDisabled}
+                    className={cn(
+                      "cursor-pointer",
+                      isDisabled && "opacity-50 cursor-not-allowed",
+                    )}
+                    onSelect={() => handleSelect(provider.provider, item)}
+                    value={item.name}
+                    data-testid={`model-option-${provider.provider}-${item.name}`}
+                  >
+                    {model?.provider === provider.provider &&
+                    model?.model === item.name ? (
+                      <CheckIcon
+                        className="size-3"
+                        data-testid="selected-model-check"
+                      />
+                    ) : (
+                      <div className="ml-3" />
+                    )}
+                    <span className="pr-2">{item.name}</span>
+                    {item.displayMetadata && (
+                      <span className="ml-auto flex min-w-0 flex-col items-end gap-0.5 text-[10px] leading-tight text-muted-foreground">
+                        <span className="flex flex-wrap justify-end gap-1">
+                          {item.displayMetadata.hiddenGem && (
+                            <span className="rounded bg-amber-500/10 px-1 text-amber-700">
+                              Hidden gem
+                            </span>
+                          )}
+                          {item.displayMetadata.speed && (
+                            <span className="rounded bg-blue-500/10 px-1 text-blue-700">
+                              Fast
+                            </span>
+                          )}
+                          {item.displayMetadata.thinking && (
+                            <span className="rounded bg-violet-500/10 px-1 text-violet-700">
+                              Thinking
+                            </span>
+                          )}
+                          {item.displayMetadata.caution && (
+                            <span className="rounded bg-amber-500/10 px-1 text-amber-700">
+                              Caution
+                            </span>
+                          )}
+                          {item.displayMetadata.notRecommended && (
+                            <span className="rounded bg-red-500/10 px-1 text-red-700">
+                              Not recommended
+                            </span>
+                          )}
+                          {item.displayMetadata.cheapAlternative && (
+                            <span className="rounded bg-green-500/10 px-1 text-green-700">
+                              Cheaper option
+                            </span>
+                          )}
+                          {item.displayMetadata.maxPerformance && (
+                            <span className="rounded bg-purple-500/10 px-1 text-purple-700">
+                              Max performance
+                            </span>
+                          )}
+                        </span>
+                        {(item.displayMetadata.developer ||
+                          item.displayMetadata.country) && (
+                          <span>
+                            {[
+                              item.displayMetadata.developer,
+                              item.displayMetadata.country,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                        {(item.displayMetadata.inputPriceUsd !== undefined ||
+                          item.displayMetadata.outputPriceUsd !==
+                            undefined) && (
+                          <span title="Catalog prices in USD per million tokens; separate from team budget rates.">
+                            In ${item.displayMetadata.inputPriceUsd ?? "—"}· Out
+                            ${item.displayMetadata.outputPriceUsd ?? "—"}
+                            /1M
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {item.isBlackboxModel && blackboxCooldown ? (
+                      <div className="ml-auto flex items-center gap-1 text-xs text-amber-500">
+                        <AlertTriangleIcon className="size-3" />
+                        Higher load
+                      </div>
+                    ) : item.isToolCallUnsupported ? (
+                      <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                        No tools
+                      </div>
+                    ) : null}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            {i < visibleProviders.length - 1 && <CommandSeparator />}
+          </Fragment>
+        ))}
+      </CommandList>
+    </Command>
+  );
+
+  return isMobile ? (
+    <Drawer open={open} onOpenChange={setOpen} repositionInputs={false}>
+      <DrawerTrigger asChild>{selectorTrigger}</DrawerTrigger>
+      <DrawerContent
+        className="h-[85vh] max-h-[85vh] p-0"
+        data-testid="model-selector-drawer"
+      >
+        <DrawerTitle className="sr-only">Select model</DrawerTitle>
+        {selectorContent}
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{selectorTrigger}</PopoverTrigger>
       <PopoverContent
         className="p-0 w-[280px]"
         align={props.align || "end"}
         data-testid="model-selector-popover"
       >
-        <Command
-          className="rounded-lg relative shadow-md"
-          value={JSON.stringify(model)}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Fast/Thinking Toggle */}
-          {props.showModeToggle && (
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-muted/30">
-              <div className="flex items-center gap-2">
-                <ZapIcon
-                  className={cn(
-                    "size-3.5 transition-colors",
-                    localSpeed === "fast"
-                      ? "text-yellow-500"
-                      : "text-muted-foreground",
-                  )}
-                />
-                <span
-                  className={cn(
-                    "text-sm font-medium transition-colors",
-                    localSpeed === "fast"
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Fast
-                </span>
-              </div>
-              <Switch
-                checked={localSpeed === "thinking"}
-                onCheckedChange={handleSpeedChange}
-                className="data-[state=checked]:bg-purple-500"
-              />
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "text-sm font-medium transition-colors",
-                    localSpeed === "thinking"
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  Thinking
-                </span>
-                <BrainIcon
-                  className={cn(
-                    "size-3.5 transition-colors",
-                    localSpeed === "thinking"
-                      ? "text-purple-500"
-                      : "text-muted-foreground",
-                  )}
-                />
-              </div>
-            </div>
-          )}
-
-          <CommandInput
-            placeholder="search model..."
-            data-testid="model-search-input"
-          />
-          <CommandList className="p-2 max-h-64">
-            <CommandEmpty>No results found.</CommandEmpty>
-            {props.teamAutoRoutingStatus && (
-              <>
-                <CommandGroup heading="Team model routing" className="pb-3">
-                  {props.teamAutoRoutingStatus === "enabled" ? (
-                    <CommandItem
-                      value="team-auto-routing"
-                      data-testid="team-auto-model-option"
-                      onSelect={handleAutoRoutingSelect}
-                    >
-                      <span>Team Auto</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        Route by task
-                      </span>
-                    </CommandItem>
-                  ) : (
-                    <div
-                      role="status"
-                      data-testid="team-auto-model-unavailable"
-                      className="space-y-1 px-2 py-2 text-xs text-muted-foreground"
-                    >
-                      <p>
-                        {props.teamAutoRoutingStatus === "loading"
-                          ? "Checking team routing availability…"
-                          : props.teamAutoRoutingStatus === "error"
-                            ? "Team routing could not be verified."
-                            : "Team automatic routing is not enabled."}
-                      </p>
-                      <Link
-                        className="text-primary underline underline-offset-2"
-                        href="/team-model-routing"
-                      >
-                        Open team routing settings
-                      </Link>
-                    </div>
-                  )}
-                </CommandGroup>
-                <CommandSeparator />
-              </>
-            )}
-            {visibleProviders.map((provider, i) => (
-              <Fragment key={provider.provider}>
-                <CommandGroup
-                  heading={
-                    <ProviderHeader
-                      provider={provider.provider}
-                      displayName={provider.displayName}
-                      hasAPIKey={provider.hasAPIKey}
-                    />
-                  }
-                  className={cn(
-                    "pb-4 group",
-                    !provider.hasAPIKey &&
-                      !provider.provider.startsWith("user-") &&
-                      "opacity-50",
-                  )}
-                  onWheel={(e) => {
-                    e.stopPropagation();
-                  }}
-                  data-testid={`model-provider-${provider.provider}`}
-                >
-                  {provider.models.map((item) => {
-                    const isDisabled =
-                      (!provider.hasAPIKey &&
-                        !provider.provider.startsWith("user-")) ||
-                      (item.isBlackboxModel && blackboxCooldown);
-
-                    return (
-                      <CommandItem
-                        key={item.name}
-                        disabled={isDisabled}
-                        className={cn(
-                          "cursor-pointer",
-                          isDisabled && "opacity-50 cursor-not-allowed",
-                        )}
-                        onSelect={() => handleSelect(provider.provider, item)}
-                        value={item.name}
-                        data-testid={`model-option-${provider.provider}-${item.name}`}
-                      >
-                        {model?.provider === provider.provider &&
-                        model?.model === item.name ? (
-                          <CheckIcon
-                            className="size-3"
-                            data-testid="selected-model-check"
-                          />
-                        ) : (
-                          <div className="ml-3" />
-                        )}
-                        <span className="pr-2">{item.name}</span>
-                        {item.isBlackboxModel && blackboxCooldown ? (
-                          <div className="ml-auto flex items-center gap-1 text-xs text-amber-500">
-                            <AlertTriangleIcon className="size-3" />
-                            Higher load
-                          </div>
-                        ) : item.isToolCallUnsupported ? (
-                          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-                            No tools
-                          </div>
-                        ) : null}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-                {i < visibleProviders.length - 1 && <CommandSeparator />}
-              </Fragment>
-            ))}
-          </CommandList>
-        </Command>
+        {selectorContent}
       </PopoverContent>
     </Popover>
   );

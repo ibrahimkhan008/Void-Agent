@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
+export {
+  isProjectBrainRunClaimable,
+  isProjectBrainRunRecoverable,
+} from "lib/projects/brain-run-state";
+
 export function projectBrainSourceFingerprint(
   itemId: string,
   sourceText: string,
@@ -391,23 +396,4 @@ export function deduplicateProjectFacts(
     seen.add(key);
     return true;
   });
-}
-
-export function isProjectBrainRunRecoverable(
-  status: string,
-  updatedAt: Date,
-  now = Date.now(),
-) {
-  if (status === "failed") return true;
-  return status === "running" && now - updatedAt.getTime() > 5 * 60_000;
-}
-
-export function isProjectBrainRunClaimable(
-  status: string,
-  updatedAt: Date,
-  now = Date.now(),
-) {
-  return (
-    status === "queued" || isProjectBrainRunRecoverable(status, updatedAt, now)
-  );
 }

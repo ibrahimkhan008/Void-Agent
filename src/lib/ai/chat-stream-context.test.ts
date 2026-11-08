@@ -99,6 +99,84 @@ describe("chat stream context", () => {
     expect(await context.getActiveStream("thread-a")).toBe("stream-new");
   });
 
+  it("publishes a reconnect pointer only after the resumable buffer is ready", async () => {
+    const streamContextModule = await loadWithEnv({
+      REDIS_URL: "redis://cache.test",
+    });
+    let bufferReady = false;
+    const resumableContext = {
+      createNewResumableStream: vi.fn(async () => {
+        bufferReady = true;
+        return new ReadableStream<string>();
+      }),
+      hasExistingStream: vi.fn(async () => {
+        expect(bufferReady).toBe(true);
+        expect(mocks.store.get("chat:stream:thread-a")).toBe("stream-1");
+        return true as const;
+      }),
+    };
+
+    await expect(
+      streamContextModule.bufferAndPublishActiveStream(
+        resumableContext as never,
+        "thread-a",
+        "stream-1",
+        new ReadableStream<string>(),
+      ),
+    ).resolves.toBe(true);
+
+    expect(resumableContext.createNewResumableStream).toHaveBeenCalledOnce();
+    expect(await streamContextModule.getActiveStream("thread-a")).toBe(
+      "stream-1",
+    );
+  });
+
+  it("does not publish a pointer when the resumable buffer is already terminal", async () => {
+    const streamContextModule = await loadWithEnv({
+      REDIS_URL: "redis://cache.test",
+    });
+    const resumableContext = {
+      createNewResumableStream: vi
+        .fn()
+        .mockResolvedValue(new ReadableStream<string>()),
+      hasExistingStream: vi.fn().mockResolvedValue("DONE" as const),
+    };
+
+    await expect(
+      streamContextModule.bufferAndPublishActiveStream(
+        resumableContext as never,
+        "thread-a",
+        "stream-1",
+        new ReadableStream<string>(),
+      ),
+    ).resolves.toBe(true);
+
+    expect(await streamContextModule.getActiveStream("thread-a")).toBeNull();
+    expect(mocks.store.has("chat:stream:thread-a")).toBe(false);
+  });
+
+  it("does not publish an active pointer if buffer creation reports an existing terminal stream", async () => {
+    const streamContextModule = await loadWithEnv({
+      REDIS_URL: "redis://cache.test",
+    });
+    const resumableContext = {
+      createNewResumableStream: vi.fn().mockResolvedValue(null),
+      hasExistingStream: vi.fn(),
+    };
+
+    await expect(
+      streamContextModule.bufferAndPublishActiveStream(
+        resumableContext as never,
+        "thread-a",
+        "stream-1",
+        new ReadableStream<string>(),
+      ),
+    ).resolves.toBe(false);
+
+    expect(await streamContextModule.getActiveStream("thread-a")).toBeNull();
+    expect(resumableContext.hasExistingStream).not.toHaveBeenCalled();
+  });
+
   it("lists active stream pointers for a bounded set of threads", async () => {
     const context = await loadWithEnv({ REDIS_URL: "redis://cache.test" });
     await context.setActiveStream("thread-a", "stream-1");

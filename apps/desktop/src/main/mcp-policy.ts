@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 export const DESKTOP_MCP_ALLOWED_TOOLS = new Set([
@@ -110,22 +111,30 @@ export function isDesktopMcpToolAllowed(name: string) {
 export function buildMcpConfigFingerprint(
   config: z.infer<typeof desktopMcpConfigSchema>,
 ) {
+  let canonicalConfig: unknown;
   if ("url" in config) {
-    return JSON.stringify({
+    canonicalConfig = {
       url: new URL(config.url).toString(),
       headers: Object.fromEntries(
         Object.entries(config.headers ?? {}).sort(([a], [b]) =>
           a.localeCompare(b),
         ),
       ),
-    });
+    };
+  } else {
+    const env = Object.fromEntries(
+      Object.entries(config.env ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+    );
+    canonicalConfig = {
+      command: config.command,
+      args: config.args ?? [],
+      env,
+    };
   }
-  const env = Object.fromEntries(
-    Object.entries(config.env ?? {}).sort(([a], [b]) => a.localeCompare(b)),
-  );
-  return JSON.stringify({
-    command: config.command,
-    args: config.args ?? [],
-    env,
-  });
+
+  // This value is kept for the lifetime of the app process in the consent
+  // cache. Never retain credentials or environment values in that cache.
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalConfig))
+    .digest("hex");
 }

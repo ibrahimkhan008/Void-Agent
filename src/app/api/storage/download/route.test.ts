@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   rate: vi.fn(),
   download: vi.fn(),
+  getMetadata: vi.fn(),
   getDownloadUrl: vi.fn(),
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.session }));
@@ -13,6 +14,7 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
 vi.mock("lib/file-storage", () => ({
   serverFileStorage: {
     download: mocks.download,
+    getMetadata: mocks.getMetadata,
     getDownloadUrl: mocks.getDownloadUrl,
   },
   storageDriver: "local",
@@ -50,6 +52,7 @@ describe("GET /api/storage/download", () => {
     mocks.session.mockResolvedValue({ user: { id: "user-1" } });
     mocks.rate.mockResolvedValue({ allowed: true });
     mocks.download.mockResolvedValue(Buffer.from("file"));
+    mocks.getMetadata.mockResolvedValue(null);
   });
 
   it("requires authentication and denies other users before storage access", async () => {
@@ -85,5 +88,32 @@ describe("GET /api/storage/download", () => {
     expect((await GET(request("key=uploads%2Fuser-1%2Ffile.pdf"))).status).toBe(
       429,
     );
+  });
+
+  it("serves uploaded audio inline using its validated stored MIME", async () => {
+    mocks.getMetadata.mockResolvedValue({
+      contentType: "audio/webm",
+      size: 16,
+    });
+    const response = await GET(
+      request("key=uploads%2Fuser-1%2Fvoice.weba&disposition=inline"),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("audio/webm");
+    expect(response.headers.get("content-disposition")).toContain("inline");
+  });
+
+  it("does not fall back to a trusted extension when stored MIME is unsafe", async () => {
+    mocks.getMetadata.mockResolvedValue({
+      contentType: "text/html",
+      size: 16,
+    });
+    const response = await GET(
+      request("key=uploads%2Fuser-1%2Fvoice.mp3&disposition=inline"),
+    );
+    expect(response.headers.get("content-type")).toBe(
+      "application/octet-stream",
+    );
+    expect(response.headers.get("content-disposition")).toContain("attachment");
   });
 });

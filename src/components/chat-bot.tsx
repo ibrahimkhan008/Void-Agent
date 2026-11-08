@@ -47,10 +47,14 @@ import { useProjects } from "@/hooks/queries/use-projects";
 import { useChatBackgroundAlerts } from "@/hooks/use-chat-background-alerts";
 import { useFileDragOverlay } from "@/hooks/use-file-drag-overlay";
 import { useToRef } from "@/hooks/use-latest";
+import { useRunRecovery } from "@/hooks/use-run-recovery";
 import { useThreadFileUploader } from "@/hooks/use-thread-file-uploader";
+import { isInterruptedAssistantTail } from "@/lib/chat/resumable-message";
+import { getRetryTurnSettings } from "@/lib/chat/retry-settings";
 import {
   ChatApiSchemaRequestBody,
   ChatAttachment,
+  ChatMetadata,
   ChatModel,
 } from "app-types/chat";
 import { AnimatePresence, motion } from "framer-motion";
@@ -192,6 +196,7 @@ export default function ChatBot({
     appStoreMutate,
     model,
     toolChoice,
+    planMode,
     allowedAppDefaultToolkit,
     allowedMcpServers,
     threadList,
@@ -204,6 +209,7 @@ export default function ChatBot({
       state.mutate,
       state.chatModel,
       state.toolChoice,
+      state.planMode,
       state.allowedAppDefaultToolkit,
       state.allowedMcpServers,
       state.threadList,
@@ -315,11 +321,13 @@ export default function ChatBot({
     setMessages: setRawMessages,
     addToolResult: _addToolResult,
     error,
+    clearError,
     sendMessage,
     stop,
+    regenerate,
+    resumeStream,
   } = useChat({
     id: threadId,
-    resume: true,
     sendAutomaticallyWhen: (options) =>
       stopRequestedRef.current
         ? false
@@ -368,8 +376,14 @@ export default function ChatBot({
           ...body,
           id,
           chatModel:
-            (body as { model: ChatModel })?.model ?? latestRef.current.model,
-          toolChoice: latestRef.current.toolChoice,
+            (body as Partial<ChatApiSchemaRequestBody> & { model?: ChatModel })
+              ?.chatModel ??
+            (body as { model?: ChatModel })?.model ??
+            latestRef.current.model,
+          toolChoice:
+            (body as Partial<ChatApiSchemaRequestBody>)?.toolChoice ??
+            latestRef.current.toolChoice,
+          planMode: latestRef.current.planMode,
           allowedAppDefaultToolkit:
             latestRef.current.mentions?.length || hasFilePart
               ? []
@@ -463,6 +477,76 @@ export default function ChatBot({
   // rendering catches up between chunks instead of stalling them.
   const messages = useDeferredValue(rawMessages);
   const setMessages = setRawMessages;
+  const messagesRef = useToRef(rawMessages);
+  const chatStateRef = useToRef({ status, error });
+  const lastStreamActivityRef = useRef(Date.now());
+  const resumeInFlightRef = useRef(false);
+  const resumedThreadRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (status === "streaming" || status === "submitted") {
+      lastStreamActivityRef.current = Date.now();
+    }
+  }, [rawMessages, status]);
+
+  const attemptResume = useCallback(async () => {
+    if (resumeInFlightRef.current) return true;
+    resumeInFlightRef.current = true;
+    try {
+      // HEAD checks for a live buffer without attaching a reader. GET would
+      // claim the stream even when this component is only probing.
+      const response = await fetch(`/api/chat/${threadId}/stream`, {
+        method: "HEAD",
+        cache: "no-store",
+      });
+      if (response.status !== 200) return false;
+      resumedThreadRef.current = threadId;
+      setMessages((current) =>
+        isInterruptedAssistantTail(current) ? current.slice(0, -1) : current,
+      );
+      await resumeStream();
+      return true;
+    } catch (cause) {
+      console.error("Failed to resume chat stream:", cause);
+      return false;
+    } finally {
+      resumeInFlightRef.current = false;
+    }
+  }, [resumeStream, setMessages, threadId]);
+
+  const regeneratePreviousTurn = useCallback(() => {
+    return regenerate({
+      body: getRetryTurnSettings(messagesRef.current),
+    });
+  }, [messagesRef, regenerate]);
+
+  const { recoverRun, handleRetry, recoveryState } = useRunRecovery({
+    threadId,
+    enabled: true,
+    error,
+    messagesRef,
+    chatStateRef,
+    lastStreamActivityRef,
+    attemptResume,
+    stop,
+    setMessages,
+    clearError,
+    sendMessage,
+    regenerate: regeneratePreviousTurn,
+  });
+
+  useEffect(() => {
+    if (resumedThreadRef.current === threadId) return;
+    resumedThreadRef.current = threadId;
+    if (
+      (initialMessages.at(-1)?.metadata as ChatMetadata | undefined)
+        ?.runStatus === "running"
+    ) {
+      void recoverRun();
+    }
+    // Recovery is triggered once for the initial persisted run of each thread.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
   const latestContext = useMemo(
     () => selectLatestCompletedContextUsage(messages),
     [messages],
@@ -513,6 +597,7 @@ export default function ChatBot({
 
   const latestRef = useToRef({
     toolChoice,
+    planMode,
     model,
     collectionIds,
     projectId,
@@ -567,6 +652,17 @@ export default function ChatBot({
     () => status === "streaming" || status === "submitted",
     [status],
   );
+
+  const terminalRunStatus = (
+    messages.at(-1)?.metadata as ChatMetadata | undefined
+  )?.runStatus;
+  const hasRetryableTerminalRun =
+    !error &&
+    !isLoading &&
+    (terminalRunStatus === "failed" ||
+      terminalRunStatus === "timed_out" ||
+      terminalRunStatus === "cancelled" ||
+      terminalRunStatus === "incomplete");
 
   const emptyMessage = useMemo(
     () => messages.length === 0 && !error,
@@ -915,7 +1011,24 @@ export default function ChatBot({
                 </>
               )}
 
-              {error && <ErrorMessage error={error} />}
+              {error && (
+                <ErrorMessage
+                  error={error}
+                  onRetry={handleRetry}
+                  recovery={recoveryState}
+                />
+              )}
+              {hasRetryableTerminalRun && (
+                <ErrorMessage
+                  error={
+                    new Error(
+                      "This response did not finish. Retry to generate it again.",
+                    )
+                  }
+                  onRetry={handleRetry}
+                  recovery={recoveryState}
+                />
+              )}
               <div className="min-w-0 min-h-52" />
             </div>
           </>

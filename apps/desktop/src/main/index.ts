@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow, Menu, app, dialog, shell } from "electron";
 import { buildDesktopApplicationMenu } from "./application-menu.js";
@@ -24,6 +25,7 @@ import {
   openServerPickerWindow,
   registerServerPickerIpc,
 } from "./server-picker.js";
+import { updaterLogDirectory } from "./updater-log.js";
 
 const targetValue =
   process.env.VOID_AGENT_WEB_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "";
@@ -66,6 +68,26 @@ function installApplicationMenu(onChangeServer: () => void) {
         canOpenDevTools: process.env.NODE_ENV === "development",
         onChangeServer,
         onCheckForUpdates: () => void checkForUpdatesNow("manual"),
+        onOpenUpdaterLogs: () => {
+          void (async () => {
+            try {
+              const directory = updaterLogDirectory();
+              mkdirSync(directory, { recursive: true });
+              const error = await shell.openPath(directory);
+              if (error) {
+                dialog.showErrorBox(
+                  "Unable to open update logs",
+                  "The updater log folder could not be opened.",
+                );
+              }
+            } catch {
+              dialog.showErrorBox(
+                "Unable to open update logs",
+                "The updater log folder could not be opened.",
+              );
+            }
+          })();
+        },
         onAbout: () => app.showAboutPanel(),
       }),
     ),

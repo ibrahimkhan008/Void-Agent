@@ -4,6 +4,9 @@ import {
   chatBackgroundAlertHref,
   createChatBackgroundAlertDeduper,
   isChatBackgroundAlertEnabled,
+  isChatUserAway,
+  isViewingChatThread,
+  resolveChatBackgroundAlertPreferences,
   shouldSendChatBackgroundAlert,
   shouldSendChatForegroundAlert,
 } from "./chat-background-alerts";
@@ -20,45 +23,71 @@ describe("background chat alert preferences", () => {
     );
   });
 
+  it("defaults only-when-away off and merges existing user preference values", () => {
+    expect(resolveChatBackgroundAlertPreferences(undefined)).toEqual({
+      enabled: false,
+      onlyWhenAway: false,
+    });
+    expect(
+      resolveChatBackgroundAlertPreferences({
+        backgroundChatAlerts: true,
+        chatAlertsOnlyWhenAway: true,
+        unrelated: "ignored",
+      }),
+    ).toEqual({ enabled: true, onlyWhenAway: true });
+  });
+
+  it("detects away state and suppresses alerts for the visible current thread", () => {
+    expect(isChatUserAway(false, true)).toBe(false);
+    expect(isChatUserAway(false, false)).toBe(true);
+    expect(isChatUserAway(true, true)).toBe(true);
+    expect(isViewingChatThread("thread-1", "/chat/thread-1", false)).toBe(true);
+    expect(isViewingChatThread("thread-1", "/chat/thread-1", true)).toBe(false);
+    expect(isViewingChatThread("thread-1", "/chat/thread-2", false)).toBe(
+      false,
+    );
+  });
+
   it("routes opted-in alerts to the foreground only while the tab is visible", () => {
     expect(shouldSendChatForegroundAlert(true, false)).toBe(true);
     expect(shouldSendChatForegroundAlert(true, true)).toBe(false);
     expect(shouldSendChatForegroundAlert(false, false)).toBe(false);
+    expect(shouldSendChatForegroundAlert(true, false, true)).toBe(false);
   });
 
   it("sends only when enabled, hidden, and browser permission is granted", () => {
     expect(
       shouldSendChatBackgroundAlert({
         enabled: true,
-        hidden: true,
+        away: true,
         permission: "granted",
       }),
     ).toBe(true);
     expect(
       shouldSendChatBackgroundAlert({
         enabled: false,
-        hidden: true,
+        away: true,
         permission: "granted",
       }),
     ).toBe(false);
     expect(
       shouldSendChatBackgroundAlert({
         enabled: true,
-        hidden: false,
+        away: false,
         permission: "granted",
       }),
     ).toBe(false);
     expect(
       shouldSendChatBackgroundAlert({
         enabled: true,
-        hidden: true,
+        away: true,
         permission: "default",
       }),
     ).toBe(false);
     expect(
       shouldSendChatBackgroundAlert({
         enabled: true,
-        hidden: true,
+        away: true,
         permission: "unsupported",
       }),
     ).toBe(false);

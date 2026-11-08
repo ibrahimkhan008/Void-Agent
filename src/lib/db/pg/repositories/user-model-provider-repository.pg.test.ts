@@ -32,7 +32,7 @@ describe("user model provider credential persistence", () => {
         name: "Gateway",
         baseUrl: "https://provider.example/v1",
         encryptedApiKey: "cipher:secret-value",
-        modelIds: ["model-a"],
+        modelIds: [{ id: "model-a", supportsToolCalling: true }],
         createdAt: new Date(0),
         updatedAt: new Date(0),
       },
@@ -46,16 +46,21 @@ describe("user model provider credential persistence", () => {
       baseUrl: "https://provider.example/v1",
       apiKey: " secret-value ",
       modelIds: ["model-a"],
+      capabilities: { "model-a": { supportsToolCalling: true } },
     });
     expect(mocks.insertValues).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "owner-a",
         encryptedApiKey: "cipher:secret-value",
-        modelIds: ["model-a"],
+        modelIds: [{ id: "model-a", supportsToolCalling: true }],
       }),
     );
     expect(mocks.insertValues.mock.calls[0]?.[0]).not.toHaveProperty("apiKey");
-    expect(result).toMatchObject({ hasApiKey: true, modelIds: ["model-a"] });
+    expect(result).toMatchObject({
+      hasApiKey: true,
+      modelIds: ["model-a"],
+      capabilities: { "model-a": { supportsToolCalling: true } },
+    });
     expect(result).not.toHaveProperty("apiKey");
     expect(result).not.toHaveProperty("encryptedApiKey");
   });

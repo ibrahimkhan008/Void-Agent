@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  type ScheduleCreateRequestKey,
+  getScheduleCreateRequestKey,
+} from "lib/scheduler/create-request-key";
+import {
   Activity,
   Check,
   ChevronDown,
@@ -13,11 +17,19 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import React from "react";
 import { Button } from "ui/button";
 
 type ScheduledJob = {
   id: string;
+  agentId: string | null;
   name: string;
   cron: string;
   status: "active" | "paused" | "disabled";
@@ -30,11 +42,13 @@ type ScheduledJob = {
     runAt?: string;
   };
 };
+type AgentOption = { id: string; name: string };
 type ScheduledRun = {
   id: string;
   startedAt: string;
   completedAt: string | null;
   status: string;
+  failureDiagnostic?: { code: string; message: string } | null;
 };
 type ScheduleDiagnostics = {
   now: string;
@@ -48,8 +62,10 @@ type ScheduleDiagnostics = {
     name: string;
     status: string;
     timezone: string;
-    nextRunAt: string;
+    persistedNextRunAt: string;
+    computedNextRunAt: string | null;
     dueNow: boolean;
+    scheduleDrift: boolean;
   }>;
 };
 
@@ -73,6 +89,11 @@ export function ScheduledJobsDashboard() {
   );
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsUnavailable, setAgentsUnavailable] = useState(false);
+  const agentsLoaded = useRef(false);
   const [runAt, setRunAt] = useState("");
   const [cron, setCron] = useState("0 9 * * 1-5");
   const [timezone, setTimezone] = useState("UTC");
@@ -81,6 +102,35 @@ export function ScheduledJobsDashboard() {
   );
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
+  const createRequestKey = useRef<ScheduleCreateRequestKey | null>(null);
+
+  const loadAgents = async () => {
+    if (agentsLoaded.current || agentsLoading) return;
+    setAgentsLoading(true);
+    setAgentsUnavailable(false);
+    try {
+      const response = await fetch("/api/agent?filters=mine&limit=100", {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Could not load your agents.");
+      const body: unknown = await response.json();
+      if (!Array.isArray(body)) throw new Error("Invalid agent list.");
+      setAgents(
+        body.filter(
+          (agent): agent is AgentOption =>
+            Boolean(agent) &&
+            typeof agent === "object" &&
+            typeof agent.id === "string" &&
+            typeof agent.name === "string",
+        ),
+      );
+      agentsLoaded.current = true;
+    } catch {
+      setAgentsUnavailable(true);
+    } finally {
+      setAgentsLoading(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/scheduler/jobs", { cache: "no-store" });
@@ -234,18 +284,29 @@ export function ScheduledJobsDashboard() {
             scheduleType,
             title: title.trim() || undefined,
             prompt: prompt.trim(),
+            ...(selectedAgentId ? { agentId: selectedAgentId } : {}),
             ...(scheduleType === "once"
               ? { runAt: scheduledAt }
               : { cron: cron.trim(), timezone }),
           };
+      const serializedBody = JSON.stringify(body);
+      const headers = new Headers({ "Content-Type": "application/json" });
+      if (!editingJobId) {
+        createRequestKey.current = getScheduleCreateRequestKey(
+          createRequestKey.current,
+          serializedBody,
+          () => crypto.randomUUID(),
+        );
+        headers.set("Idempotency-Key", createRequestKey.current.key);
+      }
       const response = await fetch(
         editingJobId
           ? `/api/scheduler/jobs/${editingJobId}`
           : "/api/scheduler/jobs",
         {
           method: editingJobId ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          headers,
+          body: serializedBody,
         },
       );
       if (!response.ok) {
@@ -256,13 +317,15 @@ export function ScheduledJobsDashboard() {
             : "Could not create schedule.",
         );
       }
+      await refresh();
+      if (!editingJobId) createRequestKey.current = null;
       setPrompt("");
+      setSelectedAgentId("");
       setTitle("");
       setRunAt("");
       setShowCreate(false);
       setEditingJobId(null);
       setDiagnostics(null);
-      await refresh();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not create schedule.",
@@ -301,6 +364,7 @@ export function ScheduledJobsDashboard() {
   };
 
   const beginEdit = (job: ScheduledJob) => {
+    void loadAgents();
     setEditingJobId(job.id);
     setShowCreate(true);
     setScheduleType(
@@ -308,6 +372,7 @@ export function ScheduledJobsDashboard() {
     );
     setTitle(job.name);
     setPrompt(job.payload?.triggerMessage ?? "");
+    setSelectedAgentId(job.agentId ?? "");
     setCron(job.cron);
     setTimezone(job.timezone || "UTC");
     setRunAt(
@@ -324,6 +389,7 @@ export function ScheduledJobsDashboard() {
       setScheduleType("once");
       setTitle("");
       setPrompt("");
+      setSelectedAgentId("");
       setRunAt("");
       setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
       return;
@@ -332,8 +398,10 @@ export function ScheduledJobsDashboard() {
     setScheduleType("once");
     setTitle("");
     setPrompt("");
+    setSelectedAgentId("");
     setRunAt("");
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    void loadAgents();
     setShowCreate(true);
   };
 
@@ -342,8 +410,8 @@ export function ScheduledJobsDashboard() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Scheduled tasks</h1>
         <p className="text-sm text-muted-foreground">
-          Review your scheduled assistant runs, pause tasks, and inspect recent
-          run status.
+          Review your scheduled assistant and agent runs, pause tasks, and
+          inspect recent run status.
         </p>
       </div>
       {error && (
@@ -373,7 +441,7 @@ export function ScheduledJobsDashboard() {
         <section className="mb-5 rounded-lg border p-4">
           <h2 className="font-semibold">Scheduler diagnostics</h2>
           {loadingDiagnostics ? (
-            <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
+            <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
           ) : (
             diagnostics && (
               <>
@@ -406,7 +474,9 @@ export function ScheduledJobsDashboard() {
                         {job.dueNow
                           ? "Due now"
                           : job.status === "active"
-                            ? `Next ${formatDate(job.nextRunAt)}`
+                            ? job.scheduleDrift && job.computedNextRunAt
+                              ? `Schedule drift: stored ${formatDate(job.persistedNextRunAt)}, cron predicts ${formatDate(job.computedNextRunAt)}`
+                              : `Next ${formatDate(job.persistedNextRunAt)}`
                             : job.status}
                       </span>
                     </li>
@@ -463,8 +533,39 @@ export function ScheduledJobsDashboard() {
               maxLength={8000}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Summarize my project updates…"
+              placeholder="Summarize my project updates..."
             />
+          </label>
+          <label className="block space-y-1 text-sm">
+            Run as agent (optional)
+            <select
+              className="h-10 w-full rounded-md border bg-background px-3"
+              value={selectedAgentId}
+              onChange={(event) => setSelectedAgentId(event.target.value)}
+              disabled={agentsLoading || Boolean(editingJobId)}
+            >
+              <option value="">Assistant task</option>
+              {selectedAgentId &&
+                !agents.some((agent) => agent.id === selectedAgentId) && (
+                  <option value={selectedAgentId}>
+                    Previously selected agent
+                  </option>
+                )}
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+            <span className="block text-xs text-muted-foreground">
+              {agentsLoading
+                ? "Loading your agents..."
+                : agentsUnavailable
+                  ? "Your agent list is unavailable. You can still schedule an assistant task."
+                  : editingJobId
+                    ? "The agent for an existing schedule cannot be changed."
+                    : "Choose one of your agents to run this prompt with its instructions and model."}
+            </span>
           </label>
           {scheduleType === "once" ? (
             <label className="block space-y-1 text-sm">
@@ -543,6 +644,11 @@ export function ScheduledJobsDashboard() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {job.payload?.triggerMessage ?? "Scheduled assistant run"}
                   </p>
+                  {job.agentId && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Runs as agent
+                    </p>
+                  )}
                   <dl className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-3">
                     <div>
                       <dt className="inline font-medium">Schedule: </dt>
@@ -660,6 +766,11 @@ export function ScheduledJobsDashboard() {
                             <span className="capitalize text-muted-foreground">
                               {run.status}
                             </span>
+                            {run.failureDiagnostic && (
+                              <span className="basis-full text-xs text-destructive">
+                                {run.failureDiagnostic.message}
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -670,7 +781,7 @@ export function ScheduledJobsDashboard() {
                     )
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Loading run history…
+                      Loading run history...
                     </p>
                   )}
                 </div>

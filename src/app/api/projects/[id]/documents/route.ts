@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { getSession } from "auth/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import {
   canAttachCollectionToProject,
   canWriteCollection,
@@ -14,11 +14,13 @@ import {
 } from "lib/db/pg/schema.pg";
 import { serverFileStorage, storageDriver } from "lib/file-storage";
 import { readBoundedRequestBody } from "lib/http/bounded-request-body";
+import logger from "lib/logger";
 import {
   getProjectAccess,
   getProjectCollectionSourceOwnerIds,
   mayEditProject,
 } from "lib/projects/access";
+import { enqueueProjectBrainForIngest } from "lib/projects/brain-queue";
 import { IngestError, ingestText } from "lib/rag/ingest";
 import { isParseableDocument, parseDocument } from "lib/rag/parse";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
@@ -45,12 +47,48 @@ function projectDocumentStorageIsPrivate() {
   return /^(1|true)$/i.test(process.env.FILE_STORAGE_S3_PRIVATE ?? "");
 }
 
+const PROJECT_DOCUMENT_PAGE_SIZE = 100;
+
+type ProjectDocumentCursor = { createdAt: string; linkId: string };
+
+function parseProjectDocumentCursor(value: string | null) {
+  if (!value || value.length > 512) return null;
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Record<string, unknown>;
+    if (
+      typeof decoded.createdAt !== "string" ||
+      typeof decoded.linkId !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(decoded.linkId)
+    )
+      return null;
+    const timestamp = new Date(decoded.createdAt);
+    if (
+      !Number.isFinite(timestamp.getTime()) ||
+      timestamp.toISOString() !== decoded.createdAt
+    )
+      return null;
+    return { createdAt: decoded.createdAt, linkId: decoded.linkId };
+  } catch {
+    return null;
+  }
+}
+
+function encodeProjectDocumentCursor(cursor: ProjectDocumentCursor) {
+  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getSession();
   if (!session?.user.id) return new Response("Unauthorized", { status: 401 });
+  const searchParams = new URL(request.url).searchParams;
+  const cursor = parseProjectDocumentCursor(searchParams.get("cursor"));
+  if (searchParams.has("cursor") && !cursor)
+    return Response.json({ error: "Invalid cursor" }, { status: 400 });
   const { id: projectId } = await params;
   const access = await getProjectAccess(projectId, session.user.id);
   if (!access) return new Response("Not found", { status: 404 });
@@ -82,6 +120,7 @@ export async function GET(
   const rows = await pgDb
     .select({
       id: CollectionItemTable.id,
+      linkId: ProjectDocumentTable.id,
       collectionId: CollectionItemTable.collectionId,
       filename: CollectionItemTable.filename,
       mediaType: CollectionItemTable.mediaType,
@@ -102,11 +141,36 @@ export async function GET(
         eq(ProjectDocumentTable.projectId, projectId),
         inArray(CollectionItemTable.collectionId, collectionIds),
         inArray(CollectionTable.userId, ownerIds),
+        cursor
+          ? or(
+              lt(ProjectDocumentTable.createdAt, new Date(cursor.createdAt)),
+              and(
+                eq(ProjectDocumentTable.createdAt, new Date(cursor.createdAt)),
+                lt(ProjectDocumentTable.id, cursor.linkId),
+              ),
+            )
+          : undefined,
       ),
     )
-    .orderBy(desc(ProjectDocumentTable.createdAt))
-    .limit(100);
-  return Response.json({ documents: rows, writableCollectionIds });
+    .orderBy(
+      desc(ProjectDocumentTable.createdAt),
+      desc(ProjectDocumentTable.id),
+    )
+    .limit(PROJECT_DOCUMENT_PAGE_SIZE + 1);
+  const hasMore = rows.length > PROJECT_DOCUMENT_PAGE_SIZE;
+  const page = rows.slice(0, PROJECT_DOCUMENT_PAGE_SIZE);
+  const last = page.at(-1);
+  return Response.json({
+    documents: page.map(({ linkId: _linkId, ...document }) => document),
+    nextCursor:
+      hasMore && last
+        ? encodeProjectDocumentCursor({
+            createdAt: last.createdAt.toISOString(),
+            linkId: last.linkId,
+          })
+        : null,
+    writableCollectionIds,
+  });
 }
 
 export async function POST(
@@ -256,6 +320,24 @@ export async function POST(
       collectionItemId: ingest.itemId,
       uploadedByUserId: session.user.id,
     });
+    try {
+      await enqueueProjectBrainForIngest({
+        userId: session.user.id,
+        collectionId,
+        itemId: ingest.itemId,
+      });
+    } catch {
+      // The file is already stored and indexed; brain scheduling must not
+      // turn a successful upload into a failed request or trigger rollback.
+      logger.warn(
+        "[project-document-upload] could not enqueue brain analysis",
+        {
+          projectId,
+          collectionId,
+          itemId: ingest.itemId,
+        },
+      );
+    }
     return Response.json(
       {
         document: {

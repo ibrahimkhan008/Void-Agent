@@ -1,6 +1,11 @@
 import "server-only";
 import { Composio } from "@composio/core";
 import type { Tool as ComposioTool } from "@composio/core";
+import {
+  type ComposioWriteApprovalRequest,
+  bindComposioWriteApprovalPayload,
+  composioWriteApprovalRepository,
+} from "lib/ai/tools/hitl/composio-write-approval";
 
 let composioInstance: Composio | null = null;
 
@@ -45,22 +50,37 @@ export function isReadOnlyComposioAction(slug: string) {
   return READ_ACTION.test(normalized) && !WRITE_ACTION.test(normalized);
 }
 
-export async function listComposioAccountsForUser(userId: string) {
+/** True only for slugs with an explicit, recognized mutating verb. */
+export function isWriteComposioAction(slug: string) {
+  const normalized = slug.toUpperCase();
+  return WRITE_ACTION.test(normalized) && !READ_ACTION.test(normalized);
+}
+
+export async function listComposioAccountsForUser(
+  userId: string,
+  options: { includeShared?: boolean; maxAccounts?: number } = {},
+) {
   const accounts = [] as Awaited<
     ReturnType<ReturnType<typeof getComposio>["connectedAccounts"]["list"]>
   >["items"];
   let cursor: string | undefined;
+  const maxAccounts =
+    options.maxAccounts === undefined
+      ? Number.POSITIVE_INFINITY
+      : Math.max(1, Math.min(Math.floor(options.maxAccounts), 2_000));
   for (let page = 0; page < 20; page++) {
     const result = await getComposio().connectedAccounts.list(
       {
         userIds: [userId],
         statuses: ["ACTIVE"],
-        limit: 100,
+        ...(options.includeShared ? { accountType: "ALL" as const } : {}),
+        limit: Math.min(100, maxAccounts - accounts.length),
         ...(cursor ? { cursor } : {}),
       },
       { signal: AbortSignal.timeout(10_000) },
     );
     accounts.push(...result.items);
+    if (accounts.length >= maxAccounts) break;
     cursor = result.nextCursor ?? undefined;
     if (!cursor) break;
   }
@@ -96,13 +116,80 @@ export async function disconnectComposioAccount(connectedAccountId: string) {
   await getComposio().connectedAccounts.delete(connectedAccountId);
 }
 
-export async function listComposioReadActions(toolkitSlug: string) {
+export async function listComposioReadActions(
+  toolkitSlug: string,
+  maxActions = 500,
+) {
   const tools = await getComposio().tools.getRawComposioTools(
-    { toolkits: [toolkitSlug], limit: 500 },
+    { toolkits: [toolkitSlug], limit: Math.min(Math.max(1, maxActions), 500) },
     undefined,
     { signal: AbortSignal.timeout(20_000) },
   );
   return tools.filter((tool) => isReadOnlyComposioAction(tool.slug));
+}
+
+/** Lists unfiltered actions for an explicit human-approval workflow only. */
+export async function listComposioActions(
+  toolkitSlug: string,
+  maxActions = 500,
+) {
+  return getComposio().tools.getRawComposioTools(
+    { toolkits: [toolkitSlug], limit: Math.min(Math.max(1, maxActions), 500) },
+    undefined,
+    { signal: AbortSignal.timeout(20_000) },
+  );
+}
+
+/** Effectful execution primitive; callers must consume an exact approval first. */
+export async function executeApprovedComposioAction(input: {
+  userId: string;
+  connectedAccountId: string;
+  toolkitSlug: string;
+  tool: ComposioTool;
+  approvalRequest: ComposioWriteApprovalRequest;
+  approvalToken: string;
+  signal?: AbortSignal;
+}) {
+  if (!isWriteComposioAction(input.tool.slug)) {
+    throw new Error("Composio action is not a recognized write action");
+  }
+  const request = input.approvalRequest;
+  const actionVersion =
+    input.tool.version == null ? "" : String(input.tool.version);
+  if (
+    request.actionSlug !== input.tool.slug ||
+    request.toolkitSlug.toLowerCase() !== input.toolkitSlug.toLowerCase() ||
+    request.actionVersion !== actionVersion
+  ) {
+    throw new Error("Composio action does not match the approved request");
+  }
+  const approvalPayload = bindComposioWriteApprovalPayload(
+    input.userId,
+    input.connectedAccountId,
+    request,
+  );
+  const consumed = await composioWriteApprovalRepository.consume(
+    input.userId,
+    input.approvalToken,
+    approvalPayload,
+  );
+  if (!consumed) {
+    throw new Error("Composio approval is missing, expired, or already used");
+  }
+  const timeoutSignal = AbortSignal.timeout(15_000);
+  const signal = input.signal
+    ? AbortSignal.any([input.signal, timeoutSignal])
+    : timeoutSignal;
+  return getComposio().tools.execute(
+    input.tool.slug,
+    {
+      userId: input.userId,
+      connectedAccountId: input.connectedAccountId,
+      arguments: request.arguments,
+      ...(input.tool.version ? { version: input.tool.version } : {}),
+    },
+    { signal },
+  );
 }
 
 export async function executeComposioReadAction(input: {

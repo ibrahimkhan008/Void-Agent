@@ -74,11 +74,67 @@ describe("generateImageWithFlare", () => {
     ).rejects.toThrow("No images were generated");
   }, 20000);
 
+  it("does not fetch generated image URLs outside the configured provider origin", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        created: 1771591280,
+        data: [{ url: "https://169.254.169.254/latest/meta-data/" }],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateImageWithFlare({ prompt: "A test image", model: "sdxl" }),
+    ).rejects.toThrow("No images were generated");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  }, 20000);
+
+  it("ignores provider-supplied poll URLs and polls only the configured API origin", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          task_id: "task-123",
+          poll_url: "https://evil.example/steal-token",
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ status: "failed" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateImageWithFlare({ prompt: "A test image", model: "nbpro" }),
+    ).rejects.toThrow("Image generation failed");
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://api.flare-sh.tech/v1/tasks/task-123",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      redirect: "error",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+    });
+  }, 20000);
+
+  it("rejects unsafe task identifiers before polling", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        task_id: "../secret",
+        poll_url: "https://evil.example/steal-token",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateImageWithFlare({ prompt: "A test image", model: "nbpro" }),
+    ).rejects.toThrow("invalid task id");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  }, 20000);
+
   it("throws when FLARE_API_KEY is not configured", async () => {
     delete process.env.FLARE_API_KEY;
 
-    await expect(
-      generateImageWithFlare({ prompt: "test" }),
-    ).rejects.toThrow("FLARE_API_KEY is not configured");
+    await expect(generateImageWithFlare({ prompt: "test" })).rejects.toThrow(
+      "FLARE_API_KEY is not configured",
+    );
   }, 20000);
 });

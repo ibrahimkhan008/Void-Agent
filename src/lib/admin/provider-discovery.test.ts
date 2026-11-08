@@ -200,4 +200,19 @@ describe("createProviderDiscoveryRequest", () => {
       }),
     );
   });
+
+  it("includes the stable provider ID without sending a saved secret", () => {
+    const request = createProviderDiscoveryRequest(
+      "https://provider.example/v1",
+      "",
+      "gateway-one",
+    );
+
+    expect(request.init.body).toBe(
+      JSON.stringify({
+        baseURL: "https://provider.example/v1",
+        providerId: "gateway-one",
+      }),
+    );
+  });
 });

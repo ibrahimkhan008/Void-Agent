@@ -321,6 +321,15 @@ describe("project brain Composio sync authorization and idempotency", () => {
         },
       },
     ]);
+    mocks.listAccounts.mockResolvedValue([
+      {
+        id: "account-1",
+        status: "ACTIVE",
+        isDisabled: false,
+        experimental: { accountType: "SHARED" },
+        toolkit: { slug: "github" },
+      },
+    ]);
 
     const response = await POST(makeRequest({ idempotencyKey: "manual-1" }), {
       params: Promise.resolve({ id: projectId, connectorId }),
@@ -331,6 +340,9 @@ describe("project brain Composio sync authorization and idempotency", () => {
       run: { status: "completed", sourceItemId: "source-reused", reused: true },
     });
     expect(mocks.execute).toHaveBeenCalledTimes(1);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
     expect(mocks.gatherSource).not.toHaveBeenCalled();
   });
 });

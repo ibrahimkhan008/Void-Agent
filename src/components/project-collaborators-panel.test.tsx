@@ -70,6 +70,26 @@ describe("ProjectCollaboratorsPanelView", () => {
     expect(markup).toContain("Remove Ari Team");
   });
 
+  it("shows inherited owners without offering role or removal controls", () => {
+    const markup = renderView({
+      members: [
+        {
+          userId: "team-owner",
+          name: "Workspace owner",
+          email: "owner@example.test",
+          image: null,
+          role: "owner",
+          accessSource: "team",
+        },
+      ],
+    });
+    expect(markup).toContain("Workspace owner");
+    expect(markup).toContain("Team owner");
+    expect(markup).toContain("Owner");
+    expect(markup).not.toContain('id="project-member-role-team-owner"');
+    expect(markup).not.toContain("Remove Workspace owner");
+  });
+
   it("lets an editor prepare and save a viewer or editor role for an existing member", () => {
     const markup = renderView({
       projectRole: "editor",

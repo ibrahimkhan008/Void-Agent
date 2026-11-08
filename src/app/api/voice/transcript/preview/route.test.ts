@@ -117,6 +117,21 @@ describe("POST /api/voice/transcript/preview", () => {
     expect(mocks.selectThread).toHaveBeenCalledWith(threadId);
   });
 
+  it("previews an owned saved browser voice transcript", async () => {
+    mocks.selectMessage.mockResolvedValue({
+      id: messageId,
+      threadId,
+      role: "user",
+      parts: [{ type: "text", text: "Summarize my notes" }],
+      metadata: { source: "voice_realtime", voiceSessionId: "session-1" },
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    expect(mocks.preview).toHaveBeenCalledWith("Summarize my notes", []);
+    expect(mocks.upsertMessage).not.toHaveBeenCalled();
+    expect(mocks.upsertThread).not.toHaveBeenCalled();
+  });
+
   it("limits project suggestions to the signed-in user's authorized project list", async () => {
     const projectId = "00000000-0000-4000-8000-000000000005";
     mocks.listProjectsForUser.mockResolvedValue([

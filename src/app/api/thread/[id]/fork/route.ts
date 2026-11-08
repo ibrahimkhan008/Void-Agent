@@ -1,8 +1,11 @@
 import { getSession } from "auth/server";
-import { chatRepository } from "lib/db/repository";
-import { handleError } from "../../../chat/shared.chat";
-import globalLogger from "logger";
 import { colorize } from "consola/utils";
+import { ForkSnapshotLimitError } from "lib/chat/fork-limits";
+import { chatRepository } from "lib/db/repository";
+import { getProjectAccess, getTeamRole } from "lib/projects/access";
+import { canEditProjectRole } from "lib/projects/policy";
+import globalLogger from "logger";
+import { handleError } from "../../../chat/shared.chat";
 
 const logger = globalLogger.withDefaults({
   message: colorize("blackBright", `Fork API: `),
@@ -76,16 +79,47 @@ export async function POST(request: Request, { params }: RouteParams) {
     // checkAccess returns false) for source threads the user has
     // never seen — we want a 403/404 here rather than a 500 from
     // the repository's "access denied" error.
-    const hasAccess = await chatRepository.checkAccess(
-      sourceThreadId,
-      userId,
-    );
+    const hasAccess = await chatRepository.checkAccess(sourceThreadId, userId);
     if (!hasAccess) {
       return new Response("Source thread not found", { status: 404 });
     }
 
+    const sourceThread = await chatRepository.selectThread(sourceThreadId);
+    if (!sourceThread || sourceThread.userId !== userId) {
+      return new Response("Source thread not found", { status: 404 });
+    }
+
+    if (sourceThread.projectId) {
+      const projectAccess = await getProjectAccess(
+        sourceThread.projectId,
+        userId,
+      );
+      if (!projectAccess) {
+        return new Response("Project not found", { status: 404 });
+      }
+      if (!canEditProjectRole(projectAccess.role)) {
+        return new Response("Project editing access is required", {
+          status: 403,
+        });
+      }
+    } else if (sourceThread.orgId) {
+      const teamRole = await getTeamRole(sourceThread.orgId, userId);
+      if (!teamRole) {
+        return new Response("Team not found", { status: 404 });
+      }
+      if (!canEditProjectRole(teamRole)) {
+        return new Response("Team editing access is required", {
+          status: 403,
+        });
+      }
+    }
+
     const forked = await chatRepository.forkThread(
-      { sourceThreadId, forkFromMessageId, ...(branchLabel ? { branchLabel } : {}) },
+      {
+        sourceThreadId,
+        forkFromMessageId,
+        ...(branchLabel ? { branchLabel } : {}),
+      },
       userId,
     );
 
@@ -96,6 +130,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     return Response.json(forked);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    if (err instanceof ForkSnapshotLimitError) {
+      return new Response(message, { status: 413 });
+    }
     if (message === "Source thread not found or access denied") {
       return new Response("Source thread not found", { status: 404 });
     }

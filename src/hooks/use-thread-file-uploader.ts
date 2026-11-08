@@ -55,7 +55,7 @@ export function useThreadFileUploader(threadId?: string) {
       // Filter valid files first
       const validFiles = files.filter((file) => {
         if (file.size > MAX_SIZE_BYTES) {
-          toast.error(`${file.name}: file too large (>50MB)`);
+          toast.error(`${file.name}: file too large (maximum 15 MiB)`);
           return false;
         }
         return true;

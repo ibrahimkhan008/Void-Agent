@@ -499,8 +499,9 @@ export const voiceDeviceRepository = {
     deviceId: string;
     userId: string;
     limit?: number;
+    cursor?: { id: string; startedAt: string };
   }) {
-    const limit = Math.max(1, Math.min(Math.floor(input.limit ?? 20), 50));
+    const limit = Math.max(1, Math.min(Math.floor(input.limit ?? 20), 51));
     return db
       .select({
         id: VoiceDeviceSessionTable.id,
@@ -510,6 +511,7 @@ export const voiceDeviceRepository = {
         startedAt: VoiceDeviceSessionTable.startedAt,
         lastSegmentAt: VoiceDeviceSessionTable.lastSegmentAt,
         finalizedAt: VoiceDeviceSessionTable.finalizedAt,
+        cursorStartedAt: sql<string>`to_char(${VoiceDeviceSessionTable.startedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
         transcript: sql<string>`coalesce((select left(string_agg(${VoiceDeviceTranscriptSegmentTable.text}, E'\\n' order by ${VoiceDeviceTranscriptSegmentTable.sequenceNumber}), 24000) from ${VoiceDeviceTranscriptSegmentTable} where ${VoiceDeviceTranscriptSegmentTable.sessionPk} = ${VoiceDeviceSessionTable.id}), '')`,
       })
       .from(VoiceDeviceSessionTable)
@@ -526,6 +528,9 @@ export const voiceDeviceRepository = {
         and(
           eq(VoiceDeviceSessionTable.deviceId, input.deviceId),
           eq(VoiceDeviceSessionTable.userId, input.userId),
+          input.cursor
+            ? sql`(${VoiceDeviceSessionTable.startedAt} < (${input.cursor.startedAt}::timestamptz AT TIME ZONE 'UTC') OR (${VoiceDeviceSessionTable.startedAt} = (${input.cursor.startedAt}::timestamptz AT TIME ZONE 'UTC') AND ${VoiceDeviceSessionTable.id} < ${input.cursor.id}::uuid))`
+            : undefined,
         ),
       )
       .orderBy(
@@ -635,6 +640,29 @@ export const voiceDeviceRepository = {
       )
       .returning({ id: VoiceDeviceTable.id });
     return rows.length > 0;
+  },
+  /** Rotate a credential only for the owning user's currently active device. */
+  async rotateCredential(deviceId: string, userId: string) {
+    const token = generateVoiceDeviceToken();
+    const rows = await db
+      .update(VoiceDeviceTable)
+      .set({
+        tokenHash: hashVoiceDeviceSecret("token", token),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(VoiceDeviceTable.id, deviceId),
+          eq(VoiceDeviceTable.userId, userId),
+          eq(VoiceDeviceTable.status, "active"),
+        ),
+      )
+      .returning({
+        id: VoiceDeviceTable.id,
+        displayName: VoiceDeviceTable.displayName,
+      });
+    const [device] = rows;
+    return device ? { device, token } : null;
   },
   async getActiveByToken(token: string) {
     const tokenHash = hashVoiceDeviceSecret("token", token);

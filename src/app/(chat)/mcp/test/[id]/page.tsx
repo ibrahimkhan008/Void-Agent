@@ -12,7 +12,11 @@ import { useChatModels } from "@/hooks/queries/use-chat-models";
 import { useObjectState } from "@/hooks/use-object-state";
 import { ChatModel } from "app-types/chat";
 import { MCPToolInfo } from "app-types/mcp";
-import { callMcpToolViaDesktop, isDesktopClient, listMcpToolsViaDesktop } from "lib/ai/mcp/desktop-bridge";
+import {
+  callMcpToolViaDesktop,
+  isDesktopClient,
+  listMcpToolsViaDesktop,
+} from "lib/ai/mcp/desktop-bridge";
 import { isMaybeStdioConfig } from "lib/ai/mcp/is-mcp-config";
 import { shouldUseDesktopMcpBridge } from "lib/ai/mcp/desktop-bridge";
 import { requestVoiceMcpApproval } from "lib/ai/speech/mcp-voice-approval";
@@ -404,7 +408,10 @@ export default function Page() {
   const { data: client, isLoading } = useSWR(`/mcp/${id}`, async () => {
     const serverInfo = await selectMcpClientAction(id as string);
     if (serverInfo.config && shouldUseDesktopMcpBridge(serverInfo.config)) {
-      return { ...serverInfo, toolInfo: await listMcpToolsViaDesktop(serverInfo.config) };
+      return {
+        ...serverInfo,
+        toolInfo: await listMcpToolsViaDesktop(serverInfo.config),
+      };
     }
     return serverInfo;
   });
@@ -459,23 +466,36 @@ export default function Page() {
 
     setIsCallLoading(true);
     try {
-      const isLocalDesktop = Boolean(client?.config && shouldUseDesktopMcpBridge(client.config));
+      const isLocalDesktop = Boolean(
+        client?.config && shouldUseDesktopMcpBridge(client.config),
+      );
       let result;
       if (isLocalDesktop && client?.config) {
-        result = await callMcpToolViaDesktop(client.config, selectedTool.name, parsedInput.value as Record<string, unknown>);
+        result = await callMcpToolViaDesktop(
+          client.config,
+          selectedTool.name,
+          parsedInput.value as Record<string, unknown>,
+        );
       } else {
         const approvalToken = await requestVoiceMcpApproval({
           serverId: id,
           serverName: client?.name ?? "",
           toolName: selectedTool.name,
+          serverConfigFingerprint: client?._approvalConfigFingerprint ?? "",
           payload: parsedInput.value as Record<string, unknown>,
-          reviewLabel: "Review this MCP test call before sending it to the configured server.",
+          reviewLabel:
+            "Review this MCP test call before sending it to the configured server.",
         });
         if (!approvalToken) {
           setCallResult({ success: false, error: "MCP call cancelled." });
           return;
         }
-        result = await callMcpToolAction(id, selectedTool.name, parsedInput.value, approvalToken);
+        result = await callMcpToolAction(
+          id,
+          selectedTool.name,
+          parsedInput.value,
+          approvalToken,
+        );
       }
 
       setCallResult({
@@ -540,13 +560,25 @@ export default function Page() {
         </header>
       </div>
 
-      {client?.config && isMaybeStdioConfig(client.config) && !isDesktopClient() && <Alert className="mb-3"><AlertTitle>Local MCP server</AlertTitle><AlertDescription>This server runs on your computer. Open this page in the Void-Agent desktop app to test its read-only tools.</AlertDescription></Alert>}
+      {client?.config &&
+        isMaybeStdioConfig(client.config) &&
+        !isDesktopClient() && (
+          <Alert className="mb-3">
+            <AlertTitle>Local MCP server</AlertTitle>
+            <AlertDescription>
+              This server runs on your computer. Open this page in the
+              Void-Agent desktop app to test its read-only tools.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {client?.config && shouldUseDesktopMcpBridge(client.config) && isDesktopClient() && (
-        <div className="flex justify-end">
-          <McpAuditHistory />
-        </div>
-      )}
+      {client?.config &&
+        shouldUseDesktopMcpBridge(client.config) &&
+        isDesktopClient() && (
+          <div className="flex justify-end">
+            <McpAuditHistory />
+          </div>
+        )}
 
       <ResizablePanelGroup direction="horizontal" className="mt-4">
         {/* Tool List Panel */}

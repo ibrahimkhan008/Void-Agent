@@ -540,7 +540,11 @@ function AppDefaultToolKitSelector() {
   const defaultToolInfo = useMemo(() => {
     const raw = t.raw("Chat.Tool.defaultToolKit");
     return Object.values(AppDefaultToolkit)
-      .filter((toolkit) => toolkit !== AppDefaultToolkit.Memory)
+      .filter(
+        (toolkit) =>
+          toolkit !== AppDefaultToolkit.Memory &&
+          toolkit !== AppDefaultToolkit.Browser,
+      )
       .map((toolkit) => {
         const label =
           raw[toolkit] ||
@@ -550,9 +554,7 @@ function AppDefaultToolKitSelector() {
               ? "Video"
               : toolkit === AppDefaultToolkit.Artifacts
                 ? "Artifacts"
-                : toolkit === AppDefaultToolkit.Browser
-                  ? "browser Agent"
-                  : toolkit);
+                : toolkit);
         const id = toolkit;
         let icon = Wrench;
         switch (toolkit) {
@@ -562,9 +564,7 @@ function AppDefaultToolKitSelector() {
           case AppDefaultToolkit.WebSearch:
             icon = GlobeIcon;
             break;
-          case AppDefaultToolkit.Browser:
-            icon = MousePointer2;
-            break;
+
           case AppDefaultToolkit.Http:
             icon = HardDriveUploadIcon;
             break;

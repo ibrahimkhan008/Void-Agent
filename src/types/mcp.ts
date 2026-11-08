@@ -85,6 +85,7 @@ export type VercelAIMcpTool = Tool & {
   _originToolName: string;
   _readOnlyHint?: boolean;
   _approvalTokenKey?: string;
+  _approvalConfigFingerprint?: string;
   _originalDescription?: string;
 };
 
@@ -289,4 +290,7 @@ export type McpOAuthRepository = {
 
   // Delete a session by its OAuth state
   deleteByState(state: string): Promise<void>;
+
+  // Delete all authorization state and tokens tied to one MCP server
+  deleteAllByMcpServerId(mcpServerId: string): Promise<void>;
 };

@@ -3,13 +3,28 @@ import { getProjectStatusForUser } from "lib/ai/tools/project-status";
 import { readBoundedJson } from "lib/notifications/contracts";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
-import { getOwnedProjectThreadScope } from "lib/voice/project-status";
+import {
+  getAccessibleProjectStatusScope,
+  getOwnedProjectThreadScope,
+} from "lib/voice/project-status";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const noStore = { "Cache-Control": "private, no-store" };
-const requestSchema = z.object({ threadId: z.string().uuid() }).strict();
+const requestSchema = z
+  .object({
+    threadId: z.string().uuid().optional(),
+    projectId: z.string().uuid().optional(),
+    projectName: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      Boolean(value.threadId || value.projectId || value.projectName) &&
+      !(value.projectId && value.projectName),
+    "Choose an active project chat or one project identifier.",
+  );
 
 /** Read project status through an owned, project-attached main chat thread. */
 export async function POST(request: Request) {
@@ -43,10 +58,13 @@ export async function POST(request: Request) {
     );
 
   try {
-    const scope = await getOwnedProjectThreadScope(
-      userId,
-      parsed.data.threadId,
-    );
+    const scope =
+      parsed.data.projectId || parsed.data.projectName
+        ? await getAccessibleProjectStatusScope(userId, {
+            projectId: parsed.data.projectId,
+            projectName: parsed.data.projectName,
+          })
+        : await getOwnedProjectThreadScope(userId, parsed.data.threadId);
     if (!scope)
       return Response.json(
         { error: "No project status is available for this chat." },

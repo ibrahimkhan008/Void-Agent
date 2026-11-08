@@ -45,7 +45,7 @@ export async function GET(
   const authorized = await authorize(id);
   if (authorized instanceof Response) return authorized;
 
-  const [members, teamMembers, team] = await Promise.all([
+  const [members, teamMembers, team, projectOwner] = await Promise.all([
     pgDb
       .select({
         userId: ProjectMemberTable.userId,
@@ -71,14 +71,54 @@ export async function GET(
           .where(eq(TeamMemberTable.teamId, authorized.access.project.teamId!))
       : Promise.resolve([]),
     pgDb
-      .select({ ownerId: TeamTable.ownerId })
+      .select({
+        ownerId: TeamTable.ownerId,
+        name: UserTable.name,
+        email: UserTable.email,
+        image: UserTable.image,
+      })
       .from(TeamTable)
+      .innerJoin(UserTable, eq(TeamTable.ownerId, UserTable.id))
       .where(eq(TeamTable.id, authorized.access.project.teamId!)),
+    pgDb
+      .select({
+        userId: UserTable.id,
+        name: UserTable.name,
+        email: UserTable.email,
+        image: UserTable.image,
+      })
+      .from(UserTable)
+      .where(eq(UserTable.id, authorized.access.project.userId)),
   ]);
+  const ownerEntries = [
+    ...(projectOwner[0]
+      ? [
+          {
+            ...projectOwner[0],
+            role: "owner" as const,
+            accessSource: "project" as const,
+          },
+        ]
+      : []),
+    ...(team[0] && team[0].ownerId !== authorized.access.project.userId
+      ? [
+          {
+            userId: team[0].ownerId,
+            name: team[0].name,
+            email: team[0].email,
+            image: team[0].image,
+            role: "owner" as const,
+            accessSource: "team" as const,
+          },
+        ]
+      : []),
+  ];
+  const implicitOwnerIds = new Set(ownerEntries.map((owner) => owner.userId));
   const existingMemberIds = new Set([
     authorized.access.project.userId,
     team[0]?.ownerId,
     ...members.map((member) => member.userId),
+    ...implicitOwnerIds,
   ]);
   const eligibleMembers = teamMembers.filter(
     (member) => !existingMemberIds.has(member.userId),
@@ -86,7 +126,12 @@ export async function GET(
   return Response.json(
     {
       accessMode: authorized.access.project.accessMode,
-      members,
+      members: [
+        ...ownerEntries,
+        ...members
+          .filter((member) => !implicitOwnerIds.has(member.userId))
+          .map((member) => ({ ...member, accessSource: "explicit" as const })),
+      ],
       eligibleMembers,
     },
     { headers: { "Cache-Control": "private, no-store" } },

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ToolUIPart } from "ai";
+import type { ReviewCitationEvidence } from "lib/tabular/review-source";
 import {
   type TabularReviewStreamEvent,
   readTabularReviewStream,
@@ -13,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "ui/badge";
 import { Button } from "ui/button";
+import { TabularReviewCitation } from "../tabular-review-citation";
 
 type Column = { id: string; label: string; type: string; prompt?: string };
 type Cell = {
@@ -20,6 +22,7 @@ type Cell = {
   columnId: string;
   value: string | null;
   status: "pending" | "generating" | "done" | "error";
+  citationEvidence?: ReviewCitationEvidence | null;
 };
 type ReviewData = {
   review: {
@@ -132,6 +135,7 @@ export function TabularReviewToolCard({ part }: { part: ToolUIPart }) {
                               ...cell,
                               value: event.value,
                               status: event.status,
+                              citationEvidence: undefined,
                             }
                           : cell,
                       ),
@@ -276,8 +280,8 @@ export function TabularReviewToolCard({ part }: { part: ToolUIPart }) {
                         ? "No pinned source"
                         : (item.availableSourceDocumentCount ?? 0) !==
                             item.sourceDocumentCount
-                          ? `Source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount})`
-                          : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "page" : "pages"}`}
+                          ? `Source incomplete (${item.availableSourceDocumentCount ?? 0}/${item.sourceDocumentCount} segments)`
+                          : `${item.sourceDocumentCount} pinned ${item.sourceDocumentCount === 1 ? "source segment" : "source segments"}`}
                     </span>
                   </th>
                   {data.review.columns.map((column) => {
@@ -290,12 +294,18 @@ export function TabularReviewToolCard({ part }: { part: ToolUIPart }) {
                         className="whitespace-pre-wrap border-b p-3 text-muted-foreground"
                       >
                         {cell?.status === "generating" ||
-                        (runActive && cell?.status === "pending")
-                          ? "Generating…"
-                          : cell?.value ||
-                            (cell?.status === "error"
-                              ? "Generation failed; open the review to retry."
-                              : "—")}
+                        (runActive && cell?.status === "pending") ? (
+                          "Generating…"
+                        ) : cell?.citationEvidence ? (
+                          <TabularReviewCitation
+                            evidence={cell.citationEvidence}
+                          />
+                        ) : (
+                          cell?.value ||
+                          (cell?.status === "error"
+                            ? "Generation failed; open the review to retry."
+                            : "—")
+                        )}
                       </td>
                     );
                   })}

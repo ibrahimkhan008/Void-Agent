@@ -98,7 +98,11 @@ export async function GET(
   }> = [];
   if (process.env.COMPOSIO_API_KEY) {
     try {
-      accounts = (await listComposioAccountsForUser(session.user.id))
+      accounts = (
+        await listComposioAccountsForUser(session.user.id, {
+          includeShared: true,
+        })
+      )
         .filter(
           (account) => account.status === "ACTIVE" && account.toolkit?.slug,
         )
@@ -168,7 +172,11 @@ export async function POST(
     return new Response("Attached collection not found", { status: 404 });
 
   try {
-    const account = (await listComposioAccountsForUser(session.user.id)).find(
+    const account = (
+      await listComposioAccountsForUser(session.user.id, {
+        includeShared: true,
+      })
+    ).find(
       (candidate) =>
         candidate.id === parsed.data.connectedAccountId &&
         candidate.status === "ACTIVE" &&

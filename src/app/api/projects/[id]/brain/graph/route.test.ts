@@ -37,6 +37,7 @@ type GraphRow = {
   sourceItemId?: string;
   filename?: string | null;
   sourceUrl?: string | null;
+  factCapturedAt?: Date;
 };
 const baseRows: GraphRow[] = [
   {
@@ -172,6 +173,51 @@ describe("GET project brain graph", () => {
       body.reviewedContradictions.map((entry: { id: string }) => entry.id),
     ).toEqual(["visible-conflict"]);
     expect(JSON.stringify(body)).not.toContain("Must not leak");
+  });
+
+  it("includes source provenance on current potential contradiction pairs", async () => {
+    rows.splice(
+      0,
+      rows.length,
+      {
+        ...baseRows[0]!,
+        subject: "Release",
+        predicate: "status",
+        object: "ready",
+        evidence: "Release is ready.",
+        filename: "release-plan.md",
+        factCapturedAt: new Date("2026-11-01T10:00:00.000Z"),
+      },
+      {
+        ...baseRows[0]!,
+        id: "second-current-fact",
+        subject: "Release",
+        predicate: "status",
+        object: "blocked",
+        evidence: "Release is blocked.",
+        filename: "incident-report.md",
+        factCapturedAt: new Date("2026-11-02T10:00:00.000Z"),
+      },
+    );
+
+    const response = await GET(
+      new Request("http://localhost/api/projects/x/brain/graph"),
+      params,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.contradictions).toHaveLength(1);
+    expect(body.contradictions[0].first).toMatchObject({
+      filename: "release-plan.md",
+      evidence: "Release is ready.",
+      factCapturedAt: "2026-11-01T10:00:00.000Z",
+    });
+    expect(body.contradictions[0].second).toMatchObject({
+      filename: "incident-report.md",
+      evidence: "Release is blocked.",
+      factCapturedAt: "2026-11-02T10:00:00.000Z",
+    });
   });
 
   it("rejects invalid focus before project/database work", async () => {

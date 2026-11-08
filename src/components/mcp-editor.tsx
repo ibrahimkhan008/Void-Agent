@@ -173,8 +173,8 @@ export default function MCPEditor({
         }
       })
       .map(() =>
-        fetcher("/api/mcp", {
-          method: "POST",
+        fetcher(shouldInsert ? "/api/mcp" : `/api/mcp/${id}`, {
+          method: shouldInsert ? "POST" : "PUT",
           body: JSON.stringify({
             name,
             config,
@@ -231,7 +231,6 @@ export default function MCPEditor({
           <Input
             id="name"
             value={name}
-            disabled={!shouldInsert}
             onChange={(e) => {
               setName(e.target.value);
               if (e.target.value) validateName(e.target.value);
@@ -296,8 +295,8 @@ export default function MCPEditor({
             <AlertTitle>Local commands are disabled</AlertTitle>
             <AlertDescription className="text-sm">
               This deployment only accepts remote MCP endpoints. Use an HTTP/S
-              MCP server or run Flare in a self-hosted environment to connect
-              to stdio servers such as Playwright.
+              MCP server or run Flare in a self-hosted environment to connect to
+              stdio servers such as Playwright.
             </AlertDescription>
           </Alert>
         )}

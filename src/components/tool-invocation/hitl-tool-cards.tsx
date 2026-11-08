@@ -1,13 +1,27 @@
 "use client";
 
 import { ChatMentionInputSuggestion } from "@/components/chat-mention-input";
+import {
+  RequestInputCard,
+  type RequestInputQuestion,
+} from "@/components/tool-invocation/request-input-card";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { type ToolUIPart, type UIMessage, getToolName } from "ai";
 import type { ChatMention } from "app-types/chat";
-import { defaultToolMentionsFromNames, normalizeDefaultToolNames } from "lib/ai/agent/default-tool-mentions";
-import { CalendarDays, CheckCircle2, Circle, Clock, Trash2, X } from "lucide-react";
+import {
+  defaultToolMentionsFromNames,
+  normalizeDefaultToolNames,
+} from "lib/ai/agent/default-tool-mentions";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Trash2,
+  X,
+} from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
@@ -18,7 +32,6 @@ type Todo = {
   text: string;
   status: "pending" | "in_progress" | "completed";
 };
-type Question = { header: string; question: string; options?: string[] };
 
 export function HitlToolCard({
   part,
@@ -66,7 +79,9 @@ export function HitlToolCard({
   if (toolName === "requestInput") {
     return (
       <RequestInputCard
-        questions={(input.questions as Question[] | undefined) ?? []}
+        questions={
+          (input.questions as RequestInputQuestion[] | undefined) ?? []
+        }
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onSubmit={(answers) => submit({ answers })}
@@ -78,7 +93,9 @@ export function HitlToolCard({
     return (
       <EmailDraftCard
         action={input.action === "reply" ? "reply" : "send"}
-        messageId={typeof input.messageId === "string" ? input.messageId : undefined}
+        messageId={
+          typeof input.messageId === "string" ? input.messageId : undefined
+        }
         initialDraft={{
           to: String(input.to ?? ""),
           subject: String(input.subject ?? ""),
@@ -91,11 +108,22 @@ export function HitlToolCard({
             method: "POST",
             credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, ...(messageId ? { messageId } : {}), ...draft }),
+            body: JSON.stringify({
+              action,
+              ...(messageId ? { messageId } : {}),
+              ...draft,
+            }),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this email approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this email approval",
+            );
           }
           await submit({
             approved: true,
@@ -114,9 +142,10 @@ export function HitlToolCard({
   }
 
   if (toolName === "proposeCalendarChange") {
-    const action = input.action === "update_event" || input.action === "delete_event"
-      ? input.action
-      : "create_event";
+    const action =
+      input.action === "update_event" || input.action === "delete_event"
+        ? input.action
+        : "create_event";
     return (
       <CalendarApprovalCard
         initialDraft={{
@@ -138,11 +167,22 @@ export function HitlToolCard({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this calendar approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this calendar approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -166,11 +206,22 @@ export function HitlToolCard({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Linear approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Linear approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -180,19 +231,35 @@ export function HitlToolCard({
   if (toolName === "proposeSlackMessage") {
     return (
       <SlackMessageApprovalCard
-        initialDraft={{ channelId: String(input.channelId ?? ""), text: String(input.text ?? "") }}
+        initialDraft={{
+          channelId: String(input.channelId ?? ""),
+          text: String(input.text ?? ""),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/slack", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Slack approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Slack approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -203,33 +270,60 @@ export function HitlToolCard({
     return (
       <WorkflowRunApprovalCard
         initialDraft={{
-          platform: input.platform === "activepieces" || input.platform === "saved-workflow" ? input.platform : "windmill",
+          platform:
+            input.platform === "activepieces" ||
+            input.platform === "saved-workflow"
+              ? input.platform
+              : "windmill",
           target: String(input.target ?? ""),
-          workflowName: typeof input.workflowName === "string" ? input.workflowName : undefined,
-          approvalTokenField: typeof input.approvalTokenField === "string" ? input.approvalTokenField : undefined,
-          graphRevision: typeof input.graphRevision === "string" ? input.graphRevision : undefined,
+          workflowName:
+            typeof input.workflowName === "string"
+              ? input.workflowName
+              : undefined,
+          approvalTokenField:
+            typeof input.approvalTokenField === "string"
+              ? input.approvalTokenField
+              : undefined,
+          graphRevision:
+            typeof input.graphRevision === "string"
+              ? input.graphRevision
+              : undefined,
           payload: JSON.stringify(input.payload ?? {}, null, 2),
         }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/workflow-run", {
-            method: "POST", credentials: "same-origin",
+            method: "POST",
+            credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...draft, payload: JSON.parse(draft.payload) }),
+            body: JSON.stringify({
+              ...draft,
+              payload: JSON.parse(draft.payload),
+            }),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this workflow approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this workflow approval",
+            );
           }
           await submit({
             approved: true,
             platform: draft.platform,
             target: draft.target,
             ...(draft.workflowName ? { workflowName: draft.workflowName } : {}),
-            ...(draft.approvalTokenField ? { approvalTokenField: draft.approvalTokenField } : {}),
+            ...(draft.approvalTokenField
+              ? { approvalTokenField: draft.approvalTokenField }
+              : {}),
             payload: JSON.parse(draft.payload),
-            [draft.approvalTokenField || "approvalToken"]: payload.approvalToken,
+            [draft.approvalTokenField || "approvalToken"]:
+              payload.approvalToken,
           });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
@@ -240,20 +334,97 @@ export function HitlToolCard({
   if (toolName === "proposeMcpToolCall") {
     return (
       <McpToolApprovalCard
-        initialDraft={{ serverId: String(input.serverId ?? ""), serverName: String(input.serverName ?? ""), toolName: String(input.toolName ?? ""), payload: JSON.stringify(input.payload ?? {}, null, 2) }}
+        initialDraft={{
+          serverId: String(input.serverId ?? ""),
+          serverName: String(input.serverName ?? ""),
+          toolName: String(input.toolName ?? ""),
+          serverConfigFingerprint: String(input.serverConfigFingerprint ?? ""),
+          payload: JSON.stringify(input.payload ?? {}, null, 2),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/mcp-tool", {
-            method: "POST", credentials: "same-origin",
+            method: "POST",
+            credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...draft, payload: JSON.parse(draft.payload) }),
+            body: JSON.stringify({
+              ...draft,
+              payload: JSON.parse(draft.payload),
+            }),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this MCP approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this MCP approval",
+            );
           }
-          await submit({ approved: true, serverId: draft.serverId, serverName: draft.serverName, toolName: draft.toolName, payload: JSON.parse(draft.payload), approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            serverId: draft.serverId,
+            serverName: draft.serverName,
+            toolName: draft.toolName,
+            payload: JSON.parse(draft.payload),
+            approvalToken: payload.approvalToken,
+          });
+        }}
+        onReject={() => submit({ approved: false, rejected: true })}
+      />
+    );
+  }
+
+  if (toolName === "proposeComposioWriteAction") {
+    const proposedArguments = input.arguments;
+    const argumentsObject =
+      proposedArguments &&
+      typeof proposedArguments === "object" &&
+      !Array.isArray(proposedArguments)
+        ? (proposedArguments as Record<string, unknown>)
+        : {};
+    const initialDraft = {
+      accountLabel: String(input.accountLabel ?? ""),
+      accountRef: String(input.accountRef ?? ""),
+      toolkitSlug: String(input.toolkitSlug ?? ""),
+      actionSlug: String(input.actionSlug ?? ""),
+      actionVersion: String(input.actionVersion ?? ""),
+      schemaFingerprint: String(input.schemaFingerprint ?? ""),
+      arguments: argumentsObject,
+    };
+    return (
+      <ComposioWriteApprovalCard
+        initialDraft={initialDraft}
+        submitted={result}
+        disabled={
+          part.state !== "input-available" || isSubmitting || !addToolResult
+        }
+        onApprove={async (draft) => {
+          const response = await fetch("/api/approvals/composio", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
+          });
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
+          if (!response.ok || typeof payload?.approvalToken !== "string") {
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Composio approval",
+            );
+          }
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -274,14 +445,34 @@ export function HitlToolCard({
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const headers = JSON.parse(draft.headers) as Record<string, string>;
-          const request = { url: draft.url, method: draft.method, headers, ...(draft.body ? { body: draft.body } : {}), timeout: draft.timeout };
+          const request = {
+            url: draft.url,
+            method: draft.method,
+            headers,
+            ...(draft.body ? { body: draft.body } : {}),
+            timeout: draft.timeout,
+          };
           const response = await fetch("/api/approvals/http-request", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(request),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
-          if (!response.ok || typeof payload?.approvalToken !== "string") throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this HTTP request approval");
-          await submit({ approved: true, ...request, approvalToken: payload.approvalToken });
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
+          if (!response.ok || typeof payload?.approvalToken !== "string")
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this HTTP request approval",
+            );
+          await submit({
+            approved: true,
+            ...request,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -291,7 +482,10 @@ export function HitlToolCard({
   if (toolName === "proposeJiraComment") {
     return (
       <JiraCommentApprovalCard
-        initialDraft={{ issueKey: String(input.issueKey ?? ""), comment: String(input.comment ?? "") }}
+        initialDraft={{
+          issueKey: String(input.issueKey ?? ""),
+          comment: String(input.comment ?? ""),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
@@ -301,11 +495,22 @@ export function HitlToolCard({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Jira approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Jira approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -315,19 +520,35 @@ export function HitlToolCard({
   if (toolName === "proposeZendeskComment") {
     return (
       <ZendeskCommentApprovalCard
-        initialDraft={{ ticketId: String(input.ticketId ?? ""), comment: String(input.comment ?? "") }}
+        initialDraft={{
+          ticketId: String(input.ticketId ?? ""),
+          comment: String(input.comment ?? ""),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/zendesk", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Zendesk approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Zendesk approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -342,14 +563,27 @@ export function HitlToolCard({
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/freshdesk", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Freshdesk approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Freshdesk approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -360,7 +594,10 @@ export function HitlToolCard({
     return (
       <ExternalMessageApprovalCard
         initialDraft={{
-          provider: input.provider === "discord" || input.provider === "zulip" ? input.provider : "teams",
+          provider:
+            input.provider === "discord" || input.provider === "zulip"
+              ? input.provider
+              : "teams",
           destination: String(input.destination ?? ""),
           topic: String(input.topic ?? "general"),
           content: String(input.content ?? ""),
@@ -369,14 +606,27 @@ export function HitlToolCard({
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/messaging", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this message approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this message approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -386,19 +636,40 @@ export function HitlToolCard({
   if (toolName === "proposeTaskCreation") {
     return (
       <TaskCreationApprovalCard
-        initialDraft={{ provider: input.provider === "clickup" || input.provider === "productboard" ? input.provider : "asana", targetId: String(input.targetId ?? ""), name: String(input.name ?? ""), details: String(input.details ?? "") }}
+        initialDraft={{
+          provider:
+            input.provider === "clickup" || input.provider === "productboard"
+              ? input.provider
+              : "asana",
+          targetId: String(input.targetId ?? ""),
+          name: String(input.name ?? ""),
+          details: String(input.details ?? ""),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/task-creation", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this item approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this item approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -408,19 +679,35 @@ export function HitlToolCard({
   if (toolName === "proposeDriveFile") {
     return (
       <DriveFileApprovalCard
-        initialDraft={{ name: String(input.name ?? ""), content: String(input.content ?? "") }}
+        initialDraft={{
+          name: String(input.name ?? ""),
+          content: String(input.content ?? ""),
+        }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
         onApprove={async (draft) => {
           const response = await fetch("/api/approvals/drive-file", {
-            method: "POST", credentials: "same-origin",
-            headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft),
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(draft),
           });
-          const payload = await response.json().catch(() => null) as { approvalToken?: unknown; error?: unknown } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            approvalToken?: unknown;
+            error?: unknown;
+          } | null;
           if (!response.ok || typeof payload?.approvalToken !== "string") {
-            throw new Error(typeof payload?.error === "string" ? payload.error : "Could not save this Drive approval");
+            throw new Error(
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Could not save this Drive approval",
+            );
           }
-          await submit({ approved: true, ...draft, approvalToken: payload.approvalToken });
+          await submit({
+            approved: true,
+            ...draft,
+            approvalToken: payload.approvalToken,
+          });
         }}
         onReject={() => submit({ approved: false, rejected: true })}
       />
@@ -451,9 +738,14 @@ export function HitlToolCard({
                 return [{ url: file.url, filename: file.filename }];
               })
             : [],
-          schedule: input.schedule && typeof input.schedule === "object"
-            ? input.schedule as { cronExpression: string; timezone: string; inputPrompt: string }
-            : undefined,
+          schedule:
+            input.schedule && typeof input.schedule === "object"
+              ? (input.schedule as {
+                  cronExpression: string;
+                  timezone: string;
+                  inputPrompt: string;
+                })
+              : undefined,
         }}
         submitted={result}
         disabled={part.state !== "input-available" || isSubmitting}
@@ -477,7 +769,11 @@ type CalendarDraft = {
 };
 
 function ZendeskCommentApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
   initialDraft: { ticketId: string; comment: string };
   submitted: Record<string, unknown> | null;
@@ -487,21 +783,62 @@ function ZendeskCommentApprovalCard({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState("");
-  if (submitted) return <div className="rounded-lg border p-3 text-sm">{submitted.approved ? "Zendesk comment approved for this exact ticket and text." : "Zendesk comment rejected."}</div>;
+  if (submitted)
+    return (
+      <div className="rounded-lg border p-3 text-sm">
+        {submitted.approved
+          ? "Zendesk comment approved for this exact ticket and text."
+          : "Zendesk comment rejected."}
+      </div>
+    );
   const approve = async () => {
     setError("");
-    try { await onApprove({ ticketId: draft.ticketId.trim(), comment: draft.comment.trim() }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not approve comment"); }
+    try {
+      await onApprove({
+        ticketId: draft.ticketId.trim(),
+        comment: draft.comment.trim(),
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not approve comment",
+      );
+    }
   };
   return (
     <div className="w-full max-w-xl space-y-3 rounded-lg border p-4">
       <p className="text-sm font-medium">Review Zendesk comment</p>
-      <Input aria-label="Zendesk ticket ID" value={draft.ticketId} onChange={(event) => setDraft((current) => ({ ...current, ticketId: event.target.value }))} disabled={disabled} />
-      <Textarea aria-label="Zendesk comment" value={draft.comment} onChange={(event) => setDraft((current) => ({ ...current, comment: event.target.value }))} disabled={disabled} rows={5} />
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <Input
+        aria-label="Zendesk ticket ID"
+        value={draft.ticketId}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, ticketId: event.target.value }))
+        }
+        disabled={disabled}
+      />
+      <Textarea
+        aria-label="Zendesk comment"
+        value={draft.comment}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, comment: event.target.value }))
+        }
+        disabled={disabled}
+        rows={5}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onReject} disabled={disabled}>Reject</Button>
-        <Button onClick={approve} disabled={disabled || !draft.ticketId.trim() || !draft.comment.trim()}>Approve comment</Button>
+        <Button variant="outline" onClick={onReject} disabled={disabled}>
+          Reject
+        </Button>
+        <Button
+          onClick={approve}
+          disabled={disabled || !draft.ticketId.trim() || !draft.comment.trim()}
+        >
+          Approve comment
+        </Button>
       </div>
     </div>
   );
@@ -509,14 +846,36 @@ function ZendeskCommentApprovalCard({
 
 type FreshdeskEffectDraft =
   | { action: "add_reply"; ticketId: string; body: string }
-  | { action: "create_ticket"; subject: string; description: string; requesterName: string; requesterEmail: string; status: 2 | 3 | 4 | 5; priority: 1 | 2 | 3 | 4 };
+  | {
+      action: "create_ticket";
+      subject: string;
+      description: string;
+      requesterName: string;
+      requesterEmail: string;
+      status: 2 | 3 | 4 | 5;
+      priority: 1 | 2 | 3 | 4;
+    };
 
-type ExternalMessageDraft = { provider: "teams" | "discord" | "zulip"; destination: string; topic?: string; content: string };
+type ExternalMessageDraft = {
+  provider: "teams" | "discord" | "zulip";
+  destination: string;
+  topic?: string;
+  content: string;
+};
 
-type TaskCreationDraft = { provider: "asana" | "clickup" | "productboard"; targetId: string; name: string; details: string };
+type TaskCreationDraft = {
+  provider: "asana" | "clickup" | "productboard";
+  targetId: string;
+  name: string;
+  details: string;
+};
 
 function DriveFileApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
   initialDraft: { name: string; content: string };
   submitted: Record<string, unknown> | null;
@@ -526,25 +885,69 @@ function DriveFileApprovalCard({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState("");
-  if (submitted) return <div className="rounded-lg border p-3 text-sm">{submitted.approved ? `Drive file approved: ${draft.name}` : "Drive file creation rejected."}</div>;
+  if (submitted)
+    return (
+      <div className="rounded-lg border p-3 text-sm">
+        {submitted.approved
+          ? `Drive file approved: ${draft.name}`
+          : "Drive file creation rejected."}
+      </div>
+    );
   const approve = async () => {
     setError("");
-    try { await onApprove({ name: draft.name.trim(), content: draft.content }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not approve Drive file"); }
+    try {
+      await onApprove({ name: draft.name.trim(), content: draft.content });
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not approve Drive file",
+      );
+    }
   };
   return (
     <div className="w-full max-w-xl space-y-3 rounded-lg border p-4">
       <p className="text-sm font-medium">Review Google Drive file</p>
-      <Input aria-label="Drive file name" value={draft.name} maxLength={255} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} disabled={disabled} />
-      <Textarea aria-label="Drive file content" value={draft.content} maxLength={50_000} onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))} disabled={disabled} rows={8} />
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2"><Button variant="outline" onClick={onReject} disabled={disabled}>Reject</Button><Button onClick={approve} disabled={disabled || !draft.name.trim()}>Create file</Button></div>
+      <Input
+        aria-label="Drive file name"
+        value={draft.name}
+        maxLength={255}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, name: event.target.value }))
+        }
+        disabled={disabled}
+      />
+      <Textarea
+        aria-label="Drive file content"
+        value={draft.content}
+        maxLength={50_000}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, content: event.target.value }))
+        }
+        disabled={disabled}
+        rows={8}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onReject} disabled={disabled}>
+          Reject
+        </Button>
+        <Button onClick={approve} disabled={disabled || !draft.name.trim()}>
+          Create file
+        </Button>
+      </div>
     </div>
   );
 }
 
 function TaskCreationApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
   initialDraft: TaskCreationDraft;
   submitted: Record<string, unknown> | null;
@@ -555,26 +958,87 @@ function TaskCreationApprovalCard({
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState("");
   const itemLabel = draft.provider === "productboard" ? "feature" : "task";
-  if (submitted) return <div className="rounded-lg border p-3 text-sm">{submitted.approved ? `${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} approved for ${draft.provider}.` : `${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} creation rejected.`}</div>;
+  if (submitted)
+    return (
+      <div className="rounded-lg border p-3 text-sm">
+        {submitted.approved
+          ? `${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} approved for ${draft.provider}.`
+          : `${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} creation rejected.`}
+      </div>
+    );
   const approve = async () => {
     setError("");
-    try { await onApprove({ ...draft, targetId: draft.targetId.trim(), name: draft.name.trim(), details: draft.details.trim() }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : `Could not approve ${itemLabel}`); }
+    try {
+      await onApprove({
+        ...draft,
+        targetId: draft.targetId.trim(),
+        name: draft.name.trim(),
+        details: draft.details.trim(),
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : `Could not approve ${itemLabel}`,
+      );
+    }
   };
   return (
     <div className="w-full max-w-xl space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">Review {draft.provider} {itemLabel} creation</p>
-      <Input aria-label={`${draft.provider} target ID`} value={draft.targetId} onChange={(event) => setDraft((current) => ({ ...current, targetId: event.target.value }))} disabled={disabled} />
-      <Input aria-label={`${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} name`} value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} disabled={disabled} />
-      <Textarea aria-label={`${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} details`} value={draft.details} onChange={(event) => setDraft((current) => ({ ...current, details: event.target.value }))} disabled={disabled} rows={5} />
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2"><Button variant="outline" onClick={onReject} disabled={disabled}>Reject</Button><Button onClick={approve} disabled={disabled || !draft.targetId.trim() || !draft.name.trim()}>Approve {itemLabel}</Button></div>
+      <p className="text-sm font-medium">
+        Review {draft.provider} {itemLabel} creation
+      </p>
+      <Input
+        aria-label={`${draft.provider} target ID`}
+        value={draft.targetId}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, targetId: event.target.value }))
+        }
+        disabled={disabled}
+      />
+      <Input
+        aria-label={`${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} name`}
+        value={draft.name}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, name: event.target.value }))
+        }
+        disabled={disabled}
+      />
+      <Textarea
+        aria-label={`${itemLabel[0].toUpperCase()}${itemLabel.slice(1)} details`}
+        value={draft.details}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, details: event.target.value }))
+        }
+        disabled={disabled}
+        rows={5}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onReject} disabled={disabled}>
+          Reject
+        </Button>
+        <Button
+          onClick={approve}
+          disabled={disabled || !draft.targetId.trim() || !draft.name.trim()}
+        >
+          Approve {itemLabel}
+        </Button>
+      </div>
     </div>
   );
 }
 
 function ExternalMessageApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
   initialDraft: ExternalMessageDraft;
   submitted: Record<string, unknown> | null;
@@ -584,28 +1048,94 @@ function ExternalMessageApprovalCard({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [error, setError] = useState("");
-  if (submitted) return <div className="rounded-lg border p-3 text-sm">{submitted.approved ? `Message approved for ${draft.provider}.` : "Message rejected."}</div>;
+  if (submitted)
+    return (
+      <div className="rounded-lg border p-3 text-sm">
+        {submitted.approved
+          ? `Message approved for ${draft.provider}.`
+          : "Message rejected."}
+      </div>
+    );
   const approve = async () => {
     setError("");
     try {
-      const payload: ExternalMessageDraft = { provider: draft.provider, destination: draft.destination.trim(), content: draft.content.trim(), ...(draft.provider === "zulip" ? { topic: (draft.topic ?? "general").trim() || "general" } : {}) };
+      const payload: ExternalMessageDraft = {
+        provider: draft.provider,
+        destination: draft.destination.trim(),
+        content: draft.content.trim(),
+        ...(draft.provider === "zulip"
+          ? { topic: (draft.topic ?? "general").trim() || "general" }
+          : {}),
+      };
       await onApprove(payload);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not approve message"); }
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not approve message",
+      );
+    }
   };
   return (
     <div className="w-full max-w-xl space-y-3 rounded-lg border p-4">
       <p className="text-sm font-medium">Review {draft.provider} message</p>
-      <Input aria-label={`${draft.provider} destination`} value={draft.destination} onChange={(event) => setDraft((current) => ({ ...current, destination: event.target.value }))} disabled={disabled} />
-      {draft.provider === "zulip" && <Input aria-label="Zulip topic" value={draft.topic ?? "general"} onChange={(event) => setDraft((current) => ({ ...current, topic: event.target.value }))} disabled={disabled} />}
-      <Textarea aria-label={`${draft.provider} message text`} value={draft.content} onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))} disabled={disabled} rows={5} maxLength={draft.provider === "discord" ? 2000 : 4000} />
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2"><Button variant="outline" onClick={onReject} disabled={disabled}>Reject</Button><Button onClick={approve} disabled={disabled || !draft.destination.trim() || !draft.content.trim()}>Approve message</Button></div>
+      <Input
+        aria-label={`${draft.provider} destination`}
+        value={draft.destination}
+        onChange={(event) =>
+          setDraft((current) => ({
+            ...current,
+            destination: event.target.value,
+          }))
+        }
+        disabled={disabled}
+      />
+      {draft.provider === "zulip" && (
+        <Input
+          aria-label="Zulip topic"
+          value={draft.topic ?? "general"}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, topic: event.target.value }))
+          }
+          disabled={disabled}
+        />
+      )}
+      <Textarea
+        aria-label={`${draft.provider} message text`}
+        value={draft.content}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, content: event.target.value }))
+        }
+        disabled={disabled}
+        rows={5}
+        maxLength={draft.provider === "discord" ? 2000 : 4000}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onReject} disabled={disabled}>
+          Reject
+        </Button>
+        <Button
+          onClick={approve}
+          disabled={
+            disabled || !draft.destination.trim() || !draft.content.trim()
+          }
+        >
+          Approve message
+        </Button>
+      </div>
     </div>
   );
 }
 
 function FreshdeskActionApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
   initialDraft: Record<string, unknown>;
   submitted: Record<string, unknown> | null;
@@ -613,34 +1143,215 @@ function FreshdeskActionApprovalCard({
   onApprove: (draft: FreshdeskEffectDraft) => Promise<void>;
   onReject: () => void;
 }) {
-  const [draft, setDraft] = useState<FreshdeskEffectDraft>(() => initialDraft.action === "add_reply"
-    ? { action: "add_reply", ticketId: String(initialDraft.ticketId ?? ""), body: String(initialDraft.body ?? "") }
-    : { action: "create_ticket", subject: String(initialDraft.subject ?? ""), description: String(initialDraft.description ?? ""), requesterName: String(initialDraft.requesterName ?? ""), requesterEmail: String(initialDraft.requesterEmail ?? ""), status: initialDraft.status === 3 || initialDraft.status === 4 || initialDraft.status === 5 ? initialDraft.status : 2, priority: initialDraft.priority === 2 || initialDraft.priority === 3 || initialDraft.priority === 4 ? initialDraft.priority : 1 });
+  const [draft, setDraft] = useState<FreshdeskEffectDraft>(() =>
+    initialDraft.action === "add_reply"
+      ? {
+          action: "add_reply",
+          ticketId: String(initialDraft.ticketId ?? ""),
+          body: String(initialDraft.body ?? ""),
+        }
+      : {
+          action: "create_ticket",
+          subject: String(initialDraft.subject ?? ""),
+          description: String(initialDraft.description ?? ""),
+          requesterName: String(initialDraft.requesterName ?? ""),
+          requesterEmail: String(initialDraft.requesterEmail ?? ""),
+          status:
+            initialDraft.status === 3 ||
+            initialDraft.status === 4 ||
+            initialDraft.status === 5
+              ? initialDraft.status
+              : 2,
+          priority:
+            initialDraft.priority === 2 ||
+            initialDraft.priority === 3 ||
+            initialDraft.priority === 4
+              ? initialDraft.priority
+              : 1,
+        },
+  );
   const [error, setError] = useState("");
-  if (submitted) return <div className="rounded-lg border p-3 text-sm">{submitted.approved ? "Freshdesk action approved for these exact fields." : "Freshdesk action rejected."}</div>;
+  if (submitted)
+    return (
+      <div className="rounded-lg border p-3 text-sm">
+        {submitted.approved
+          ? "Freshdesk action approved for these exact fields."
+          : "Freshdesk action rejected."}
+      </div>
+    );
   const approve = async () => {
     setError("");
     try {
-      if (draft.action === "add_reply") await onApprove({ ...draft, ticketId: draft.ticketId.trim(), body: draft.body.trim() });
-      else await onApprove({ ...draft, subject: draft.subject.trim(), description: draft.description.trim(), requesterName: draft.requesterName.trim(), requesterEmail: draft.requesterEmail.trim() });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not approve Freshdesk action"); }
+      if (draft.action === "add_reply")
+        await onApprove({
+          ...draft,
+          ticketId: draft.ticketId.trim(),
+          body: draft.body.trim(),
+        });
+      else
+        await onApprove({
+          ...draft,
+          subject: draft.subject.trim(),
+          description: draft.description.trim(),
+          requesterName: draft.requesterName.trim(),
+          requesterEmail: draft.requesterEmail.trim(),
+        });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not approve Freshdesk action",
+      );
+    }
   };
   return (
     <div className="w-full max-w-xl space-y-3 rounded-lg border p-4">
-      <p className="text-sm font-medium">Review Freshdesk {draft.action === "add_reply" ? "reply" : "ticket"}</p>
-      {draft.action === "add_reply" ? <>
-        <Input aria-label="Freshdesk ticket ID" value={draft.ticketId} onChange={(event) => setDraft((current) => current.action === "add_reply" ? { ...current, ticketId: event.target.value } : current)} disabled={disabled} />
-        <Textarea aria-label="Freshdesk reply" value={draft.body} onChange={(event) => setDraft((current) => current.action === "add_reply" ? { ...current, body: event.target.value } : current)} disabled={disabled} rows={5} />
-      </> : <>
-        <Input aria-label="Ticket subject" value={draft.subject} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, subject: event.target.value } : current)} disabled={disabled} />
-        <Textarea aria-label="Ticket description" value={draft.description} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, description: event.target.value } : current)} disabled={disabled} rows={5} />
-        <Input aria-label="Requester name" value={draft.requesterName} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, requesterName: event.target.value } : current)} disabled={disabled} />
-        <Input aria-label="Requester email" type="email" value={draft.requesterEmail} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, requesterEmail: event.target.value } : current)} disabled={disabled} />
-        <label className="block text-sm">Status<select aria-label="Ticket status" className="mt-1 block w-full rounded-md border bg-background p-2" value={draft.status} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, status: Number(event.target.value) as 2 | 3 | 4 | 5 } : current)} disabled={disabled}><option value={2}>Open</option><option value={3}>Pending</option><option value={4}>Resolved</option><option value={5}>Closed</option></select></label>
-        <label className="block text-sm">Priority<select aria-label="Ticket priority" className="mt-1 block w-full rounded-md border bg-background p-2" value={draft.priority} onChange={(event) => setDraft((current) => current.action === "create_ticket" ? { ...current, priority: Number(event.target.value) as 1 | 2 | 3 | 4 } : current)} disabled={disabled}><option value={1}>Low</option><option value={2}>Medium</option><option value={3}>High</option><option value={4}>Urgent</option></select></label>
-      </>}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2"><Button variant="outline" onClick={onReject} disabled={disabled}>Reject</Button><Button onClick={approve} disabled={disabled}>Approve action</Button></div>
+      <p className="text-sm font-medium">
+        Review Freshdesk {draft.action === "add_reply" ? "reply" : "ticket"}
+      </p>
+      {draft.action === "add_reply" ? (
+        <>
+          <Input
+            aria-label="Freshdesk ticket ID"
+            value={draft.ticketId}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "add_reply"
+                  ? { ...current, ticketId: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+          />
+          <Textarea
+            aria-label="Freshdesk reply"
+            value={draft.body}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "add_reply"
+                  ? { ...current, body: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+            rows={5}
+          />
+        </>
+      ) : (
+        <>
+          <Input
+            aria-label="Ticket subject"
+            value={draft.subject}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "create_ticket"
+                  ? { ...current, subject: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+          />
+          <Textarea
+            aria-label="Ticket description"
+            value={draft.description}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "create_ticket"
+                  ? { ...current, description: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+            rows={5}
+          />
+          <Input
+            aria-label="Requester name"
+            value={draft.requesterName}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "create_ticket"
+                  ? { ...current, requesterName: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+          />
+          <Input
+            aria-label="Requester email"
+            type="email"
+            value={draft.requesterEmail}
+            onChange={(event) =>
+              setDraft((current) =>
+                current.action === "create_ticket"
+                  ? { ...current, requesterEmail: event.target.value }
+                  : current,
+              )
+            }
+            disabled={disabled}
+          />
+          <label className="block text-sm">
+            Status
+            <select
+              aria-label="Ticket status"
+              className="mt-1 block w-full rounded-md border bg-background p-2"
+              value={draft.status}
+              onChange={(event) =>
+                setDraft((current) =>
+                  current.action === "create_ticket"
+                    ? {
+                        ...current,
+                        status: Number(event.target.value) as 2 | 3 | 4 | 5,
+                      }
+                    : current,
+                )
+              }
+              disabled={disabled}
+            >
+              <option value={2}>Open</option>
+              <option value={3}>Pending</option>
+              <option value={4}>Resolved</option>
+              <option value={5}>Closed</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            Priority
+            <select
+              aria-label="Ticket priority"
+              className="mt-1 block w-full rounded-md border bg-background p-2"
+              value={draft.priority}
+              onChange={(event) =>
+                setDraft((current) =>
+                  current.action === "create_ticket"
+                    ? {
+                        ...current,
+                        priority: Number(event.target.value) as 1 | 2 | 3 | 4,
+                      }
+                    : current,
+                )
+              }
+              disabled={disabled}
+            >
+              <option value={1}>Low</option>
+              <option value={2}>Medium</option>
+              <option value={3}>High</option>
+              <option value={4}>Urgent</option>
+            </select>
+          </label>
+        </>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onReject} disabled={disabled}>
+          Reject
+        </Button>
+        <Button onClick={approve} disabled={disabled}>
+          Approve action
+        </Button>
+      </div>
     </div>
   );
 }
@@ -665,23 +1376,97 @@ function LinearIssueApprovalCard({
   const update = (key: keyof typeof draft, value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const approve = async () => {
-    if (disabled || isApproving || !draft.teamId.trim() || !draft.title.trim()) return;
+    if (disabled || isApproving || !draft.teamId.trim() || !draft.title.trim())
+      return;
     setIsApproving(true);
     try {
-      await onApprove({ teamId: draft.teamId.trim(), title: draft.title.trim(), ...(draft.description ? { description: draft.description } : {}) });
+      await onApprove({
+        teamId: draft.teamId.trim(),
+        title: draft.title.trim(),
+        ...(draft.description ? { description: draft.description } : {}),
+      });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save this approval");
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
     } finally {
       setIsApproving(false);
     }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (approved ? "Linear issue approved" : "Linear issue rejected") : "Review Linear issue"}</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Team ID</span>{settled ? <p className="break-all">{draft.teamId}</p> : <Input maxLength={36} value={draft.teamId} onChange={(event) => update("teamId", event.target.value)} disabled={disabled} placeholder="Linear team UUID" />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Title</span>{settled ? <p>{draft.title}</p> : <Input maxLength={300} value={draft.title} onChange={(event) => update("title", event.target.value)} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Description</span>{settled ? <p className="whitespace-pre-wrap">{draft.description || "No description"}</p> : <Textarea maxLength={10_000} rows={5} value={draft.description} onChange={(event) => update("description", event.target.value)} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.teamId.trim() || !draft.title.trim()} onClick={() => void approve()}>{isApproving ? "Approving…" : "Approve issue creation"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "Linear issue approved"
+            : "Linear issue rejected"
+          : "Review Linear issue"}
+      </p>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Team ID</span>
+        {settled ? (
+          <p className="break-all">{draft.teamId}</p>
+        ) : (
+          <Input
+            maxLength={36}
+            value={draft.teamId}
+            onChange={(event) => update("teamId", event.target.value)}
+            disabled={disabled}
+            placeholder="Linear team UUID"
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Title</span>
+        {settled ? (
+          <p>{draft.title}</p>
+        ) : (
+          <Input
+            maxLength={300}
+            value={draft.title}
+            onChange={(event) => update("title", event.target.value)}
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Description</span>
+        {settled ? (
+          <p className="whitespace-pre-wrap">
+            {draft.description || "No description"}
+          </p>
+        ) : (
+          <Textarea
+            maxLength={10_000}
+            rows={5}
+            value={draft.description}
+            onChange={(event) => update("description", event.target.value)}
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={
+              disabled ||
+              isApproving ||
+              !draft.teamId.trim() ||
+              !draft.title.trim()
+            }
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving…" : "Approve issue creation"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -704,26 +1489,110 @@ function SlackMessageApprovalCard({
   const settled = submitted !== null;
   const approved = submitted?.approved === true;
   const approve = async () => {
-    if (disabled || isApproving || !draft.channelId.trim() || !draft.text.trim()) return;
+    if (
+      disabled ||
+      isApproving ||
+      !draft.channelId.trim() ||
+      !draft.text.trim()
+    )
+      return;
     setIsApproving(true);
-    try { await onApprove({ channelId: draft.channelId.trim(), text: draft.text.trim() }); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save this approval"); }
-    finally { setIsApproving(false); }
+    try {
+      await onApprove({
+        channelId: draft.channelId.trim(),
+        text: draft.text.trim(),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
+    } finally {
+      setIsApproving(false);
+    }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (approved ? "Slack message approved" : "Slack message rejected") : "Review Slack message"}</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Channel ID</span>{settled ? <p className="break-all">{draft.channelId}</p> : <Input maxLength={80} value={draft.channelId} onChange={(event) => setDraft((current) => ({ ...current, channelId: event.target.value }))} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Message</span>{settled ? <p className="whitespace-pre-wrap">{draft.text}</p> : <Textarea maxLength={4000} rows={5} value={draft.text} onChange={(event) => setDraft((current) => ({ ...current, text: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.channelId.trim() || !draft.text.trim()} onClick={() => void approve()}>{isApproving ? "Approving…" : "Approve and post"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "Slack message approved"
+            : "Slack message rejected"
+          : "Review Slack message"}
+      </p>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Channel ID</span>
+        {settled ? (
+          <p className="break-all">{draft.channelId}</p>
+        ) : (
+          <Input
+            maxLength={80}
+            value={draft.channelId}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                channelId: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Message</span>
+        {settled ? (
+          <p className="whitespace-pre-wrap">{draft.text}</p>
+        ) : (
+          <Textarea
+            maxLength={4000}
+            rows={5}
+            value={draft.text}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, text: event.target.value }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={
+              disabled ||
+              isApproving ||
+              !draft.channelId.trim() ||
+              !draft.text.trim()
+            }
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving…" : "Approve and post"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
 function HttpRequestApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
-  initialDraft: { url: string; method: string; headers: string; body: string; timeout: number };
+  initialDraft: {
+    url: string;
+    method: string;
+    headers: string;
+    body: string;
+    timeout: number;
+  };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
   onApprove: (draft: typeof initialDraft) => Promise<void>;
@@ -736,30 +1605,155 @@ function HttpRequestApprovalCard({
     if (disabled || isApproving) return;
     try {
       const headers = JSON.parse(draft.headers) as unknown;
-      if (!headers || Array.isArray(headers) || typeof headers !== "object" || Object.values(headers).some((value) => typeof value !== "string")) throw new Error("Headers must be a JSON object with string values");
+      if (
+        !headers ||
+        Array.isArray(headers) ||
+        typeof headers !== "object" ||
+        Object.values(headers).some((value) => typeof value !== "string")
+      )
+        throw new Error("Headers must be a JSON object with string values");
       setIsApproving(true);
-      await onApprove({ ...draft, url: draft.url.trim(), method: draft.method.toUpperCase(), headers: JSON.stringify(headers), timeout: Math.max(1000, Math.min(30_000, Math.trunc(draft.timeout))) });
+      await onApprove({
+        ...draft,
+        url: draft.url.trim(),
+        method: draft.method.toUpperCase(),
+        headers: JSON.stringify(headers),
+        timeout: Math.max(1000, Math.min(30_000, Math.trunc(draft.timeout))),
+      });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save this approval");
-    } finally { setIsApproving(false); }
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
+    } finally {
+      setIsApproving(false);
+    }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (submitted?.approved === true ? "HTTP request approved" : "HTTP request rejected") : "Review outbound HTTP request"}</p>
-      <p className="text-sm text-muted-foreground">Only HTTPS public hosts are allowed. Redirects are blocked. Review any credentials in the URL, headers, or body before approving.</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">URL</span>{settled ? <p className="break-all">{draft.url}</p> : <Input maxLength={2048} value={draft.url} onChange={(event) => setDraft((current) => ({ ...current, url: event.target.value }))} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Method</span>{settled ? <p>{draft.method}</p> : <select className="h-10 w-full rounded-md border bg-background px-3" value={draft.method} onChange={(event) => setDraft((current) => ({ ...current, method: event.target.value }))} disabled={disabled}>{["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].map((method) => <option key={method}>{method}</option>)}</select>}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Headers (JSON)</span>{settled ? <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border p-2 text-xs">{draft.headers}</pre> : <Textarea maxLength={8000} rows={4} value={draft.headers} onChange={(event) => setDraft((current) => ({ ...current, headers: event.target.value }))} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Body</span>{settled ? <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border p-2 text-xs">{draft.body}</pre> : <Textarea maxLength={16_000} rows={5} value={draft.body} onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.url.trim()} onClick={() => void approve()}>{isApproving ? "Approving..." : "Approve request"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? submitted?.approved === true
+            ? "HTTP request approved"
+            : "HTTP request rejected"
+          : "Review outbound HTTP request"}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Only HTTPS public hosts are allowed. Redirects are blocked. Review any
+        credentials in the URL, headers, or body before approving.
+      </p>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">URL</span>
+        {settled ? (
+          <p className="break-all">{draft.url}</p>
+        ) : (
+          <Input
+            maxLength={2048}
+            value={draft.url}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, url: event.target.value }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Method</span>
+        {settled ? (
+          <p>{draft.method}</p>
+        ) : (
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3"
+            value={draft.method}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                method: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          >
+            {["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].map(
+              (method) => (
+                <option key={method}>{method}</option>
+              ),
+            )}
+          </select>
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Headers (JSON)</span>
+        {settled ? (
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border p-2 text-xs">
+            {draft.headers}
+          </pre>
+        ) : (
+          <Textarea
+            maxLength={8000}
+            rows={4}
+            value={draft.headers}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                headers: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Body</span>
+        {settled ? (
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border p-2 text-xs">
+            {draft.body}
+          </pre>
+        ) : (
+          <Textarea
+            maxLength={16_000}
+            rows={5}
+            value={draft.body}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, body: event.target.value }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={disabled || isApproving || !draft.url.trim()}
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving..." : "Approve request"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
 function McpToolApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
-  initialDraft: { serverId: string; serverName: string; toolName: string; payload: string };
+  initialDraft: {
+    serverId: string;
+    serverName: string;
+    toolName: string;
+    serverConfigFingerprint: string;
+    payload: string;
+  };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
   onApprove: (draft: typeof initialDraft) => Promise<void>;
@@ -769,31 +1763,302 @@ function McpToolApprovalCard({
   const [isApproving, setIsApproving] = useState(false);
   const settled = submitted !== null;
   const approved = submitted?.approved === true;
+  const hasConfigSnapshot = /^[a-f0-9]{64}$/.test(
+    draft.serverConfigFingerprint,
+  );
   const approve = async () => {
-    if (disabled || isApproving || !draft.serverId.trim() || !draft.serverName.trim() || !draft.toolName.trim()) return;
+    if (
+      disabled ||
+      isApproving ||
+      !hasConfigSnapshot ||
+      !draft.serverId.trim() ||
+      !draft.serverName.trim() ||
+      !draft.toolName.trim()
+    )
+      return;
     let parsed: unknown;
-    try { parsed = JSON.parse(draft.payload); } catch { toast.error("Arguments must be valid JSON"); return; }
-    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") { toast.error("Arguments must be a JSON object"); return; }
+    try {
+      parsed = JSON.parse(draft.payload);
+    } catch {
+      toast.error("Arguments must be valid JSON");
+      return;
+    }
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+      toast.error("Arguments must be a JSON object");
+      return;
+    }
     setIsApproving(true);
-    try { await onApprove({ ...draft, serverId: draft.serverId.trim(), serverName: draft.serverName.trim(), toolName: draft.toolName.trim() }); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save this MCP approval"); }
-    finally { setIsApproving(false); }
+    try {
+      await onApprove({
+        ...draft,
+        serverId: draft.serverId.trim(),
+        serverName: draft.serverName.trim(),
+        toolName: draft.toolName.trim(),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not save this MCP approval",
+      );
+    } finally {
+      setIsApproving(false);
+    }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (approved ? "MCP call approved" : "MCP call rejected") : "Review remote MCP call"}</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Server</span>{settled ? <p>{draft.serverName} <span className="text-xs">({draft.serverId})</span></p> : <Input maxLength={128} value={draft.serverName} onChange={(event) => setDraft((current) => ({ ...current, serverName: event.target.value }))} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Tool name</span>{settled ? <p>{draft.toolName}</p> : <Input maxLength={128} value={draft.toolName} onChange={(event) => setDraft((current) => ({ ...current, toolName: event.target.value }))} disabled={disabled} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Complete JSON arguments</span>{settled ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">{draft.payload}</pre> : <Textarea maxLength={16_000} rows={8} value={draft.payload} onChange={(event) => setDraft((current) => ({ ...current, payload: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.toolName.trim()} onClick={() => void approve()}>{isApproving ? "Approving..." : "Approve and call tool"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "MCP call approved"
+            : "MCP call rejected"
+          : "Review remote MCP call"}
+      </p>
+      {!settled && !hasConfigSnapshot && (
+        <p role="alert" className="text-sm text-destructive">
+          The MCP server target could not be verified. Ask for a fresh tool
+          proposal before approving.
+        </p>
+      )}
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Server</span>
+        {settled ? (
+          <p>
+            {draft.serverName}{" "}
+            <span className="text-xs">({draft.serverId})</span>
+          </p>
+        ) : (
+          <Input
+            maxLength={128}
+            value={draft.serverName}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                serverName: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Tool name</span>
+        {settled ? (
+          <p>{draft.toolName}</p>
+        ) : (
+          <Input
+            maxLength={128}
+            value={draft.toolName}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                toolName: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Complete JSON arguments</span>
+        {settled ? (
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">
+            {draft.payload}
+          </pre>
+        ) : (
+          <Textarea
+            maxLength={16_000}
+            rows={8}
+            value={draft.payload}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                payload: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={
+              disabled ||
+              isApproving ||
+              !hasConfigSnapshot ||
+              !draft.toolName.trim()
+            }
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving..." : "Approve and call tool"}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type ComposioWriteApprovalDraft = {
+  accountLabel: string;
+  accountRef: string;
+  toolkitSlug: string;
+  actionSlug: string;
+  actionVersion: string;
+  schemaFingerprint: string;
+  arguments: Record<string, unknown>;
+};
+
+function ComposioWriteApprovalCard({
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
+}: {
+  initialDraft: ComposioWriteApprovalDraft;
+  submitted: Record<string, unknown> | null;
+  disabled: boolean;
+  onApprove: (draft: ComposioWriteApprovalDraft) => Promise<void>;
+  onReject: () => void;
+}) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const settled = submitted !== null;
+  const approved = submitted?.approved === true;
+  const argumentsJson = (() => {
+    try {
+      return JSON.stringify(initialDraft.arguments, null, 2);
+    } catch {
+      return null;
+    }
+  })();
+  const hasVerifiedTarget =
+    initialDraft.accountLabel.trim().length > 0 &&
+    initialDraft.accountLabel.length <= 160 &&
+    initialDraft.accountRef.trim().length > 0 &&
+    initialDraft.toolkitSlug.trim().length > 0 &&
+    initialDraft.actionSlug.trim().length > 0 &&
+    /^[a-f0-9]{64}$/u.test(initialDraft.schemaFingerprint) &&
+    argumentsJson !== null &&
+    argumentsJson.length <= 16_000;
+
+  const approve = async () => {
+    if (disabled || isApproving || !hasVerifiedTarget) return;
+    setApprovalError(null);
+    setIsApproving(true);
+    try {
+      await onApprove(initialDraft);
+    } catch (error) {
+      setApprovalError(
+        error instanceof Error
+          ? error.message
+          : "Could not save this Composio approval",
+      );
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  return (
+    <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "Connected app action approved"
+            : "Connected app action rejected"
+          : "Review connected app action"}
+      </p>
+      {!settled && !hasVerifiedTarget && (
+        <p role="alert" className="text-sm text-destructive">
+          This action proposal is incomplete or too large to review. Ask for a
+          new proposal before approving.
+        </p>
+      )}
+      {approvalError && (
+        <p role="alert" className="text-sm text-destructive">
+          {approvalError}
+        </p>
+      )}
+      <dl className="grid gap-3 text-sm">
+        <div>
+          <dt className="text-muted-foreground">Connected account</dt>
+          <dd className="break-words font-medium">
+            {initialDraft.accountLabel || "Unavailable"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">App</dt>
+          <dd className="break-all font-medium">
+            {initialDraft.toolkitSlug || "Unavailable"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Action</dt>
+          <dd className="break-all font-medium">
+            {initialDraft.actionSlug || "Unavailable"}
+          </dd>
+        </div>
+        {initialDraft.actionVersion && (
+          <div>
+            <dt className="text-muted-foreground">Action version</dt>
+            <dd className="break-all">{initialDraft.actionVersion}</dd>
+          </div>
+        )}
+      </dl>
+      <div className="space-y-1 text-sm">
+        <p className="text-muted-foreground">Exact arguments</p>
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-3 text-xs">
+          {argumentsJson ?? "Arguments could not be displayed."}
+        </pre>
+      </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer">Secure account reference</summary>
+        <code className="mt-1 block break-all">{initialDraft.accountRef}</code>
+      </details>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={disabled || isApproving || !hasVerifiedTarget}
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Requesting approval…" : "Approve exact action"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
 
 function WorkflowRunApprovalCard({
-  initialDraft, submitted, disabled, onApprove, onReject,
+  initialDraft,
+  submitted,
+  disabled,
+  onApprove,
+  onReject,
 }: {
-  initialDraft: { platform: "windmill" | "activepieces" | "saved-workflow"; target: string; workflowName?: string; approvalTokenField?: string; graphRevision?: string; payload: string };
+  initialDraft: {
+    platform: "windmill" | "activepieces" | "saved-workflow";
+    target: string;
+    workflowName?: string;
+    approvalTokenField?: string;
+    graphRevision?: string;
+    payload: string;
+  };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
   onApprove: (draft: typeof initialDraft) => Promise<void>;
@@ -801,7 +2066,12 @@ function WorkflowRunApprovalCard({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [isApproving, setIsApproving] = useState(false);
-  const [review, setReview] = useState<{ graphRevision: string; effects: string[]; reviewable: boolean; issues: string[] } | null>(null);
+  const [review, setReview] = useState<{
+    graphRevision: string;
+    effects: string[];
+    reviewable: boolean;
+    issues: string[];
+  } | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const settled = submitted !== null;
   const approved = submitted?.approved === true;
@@ -809,35 +2079,212 @@ function WorkflowRunApprovalCard({
     if (draft.platform !== "saved-workflow" || !draft.workflowName) return;
     let active = true;
     void fetch("/api/approvals/workflow-run", {
-      method: "POST", credentials: "same-origin",
+      method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ previewWorkflowId: draft.target, workflowName: draft.workflowName }),
-    }).then(async (response) => {
-      const payload = await response.json().catch(() => null) as { graphRevision?: unknown; effects?: unknown; issues?: unknown; reviewable?: unknown; error?: unknown } | null;
-      if (!response.ok || typeof payload?.graphRevision !== "string" || !Array.isArray(payload.effects) || !payload.effects.every((item) => typeof item === "string") || !Array.isArray(payload.issues) || !payload.issues.every((item) => typeof item === "string") || typeof payload.reviewable !== "boolean") throw new Error(typeof payload?.error === "string" ? payload.error : "Could not inspect workflow actions");
-      if (active) setReview({ graphRevision: payload.graphRevision, effects: payload.effects as string[], issues: payload.issues as string[], reviewable: payload.reviewable });
-    }).catch((error) => { if (active) setReviewError(error instanceof Error ? error.message : "Could not inspect workflow actions"); });
-    return () => { active = false; };
+      body: JSON.stringify({
+        previewWorkflowId: draft.target,
+        workflowName: draft.workflowName,
+      }),
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as {
+          graphRevision?: unknown;
+          effects?: unknown;
+          issues?: unknown;
+          reviewable?: unknown;
+          error?: unknown;
+        } | null;
+        if (
+          !response.ok ||
+          typeof payload?.graphRevision !== "string" ||
+          !Array.isArray(payload.effects) ||
+          !payload.effects.every((item) => typeof item === "string") ||
+          !Array.isArray(payload.issues) ||
+          !payload.issues.every((item) => typeof item === "string") ||
+          typeof payload.reviewable !== "boolean"
+        )
+          throw new Error(
+            typeof payload?.error === "string"
+              ? payload.error
+              : "Could not inspect workflow actions",
+          );
+        if (active)
+          setReview({
+            graphRevision: payload.graphRevision,
+            effects: payload.effects as string[],
+            issues: payload.issues as string[],
+            reviewable: payload.reviewable,
+          });
+      })
+      .catch((error) => {
+        if (active)
+          setReviewError(
+            error instanceof Error
+              ? error.message
+              : "Could not inspect workflow actions",
+          );
+      });
+    return () => {
+      active = false;
+    };
   }, [draft.platform, draft.target, draft.workflowName]);
   const approve = async () => {
-    if (disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && (!review || !review.reviewable))) return;
+    if (
+      disabled ||
+      isApproving ||
+      !draft.target.trim() ||
+      (draft.platform === "saved-workflow" && (!review || !review.reviewable))
+    )
+      return;
     let parsed: unknown;
-    try { parsed = JSON.parse(draft.payload); } catch { toast.error("Payload must be valid JSON"); return; }
-    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") { toast.error("Payload must be a JSON object"); return; }
+    try {
+      parsed = JSON.parse(draft.payload);
+    } catch {
+      toast.error("Payload must be valid JSON");
+      return;
+    }
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+      toast.error("Payload must be a JSON object");
+      return;
+    }
     setIsApproving(true);
-    try { await onApprove({ ...draft, target: draft.target.trim(), ...(review ? { graphRevision: review.graphRevision } : {}) }); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save this workflow approval"); }
-    finally { setIsApproving(false); }
+    try {
+      await onApprove({
+        ...draft,
+        target: draft.target.trim(),
+        ...(review ? { graphRevision: review.graphRevision } : {}),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not save this workflow approval",
+      );
+    } finally {
+      setIsApproving(false);
+    }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (approved ? "Workflow run approved" : "Workflow run rejected") : draft.platform === "saved-workflow" ? "Review saved workflow run" : "Review automation run"}</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Platform</span><p>{draft.platform === "saved-workflow" ? "Void-Agent workflow" : draft.platform}</p></label>
-      {draft.workflowName && <p className="text-sm"><span className="text-muted-foreground">Workflow: </span>{draft.workflowName}</p>}
-      {draft.platform === "saved-workflow" && !settled && <div className="rounded-md border p-3 text-sm"><p className="mb-2 font-medium">Actions in this workflow</p>{review ? <><ul className="list-disc space-y-1 pl-5">{review.effects.map((effect, index) => <li key={`${index}-${effect}`}>{effect}</li>)}</ul>{review.issues.length > 0 && <div className="mt-2 text-destructive"><p>Approval is disabled because these actions cannot be previewed exactly:</p><ul className="list-disc pl-5">{review.issues.map((issue, index) => <li key={`${index}-${issue}`}>{issue}</li>)}</ul></div>}</> : <p className="text-muted-foreground">{reviewError ?? "Inspecting workflow actions…"}</p>}</div>}
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">{draft.platform === "saved-workflow" ? "Workflow ID" : "Target"}</span>{settled ? <p className="break-all">{draft.target}</p> : <Input maxLength={256} value={draft.target} onChange={(event) => setDraft((current) => ({ ...current, target: event.target.value }))} disabled={disabled || draft.platform === "saved-workflow"} />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Complete JSON payload</span>{settled ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">{draft.payload}</pre> : <Textarea maxLength={16_000} rows={8} value={draft.payload} onChange={(event) => setDraft((current) => ({ ...current, payload: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.target.trim() || (draft.platform === "saved-workflow" && (!review || !review.reviewable))} onClick={() => void approve()}>{isApproving ? "Approving..." : "Approve and run"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "Workflow run approved"
+            : "Workflow run rejected"
+          : draft.platform === "saved-workflow"
+            ? "Review saved workflow run"
+            : "Review automation run"}
+      </p>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Platform</span>
+        <p>
+          {draft.platform === "saved-workflow"
+            ? "Void-Agent workflow"
+            : draft.platform}
+        </p>
+      </label>
+      {draft.workflowName && (
+        <p className="text-sm">
+          <span className="text-muted-foreground">Workflow: </span>
+          {draft.workflowName}
+        </p>
+      )}
+      {draft.platform === "saved-workflow" && !settled && (
+        <div className="rounded-md border p-3 text-sm">
+          <p className="mb-2 font-medium">Actions in this workflow</p>
+          {review ? (
+            <>
+              <ul className="list-disc space-y-1 pl-5">
+                {review.effects.map((effect, index) => (
+                  <li key={`${index}-${effect}`}>{effect}</li>
+                ))}
+              </ul>
+              {review.issues.length > 0 && (
+                <div className="mt-2 text-destructive">
+                  <p>
+                    Approval is disabled because these actions cannot be
+                    previewed exactly:
+                  </p>
+                  <ul className="list-disc pl-5">
+                    {review.issues.map((issue, index) => (
+                      <li key={`${index}-${issue}`}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              {reviewError ?? "Inspecting workflow actions…"}
+            </p>
+          )}
+        </div>
+      )}
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">
+          {draft.platform === "saved-workflow" ? "Workflow ID" : "Target"}
+        </span>
+        {settled ? (
+          <p className="break-all">{draft.target}</p>
+        ) : (
+          <Input
+            maxLength={256}
+            value={draft.target}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                target: event.target.value,
+              }))
+            }
+            disabled={disabled || draft.platform === "saved-workflow"}
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Complete JSON payload</span>
+        {settled ? (
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">
+            {draft.payload}
+          </pre>
+        ) : (
+          <Textarea
+            maxLength={16_000}
+            rows={8}
+            value={draft.payload}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                payload: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={
+              disabled ||
+              isApproving ||
+              !draft.target.trim() ||
+              (draft.platform === "saved-workflow" &&
+                (!review || !review.reviewable))
+            }
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving..." : "Approve and run"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -860,22 +2307,96 @@ function JiraCommentApprovalCard({
   const settled = submitted !== null;
   const approved = submitted?.approved === true;
   const approve = async () => {
-    if (disabled || isApproving || !draft.issueKey.trim() || !draft.comment.trim()) return;
+    if (
+      disabled ||
+      isApproving ||
+      !draft.issueKey.trim() ||
+      !draft.comment.trim()
+    )
+      return;
     setIsApproving(true);
     try {
-      await onApprove({ issueKey: draft.issueKey.trim(), comment: draft.comment.trim() });
+      await onApprove({
+        issueKey: draft.issueKey.trim(),
+        comment: draft.comment.trim(),
+      });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save this approval");
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
     } finally {
       setIsApproving(false);
     }
   };
   return (
     <section className="my-3 space-y-3 rounded-lg border bg-background p-4">
-      <p className="font-medium">{settled ? (approved ? "Jira comment approved" : "Jira comment rejected") : "Review Jira comment"}</p>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Issue key</span>{settled ? <p className="break-all">{draft.issueKey}</p> : <Input maxLength={80} value={draft.issueKey} onChange={(event) => setDraft((current) => ({ ...current, issueKey: event.target.value }))} disabled={disabled} placeholder="PROJ-123" />}</label>
-      <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Comment</span>{settled ? <p className="whitespace-pre-wrap">{draft.comment}</p> : <Textarea maxLength={10_000} rows={5} value={draft.comment} onChange={(event) => setDraft((current) => ({ ...current, comment: event.target.value }))} disabled={disabled} />}</label>
-      {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button disabled={disabled || isApproving || !draft.issueKey.trim() || !draft.comment.trim()} onClick={() => void approve()}>{isApproving ? "Approving…" : "Approve and comment"}</Button></div>}
+      <p className="font-medium">
+        {settled
+          ? approved
+            ? "Jira comment approved"
+            : "Jira comment rejected"
+          : "Review Jira comment"}
+      </p>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Issue key</span>
+        {settled ? (
+          <p className="break-all">{draft.issueKey}</p>
+        ) : (
+          <Input
+            maxLength={80}
+            value={draft.issueKey}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                issueKey: event.target.value,
+              }))
+            }
+            disabled={disabled}
+            placeholder="PROJ-123"
+          />
+        )}
+      </label>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">Comment</span>
+        {settled ? (
+          <p className="whitespace-pre-wrap">{draft.comment}</p>
+        ) : (
+          <Textarea
+            maxLength={10_000}
+            rows={5}
+            value={draft.comment}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                comment: event.target.value,
+              }))
+            }
+            disabled={disabled}
+          />
+        )}
+      </label>
+      {!settled && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={disabled || isApproving}
+            onClick={onReject}
+          >
+            Reject
+          </Button>
+          <Button
+            disabled={
+              disabled ||
+              isApproving ||
+              !draft.issueKey.trim() ||
+              !draft.comment.trim()
+            }
+            onClick={() => void approve()}
+          >
+            {isApproving ? "Approving…" : "Approve and comment"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -884,7 +2405,9 @@ function toLocalDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? ""
-    : new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    : new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+        .toISOString()
+        .slice(0, 16);
 }
 
 function CalendarApprovalCard({
@@ -912,10 +2435,21 @@ function CalendarApprovalCard({
   const set = (key: keyof CalendarDraft, value: string) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const approve = async () => {
-    if (disabled || isApproving || !draft.summary.trim() || !draft.start || !draft.end) return;
+    if (
+      disabled ||
+      isApproving ||
+      !draft.summary.trim() ||
+      !draft.start ||
+      !draft.end
+    )
+      return;
     const start = new Date(draft.start);
     const end = new Date(draft.end);
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) {
+    if (
+      !Number.isFinite(start.getTime()) ||
+      !Number.isFinite(end.getTime()) ||
+      start >= end
+    ) {
       toast.error("Choose a valid event time range");
       return;
     }
@@ -923,16 +2457,24 @@ function CalendarApprovalCard({
     try {
       await onApprove({
         action: draft.action,
-        ...(draft.action !== "create_event" ? { eventId: draft.eventId.trim() } : {}),
+        ...(draft.action !== "create_event"
+          ? { eventId: draft.eventId.trim() }
+          : {}),
         summary: draft.summary.trim(),
         start: start.toISOString(),
         end: end.toISOString(),
-        ...(!deleting && draft.timeZone.trim() ? { timeZone: draft.timeZone.trim() } : {}),
-        ...(!deleting && draft.description ? { description: draft.description } : {}),
+        ...(!deleting && draft.timeZone.trim()
+          ? { timeZone: draft.timeZone.trim() }
+          : {}),
+        ...(!deleting && draft.description
+          ? { description: draft.description }
+          : {}),
         ...(!deleting && draft.location ? { location: draft.location } : {}),
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save this approval");
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
     } finally {
       setIsApproving(false);
     }
@@ -941,23 +2483,138 @@ function CalendarApprovalCard({
   return (
     <section className="my-3 overflow-hidden rounded-lg border bg-background shadow-sm">
       <header className="flex items-center gap-2 border-b px-4 py-2 text-xs font-medium uppercase text-muted-foreground">
-        {deleting ? <Trash2 className="size-4" /> : <CalendarDays className="size-4" />}
-        {settled ? (approved ? "Calendar change approved" : "Calendar change rejected") : `Review ${deleting ? "event deletion" : draft.action === "update_event" ? "event update" : "new event"}`}
+        {deleting ? (
+          <Trash2 className="size-4" />
+        ) : (
+          <CalendarDays className="size-4" />
+        )}
+        {settled
+          ? approved
+            ? "Calendar change approved"
+            : "Calendar change rejected"
+          : `Review ${deleting ? "event deletion" : draft.action === "update_event" ? "event update" : "new event"}`}
       </header>
       <div className="space-y-3 px-4 py-3">
-        {draft.action !== "create_event" && <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Event ID</span><p className="break-all">{draft.eventId}</p></label>}
-        <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Title</span>{readOnly ? <p>{draft.summary}</p> : <Input maxLength={300} value={draft.summary} onChange={(e) => set("summary", e.target.value)} disabled={disabled} />}</label>
+        {draft.action !== "create_event" && (
+          <label className="block space-y-1 text-sm">
+            <span className="text-muted-foreground">Event ID</span>
+            <p className="break-all">{draft.eventId}</p>
+          </label>
+        )}
+        <label className="block space-y-1 text-sm">
+          <span className="text-muted-foreground">Title</span>
+          {readOnly ? (
+            <p>{draft.summary}</p>
+          ) : (
+            <Input
+              maxLength={300}
+              value={draft.summary}
+              onChange={(e) => set("summary", e.target.value)}
+              disabled={disabled}
+            />
+          )}
+        </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Starts (your local time)</span>{readOnly ? <p>{draft.start}</p> : <Input type="datetime-local" value={draft.start} onChange={(e) => set("start", e.target.value)} disabled={disabled} />}</label>
-          <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Ends (your local time)</span>{readOnly ? <p>{draft.end}</p> : <Input type="datetime-local" value={draft.end} onChange={(e) => set("end", e.target.value)} disabled={disabled} />}</label>
+          <label className="block space-y-1 text-sm">
+            <span className="text-muted-foreground">
+              Starts (your local time)
+            </span>
+            {readOnly ? (
+              <p>{draft.start}</p>
+            ) : (
+              <Input
+                type="datetime-local"
+                value={draft.start}
+                onChange={(e) => set("start", e.target.value)}
+                disabled={disabled}
+              />
+            )}
+          </label>
+          <label className="block space-y-1 text-sm">
+            <span className="text-muted-foreground">
+              Ends (your local time)
+            </span>
+            {readOnly ? (
+              <p>{draft.end}</p>
+            ) : (
+              <Input
+                type="datetime-local"
+                value={draft.end}
+                onChange={(e) => set("end", e.target.value)}
+                disabled={disabled}
+              />
+            )}
+          </label>
         </div>
-        {!deleting && <>
-          <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Time zone (optional)</span><Input maxLength={80} value={draft.timeZone} onChange={(e) => set("timeZone", e.target.value)} disabled={disabled || settled} placeholder="America/Los_Angeles" /></label>
-          <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Location (optional)</span><Input maxLength={500} value={draft.location} onChange={(e) => set("location", e.target.value)} disabled={disabled || settled} /></label>
-          <label className="block space-y-1 text-sm"><span className="text-muted-foreground">Description (optional)</span><Textarea maxLength={4000} rows={3} value={draft.description} onChange={(e) => set("description", e.target.value)} disabled={disabled || settled} /></label>
-        </>}
-        {!settled && <div className="flex justify-end gap-2"><Button variant="outline" disabled={disabled || isApproving} onClick={onReject}>Reject</Button><Button variant={deleting ? "destructive" : "default"} disabled={disabled || isApproving || !draft.summary.trim() || (draft.action !== "create_event" && !draft.eventId.trim())} onClick={() => void approve()}>{isApproving ? "Saving approval…" : deleting ? "Approve deletion" : "Approve calendar change"}</Button></div>}
-        {settled && !approved && <p className="text-sm text-muted-foreground">No calendar change was approved or executed.</p>}
+        {!deleting && (
+          <>
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted-foreground">
+                Time zone (optional)
+              </span>
+              <Input
+                maxLength={80}
+                value={draft.timeZone}
+                onChange={(e) => set("timeZone", e.target.value)}
+                disabled={disabled || settled}
+                placeholder="America/Los_Angeles"
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted-foreground">Location (optional)</span>
+              <Input
+                maxLength={500}
+                value={draft.location}
+                onChange={(e) => set("location", e.target.value)}
+                disabled={disabled || settled}
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-muted-foreground">
+                Description (optional)
+              </span>
+              <Textarea
+                maxLength={4000}
+                rows={3}
+                value={draft.description}
+                onChange={(e) => set("description", e.target.value)}
+                disabled={disabled || settled}
+              />
+            </label>
+          </>
+        )}
+        {!settled && (
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              disabled={disabled || isApproving}
+              onClick={onReject}
+            >
+              Reject
+            </Button>
+            <Button
+              variant={deleting ? "destructive" : "default"}
+              disabled={
+                disabled ||
+                isApproving ||
+                !draft.summary.trim() ||
+                (draft.action !== "create_event" && !draft.eventId.trim())
+              }
+              onClick={() => void approve()}
+            >
+              {isApproving
+                ? "Saving approval…"
+                : deleting
+                  ? "Approve deletion"
+                  : "Approve calendar change"}
+            </Button>
+          </div>
+        )}
+        {settled && !approved && (
+          <p className="text-sm text-muted-foreground">
+            No calendar change was approved or executed.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -979,26 +2636,46 @@ function CreateAgentApprovalCard({
     model: string;
     tools: string[];
     files: Array<{ url: string; filename: string }>;
-    schedule?: { cronExpression: string; timezone: string; inputPrompt: string };
+    schedule?: {
+      cronExpression: string;
+      timezone: string;
+      inputPrompt: string;
+    };
   };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
   onSubmit: (result: Record<string, unknown>) => Promise<void>;
 }) {
   const [draft, setDraft] = useState(initialDraft);
-  const [modelOptions, setModelOptions] = useState<Array<{ value: string; provider: string; model: string }>>([]);
+  const [modelOptions, setModelOptions] = useState<
+    Array<{ value: string; provider: string; model: string }>
+  >([]);
   const [modelCatalogLoading, setModelCatalogLoading] = useState(true);
-  const [modelCatalogError, setModelCatalogError] = useState<string | null>(null);
-  const [scheduleEnabled, setScheduleEnabled] = useState(Boolean(initialDraft.schedule));
-  const [scheduleDraft, setScheduleDraft] = useState(() => initialDraft.schedule ?? {
-    cronExpression: "0 9 * * 1-5",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    inputPrompt: "Run the task described in the agent instructions.",
-  });
-  const [scheduleSubmission, setScheduleSubmission] = useState<Record<string, string> | null>(null);
+  const [modelCatalogError, setModelCatalogError] = useState<string | null>(
+    null,
+  );
+  const [scheduleEnabled, setScheduleEnabled] = useState(
+    Boolean(initialDraft.schedule),
+  );
+  const [scheduleDraft, setScheduleDraft] = useState(
+    () =>
+      initialDraft.schedule ?? {
+        cronExpression: "0 9 * * 1-5",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        inputPrompt: "Run the task described in the agent instructions.",
+      },
+  );
+  const [scheduleSubmission, setScheduleSubmission] = useState<Record<
+    string,
+    string
+  > | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string; scheduleId?: string } | null>(
+  const [created, setCreated] = useState<{
+    id: string;
+    name: string;
+    scheduleId?: string;
+  } | null>(
     submitted?.created === true && typeof submitted.agentId === "string"
       ? {
           id: submitted.agentId,
@@ -1014,23 +2691,35 @@ function CreateAgentApprovalCard({
     fetch("/api/agent/models", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load available models.");
-        const payload = await response.json() as { models?: unknown };
-        if (!Array.isArray(payload.models)) throw new Error("Invalid model catalog response.");
-        const models = payload.models.filter((entry): entry is { value: string; provider: string; model: string } =>
-          Boolean(entry) && typeof entry === "object" &&
-          typeof (entry as { value?: unknown }).value === "string" &&
-          typeof (entry as { provider?: unknown }).provider === "string" &&
-          typeof (entry as { model?: unknown }).model === "string",
+        const payload = (await response.json()) as { models?: unknown };
+        if (!Array.isArray(payload.models))
+          throw new Error("Invalid model catalog response.");
+        const models = payload.models.filter(
+          (
+            entry,
+          ): entry is { value: string; provider: string; model: string } =>
+            Boolean(entry) &&
+            typeof entry === "object" &&
+            typeof (entry as { value?: unknown }).value === "string" &&
+            typeof (entry as { provider?: unknown }).provider === "string" &&
+            typeof (entry as { model?: unknown }).model === "string",
         );
         if (active) setModelOptions(models);
       })
       .catch((error) => {
-        if (active) setModelCatalogError(error instanceof Error ? error.message : "Could not load available models.");
+        if (active)
+          setModelCatalogError(
+            error instanceof Error
+              ? error.message
+              : "Could not load available models.",
+          );
       })
       .finally(() => {
         if (active) setModelCatalogLoading(false);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const finish = async (result: Record<string, unknown>) => {
@@ -1056,18 +2745,36 @@ function CreateAgentApprovalCard({
       },
       body: JSON.stringify(requestBody),
     });
-    const result = await response.json().catch(() => null) as { job?: { id?: unknown }; error?: unknown } | null;
+    const result = (await response.json().catch(() => null)) as {
+      job?: { id?: unknown };
+      error?: unknown;
+    } | null;
     if (!response.ok) {
       if (response.status === 400) setScheduleSubmission(null);
-      if (response.status === 409) throw new Error("This schedule approval key was used for different schedule details. Start a new agent proposal to change it.");
-      if (response.status === 410) throw new Error("The schedule from this approval was deleted. Start a new proposal to schedule again.");
-      throw new Error(typeof result?.error === "string" ? result.error : "Could not create the recurring schedule. Retry safely.");
+      if (response.status === 409)
+        throw new Error(
+          "This schedule approval key was used for different schedule details. Start a new agent proposal to change it.",
+        );
+      if (response.status === 410)
+        throw new Error(
+          "The schedule from this approval was deleted. Start a new proposal to schedule again.",
+        );
+      throw new Error(
+        typeof result?.error === "string"
+          ? result.error
+          : "Could not create the recurring schedule. Retry safely.",
+      );
     }
-    if (typeof result?.job?.id !== "string") throw new Error("Invalid schedule response");
+    if (typeof result?.job?.id !== "string")
+      throw new Error("Invalid schedule response");
     return result.job.id;
   };
 
-  const returnCreatedResult = async (id: string, name: string, scheduleId?: string) => {
+  const returnCreatedResult = async (
+    id: string,
+    name: string,
+    scheduleId?: string,
+  ) => {
     await finish({
       created: true,
       agentId: id,
@@ -1083,7 +2790,10 @@ function CreateAgentApprovalCard({
       !draft.name.trim() ||
       !draft.systemPrompt.trim() ||
       modelCatalogLoading ||
-      Boolean(draft.model && !modelOptions.some((option) => option.value === draft.model))
+      Boolean(
+        draft.model &&
+          !modelOptions.some((option) => option.value === draft.model),
+      )
     )
       return;
     setIsCreating(true);
@@ -1111,9 +2821,13 @@ function CreateAgentApprovalCard({
         }),
       });
       if (response.status === 409) {
-        const conflict = await response.json().catch(() => null) as { code?: unknown } | null;
+        const conflict = (await response.json().catch(() => null)) as {
+          code?: unknown;
+        } | null;
         if (conflict?.code === "agent-model-unavailable") {
-          throw new Error("The selected model is no longer enabled. Choose another model or inherit the current chat model.");
+          throw new Error(
+            "The selected model is no longer enabled. Choose another model or inherit the current chat model.",
+          );
         }
         throw new Error(
           "This approval key was already used for a different draft. Restore the approved draft to retry safely.",
@@ -1145,9 +2859,9 @@ function CreateAgentApprovalCard({
           ? "Agent was created, but its schedule was not confirmed. Retry schedule creation below; it is safe to retry."
           : writeSucceeded
             ? "Agent was created, but its result could not be returned. Retry below."
-          : error instanceof Error
-            ? error.message
-            : "Could not create the agent. Check your access and try again.",
+            : error instanceof Error
+              ? error.message
+              : "Could not create the agent. Check your access and try again.",
       );
       // Keep the proposal editable; if creation already succeeded, created is
       // set before returning its result and the retry button will only answer
@@ -1160,7 +2874,11 @@ function CreateAgentApprovalCard({
   if (created || submitted?.created === true) {
     const id = created?.id ?? String(submitted?.agentId ?? "");
     const name = created?.name ?? String(submitted?.agentName ?? "Agent");
-    const scheduleId = created?.scheduleId ?? (typeof submitted?.scheduledJobId === "string" ? submitted.scheduledJobId : undefined);
+    const scheduleId =
+      created?.scheduleId ??
+      (typeof submitted?.scheduledJobId === "string"
+        ? submitted.scheduledJobId
+        : undefined);
     return (
       <section className="my-3 rounded-lg border bg-background p-4">
         <p className="font-medium">Agent created</p>
@@ -1173,20 +2891,93 @@ function CreateAgentApprovalCard({
         {scheduleEnabled && (
           <div className="mt-3 space-y-2 text-sm">
             {scheduleId ? (
-              <p>Recurring schedule created: <span className="font-mono">{scheduleId}</span></p>
+              <p>
+                Recurring schedule created:{" "}
+                <span className="font-mono">{scheduleId}</span>
+              </p>
             ) : (
               <>
-                <p>The agent exists. The recurring schedule still needs confirmation.</p>
-                <label className="block space-y-1"><span>Cron schedule</span><Input disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={120} value={scheduleDraft.cronExpression} onChange={(event) => setScheduleDraft((current) => ({ ...current, cronExpression: event.target.value }))} /></label>
-                <label className="block space-y-1"><span>Time zone</span><Input disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={64} value={scheduleDraft.timezone} onChange={(event) => setScheduleDraft((current) => ({ ...current, timezone: event.target.value }))} /></label>
-                <label className="block space-y-1"><span>Run prompt</span><Textarea disabled={disabled || isCreating || Boolean(scheduleSubmission)} maxLength={8000} value={scheduleDraft.inputPrompt} onChange={(event) => setScheduleDraft((current) => ({ ...current, inputPrompt: event.target.value }))} /></label>
-                {created && <Button disabled={disabled || isCreating || !scheduleDraft.inputPrompt.trim()} onClick={() => {
-                  setIsCreating(true);
-                  void createSchedule(id).then(async (jobId) => {
-                    setCreated({ id, name, scheduleId: jobId });
-                    await returnCreatedResult(id, name, jobId);
-                  }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not create the schedule.")).finally(() => setIsCreating(false));
-                }}>{isCreating ? "Saving schedule…" : "Retry schedule creation"}</Button>}
+                <p>
+                  The agent exists. The recurring schedule still needs
+                  confirmation.
+                </p>
+                <label className="block space-y-1">
+                  <span>Cron schedule</span>
+                  <Input
+                    disabled={
+                      disabled || isCreating || Boolean(scheduleSubmission)
+                    }
+                    maxLength={120}
+                    value={scheduleDraft.cronExpression}
+                    onChange={(event) =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        cronExpression: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span>Time zone</span>
+                  <Input
+                    disabled={
+                      disabled || isCreating || Boolean(scheduleSubmission)
+                    }
+                    maxLength={64}
+                    value={scheduleDraft.timezone}
+                    onChange={(event) =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        timezone: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span>Run prompt</span>
+                  <Textarea
+                    disabled={
+                      disabled || isCreating || Boolean(scheduleSubmission)
+                    }
+                    maxLength={8000}
+                    value={scheduleDraft.inputPrompt}
+                    onChange={(event) =>
+                      setScheduleDraft((current) => ({
+                        ...current,
+                        inputPrompt: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                {created && (
+                  <Button
+                    disabled={
+                      disabled ||
+                      isCreating ||
+                      !scheduleDraft.inputPrompt.trim()
+                    }
+                    onClick={() => {
+                      setIsCreating(true);
+                      void createSchedule(id)
+                        .then(async (jobId) => {
+                          setCreated({ id, name, scheduleId: jobId });
+                          await returnCreatedResult(id, name, jobId);
+                        })
+                        .catch((error) =>
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not create the schedule.",
+                          ),
+                        )
+                        .finally(() => setIsCreating(false));
+                    }}
+                  >
+                    {isCreating
+                      ? "Saving schedule…"
+                      : "Retry schedule creation"}
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -1195,9 +2986,7 @@ function CreateAgentApprovalCard({
           <div className="mt-3">
             <Button
               disabled={disabled}
-              onClick={() =>
-                void returnCreatedResult(id, name, scheduleId)
-              }
+              onClick={() => void returnCreatedResult(id, name, scheduleId)}
               size="sm"
             >
               Return result to chat
@@ -1267,13 +3056,25 @@ function CreateAgentApprovalCard({
         >
           <option value="">Inherit current chat model</option>
           {modelOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.provider} / {option.model}</option>
+            <option key={option.value} value={option.value}>
+              {option.provider} / {option.model}
+            </option>
           ))}
         </select>
-        <span className="text-xs text-muted-foreground">{modelCatalogLoading ? "Loading enabled models…" : modelCatalogError ?? "Choose an enabled model, or inherit the current chat model."}</span>
-        {!modelCatalogLoading && draft.model && !modelOptions.some((option) => option.value === draft.model) && (
-          <span role="alert" className="block text-xs text-destructive">This proposed model is unavailable. Choose an enabled model or inherit the chat model.</span>
-        )}
+        <span className="text-xs text-muted-foreground">
+          {modelCatalogLoading
+            ? "Loading enabled models…"
+            : (modelCatalogError ??
+              "Choose an enabled model, or inherit the current chat model.")}
+        </span>
+        {!modelCatalogLoading &&
+          draft.model &&
+          !modelOptions.some((option) => option.value === draft.model) && (
+            <span role="alert" className="block text-xs text-destructive">
+              This proposed model is unavailable. Choose an enabled model or
+              inherit the chat model.
+            </span>
+          )}
       </label>
       <div className="space-y-2 rounded-md border p-3">
         <div>
@@ -1300,7 +3101,9 @@ function CreateAgentApprovalCard({
                   onClick={() =>
                     setDraft((current) => ({
                       ...current,
-                      files: current.files.filter((_, fileIndex) => fileIndex !== index),
+                      files: current.files.filter(
+                        (_, fileIndex) => fileIndex !== index,
+                      ),
                     }))
                   }
                 >
@@ -1323,13 +3126,20 @@ function CreateAgentApprovalCard({
           onSelectMention={(item) => {
             try {
               const mention = JSON.parse(item.id) as Partial<ChatMention>;
-              if (mention.type !== "defaultTool" || typeof mention.name !== "string") return;
+              if (
+                mention.type !== "defaultTool" ||
+                typeof mention.name !== "string"
+              )
+                return;
               const [toolName] = normalizeDefaultToolNames([mention.name]);
               if (!toolName) return;
               setDraft((current) => {
                 const tools = normalizeDefaultToolNames(current.tools);
                 if (tools.includes(toolName)) {
-                  return { ...current, tools: tools.filter((tool) => tool !== toolName) };
+                  return {
+                    ...current,
+                    tools: tools.filter((tool) => tool !== toolName),
+                  };
                 }
                 if (tools.length >= 20) {
                   toast.error("An agent can use at most 20 built-in tools.");
@@ -1355,13 +3165,21 @@ function CreateAgentApprovalCard({
             disabled={disabled || isCreating}
             aria-expanded={toolPickerOpen}
           >
-            {draft.tools.length > 0 ? `${draft.tools.length} selected` : "Choose tools"}
+            {draft.tools.length > 0
+              ? `${draft.tools.length} selected`
+              : "Choose tools"}
           </Button>
         </ChatMentionInputSuggestion>
         {draft.tools.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5 pt-1" aria-label="Selected built-in tools">
+          <ul
+            className="flex flex-wrap gap-1.5 pt-1"
+            aria-label="Selected built-in tools"
+          >
             {normalizeDefaultToolNames(draft.tools).map((tool) => (
-              <li key={tool} className="rounded-md border bg-muted px-2 py-0.5 text-xs">
+              <li
+                key={tool}
+                className="rounded-md border bg-muted px-2 py-0.5 text-xs"
+              >
                 {tool}
               </li>
             ))}
@@ -1370,14 +3188,61 @@ function CreateAgentApprovalCard({
       </div>
       <div className="space-y-2 rounded-md border p-3">
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={scheduleEnabled} disabled={disabled || isCreating} onChange={(event) => setScheduleEnabled(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={scheduleEnabled}
+            disabled={disabled || isCreating}
+            onChange={(event) => setScheduleEnabled(event.target.checked)}
+          />
           Add a recurring schedule (optional)
         </label>
-        {scheduleEnabled && <div className="space-y-2">
-          <label className="block space-y-1 text-sm"><span>Cron schedule</span><Input disabled={disabled || isCreating} maxLength={120} value={scheduleDraft.cronExpression} onChange={(event) => setScheduleDraft((current) => ({ ...current, cronExpression: event.target.value }))} placeholder="0 9 * * 1-5" /></label>
-          <label className="block space-y-1 text-sm"><span>Time zone</span><Input disabled={disabled || isCreating} maxLength={64} value={scheduleDraft.timezone} onChange={(event) => setScheduleDraft((current) => ({ ...current, timezone: event.target.value }))} /></label>
-          <label className="block space-y-1 text-sm"><span>Run prompt</span><Textarea disabled={disabled || isCreating} maxLength={8000} value={scheduleDraft.inputPrompt} onChange={(event) => setScheduleDraft((current) => ({ ...current, inputPrompt: event.target.value }))} /></label>
-        </div>}
+        {scheduleEnabled && (
+          <div className="space-y-2">
+            <label className="block space-y-1 text-sm">
+              <span>Cron schedule</span>
+              <Input
+                disabled={disabled || isCreating}
+                maxLength={120}
+                value={scheduleDraft.cronExpression}
+                onChange={(event) =>
+                  setScheduleDraft((current) => ({
+                    ...current,
+                    cronExpression: event.target.value,
+                  }))
+                }
+                placeholder="0 9 * * 1-5"
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span>Time zone</span>
+              <Input
+                disabled={disabled || isCreating}
+                maxLength={64}
+                value={scheduleDraft.timezone}
+                onChange={(event) =>
+                  setScheduleDraft((current) => ({
+                    ...current,
+                    timezone: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span>Run prompt</span>
+              <Textarea
+                disabled={disabled || isCreating}
+                maxLength={8000}
+                value={scheduleDraft.inputPrompt}
+                onChange={(event) =>
+                  setScheduleDraft((current) => ({
+                    ...current,
+                    inputPrompt: event.target.value,
+                  }))
+                }
+              />
+            </label>
+          </div>
+        )}
       </div>
       <div className="flex justify-end gap-2">
         <Button
@@ -1394,7 +3259,10 @@ function CreateAgentApprovalCard({
             !draft.name.trim() ||
             !draft.systemPrompt.trim() ||
             modelCatalogLoading ||
-            Boolean(draft.model && !modelOptions.some((option) => option.value === draft.model))
+            Boolean(
+              draft.model &&
+                !modelOptions.some((option) => option.value === draft.model),
+            )
           }
           onClick={() => void create()}
         >
@@ -1419,7 +3287,11 @@ function EmailDraftCard({
   initialDraft: { to: string; subject: string; body: string };
   submitted: Record<string, unknown> | null;
   disabled: boolean;
-  onApprove: (draft: { to: string; subject: string; body: string }, action: "send" | "reply", messageId?: string) => Promise<void>;
+  onApprove: (
+    draft: { to: string; subject: string; body: string },
+    action: "send" | "reply",
+    messageId?: string,
+  ) => Promise<void>;
   onReject: () => void;
 }) {
   const [draft, setDraft] = useState(initialDraft);
@@ -1436,12 +3308,29 @@ function EmailDraftCard({
     setDraft((current) => ({ ...current, [key]: value }));
 
   const approve = async () => {
-    if (disabled || isApproving || !valid || !draft.subject.trim() || !draft.body.trim()) return;
+    if (
+      disabled ||
+      isApproving ||
+      !valid ||
+      !draft.subject.trim() ||
+      !draft.body.trim()
+    )
+      return;
     setIsApproving(true);
     try {
-      await onApprove({ to: draft.to.trim(), subject: draft.subject.trim(), body: draft.body.trim() }, action, messageId);
+      await onApprove(
+        {
+          to: draft.to.trim(),
+          subject: draft.subject.trim(),
+          body: draft.body.trim(),
+        },
+        action,
+        messageId,
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save this approval");
+      toast.error(
+        error instanceof Error ? error.message : "Could not save this approval",
+      );
     } finally {
       setIsApproving(false);
     }
@@ -1507,7 +3396,13 @@ function EmailDraftCard({
               Reject
             </Button>
             <Button
-              disabled={disabled || isApproving || !valid || !draft.subject.trim() || !draft.body.trim()}
+              disabled={
+                disabled ||
+                isApproving ||
+                !valid ||
+                !draft.subject.trim() ||
+                !draft.body.trim()
+              }
               onClick={() => void approve()}
             >
               {isApproving ? "Saving approval..." : "Approve draft"}
@@ -1658,108 +3553,6 @@ function PlanApprovalCard({
           <p className="text-sm text-muted-foreground">
             Changes requested: {String(submitted.feedback ?? "")}
           </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function RequestInputCard({
-  questions,
-  submitted,
-  disabled,
-  onSubmit,
-}: {
-  questions: Question[];
-  submitted: Record<string, unknown> | null;
-  disabled: boolean;
-  onSubmit: (
-    answers: { header: string; question: string; value: string }[],
-  ) => void;
-}) {
-  const [answers, setAnswers] = useState<string[]>(questions.map(() => ""));
-  const submittedAnswers = submitted?.answers as
-    | { header: string; question: string; value: string }[]
-    | undefined;
-  const settled = Boolean(submittedAnswers);
-  const canSubmit = answers.every((answer) => answer.trim().length > 0);
-
-  return (
-    <section className="my-3 overflow-hidden rounded-lg border bg-background shadow-sm">
-      <header className="border-b px-4 py-2 text-xs font-medium uppercase text-muted-foreground">
-        {settled ? "Answers submitted" : "A few details"}
-      </header>
-      <div className="space-y-4 px-4 py-3">
-        {questions.map((question, index) => (
-          <div className="space-y-2" key={`${question.header}-${index}`}>
-            <div className="text-xs font-medium uppercase text-muted-foreground">
-              {question.header}
-            </div>
-            <p className="text-sm">{question.question}</p>
-            {settled ? (
-              <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-sm">
-                {submittedAnswers?.[index]?.value}
-              </p>
-            ) : (
-              <>
-                {question.options?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {question.options.map((option) => (
-                      <Button
-                        aria-pressed={answers[index] === option}
-                        disabled={disabled}
-                        key={option}
-                        onClick={() =>
-                          setAnswers((current) =>
-                            current.map((value, i) =>
-                              i === index ? option : value,
-                            ),
-                          )
-                        }
-                        size="sm"
-                        variant={
-                          answers[index] === option ? "secondary" : "outline"
-                        }
-                      >
-                        {option}
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
-                <Input
-                  aria-label={question.question}
-                  disabled={disabled}
-                  maxLength={2000}
-                  onChange={(event) =>
-                    setAnswers((current) =>
-                      current.map((value, i) =>
-                        i === index ? event.target.value : value,
-                      ),
-                    )
-                  }
-                  value={answers[index]}
-                />
-              </>
-            )}
-          </div>
-        ))}
-        {!settled && (
-          <div className="flex justify-end">
-            <Button
-              disabled={disabled || !canSubmit}
-              onClick={() =>
-                onSubmit(
-                  questions.map((question, index) => ({
-                    header: question.header,
-                    question: question.question,
-                    value: answers[index].trim(),
-                  })),
-                )
-              }
-            >
-              Send answers
-            </Button>
-          </div>
         )}
       </div>
     </section>

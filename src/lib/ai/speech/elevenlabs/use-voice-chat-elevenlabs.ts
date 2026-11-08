@@ -13,6 +13,8 @@ import { useTheme } from "next-themes";
 import { callApprovedMcpToolAction } from "@/app/api/mcp/actions";
 import { requestVoiceMcpApproval } from "../mcp-voice-approval";
 import { appStore } from "@/app/store";
+import { runVoiceAgent } from "../run-agent";
+import { searchVoiceWeb } from "../web-search";
 
 const ELEVENLABS_ORIGIN = "wss://api.elevenlabs.io";
 const ELEVENLABS_LIVEKIT_URL = "wss://livekit.rtc.elevenlabs.io";
@@ -24,7 +26,15 @@ interface ElevenLabsSessionResponse {
   tools: unknown[];
   voiceId: string | null;
   hasKimiCredentials: boolean;
-  toolIdMap: Record<string, { serverId: string; serverName: string; toolName: string }>;
+  toolIdMap: Record<
+    string,
+    {
+      serverId: string;
+      serverName: string;
+      toolName: string;
+      serverConfigFingerprint?: string;
+    }
+  >;
 }
 
 type ConversationMessage = Parameters<NonNullable<Callbacks["onMessage"]>>[0];
@@ -309,9 +319,14 @@ export function useElevenLabsVoiceChat(
       try {
         const mapped = toolIdMapRef.current[awaitingPayload.tool_name];
         if (!mapped || mapped.serverName !== awaitingPayload.service_id) {
-          throw new Error("MCP tool mapping is unavailable; the action was not run.");
+          throw new Error(
+            "MCP tool mapping is unavailable; the action was not run.",
+          );
         }
-        const approvalToken = await requestVoiceMcpApproval({ ...mapped, payload: awaitingPayload.parameters });
+        const approvalToken = await requestVoiceMcpApproval({
+          ...mapped,
+          payload: awaitingPayload.parameters,
+        });
         if (!approvalToken) throw new Error("The user rejected this action.");
         const result = await callApprovedMcpToolAction(
           mapped.serverId,
@@ -433,6 +448,35 @@ export function useElevenLabsVoiceChat(
             },
           }));
           return "Conversation ended";
+        },
+        runAgent: async ({
+          agent,
+          question,
+        }: { agent: string; question: string }) => {
+          try {
+            return JSON.stringify(await runVoiceAgent({ agent, question }));
+          } catch (error) {
+            return JSON.stringify({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "The requested agent could not answer just now.",
+            });
+          }
+        },
+        searchWeb: async ({ query }: { query: string }) => {
+          try {
+            return JSON.stringify(await searchVoiceWeb(query));
+          } catch (error) {
+            return JSON.stringify({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Public web search is temporarily unavailable.",
+            });
+          }
         },
       } satisfies Record<
         string,

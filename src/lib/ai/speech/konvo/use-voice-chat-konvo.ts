@@ -13,6 +13,8 @@ import { generateUUID } from "lib/utils";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestVoiceMcpApproval } from "../mcp-voice-approval";
+import { runVoiceAgent } from "../run-agent";
+import { searchVoiceWeb } from "../web-search";
 
 // -- Types --
 type Content =
@@ -32,7 +34,12 @@ interface SessionConfig {
   groqModel: string;
   toolIdMap?: Record<
     string,
-    { serverId: string; serverName: string; toolName: string }
+    {
+      serverId: string;
+      serverName: string;
+      toolName: string;
+      serverConfigFingerprint?: string;
+    }
   >;
 }
 
@@ -642,18 +649,56 @@ export function useKonvOVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               // Will be handled after tool loop
               result = "Conversation ended";
               break;
+            case "runAgent":
+              try {
+                result = await runVoiceAgent({
+                  agent: toolArgs.agent,
+                  question: toolArgs.question,
+                });
+              } catch (toolError) {
+                result = {
+                  success: false,
+                  error:
+                    toolError instanceof Error
+                      ? toolError.message
+                      : "The requested agent could not answer just now.",
+                };
+              }
+              break;
+            case "searchWeb":
+              try {
+                result = await searchVoiceWeb(toolArgs.query);
+              } catch (toolError) {
+                result = {
+                  success: false,
+                  error:
+                    toolError instanceof Error
+                      ? toolError.message
+                      : "Public web search is temporarily unavailable.",
+                };
+              }
+              break;
             case "getProjectStatus":
               try {
+                const projectSelector =
+                  typeof toolArgs.projectId === "string"
+                    ? { projectId: toolArgs.projectId }
+                    : typeof toolArgs.projectName === "string"
+                      ? { projectName: toolArgs.projectName }
+                      : {};
                 const response = await fetch("/api/voice/project-status", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ threadId: props?.threadId }),
+                  body: JSON.stringify({
+                    ...(props?.threadId ? { threadId: props.threadId } : {}),
+                    ...projectSelector,
+                  }),
                 });
                 result = response.ok
                   ? await response.json()
                   : {
                       success: false,
-                      error: "No project status is available for this chat.",
+                      error: "No project status is available for that project.",
                     };
               } catch {
                 result = {

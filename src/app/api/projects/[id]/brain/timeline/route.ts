@@ -5,6 +5,7 @@ import {
   CollectionItemTable,
   CollectionTable,
   ProjectBrainEventTable,
+  ProjectBrainRunTable,
 } from "lib/db/pg/schema.pg";
 import {
   getProjectAccess,
@@ -44,10 +45,15 @@ export async function GET(
       status: ProjectBrainEventTable.status,
       createdAt: ProjectBrainEventTable.createdAt,
       sourceItemId: ProjectBrainEventTable.sourceItemId,
+      sourceVersionId: ProjectBrainRunTable.sourceVersionId,
       filename: CollectionItemTable.filename,
       collectionId: CollectionItemTable.collectionId,
     })
     .from(ProjectBrainEventTable)
+    .innerJoin(
+      ProjectBrainRunTable,
+      eq(ProjectBrainRunTable.id, ProjectBrainEventTable.runId),
+    )
     .innerJoin(
       CollectionItemTable,
       eq(CollectionItemTable.id, ProjectBrainEventTable.sourceItemId),
@@ -63,6 +69,7 @@ export async function GET(
           ProjectBrainEventTable.runId,
           ProjectBrainEventTable.projectId,
           ProjectBrainEventTable.sourceItemId,
+          ProjectBrainEventTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, collectionIds),
         inArray(CollectionTable.userId, ownerIds),

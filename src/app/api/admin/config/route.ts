@@ -12,6 +12,7 @@ import {
   buildDefaultSecurityConfig,
 } from "lib/admin/site-config-defaults";
 import { invalidateAdminConfigCache } from "lib/admin/site-config-reader";
+import { validateModelDisplayMetadataMap } from "lib/ai/model-display-metadata";
 import { validateModelPricingMap } from "lib/ai/model-pricing.server";
 import {
   customModelProvider,
@@ -133,6 +134,9 @@ export async function GET(req: Request) {
     const modelsConfig = {
       providers: mergedProviders,
       modelPricing: validateModelPricingMap(dbModels.modelPricing ?? {}) ?? {},
+      modelDisplayMetadata:
+        validateModelDisplayMetadataMap(dbModels.modelDisplayMetadata ?? {}) ??
+        {},
       teamMemberBudgetsEnabled: dbModels.teamMemberBudgetsEnabled === true,
       ...(dbModels.globalFallback
         ? { globalFallback: dbModels.globalFallback }
@@ -268,6 +272,15 @@ export async function POST(req: Request) {
           );
         }
         if (
+          config.models?.modelDisplayMetadata !== undefined &&
+          !validateModelDisplayMetadataMap(config.models.modelDisplayMetadata)
+        ) {
+          return NextResponse.json(
+            { success: false, error: "Invalid model display metadata" },
+            { status: 400 },
+          );
+        }
+        if (
           config.models?.teamMemberBudgetsEnabled !== undefined &&
           !isValidTeamMemberBudgetRolloutValue(
             config.models.teamMemberBudgetsEnabled,
@@ -345,6 +358,21 @@ export async function POST(req: Request) {
         );
       }
       validatedSettings = { ...validatedSettings, modelPricing };
+    }
+    if (
+      key === "models" &&
+      validatedSettings.modelDisplayMetadata !== undefined
+    ) {
+      const modelDisplayMetadata = validateModelDisplayMetadataMap(
+        validatedSettings.modelDisplayMetadata,
+      );
+      if (!modelDisplayMetadata) {
+        return NextResponse.json(
+          { success: false, error: "Invalid model display metadata" },
+          { status: 400 },
+        );
+      }
+      validatedSettings = { ...validatedSettings, modelDisplayMetadata };
     }
     if (
       key === "models" &&

@@ -1,3 +1,4 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -14,11 +15,13 @@ const mocks = vi.hoisted(() => ({
   deleteFile: vi.fn(),
   storageDriver: "local" as "local" | "s3" | "vercel-blob",
   ingestText: vi.fn(),
+  enqueueProjectBrainForIngest: vi.fn(),
   parseDocument: vi.fn(),
   isParseableDocument: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
   delete: vi.fn(),
+  predicates: [] as unknown[],
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("lib/projects/access", () => ({
@@ -57,6 +60,9 @@ vi.mock("lib/rag/parse", () => ({
   parseDocument: mocks.parseDocument,
   isParseableDocument: mocks.isParseableDocument,
 }));
+vi.mock("lib/projects/brain-queue", () => ({
+  enqueueProjectBrainForIngest: mocks.enqueueProjectBrainForIngest,
+}));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, insert: mocks.insert, delete: mocks.delete },
 }));
@@ -75,9 +81,13 @@ const access = {
 
 function builder(rows: unknown[]) {
   const value: Record<string, unknown> = {};
-  for (const method of ["from", "innerJoin", "where", "orderBy"]) {
+  for (const method of ["from", "innerJoin", "orderBy"]) {
     value[method] = vi.fn(() => value);
   }
+  value.where = vi.fn((predicate: unknown) => {
+    mocks.predicates.push(predicate);
+    return value;
+  });
   value.limit = vi.fn(async () => rows);
   return value;
 }
@@ -85,10 +95,12 @@ function builder(rows: unknown[]) {
 function uploadRequest(fileName = "notes.txt", collection = collectionId) {
   const form = new FormData();
   form.set("collectionId", collection);
-  form.set(
-    "file",
-    new File(["hello project"], fileName, { type: "text/plain" }),
-  );
+  const fileType = fileName.endsWith(".xlsx")
+    ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    : fileName.endsWith(".pptx")
+      ? "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      : "text/plain";
+  form.set("file", new File(["hello project"], fileName, { type: fileType }));
   return new Request(`http://localhost/api/projects/${projectId}/documents`, {
     method: "POST",
     headers: { Origin: "http://localhost" },
@@ -98,6 +110,7 @@ function uploadRequest(fileName = "notes.txt", collection = collectionId) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.predicates.length = 0;
   mocks.getSession.mockResolvedValue({ user: { id: userId } });
   mocks.getProjectAccess.mockResolvedValue(access);
   mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue([userId]);
@@ -121,6 +134,10 @@ beforeEach(() => {
     itemId: "item-id",
     documentId: "doc-id",
     chunks: 1,
+  });
+  mocks.enqueueProjectBrainForIngest.mockResolvedValue({
+    queued: 1,
+    capped: false,
   });
   mocks.insert.mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined),
@@ -151,6 +168,69 @@ describe("project document API", () => {
     expect(JSON.stringify(body)).not.toContain("uploads/user/file.txt");
   });
 
+  it("paginates project documents with a stable timestamp and link ID cursor", async () => {
+    const timestamp = new Date("2026-11-07T12:00:00.000Z");
+    const rows = Array.from({ length: 101 }, (_, index) => ({
+      id: `item-${index}`,
+      linkId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      collectionId,
+      filename: `notes-${index}.txt`,
+      mediaType: "text/plain",
+      status: "ready",
+      createdAt: timestamp,
+    }));
+    mocks.select.mockReturnValueOnce(builder(rows));
+
+    const firstResponse = await GET(
+      new Request(`http://localhost/api/projects/${projectId}/documents`),
+      params,
+    );
+    const firstPage = await firstResponse.json();
+    expect(firstPage.documents).toHaveLength(100);
+    expect(firstPage.nextCursor).toBeTruthy();
+    expect(firstPage.documents[99]).not.toHaveProperty("linkId");
+
+    mocks.select.mockReturnValueOnce(
+      builder([
+        {
+          ...rows[100],
+          id: "item-older",
+          linkId: "00000000-0000-4000-8000-000000000999",
+        },
+      ]),
+    );
+    const secondResponse = await GET(
+      new Request(
+        `http://localhost/api/projects/${projectId}/documents?cursor=${encodeURIComponent(firstPage.nextCursor)}`,
+      ),
+      params,
+    );
+    const secondPage = await secondResponse.json();
+    expect(
+      secondPage.documents.map((document: { id: string }) => document.id),
+    ).toEqual(["item-older"]);
+    expect(secondPage.nextCursor).toBeNull();
+    const cursorQuery = new PgDialect().sqlToQuery(
+      mocks.predicates[1] as never,
+    );
+    expect(cursorQuery.sql).toContain('"project_document"."created_at" <');
+    expect(cursorQuery.sql).toContain('"project_document"."id" <');
+    expect(cursorQuery.sql).toContain('"project_document"."project_id" =');
+    expect(cursorQuery.sql).toContain('"collection_item"."collection_id" in');
+    expect(cursorQuery.sql).toContain('"collection"."user_id" in');
+  });
+
+  it("rejects malformed page cursors before querying documents", async () => {
+    const response = await GET(
+      new Request(
+        `http://localhost/api/projects/${projectId}/documents?cursor=bad`,
+      ),
+      params,
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.select).not.toHaveBeenCalled();
+  });
+
   it("stores original bytes privately and indexes the same parsed text into the attached collection", async () => {
     const response = await POST(uploadRequest(), params);
     const body = await response.json();
@@ -171,7 +251,58 @@ describe("project document API", () => {
         storageKey: "uploads/user/file.txt",
       }),
     );
+    expect(mocks.enqueueProjectBrainForIngest).toHaveBeenCalledWith({
+      userId,
+      collectionId,
+      itemId: "item-id",
+    });
     expect(JSON.stringify(body)).not.toContain("uploads/user/file.txt");
+  });
+
+  it.each([
+    ["forecast.xlsx", "xlsx", "Workbook text: Q1 revenue"],
+    ["roadmap.pptx", "pptx", "Slide text: Launch plan"],
+  ])(
+    "ingests bounded %s extraction into its attached knowledge collection",
+    async (filename, kind, text) => {
+      mocks.parseDocument.mockResolvedValueOnce({ text, kind });
+      const response = await POST(uploadRequest(filename), params);
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.document).toMatchObject({
+        id: "item-id",
+        collectionId,
+        filename,
+        status: "ready",
+      });
+      expect(mocks.upload).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.objectContaining({ ownerId: userId }),
+      );
+      expect(mocks.ingestText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collectionId,
+          actorUserId: userId,
+          text,
+          storageKey: "uploads/user/file.txt",
+        }),
+      );
+      expect(JSON.stringify(body)).not.toContain("uploads/user/file.txt");
+    },
+  );
+
+  it("keeps an uploaded document successful if brain scheduling is unavailable", async () => {
+    mocks.enqueueProjectBrainForIngest.mockRejectedValueOnce(
+      new Error("queue unavailable"),
+    );
+    const response = await POST(uploadRequest(), params);
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      document: { id: "item-id", status: "ready" },
+    });
+    expect(mocks.deleteFile).not.toHaveBeenCalled();
+    expect(mocks.delete).not.toHaveBeenCalled();
   });
 
   it("rejects viewers and unattached collections before storing bytes", async () => {

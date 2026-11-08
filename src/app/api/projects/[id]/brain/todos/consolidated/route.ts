@@ -1,9 +1,11 @@
 import { getSession } from "auth/server";
-import { and, eq, exists, inArray } from "drizzle-orm";
+import { and, eq, exists, inArray, isNull, or, sql } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
   CollectionTable,
+  ChatThreadTable,
+  ProjectBrainChatSourceTable,
   ProjectBrainRunTable,
   ProjectBrainTodoTable,
 } from "lib/db/pg/schema.pg";
@@ -15,13 +17,17 @@ import {
 } from "lib/projects/access";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
 import { hasSameProjectBrainTaskIdentity } from "lib/projects/consolidate-brain-todos";
+import { getActiveProjectBrainChatSourceOwnerIds } from "lib/projects/project-chat-brain-source";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const requestSchema = z
-  .object({ todoIds: z.array(z.string().uuid()).min(1).max(100) })
+  .object({
+    todoIds: z.array(z.string().uuid()).min(1).max(100),
+    status: z.enum(["accepted", "completed"]).default("completed"),
+  })
   .strict()
   .superRefine((value, context) => {
     if (new Set(value.todoIds).size !== value.todoIds.length) {
@@ -87,8 +93,60 @@ export async function PATCH(
 
   const collectionIds = access.project.collectionIds;
   const ownerIds = await getProjectCollectionSourceOwnerIds(access);
-  if (!collectionIds.length || !ownerIds.length)
+  const chatOwnerIds = await getActiveProjectBrainChatSourceOwnerIds(projectId);
+  const nextStatus = parsed.data.status;
+  const expectedStatus = nextStatus === "completed" ? "accepted" : "completed";
+  if ((!collectionIds.length || !ownerIds.length) && !chatOwnerIds.length)
     return new Response("Not found", { status: 404 });
+
+  const visibleDocument =
+    collectionIds.length && ownerIds.length
+      ? exists(
+          pgDb
+            .select({ id: CollectionItemTable.id })
+            .from(CollectionItemTable)
+            .innerJoin(
+              CollectionTable,
+              eq(CollectionTable.id, CollectionItemTable.collectionId),
+            )
+            .where(
+              and(
+                eq(CollectionItemTable.id, ProjectBrainTodoTable.sourceItemId),
+                inArray(CollectionItemTable.collectionId, collectionIds),
+                inArray(CollectionTable.userId, ownerIds),
+                eq(CollectionItemTable.status, "ready"),
+              ),
+            ),
+        )
+      : sql`false`;
+  const visibleChat =
+    chatOwnerIds.length > 0
+      ? exists(
+          pgDb
+            .select({ id: ProjectBrainChatSourceTable.id })
+            .from(ProjectBrainChatSourceTable)
+            .innerJoin(
+              ChatThreadTable,
+              eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+            )
+            .where(
+              and(
+                eq(
+                  ProjectBrainChatSourceTable.id,
+                  ProjectBrainTodoTable.chatSourceId,
+                ),
+                eq(ProjectBrainChatSourceTable.projectId, projectId),
+                inArray(ProjectBrainChatSourceTable.ownerUserId, chatOwnerIds),
+                isNull(ProjectBrainChatSourceTable.revokedAt),
+                eq(ChatThreadTable.projectId, projectId),
+                eq(
+                  ChatThreadTable.userId,
+                  ProjectBrainChatSourceTable.ownerUserId,
+                ),
+              ),
+            ),
+        )
+      : sql`false`;
 
   const rows = await pgDb
     .select({
@@ -102,27 +160,24 @@ export async function PATCH(
       ProjectBrainRunTable,
       eq(ProjectBrainRunTable.id, ProjectBrainTodoTable.runId),
     )
-    .innerJoin(
-      CollectionItemTable,
-      eq(CollectionItemTable.id, ProjectBrainTodoTable.sourceItemId),
-    )
-    .innerJoin(
-      CollectionTable,
-      eq(CollectionTable.id, CollectionItemTable.collectionId),
-    )
     .where(
       and(
         eq(ProjectBrainTodoTable.projectId, projectId),
-        eq(ProjectBrainTodoTable.status, "accepted"),
+        eq(ProjectBrainTodoTable.status, expectedStatus),
         inArray(ProjectBrainTodoTable.id, parsed.data.todoIds),
         projectBrainRunIsActiveSourceRevision(
           ProjectBrainTodoTable.runId,
           ProjectBrainTodoTable.projectId,
           ProjectBrainTodoTable.sourceItemId,
+          ProjectBrainTodoTable.chatSourceId,
         ),
-        inArray(CollectionItemTable.collectionId, collectionIds),
-        inArray(CollectionTable.userId, ownerIds),
-        eq(CollectionItemTable.status, "ready"),
+        or(
+          and(
+            eq(ProjectBrainTodoTable.sourceType, "document"),
+            visibleDocument,
+          ),
+          and(eq(ProjectBrainTodoTable.sourceType, "chat"), visibleChat),
+        ),
       ),
     );
 
@@ -140,36 +195,85 @@ export async function PATCH(
   }
 
   try {
-    const completedTodoIds = await pgDb.transaction(async (tx) => {
-      const visibleSource = tx
-        .select({ id: CollectionItemTable.id })
-        .from(CollectionItemTable)
-        .innerJoin(
-          CollectionTable,
-          eq(CollectionTable.id, CollectionItemTable.collectionId),
-        )
-        .where(
-          and(
-            eq(CollectionItemTable.id, ProjectBrainTodoTable.sourceItemId),
-            inArray(CollectionItemTable.collectionId, collectionIds),
-            inArray(CollectionTable.userId, ownerIds),
-            eq(CollectionItemTable.status, "ready"),
-          ),
-        );
+    const updatedTodoIds = await pgDb.transaction(async (tx) => {
+      const visibleDocumentSource =
+        collectionIds.length && ownerIds.length
+          ? exists(
+              tx
+                .select({ id: CollectionItemTable.id })
+                .from(CollectionItemTable)
+                .innerJoin(
+                  CollectionTable,
+                  eq(CollectionTable.id, CollectionItemTable.collectionId),
+                )
+                .where(
+                  and(
+                    eq(
+                      CollectionItemTable.id,
+                      ProjectBrainTodoTable.sourceItemId,
+                    ),
+                    inArray(CollectionItemTable.collectionId, collectionIds),
+                    inArray(CollectionTable.userId, ownerIds),
+                    eq(CollectionItemTable.status, "ready"),
+                  ),
+                ),
+            )
+          : sql`false`;
+      const visibleChatSource =
+        chatOwnerIds.length > 0
+          ? exists(
+              tx
+                .select({ id: ProjectBrainChatSourceTable.id })
+                .from(ProjectBrainChatSourceTable)
+                .innerJoin(
+                  ChatThreadTable,
+                  eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+                )
+                .where(
+                  and(
+                    eq(
+                      ProjectBrainChatSourceTable.id,
+                      ProjectBrainTodoTable.chatSourceId,
+                    ),
+                    eq(ProjectBrainChatSourceTable.projectId, projectId),
+                    inArray(
+                      ProjectBrainChatSourceTable.ownerUserId,
+                      chatOwnerIds,
+                    ),
+                    isNull(ProjectBrainChatSourceTable.revokedAt),
+                    eq(ChatThreadTable.projectId, projectId),
+                    eq(
+                      ChatThreadTable.userId,
+                      ProjectBrainChatSourceTable.ownerUserId,
+                    ),
+                  ),
+                ),
+            )
+          : sql`false`;
       const updated = await tx
         .update(ProjectBrainTodoTable)
-        .set({ status: "completed", reviewedAt: new Date() })
+        .set({ status: nextStatus, reviewedAt: new Date() })
         .where(
           and(
             eq(ProjectBrainTodoTable.projectId, projectId),
             inArray(ProjectBrainTodoTable.id, parsed.data.todoIds),
-            eq(ProjectBrainTodoTable.status, "accepted"),
+            eq(ProjectBrainTodoTable.status, expectedStatus),
             projectBrainRunIsActiveSourceRevision(
               ProjectBrainTodoTable.runId,
               ProjectBrainTodoTable.projectId,
               ProjectBrainTodoTable.sourceItemId,
+              ProjectBrainTodoTable.chatSourceId,
             ),
-            exists(visibleSource),
+            or(
+              and(
+                eq(ProjectBrainTodoTable.sourceType, "document"),
+                visibleDocumentSource,
+              ),
+              and(
+                eq(ProjectBrainTodoTable.sourceType, "chat"),
+                visibleChatSource,
+              ),
+            ),
           ),
         )
         .returning({ id: ProjectBrainTodoTable.id });
@@ -178,7 +282,9 @@ export async function PATCH(
       return updated.map((todo) => todo.id);
     });
     return Response.json(
-      { completedTodoIds },
+      nextStatus === "completed"
+        ? { completedTodoIds: updatedTodoIds }
+        : { reopenedTodoIds: updatedTodoIds },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -187,9 +293,9 @@ export async function PATCH(
         { error: "The task group changed. Refresh and try again." },
         { status: 409, headers: { "Cache-Control": "no-store" } },
       );
-    console.error("[project-brain] consolidated task completion failed", error);
+    console.error("[project-brain] consolidated task update failed", error);
     return Response.json(
-      { error: "Could not complete the project task" },
+      { error: "Could not update the project task" },
       { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }

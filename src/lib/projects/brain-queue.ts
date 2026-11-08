@@ -9,17 +9,22 @@ import {
   desc,
   eq,
   inArray,
+  isNull,
   lt,
   ne,
   or,
 } from "drizzle-orm";
 import { customModelProvider } from "lib/ai/models";
+import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
+  ChatMessageTable,
+  ChatThreadTable,
   CollectionItemTable,
   CollectionTable,
   DocumentTable,
   ProjectBrainAliasTable,
+  ProjectBrainChatSourceTable,
   ProjectBrainContradictionTable,
   ProjectBrainEventTable,
   ProjectBrainFactTable,
@@ -58,6 +63,10 @@ import {
 } from "lib/projects/brain-schema";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
 import { runProjectBrainBudgetedInference } from "lib/projects/project-brain-budgeted-inference";
+import {
+  formatProjectChatTranscript,
+  isCurrentProjectChatBrainRun,
+} from "lib/projects/project-chat-brain-source";
 import { recomputeProjectBrainSalience } from "lib/projects/recompute-brain-salience";
 import {
   ensureProjectBrainSourceVersion,
@@ -147,7 +156,9 @@ export async function enqueueProjectBrainForIngest(input: {
       .values({
         projectId,
         requestedByUserId: input.userId,
+        sourceType: "document",
         sourceItemId: input.itemId,
+        chatSourceId: null,
         sourceVersionId,
         sourceFingerprint,
         status: "queued",
@@ -224,69 +235,168 @@ export async function processProjectBrainQueue(now = new Date()) {
         );
       }
       const ownerIds = await getProjectCollectionSourceOwnerIds(access);
-      if (!access.project.collectionIds.length || !ownerIds.length) {
+      let sourceRef: string;
+      let currentSourceText: string;
+      let sourceVersion:
+        | typeof ProjectBrainSourceVersionTable.$inferSelect
+        | undefined;
+      if (run.sourceType === "chat" && run.chatSourceId) {
+        const [chatSource] = await pgDb
+          .select({
+            id: ProjectBrainChatSourceTable.id,
+            projectId: ProjectBrainChatSourceTable.projectId,
+            ownerUserId: ProjectBrainChatSourceTable.ownerUserId,
+            activeFingerprint: ProjectBrainChatSourceTable.activeFingerprint,
+            revokedAt: ProjectBrainChatSourceTable.revokedAt,
+            threadId: ProjectBrainChatSourceTable.threadId,
+            threadProjectId: ChatThreadTable.projectId,
+            threadUserId: ChatThreadTable.userId,
+          })
+          .from(ProjectBrainChatSourceTable)
+          .innerJoin(
+            ChatThreadTable,
+            eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+          )
+          .where(
+            and(
+              eq(ProjectBrainChatSourceTable.id, run.chatSourceId),
+              eq(ProjectBrainChatSourceTable.projectId, run.projectId),
+              eq(
+                ProjectBrainChatSourceTable.ownerUserId,
+                run.requestedByUserId,
+              ),
+              eq(
+                ProjectBrainChatSourceTable.activeFingerprint,
+                run.sourceFingerprint,
+              ),
+              isNull(ProjectBrainChatSourceTable.revokedAt),
+              eq(ChatThreadTable.projectId, run.projectId),
+              eq(ChatThreadTable.userId, run.requestedByUserId),
+            ),
+          )
+          .limit(1);
+        if (
+          !chatSource ||
+          !isCurrentProjectChatBrainRun({
+            run: {
+              projectId: run.projectId,
+              requestedByUserId: run.requestedByUserId,
+              chatSourceId: run.chatSourceId,
+              sourceFingerprint: run.sourceFingerprint,
+            },
+            source: chatSource,
+            thread: {
+              projectId: chatSource.threadProjectId,
+              userId: chatSource.threadUserId,
+            },
+          })
+        ) {
+          throw new Error(
+            "The chat source is no longer available to this project.",
+          );
+        }
+        const messages = await pgDb
+          .select({
+            role: ChatMessageTable.role,
+            parts: ChatMessageTable.parts,
+            metadata: ChatMessageTable.metadata,
+          })
+          .from(ChatMessageTable)
+          .where(eq(ChatMessageTable.threadId, chatSource.threadId))
+          .orderBy(desc(ChatMessageTable.createdAt), desc(ChatMessageTable.id))
+          .limit(CHAT_MESSAGE_WINDOW);
+        currentSourceText = formatProjectChatTranscript(messages.reverse());
+        sourceRef = `chat:${chatSource.threadId}`;
+        if (
+          !currentSourceText ||
+          projectBrainSourceFingerprint(sourceRef, currentSourceText) !==
+            run.sourceFingerprint
+        ) {
+          throw new Error("The chat changed after this analysis was queued.");
+        }
+        [sourceVersion] = await pgDb
+          .select()
+          .from(ProjectBrainSourceVersionTable)
+          .where(
+            and(
+              eq(ProjectBrainSourceVersionTable.id, run.sourceVersionId),
+              eq(ProjectBrainSourceVersionTable.projectId, run.projectId),
+              eq(ProjectBrainSourceVersionTable.chatSourceId, run.chatSourceId),
+              eq(
+                ProjectBrainSourceVersionTable.sourceFingerprint,
+                run.sourceFingerprint,
+              ),
+              eq(ProjectBrainSourceVersionTable.sourceType, "chat"),
+            ),
+          )
+          .limit(1);
+      } else if (run.sourceType === "document" && run.sourceItemId) {
+        if (!access.project.collectionIds.length || !ownerIds.length) {
+          throw new Error("The source is no longer available to this project.");
+        }
+        const documents = await pgDb
+          .select({ content: DocumentTable.content })
+          .from(CollectionItemTable)
+          .innerJoin(
+            CollectionTable,
+            eq(CollectionTable.id, CollectionItemTable.collectionId),
+          )
+          .innerJoin(
+            DocumentTable,
+            eq(DocumentTable.collectionItemId, CollectionItemTable.id),
+          )
+          .where(
+            and(
+              eq(CollectionItemTable.id, run.sourceItemId),
+              inArray(
+                CollectionItemTable.collectionId,
+                access.project.collectionIds,
+              ),
+              inArray(CollectionTable.userId, ownerIds),
+              eq(CollectionItemTable.status, "ready"),
+            ),
+          )
+          .orderBy(DocumentTable.createdAt)
+          .limit(30);
+        currentSourceText = documents
+          .map(({ content }) => content ?? "")
+          .filter(Boolean)
+          .join("\n\n")
+          .slice(0, MAX_SOURCE_CHARS);
+        if (!documents.length) {
+          throw new Error("The source is no longer available to this project.");
+        }
+        sourceRef = run.sourceItemId;
+        [sourceVersion] = await pgDb
+          .select()
+          .from(ProjectBrainSourceVersionTable)
+          .where(
+            and(
+              eq(ProjectBrainSourceVersionTable.id, run.sourceVersionId),
+              eq(ProjectBrainSourceVersionTable.projectId, run.projectId),
+              eq(ProjectBrainSourceVersionTable.sourceItemId, run.sourceItemId),
+              eq(
+                ProjectBrainSourceVersionTable.sourceFingerprint,
+                run.sourceFingerprint,
+              ),
+              eq(ProjectBrainSourceVersionTable.sourceType, "document"),
+            ),
+          )
+          .limit(1);
+      } else {
         throw new Error("The source is no longer available to this project.");
       }
-
-      const documents = await pgDb
-        .select({ content: DocumentTable.content })
-        .from(CollectionItemTable)
-        .innerJoin(
-          CollectionTable,
-          eq(CollectionTable.id, CollectionItemTable.collectionId),
-        )
-        .innerJoin(
-          DocumentTable,
-          eq(DocumentTable.collectionItemId, CollectionItemTable.id),
-        )
-        .where(
-          and(
-            eq(CollectionItemTable.id, run.sourceItemId),
-            inArray(
-              CollectionItemTable.collectionId,
-              access.project.collectionIds,
-            ),
-            inArray(CollectionTable.userId, ownerIds),
-            eq(CollectionItemTable.status, "ready"),
-          ),
-        )
-        .orderBy(DocumentTable.createdAt)
-        .limit(30);
-
-      const currentSourceText = documents
-        .map(({ content }) => content ?? "")
-        .filter(Boolean)
-        .join("\n\n")
-        .slice(0, MAX_SOURCE_CHARS);
-      if (!documents.length) {
-        throw new Error("The source is no longer available to this project.");
-      }
-      const [sourceVersion] = await pgDb
-        .select()
-        .from(ProjectBrainSourceVersionTable)
-        .where(
-          and(
-            eq(ProjectBrainSourceVersionTable.id, run.sourceVersionId),
-            eq(ProjectBrainSourceVersionTable.projectId, run.projectId),
-            eq(ProjectBrainSourceVersionTable.sourceItemId, run.sourceItemId),
-            eq(
-              ProjectBrainSourceVersionTable.sourceFingerprint,
-              run.sourceFingerprint,
-            ),
-          ),
-        )
-        .limit(1);
       if (!sourceVersion) {
         throw new Error("The recorded source revision is unavailable.");
       }
       const sourceText = resolveProjectBrainSourceSnapshot({
-        sourceItemId: run.sourceItemId,
+        sourceItemId: sourceRef,
         sourceFingerprint: run.sourceFingerprint,
         contentLength: sourceVersion.contentLength,
         contentSnapshot: sourceVersion.contentSnapshot,
         currentSourceText,
       });
-      if (!sourceVersion.contentSnapshot) {
+      if (!sourceVersion.contentSnapshot && run.sourceItemId) {
         await ensureProjectBrainSourceVersion(pgDb, {
           projectId: run.projectId,
           sourceItemId: run.sourceItemId,
@@ -377,6 +487,8 @@ export async function processProjectBrainQueue(now = new Date()) {
                 runId: run.id,
                 sourceVersionId: run.sourceVersionId,
                 sourceItemId: run.sourceItemId,
+                sourceType: run.sourceType,
+                chatSourceId: run.chatSourceId,
                 ...fact,
                 reviewStatus: "proposed",
               })),
@@ -384,13 +496,17 @@ export async function processProjectBrainQueue(now = new Date()) {
             .returning({
               id: ProjectBrainFactTable.id,
               sourceItemId: ProjectBrainFactTable.sourceItemId,
+              chatSourceId: ProjectBrainFactTable.chatSourceId,
               subjectPageId: ProjectBrainFactTable.subjectPageId,
               subject: ProjectBrainFactTable.subject,
               predicate: ProjectBrainFactTable.predicate,
               object: ProjectBrainFactTable.object,
               evidence: ProjectBrainFactTable.evidence,
             });
-          newlyInsertedFacts = insertedFacts;
+          newlyInsertedFacts = insertedFacts.map((fact) => ({
+            ...fact,
+            sourceItemId: fact.sourceItemId ?? fact.chatSourceId ?? "",
+          }));
           const aliases = insertedFacts.flatMap((fact) => {
             if (
               !fact.subjectPageId ||
@@ -431,6 +547,8 @@ export async function processProjectBrainQueue(now = new Date()) {
                 projectId: run.projectId,
                 runId: run.id,
                 sourceItemId: run.sourceItemId,
+                sourceType: run.sourceType,
+                chatSourceId: run.chatSourceId,
                 title: todo.title,
                 details: todo.details,
                 evidence: todo.evidence,
@@ -461,6 +579,8 @@ export async function processProjectBrainQueue(now = new Date()) {
                 runId: run.id,
                 sourceVersionId: run.sourceVersionId,
                 sourceItemId: run.sourceItemId,
+                sourceType: run.sourceType,
+                chatSourceId: run.chatSourceId,
                 summary: event.summary,
                 detail: event.detail ?? null,
                 evidence: event.evidence,
@@ -495,7 +615,7 @@ export async function processProjectBrainQueue(now = new Date()) {
             ),
           );
       });
-      if (newlyInsertedFacts.length) {
+      if (newlyInsertedFacts.length && run.sourceType === "document") {
         try {
           const currentFacts = await pgDb
             .select({
@@ -523,6 +643,7 @@ export async function processProjectBrainQueue(now = new Date()) {
                   ProjectBrainFactTable.runId,
                   ProjectBrainFactTable.projectId,
                   ProjectBrainFactTable.sourceItemId,
+                  ProjectBrainFactTable.chatSourceId,
                 ),
                 ne(ProjectBrainFactTable.reviewStatus, "rejected"),
                 inArray(
@@ -537,7 +658,10 @@ export async function processProjectBrainQueue(now = new Date()) {
             .limit(500);
           const candidates = findProjectBrainConflictCandidates(
             newlyInsertedFacts,
-            currentFacts,
+            currentFacts.map((fact) => ({
+              ...fact,
+              sourceItemId: fact.sourceItemId ?? "",
+            })),
           );
           const judgments = await runProjectBrainBudgetedInference({
             teamId: access.project.teamId,

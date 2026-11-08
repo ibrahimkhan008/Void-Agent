@@ -1,7 +1,15 @@
 "use client";
 
 import { VoiceCaptureSummaryPanel } from "@/components/voice-capture-summary-panel";
-import { AudioLines, Copy, History, Loader2, Send, Trash2 } from "lucide-react";
+import {
+  AudioLines,
+  Copy,
+  History,
+  KeyRound,
+  Loader2,
+  Send,
+  Trash2,
+} from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "ui/button";
 import { Input } from "ui/input";
@@ -48,6 +56,16 @@ export function VoiceDevicesDashboard() {
     expiresAt: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rotatingDeviceId, setRotatingDeviceId] = useState<string | null>(null);
+  const [rotatedCredential, setRotatedCredential] = useState<{
+    deviceId: string;
+    displayName: string;
+    token: string;
+  } | null>(null);
+  const [credentialError, setCredentialError] = useState<{
+    deviceId: string;
+    message: string;
+  } | null>(null);
   const [activationCode, setActivationCode] = useState("");
   const [activationMessage, setActivationMessage] = useState<string | null>(
     null,
@@ -59,7 +77,14 @@ export function VoiceDevicesDashboard() {
   const [history, setHistory] = useState<
     Record<
       string,
-      { items: DeviceTranscript[]; sessions: DeviceSession[]; error?: string }
+      {
+        items: DeviceTranscript[];
+        sessions: DeviceSession[];
+        sessionsNextCursor: string | null;
+        sessionsLoadingMore?: boolean;
+        sessionsError?: string;
+        error?: string;
+      }
     >
   >({});
   const [historyOpen, setHistoryOpen] = useState<string | null>(null);
@@ -186,7 +211,53 @@ export function VoiceDevicesDashboard() {
     const response = await fetch(`/api/voice/devices/${id}`, {
       method: "DELETE",
     });
-    if (response.ok) await refresh();
+    if (response.ok) {
+      setRotatedCredential((credential) =>
+        credential?.deviceId === id ? null : credential,
+      );
+      await refresh();
+    }
+  };
+
+  const rotateCredential = async (device: VoiceDevice) => {
+    if (
+      !window.confirm(
+        `Replace the credential for ${device.displayName}? The current credential will stop working immediately, and you will need to install the new one on the device.`,
+      )
+    )
+      return;
+    setRotatingDeviceId(device.id);
+    setCredentialError(null);
+    setRotatedCredential(null);
+    try {
+      const response = await fetch(
+        `/api/voice/devices/${device.id}/rotate-credential`,
+        { method: "POST" },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        deviceId?: string;
+        displayName?: string;
+        token?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.token)
+        throw new Error(result.error ?? "Could not replace device credential.");
+      setRotatedCredential({
+        deviceId: result.deviceId ?? device.id,
+        displayName: result.displayName ?? device.displayName,
+        token: result.token,
+      });
+    } catch (error) {
+      setCredentialError({
+        deviceId: device.id,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not replace device credential.",
+      });
+    } finally {
+      setRotatingDeviceId(null);
+    }
   };
 
   const toggleHistory = async (deviceId: string) => {
@@ -220,6 +291,7 @@ export function VoiceDevicesDashboard() {
         [deviceId]: {
           items: result.items ?? [],
           sessions: sessionResult.items ?? [],
+          sessionsNextCursor: sessionResult.nextCursor ?? null,
         },
       }));
     } catch (error) {
@@ -228,10 +300,63 @@ export function VoiceDevicesDashboard() {
         [deviceId]: {
           items: [],
           sessions: [],
+          sessionsNextCursor: null,
           error:
             error instanceof Error
               ? error.message
               : "Could not load recent device history.",
+        },
+      }));
+    }
+  };
+
+  const loadOlderSessions = async (deviceId: string) => {
+    const cursor = history[deviceId]?.sessionsNextCursor;
+    if (!cursor || history[deviceId]?.sessionsLoadingMore) return;
+    setHistory((current) => ({
+      ...current,
+      [deviceId]: {
+        ...current[deviceId],
+        sessionsLoadingMore: true,
+        sessionsError: undefined,
+      },
+    }));
+    try {
+      const response = await fetch(
+        `/api/voice/devices/${encodeURIComponent(deviceId)}/sessions?limit=20&cursor=${encodeURIComponent(cursor)}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => null)) as {
+        items?: DeviceSession[];
+        nextCursor?: string | null;
+        error?: string;
+      } | null;
+      if (!response.ok || !Array.isArray(result?.items))
+        throw new Error(
+          result?.error ?? "Could not load older device sessions.",
+        );
+      setHistory((current) => ({
+        ...current,
+        [deviceId]: {
+          ...current[deviceId],
+          sessions: [
+            ...(current[deviceId]?.sessions ?? []),
+            ...(result.items ?? []),
+          ],
+          sessionsNextCursor: result.nextCursor ?? null,
+          sessionsLoadingMore: false,
+        },
+      }));
+    } catch (error) {
+      setHistory((current) => ({
+        ...current,
+        [deviceId]: {
+          ...current[deviceId],
+          sessionsLoadingMore: false,
+          sessionsError:
+            error instanceof Error
+              ? error.message
+              : "Could not load older device sessions.",
         },
       }));
     }
@@ -394,16 +519,75 @@ export function VoiceDevicesDashboard() {
                 <History className="size-4" />
               </Button>
               {device.status === "active" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Revoke ${device.displayName}`}
-                  onClick={() => void revoke(device.id)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={rotatingDeviceId !== null}
+                    onClick={() => void rotateCredential(device)}
+                  >
+                    {rotatingDeviceId === device.id ? (
+                      <Loader2 className="mr-1 size-3.5 animate-spin" />
+                    ) : (
+                      <KeyRound className="mr-1 size-3.5" />
+                    )}
+                    Rotate credential
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Revoke ${device.displayName}`}
+                    onClick={() => void revoke(device.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               )}
             </div>
+            {credentialError?.deviceId === device.id && (
+              <p className="mt-2 text-sm text-destructive" role="alert">
+                {credentialError.message}
+              </p>
+            )}
+            {rotatedCredential?.deviceId === device.id && (
+              <section
+                className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3"
+                aria-label="New device credential"
+                role="status"
+              >
+                <h3 className="text-sm font-medium">
+                  New credential for {rotatedCredential.displayName}
+                </h3>
+                <p className="my-2 text-xs text-muted-foreground">
+                  The previous token is invalid. Copy this token now and
+                  configure it on the device; it will not be shown again.
+                </p>
+                <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
+                  {rotatedCredential.token}
+                </code>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(
+                        rotatedCredential.token,
+                      )
+                    }
+                  >
+                    <Copy className="mr-1 size-3.5" />
+                    Copy token
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRotatedCredential(null)}
+                  >
+                    Hide token
+                  </Button>
+                </div>
+              </section>
+            )}
             {historyOpen === device.id && (
               <div className="mt-3 border-t pt-3" aria-live="polite">
                 {!history[device.id] ? (
@@ -582,6 +766,24 @@ export function VoiceDevicesDashboard() {
                       <p className="text-sm text-muted-foreground">
                         No recorded device audio sessions.
                       </p>
+                    )}
+                    {history[device.id]?.sessionsError && (
+                      <p className="mt-2 text-sm text-destructive" role="alert">
+                        {history[device.id]?.sessionsError}
+                      </p>
+                    )}
+                    {history[device.id]?.sessionsNextCursor && (
+                      <Button
+                        className="mt-3"
+                        variant="outline"
+                        size="sm"
+                        disabled={history[device.id]?.sessionsLoadingMore}
+                        onClick={() => void loadOlderSessions(device.id)}
+                      >
+                        {history[device.id]?.sessionsLoadingMore
+                          ? "Loading older sessions…"
+                          : "Load older sessions"}
+                      </Button>
                     )}
                   </section>
                 )}

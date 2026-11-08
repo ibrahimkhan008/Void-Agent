@@ -17,6 +17,7 @@ import { AppError } from "lib/errors";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
 import { toAny } from "lib/utils";
 import { checkConditionBranch } from "../condition";
+import type { WorkflowExecutionEffect } from "../execution-state";
 import {
   convertTiptapJsonToAiMessage,
   convertTiptapJsonToText,
@@ -45,6 +46,7 @@ import { requestPublicWorkflowHttp } from "./public-http-request";
 export type NodeExecutor<T extends WorkflowNodeData = any> = (input: {
   node: T;
   state: WorkflowRuntimeState;
+  execution?: WorkflowNodeExecutionHooks;
 }) =>
   | Promise<{
       input?: any; // Input data used by this node (for debugging/history)
@@ -63,6 +65,20 @@ export const inputNodeExecutor: NodeExecutor<InputNodeData> = ({ state }) => {
   return {
     output: state.query, // Pass through the initial workflow input
   };
+};
+
+export type WorkflowEffectRequest = {
+  nodeId: string;
+  kind: "llm" | "http" | "tool";
+  target: string;
+  payload: Record<string, unknown>;
+};
+
+export type WorkflowNodeExecutionHooks = {
+  beforeEffect?: (effect: WorkflowEffectRequest) => Promise<void>;
+  getApprovedEffect?: (
+    nodeId: string,
+  ) => Promise<WorkflowExecutionEffect | null>;
 };
 
 /**
@@ -217,6 +233,7 @@ export const conditionNodeExecutor: NodeExecutor<ConditionNodeData> = async ({
 export const toolNodeExecutor: NodeExecutor<ToolNodeData> = async ({
   node,
   state,
+  execution,
 }) => {
   const result: {
     input: any;
@@ -228,8 +245,22 @@ export const toolNodeExecutor: NodeExecutor<ToolNodeData> = async ({
 
   if (!node.tool) throw new Error("Tool not found");
 
+  const target =
+    node.tool.type === "mcp-tool"
+      ? `mcp:${node.tool.serverId}/${node.tool.id}`
+      : `app:${node.tool.id}`;
+  const approvedEffect = await execution?.getApprovedEffect?.(node.id);
+  const approvedArguments =
+    approvedEffect?.kind === "tool" && approvedEffect.target === target
+      ? approvedEffect.payload.arguments
+      : undefined;
+
   // Handle parameter generation
-  if (!node.tool?.parameterSchema) {
+  if (approvedArguments !== undefined) {
+    // The LLM-generated arguments were reviewed before the pause. Reuse that
+    // exact payload on resume instead of asking the model to regenerate it.
+    result.input = { parameter: approvedArguments };
+  } else if (!node.tool?.parameterSchema) {
     // Tool doesn't need parameters
     result.input = {
       parameter: undefined,
@@ -268,6 +299,12 @@ export const toolNodeExecutor: NodeExecutor<ToolNodeData> = async ({
 
   // Execute the tool based on its type
   if (node.tool.type == "mcp-tool") {
+    await execution?.beforeEffect?.({
+      nodeId: node.id,
+      kind: "tool",
+      target,
+      payload: { arguments: result.input.parameter ?? null },
+    });
     const toolResult = (await mcpClientsManager.toolCall(
       node.tool.serverId,
       node.tool.id,
@@ -295,6 +332,12 @@ export const toolNodeExecutor: NodeExecutor<ToolNodeData> = async ({
               ? youtubeTranscriptToolForWorkflow.execute
               : () => "Unknown tool";
 
+    await execution?.beforeEffect?.({
+      nodeId: node.id,
+      kind: "tool",
+      target,
+      payload: { arguments: result.input.parameter ?? null },
+    });
     const toolResult = await executor?.(result.input.parameter, {
       messages: [],
       toolCallId: "",
@@ -351,6 +394,7 @@ function resolveHttpValue(
 export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
   node,
   state,
+  execution,
 }) => {
   // Default timeout of 30 seconds
   const timeout = node.timeout || 30000;
@@ -407,6 +451,18 @@ export const httpNodeExecutor: NodeExecutor<HttpNodeData> = async ({
       }
     }
   }
+
+  await execution?.beforeEffect?.({
+    nodeId: node.id,
+    kind: "http",
+    target: finalUrl,
+    payload: {
+      method: node.method,
+      headers,
+      body: body ?? null,
+      timeout,
+    },
+  });
 
   const startTime = Date.now();
 

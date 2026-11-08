@@ -24,6 +24,9 @@ describe("human-in-the-loop tool schemas", () => {
       /plan approval is not an execution credential/i,
     );
     expect(HITL_TOOL_GUIDANCE).toMatch(
+      /serverConfigFingerprint exactly from that tool's description/i,
+    );
+    expect(HITL_TOOL_GUIDANCE).toMatch(
       /exact-payload, single-use approval token/i,
     );
   });
@@ -40,6 +43,45 @@ describe("human-in-the-loop tool schemas", () => {
         })),
       }).success,
     ).toBe(true);
+    expect(
+      requestInputInputSchema.safeParse({
+        questions: [
+          {
+            header: "Sources",
+            question: "Which sources should I include?",
+            options: [
+              { label: "Contracts", description: "Signed agreements" },
+              { label: "Invoices" },
+            ],
+            multiSelect: true,
+            inputType: "text",
+            placeholder: "Add another source",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      requestInputInputSchema.safeParse({
+        questions: [
+          {
+            header: "Secret",
+            question: "What is the password?",
+            inputType: "password",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      requestInputInputSchema.safeParse({
+        questions: [
+          {
+            header: "Format",
+            question: "Choose a format",
+            options: ["PDF", { label: "PDF" }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it("offers plan approval with bounded, non-empty steps", () => {

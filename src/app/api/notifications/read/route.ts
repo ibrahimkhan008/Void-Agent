@@ -27,9 +27,20 @@ export async function POST(request: Request) {
   const parsed = notificationReadSchema.safeParse(body.value);
   if (!parsed.success)
     return new Response("Invalid notification selection", { status: 400 });
-  const updated = await notificationRepository.markRead(
-    session.user.id,
-    parsed.data.ids,
-  );
-  return Response.json({ updated });
+  try {
+    const updated = await notificationRepository.markRead(
+      session.user.id,
+      parsed.data.all ? undefined : parsed.data.ids,
+    );
+    return Response.json(
+      { updated },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    console.error("Error marking notifications read:", error);
+    return Response.json(
+      { error: "Failed to update notifications" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 }

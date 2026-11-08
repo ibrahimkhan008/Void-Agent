@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Button } from "ui/button";
-import { useTranslations } from "next-intl";
 import {
-  Infinity,
   ClipboardCheck,
   Code2,
+  Infinity,
+  ListTodo,
   PenOff,
   Settings2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import React, { useCallback, useEffect, useState } from "react";
+import { Button } from "ui/button";
 
 import {
   DropdownMenu,
@@ -18,9 +19,9 @@ import {
 } from "ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
-import { cn } from "lib/utils";
-import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { appStore } from "@/app/store";
+import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
+import { cn } from "lib/utils";
 import { useShallow } from "zustand/shallow";
 import {
   ToolSelectDropdownProps,
@@ -35,8 +36,8 @@ export const ToolModeDropdown = ({
 }: { disabled?: boolean } & ToolSelectDropdownProps) => {
   const t = useTranslations("Chat.Tool");
   const [open, setOpen] = useState(false);
-  const [toolChoice, setToolChoice] = appStore(
-    useShallow((s) => [s.toolChoice, s.mutate]),
+  const [toolChoice, planMode, setState] = appStore(
+    useShallow((s) => [s.toolChoice, s.planMode, s.mutate]),
   );
 
   const cycleMode = useCallback(() => {
@@ -46,10 +47,10 @@ export const ToolModeDropdown = ({
       none: "codemode",
       codemode: "auto",
     };
-    setToolChoice((current) => ({
+    setState((current) => ({
       toolChoice: cycle[current.toolChoice] ?? "auto",
     }));
-  }, [setToolChoice]);
+  }, [setState]);
 
   useEffect(() => {
     if (disabled) return;
@@ -90,6 +91,32 @@ export const ToolModeDropdown = ({
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("toolsSetup")}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "rounded-full p-2! hover:bg-input! flex items-center gap-1.5",
+              planMode && "bg-input! text-primary",
+            )}
+            aria-label="Plan only"
+            aria-pressed={planMode}
+            onClick={() =>
+              setState((current) => ({ planMode: !current.planMode }))
+            }
+            disabled={disabled}
+          >
+            <ListTodo className="size-3.5" />
+            <span className="text-xs font-medium">Plan</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Plan only. Research is read-only; no actions will be executed.
+        </TooltipContent>
       </Tooltip>
 
       <DropdownMenu open={open} onOpenChange={setOpen}>

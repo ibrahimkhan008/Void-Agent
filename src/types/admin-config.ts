@@ -1,5 +1,7 @@
 // Admin configuration types
 
+import type { ModelDisplayMetadataMap } from "lib/ai/model-display-metadata";
+
 export interface AdminConfigTab {
   id: string;
   label: string;
@@ -18,6 +20,7 @@ export interface ModelProviderConfig {
 export interface ModelsConfig {
   providers: Record<string, ModelProviderConfig>;
   globalFallback?: string;
+  modelDisplayMetadata?: ModelDisplayMetadataMap;
   /** Explicit rollout switch for per-team-member monthly model cost budgets. */
   teamMemberBudgetsEnabled?: boolean;
   modelPricing?: Record<

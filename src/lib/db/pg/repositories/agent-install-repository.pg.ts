@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, ilike, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { pgDb as db } from "../db.pg";
 import {
   AgentEntity,
@@ -25,7 +25,64 @@ export interface CreateAgentInstallInput {
   config?: Record<string, unknown>;
 }
 
+export type AgentPublicationStatus = {
+  publishedAt: Date | null;
+  visibility: AgentEntity["visibility"];
+};
+
 export const agentInstallRepository = {
+  /** Read publication state only for the owning user. */
+  async getAgentPublicationStatus(
+    userId: string,
+    agentId: string,
+  ): Promise<AgentPublicationStatus | null> {
+    const [row] = await db
+      .select({
+        publishedAt: AgentTable.publishedAt,
+        visibility: AgentTable.visibility,
+      })
+      .from(AgentTable)
+      .where(and(eq(AgentTable.id, agentId), eq(AgentTable.userId, userId)));
+    return (row as AgentPublicationStatus | undefined) ?? null;
+  },
+
+  /**
+   * Publish only an owned, already-shared agent. The visibility condition is
+   * part of the UPDATE so a concurrent switch to private cannot publish it.
+   */
+  async publishAgent(
+    userId: string,
+    agentId: string,
+  ): Promise<AgentPublicationStatus | null> {
+    const [row] = await db
+      .update(AgentTable)
+      .set({
+        publishedAt: sql`COALESCE(${AgentTable.publishedAt}, CURRENT_TIMESTAMP)`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(AgentTable.id, agentId),
+          eq(AgentTable.userId, userId),
+          inArray(AgentTable.visibility, ["public", "readonly"]),
+        ),
+      )
+      .returning({
+        publishedAt: AgentTable.publishedAt,
+        visibility: AgentTable.visibility,
+      });
+    return (row as AgentPublicationStatus | undefined) ?? null;
+  },
+
+  /** Unpublish only the owner's agent; private drafts are also valid. */
+  async unpublishAgent(userId: string, agentId: string): Promise<boolean> {
+    const rows = await db
+      .update(AgentTable)
+      .set({ publishedAt: null, updatedAt: new Date() })
+      .where(and(eq(AgentTable.id, agentId), eq(AgentTable.userId, userId)))
+      .returning({ id: AgentTable.id });
+    return rows.length > 0;
+  },
   /**
    * Install a gallery agent for a user (optionally a team). UNIQUE
    * (user_id, agent_id) — re-installing upserts the config rather
@@ -131,7 +188,12 @@ export const agentInstallRepository = {
     return (await db
       .select()
       .from(AgentTable)
-      .where(isNotNull(AgentTable.publishedAt))
+      .where(
+        and(
+          isNotNull(AgentTable.publishedAt),
+          inArray(AgentTable.visibility, ["public", "readonly"]),
+        ),
+      )
       .orderBy(desc(AgentTable.publishedAt))
       .limit(limit)
       .offset(offset)) as AgentEntity[];
@@ -147,7 +209,13 @@ export const agentInstallRepository = {
     const [row] = await db
       .select()
       .from(AgentTable)
-      .where(and(eq(AgentTable.id, id), isNotNull(AgentTable.publishedAt)));
+      .where(
+        and(
+          eq(AgentTable.id, id),
+          isNotNull(AgentTable.publishedAt),
+          inArray(AgentTable.visibility, ["public", "readonly"]),
+        ),
+      );
     return (row as AgentEntity | undefined) ?? null;
   },
 
@@ -167,6 +235,7 @@ export const agentInstallRepository = {
       .where(
         and(
           isNotNull(AgentTable.publishedAt),
+          inArray(AgentTable.visibility, ["public", "readonly"]),
           or(ilike(AgentTable.name, q), ilike(AgentTable.description, q)),
         ),
       )

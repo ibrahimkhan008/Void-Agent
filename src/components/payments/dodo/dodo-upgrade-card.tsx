@@ -1,17 +1,18 @@
 "use client";
 
+import { PlanCard } from "@/components/payments/plan-card";
 import {
   SubscriptionTierName,
   subscriptionTiersInfo,
 } from "app-types/subscription";
 import { fetcher } from "lib/utils";
-import { ArrowUpRight, Loader2 } from "lucide-react";
+import { cn } from "lib/utils";
+import { ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import React from "react";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { PlanCard } from "@/components/payments/plan-card";
-import { cn } from "lib/utils";
 
 interface DodoSubscriptionState {
   enabled: boolean;
@@ -54,8 +55,8 @@ const formatPeriod = (iso: string | null) => {
  * Standalone self-service plan upgrade UI. Editorial dark aesthetic
  * that matches the rest of the Flare brand. Renders inside any page
  * (typically the user profile popup). Calls
- * /api/payments/dodo/subscription for state and
- * /api/payments/dodo/checkout to start a checkout.
+ * /api/payments/dodo/subscription for state, /checkout to start a
+ * checkout, and /portal to open the provider-hosted billing manager.
  */
 export function DodoUpgradeCard() {
   const router = useRouter();
@@ -69,6 +70,7 @@ export function DodoUpgradeCard() {
   const [pendingTier, setPendingTier] = useState<SubscriptionTierName | null>(
     null,
   );
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [, startTransition] = useTransition();
 
   // If we just bounced back from Dodo, refresh subscription state.
@@ -111,6 +113,32 @@ export function DodoUpgradeCard() {
       );
     } finally {
       setPendingTier(null);
+    }
+  }, []);
+
+  const openCustomerPortal = useCallback(async () => {
+    setOpeningPortal(true);
+    try {
+      const response = await fetch("/api/payments/dodo/portal", {
+        method: "POST",
+      });
+      const result = (await response.json()) as
+        | { success: true; url: string }
+        | { success: false; error: string };
+      if (!response.ok || result.success === false) {
+        const error = result.success === false ? result.error : "";
+        toast.error(
+          error === "PORTAL_UNAVAILABLE"
+            ? "Billing management is unavailable for this account."
+            : "Could not open billing management.",
+        );
+        return;
+      }
+      window.location.assign(result.url);
+    } catch {
+      toast.error("Could not open billing management.");
+    } finally {
+      setOpeningPortal(false);
     }
   }, []);
 
@@ -209,9 +237,26 @@ export function DodoUpgradeCard() {
             </div>
             {sub?.nextBillingDate && (
               <span className="font-mono text-[10px] tracking-[0.05em] text-white/45">
-                {sub.cancelAtNextBillingDate ? "Ends" : "Renews"} {formatPeriod(sub.nextBillingDate)}
+                {sub.cancelAtNextBillingDate ? "Ends" : "Renews"}{" "}
+                {formatPeriod(sub.nextBillingDate)}
               </span>
             )}
+            {sub?.dodoCustomerId ? (
+              <button
+                type="button"
+                onClick={openCustomerPortal}
+                disabled={openingPortal}
+                data-testid="dodo-manage-billing-button"
+                className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/65 transition-colors hover:border-[#3d9e8c]/50 hover:text-[#5fc4ad] disabled:cursor-wait disabled:opacity-50"
+              >
+                {openingPortal ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="size-3" />
+                )}
+                {openingPortal ? "Opening billing" : "Manage billing"}
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -260,7 +305,7 @@ export function DodoUpgradeCard() {
               Prices in INR · exclude 18% GST · billed monthly
             </p>
             <p className="font-mono text-[10px] tracking-[0.05em] text-white/40">
-              Cancel anytime from this dialog
+              Manage payment details or cancel from billing settings
             </p>
           </div>
         </div>
@@ -310,7 +355,9 @@ function GridBackdrop() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-72 w-[60%] -translate-x-1/2 rounded-full opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle, #3d9e8c, transparent 70%)" }}
+        style={{
+          background: "radial-gradient(circle, #3d9e8c, transparent 70%)",
+        }}
       />
     </>
   );

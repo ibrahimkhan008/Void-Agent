@@ -5,6 +5,7 @@ import { getSession } from "auth/server";
 import { z } from "zod";
 
 import { schedulerRepository } from "lib/db/repository";
+import { computeNextRun } from "lib/scheduler/cron-parser";
 import {
   normalizeScheduleUpdateInput,
   publicScheduledJob,
@@ -141,6 +142,32 @@ export async function PATCH(
       const message =
         err instanceof Error ? err.message : "Invalid schedule update.";
       return new Response(message, { status: 400 });
+    }
+  }
+
+  // Re-enabling a recurring schedule should resume at its next future cron
+  // occurrence. Keeping an old due timestamp would immediately replay a slot
+  // that elapsed while paused. One-time jobs deliberately retain their
+  // original instant so a still-pending timer is not silently moved.
+  if (
+    parsed.data.status === "active" &&
+    current.status !== "active" &&
+    !parsed.data.schedule &&
+    current.payload?.scheduleType !== "once" &&
+    typeof current.payload?.runAt !== "string"
+  ) {
+    try {
+      schedulePatch = {
+        nextRunAt: computeNextRun(
+          current.cron,
+          new Date(),
+          current.timezone ?? "UTC",
+        ),
+      };
+    } catch {
+      return new Response("Schedule timing is invalid and cannot be resumed", {
+        status: 400,
+      });
     }
   }
 

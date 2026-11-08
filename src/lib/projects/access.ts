@@ -63,10 +63,16 @@ export async function listProjectTeamsForUser(userId: string) {
   const teams = new Map(
     memberships.map((team) => [
       team.id,
-      { ...team, role: team.role === "viewer" ? "viewer" : "editor" },
+      {
+        ...team,
+        role: team.role === "viewer" ? "viewer" : "editor",
+        canManage: team.role === "owner" || team.role === "admin",
+      },
     ]),
   );
-  for (const team of ownedTeams) teams.set(team.id, { ...team, role: "owner" });
+  for (const team of ownedTeams) {
+    teams.set(team.id, { ...team, role: "owner", canManage: true });
+  }
   return [...teams.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 

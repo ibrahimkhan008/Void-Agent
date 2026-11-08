@@ -1,6 +1,10 @@
 import { getSession } from "auth/server";
 import { voiceDeviceRepository } from "lib/db/repository";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import {
+  decodeVoiceDeviceSessionCursor,
+  encodeVoiceDeviceSessionCursor,
+} from "lib/voice/device-session-cursor";
 import { voiceDeviceUuid } from "lib/voice/device-transcript";
 import { z } from "zod";
 
@@ -36,16 +40,28 @@ export async function GET(
       { error: "Invalid session limit" },
       { status: 400, headers: noStore },
     );
+  const cursor = decodeVoiceDeviceSessionCursor(
+    new URL(request.url).searchParams.get("cursor"),
+  );
+  if (cursor === false)
+    return Response.json(
+      { error: "Invalid session cursor" },
+      { status: 400, headers: noStore },
+    );
 
   try {
     const sessions = await voiceDeviceRepository.listRecentSessionsByDevice({
       deviceId: id,
       userId: session.user.id,
-      limit: parsedLimit.data,
+      limit: parsedLimit.data + 1,
+      cursor: cursor ?? undefined,
     });
+    const hasMore = sessions.length > parsedLimit.data;
+    const page = hasMore ? sessions.slice(0, parsedLimit.data) : sessions;
+    const last = page.at(-1);
     return Response.json(
       {
-        items: sessions.map((item) => ({
+        items: page.map((item) => ({
           id: item.id,
           sessionId: item.sessionId,
           status: item.status,
@@ -68,6 +84,13 @@ export async function GET(
                 )
               : null,
         })),
+        nextCursor:
+          hasMore && last
+            ? encodeVoiceDeviceSessionCursor({
+                id: last.id,
+                startedAt: last.cursorStartedAt,
+              })
+            : null,
       },
       { headers: noStore },
     );

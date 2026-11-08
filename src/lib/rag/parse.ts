@@ -31,12 +31,17 @@ import { Buffer } from "node:buffer";
 export const PDF_MEDIA_TYPE = "application/pdf";
 export const DOCX_MEDIA_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const XLSX_MEDIA_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const PPTX_MEDIA_TYPE =
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 export const LEGACY_DOC_MEDIA_TYPE = "application/msword";
+const OOXML_TEXT_MAX_CHARS = 120_000;
 
 const TEXT_MEDIA_PATTERN =
   /^text\/|application\/(json|xml|x-yaml|yaml|markdown|javascript|typescript)/i;
 
-export type ParsedKind = "pdf" | "docx" | "text";
+export type ParsedKind = "pdf" | "docx" | "xlsx" | "pptx" | "text";
 
 export interface ParsedDocument {
   text: string;
@@ -63,6 +68,8 @@ export const resolveParsedKind = (
 
   if (type === PDF_MEDIA_TYPE || ext === "pdf") return "pdf";
   if (type === DOCX_MEDIA_TYPE || ext === "docx") return "docx";
+  if (type === XLSX_MEDIA_TYPE || ext === "xlsx") return "xlsx";
+  if (type === PPTX_MEDIA_TYPE || ext === "pptx") return "pptx";
   // .doc is a different container entirely — reject rather than mangle.
   if (type === LEGACY_DOC_MEDIA_TYPE || ext === "doc") return "unsupported";
   if (type && TEXT_MEDIA_PATTERN.test(type)) return "text";
@@ -153,6 +160,35 @@ export const parseDocument = async (
       return parsePdf(buffer);
     case "docx":
       return parseDocx(buffer);
+    case "xlsx": {
+      const { parseXlsxPreview, formatXlsxPreviewText } = await import(
+        "lib/file-ingest/xlsx"
+      );
+      const preview = await parseXlsxPreview(buffer, {
+        maxRows: 100,
+        maxCols: 40,
+        maxSheets: 10,
+      });
+      const formatted = formatXlsxPreviewText(
+        filename ?? "workbook.xlsx",
+        preview,
+        { maxChars: OOXML_TEXT_MAX_CHARS },
+      );
+      return { text: formatted.text, kind: "xlsx" };
+    }
+    case "pptx": {
+      const { parsePptxPreview, formatPptxPreviewText } = await import(
+        "lib/file-ingest/pptx"
+      );
+      const preview = await parsePptxPreview(buffer, {
+        maxSlides: 200,
+        maxChars: OOXML_TEXT_MAX_CHARS,
+      });
+      return {
+        text: formatPptxPreviewText(filename ?? "presentation.pptx", preview),
+        kind: "pptx",
+      };
+    }
     case "text": {
       const text = buffer.toString("utf8");
       // A binary file mislabelled as text decodes to replacement chars;

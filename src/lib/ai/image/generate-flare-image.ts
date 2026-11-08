@@ -5,6 +5,7 @@ import {
   DEFAULT_IMAGE_GENERATION_MODEL,
   IMAGE_GENERATION_MODEL_MAP,
 } from "./models";
+import { downloadProviderImage, readProviderJson } from "./provider-image";
 
 type GeneratedImage = {
   base64: string;
@@ -68,8 +69,10 @@ async function pollForResult(
   taskId: string,
   apiKey: string,
   abortSignal?: AbortSignal,
-  pollUrl?: string,
 ): Promise<PollingStatusResponse> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(taskId)) {
+    throw new Error("Image provider returned an invalid task id.");
+  }
   const startTime = Date.now();
 
   while (true) {
@@ -84,12 +87,15 @@ async function pollForResult(
     }
 
     const response = await fetch(
-      pollUrl || `${FLARE_BASE_URL}/v1/tasks/${taskId}`,
+      `${FLARE_BASE_URL}/v1/tasks/${encodeURIComponent(taskId)}`,
       {
         method: "GET",
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },
+        redirect: "error",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
         signal: abortSignal,
       },
     );
@@ -99,7 +105,7 @@ async function pollForResult(
       throw new Error(`Polling error: ${response.status} - ${errorText}`);
     }
 
-    const result: PollingStatusResponse = await response.json();
+    const result: PollingStatusResponse = await readProviderJson(response);
     const generated = hasGeneratedImages(result);
     const status = result.status;
 
@@ -163,6 +169,9 @@ export async function generateImageWithFlare(
       // (the image-proxy returns a localhost URL the browser cannot fetch).
       response_format: "b64_json",
     }),
+    redirect: "error",
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
     signal: options.abortSignal,
   });
 
@@ -176,19 +185,14 @@ export async function generateImageWithFlare(
     );
   }
 
-  let data: PollingStatusResponse = await response.json();
+  let data: PollingStatusResponse = await readProviderJson(response);
 
   // Handle polling-based models (Nano Banana, Nano Banana Pro)
   if (requiresPolling && data.task_id && !hasGeneratedImages(data)) {
     logger.info(`Polling mode: task_id=${data.task_id}, starting to poll...`);
 
     // Poll until completed
-    data = await pollForResult(
-      data.task_id,
-      apiKey,
-      options.abortSignal,
-      data.poll_url,
-    );
+    data = await pollForResult(data.task_id, apiKey, options.abortSignal);
   }
 
   // Flare API returns images in data array with either b64_json or url
@@ -202,21 +206,19 @@ export async function generateImageWithFlare(
           mimeType: "image/png",
         });
       } else if (item.url) {
-        // Fetch the image URL and convert to base64
+        // Provider-returned URLs are still untrusted input. Only download
+        // from the configured API origin and refuse redirects/oversized data.
         try {
-          const imgResp = await fetch(item.url);
-          if (imgResp.ok) {
-            const buffer = Buffer.from(await imgResp.arrayBuffer());
-            const contentType =
-              imgResp.headers.get("content-type") || "image/png";
-            images.push({
-              base64: buffer.toString("base64"),
-              mimeType: contentType,
-              originalUrl: item.url,
-            });
-          }
-        } catch (err) {
-          logger.error(`Failed to fetch image from URL: ${item.url}`, err);
+          const downloaded = await downloadProviderImage(
+            item.url,
+            FLARE_BASE_URL,
+            { signal: options.abortSignal },
+          );
+          images.push({ ...downloaded, originalUrl: item.url });
+        } catch (error) {
+          logger.warn("Rejected Flare generated image URL or response", {
+            errorName: error instanceof Error ? error.name : "unknown",
+          });
         }
       }
     }

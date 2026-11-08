@@ -1,9 +1,9 @@
-import { NextRequest } from "next/server";
-import { mcpOAuthRepository } from "@/lib/db/repository";
+import { mcpOAuthRepository, mcpRepository } from "@/lib/db/repository";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+import { NextRequest } from "next/server";
 
-import globalLogger from "logger";
 import { colorize } from "consola/utils";
+import globalLogger from "logger";
 
 // Security: escape HTML entities to prevent XSS when interpolating into HTML
 const escapeHtml = (str: string): string =>
@@ -13,6 +13,14 @@ const escapeHtml = (str: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
+const serializeInlineJson = (value: unknown): string =>
+  JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 
 interface OAuthResponseOptions {
   type: "success" | "error";
@@ -62,9 +70,7 @@ function createOAuthResponsePage(options: OAuthResponseOptions): Response {
     try {
       window.opener?.postMessage({
         type: ${JSON.stringify(postMessageType)},
-        ${Object.entries(postMessageData)
-          .map(([key, value]) => `${key}: ${JSON.stringify(String(value))}`)
-          .join(", ")}
+        ...${serializeInlineJson(postMessageData)}
       }, window.location.origin);
     } catch (e) {
       console.error('Failed to post message:', e);
@@ -81,7 +87,12 @@ function createOAuthResponsePage(options: OAuthResponseOptions): Response {
 
   return new Response(html, {
     status: statusCode,
-    headers: { "Content-Type": "text/html" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
   });
 }
 
@@ -155,10 +166,28 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const server = await mcpRepository.selectById(session.mcpServerId);
+  if (!server) {
+    return createOAuthResponsePage({
+      type: "error",
+      title: "OAuth Error",
+      heading: "Authentication Failed",
+      message: "The MCP server for this authorization no longer exists.",
+      postMessageType: "MCP_OAUTH_ERROR",
+      postMessageData: {
+        error: "invalid_state",
+        error_description: "The authorization session is no longer valid.",
+      },
+      statusCode: 400,
+    });
+  }
+
   const client = await mcpClientsManager.getClient(session.mcpServerId);
 
   try {
-    await client?.client.finishAuth(callbackData.code, callbackData.state);
+    if (!client) throw new Error("MCP client is unavailable");
+    await client.client.ensureOAuthState(callbackData.state);
+    await client.client.finishAuth(callbackData.code, callbackData.state);
     await mcpClientsManager.refreshClient(session.mcpServerId);
 
     return createOAuthResponsePage({

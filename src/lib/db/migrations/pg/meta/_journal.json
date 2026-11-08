@@ -526,6 +526,62 @@
       "when": 1794027300008,
       "tag": "0073_tabular_review_source_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1794082134931,
+      "tag": "0074_workflow_executions",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1794082134932,
+      "tag": "0075_project_brain_chat_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794082134933,
+      "tag": "0076_agent_preset_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794090000000,
+      "tag": "0077_chat_export_share_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1794141300000,
+      "tag": "0078_project_setup_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794141600000,
+      "tag": "0079_project_workflows",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794150000000,
+      "tag": "0080_team_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794153600000,
+      "tag": "0081_session_active_team",
+      "breakpoints": true
     }
   ]
 }

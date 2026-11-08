@@ -1,6 +1,11 @@
 import "server-only";
 
 import { and, asc, eq } from "drizzle-orm";
+import {
+  type UserProviderModelCapability,
+  parseUserProviderModelCatalog,
+  serializeUserProviderModelCatalog,
+} from "lib/ai/user-model-provider-capabilities";
 import { decrypt, encrypt } from "lib/security/encryption";
 import { pgDb as db } from "../db.pg";
 import { UserModelProviderTable } from "../schema.pg";
@@ -10,6 +15,7 @@ export type UserModelProviderSummary = {
   name: string;
   baseUrl: string;
   modelIds: string[];
+  capabilities: Record<string, UserProviderModelCapability>;
   hasApiKey: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -21,7 +27,7 @@ const toSummary = (
   id: row.id,
   name: row.name,
   baseUrl: row.baseUrl,
-  modelIds: row.modelIds,
+  ...parseUserProviderModelCatalog(row.modelIds),
   hasApiKey: Boolean(row.encryptedApiKey),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
@@ -65,6 +71,7 @@ export const userModelProviderRepository = {
     baseUrl: string;
     apiKey?: string;
     modelIds: string[];
+    capabilities?: Record<string, UserProviderModelCapability>;
   }): Promise<UserModelProviderSummary> {
     const existing = input.id
       ? await this.getForRuntime(input.userId, input.id)
@@ -81,7 +88,10 @@ export const userModelProviderRepository = {
       name: input.name,
       baseUrl: input.baseUrl,
       encryptedApiKey,
-      modelIds: input.modelIds,
+      modelIds: serializeUserProviderModelCatalog(
+        input.modelIds,
+        input.capabilities ?? {},
+      ),
       updatedAt: new Date(),
     };
     const [row] = input.id
@@ -124,7 +134,19 @@ export const userModelProviderRepository = {
         ),
       )
       .limit(1);
-    return Boolean(row?.modelIds.includes(modelId));
+    return parseUserProviderModelCatalog(row?.modelIds).modelIds.includes(
+      modelId,
+    );
+  },
+
+  async getCapabilitiesForModel(
+    userId: string,
+    providerId: string,
+    modelId: string,
+  ) {
+    const provider = await this.getForRuntime(userId, providerId);
+    if (!provider?.modelIds.includes(modelId)) return null;
+    return provider.capabilities[modelId] ?? { supportsToolCalling: false };
   },
 
   async getEncryptedKey(userId: string, id?: string) {

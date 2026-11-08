@@ -80,10 +80,47 @@ describe("Composio app connections", () => {
       connectedAccountId: accountId,
     });
     expect(body.accounts).toEqual([
-      { id: accountId, toolkit: "github", status: "ACTIVE" },
+      {
+        id: accountId,
+        toolkit: "github",
+        status: "ACTIVE",
+        accountType: "PRIVATE",
+      },
     ]);
     expect(response.headers.get("Cache-Control")).toContain("no-store");
-    expect(mocks.listAccounts).toHaveBeenCalledWith(userId);
+    expect(mocks.listAccounts).toHaveBeenCalledWith(userId, {
+      includeShared: true,
+    });
+  });
+
+  it("lists shared accounts but keeps them outside the disconnect ownership check", async () => {
+    mocks.listAccounts
+      .mockResolvedValueOnce([
+        {
+          id: "shared-account",
+          isDisabled: false,
+          toolkit: { slug: "google_drive" },
+          experimental: { accountType: "SHARED" },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const listed = await GET(request("GET"));
+    expect((await listed.json()).accounts).toEqual([
+      {
+        id: "shared-account",
+        toolkit: "google_drive",
+        status: "ACTIVE",
+        accountType: "SHARED",
+      },
+    ]);
+
+    const disconnected = await DELETE(
+      request("DELETE", { connectedAccountId: "shared-account" }),
+    );
+    expect(disconnected.status).toBe(404);
+    expect(mocks.listAccounts).toHaveBeenNthCalledWith(2, userId);
+    expect(mocks.disconnect).not.toHaveBeenCalled();
   });
 
   it("derives the callback from the request origin and rejects open redirects", async () => {

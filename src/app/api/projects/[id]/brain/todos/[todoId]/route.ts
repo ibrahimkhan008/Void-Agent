@@ -1,9 +1,11 @@
 import { getSession } from "auth/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
+  ChatThreadTable,
   CollectionItemTable,
   CollectionTable,
+  ProjectBrainChatSourceTable,
   ProjectBrainTodoTable,
 } from "lib/db/pg/schema.pg";
 import { notifyAcceptedProjectBrainTodo } from "lib/notifications/project-brain-todo-accepted";
@@ -13,6 +15,7 @@ import {
   mayEditProject,
 } from "lib/projects/access";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+import { getActiveProjectBrainChatSourceOwnerIds } from "lib/projects/project-chat-brain-source";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
@@ -65,6 +68,89 @@ export async function PATCH(
   if (!parsed.success)
     return Response.json({ error: "Invalid task status" }, { status: 400 });
 
+  const chatOwnerIds = await getActiveProjectBrainChatSourceOwnerIds(projectId);
+  const chatSources = chatOwnerIds.length
+    ? await pgDb
+        .select({ id: ProjectBrainChatSourceTable.id })
+        .from(ProjectBrainChatSourceTable)
+        .innerJoin(
+          ChatThreadTable,
+          eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+        )
+        .where(
+          and(
+            eq(ProjectBrainChatSourceTable.projectId, projectId),
+            inArray(ProjectBrainChatSourceTable.ownerUserId, chatOwnerIds),
+            isNull(ProjectBrainChatSourceTable.revokedAt),
+            eq(ChatThreadTable.projectId, projectId),
+            eq(ChatThreadTable.userId, ProjectBrainChatSourceTable.ownerUserId),
+          ),
+        )
+    : [];
+  const chatSourceIds = chatSources.map((source) => source.id);
+  const allowedFrom =
+    parsed.data.status === "completed"
+      ? ["accepted"]
+      : parsed.data.status === "accepted"
+        ? ["proposed", "completed"]
+        : ["proposed"];
+  const [visibleChatTodo] = chatSourceIds.length
+    ? await pgDb
+        .select({ id: ProjectBrainTodoTable.id })
+        .from(ProjectBrainTodoTable)
+        .where(
+          and(
+            eq(ProjectBrainTodoTable.id, todoId),
+            eq(ProjectBrainTodoTable.projectId, projectId),
+            eq(ProjectBrainTodoTable.sourceType, "chat"),
+            inArray(ProjectBrainTodoTable.chatSourceId, chatSourceIds),
+            projectBrainRunIsActiveSourceRevision(
+              ProjectBrainTodoTable.runId,
+              ProjectBrainTodoTable.projectId,
+              ProjectBrainTodoTable.sourceItemId,
+              ProjectBrainTodoTable.chatSourceId,
+            ),
+          ),
+        )
+        .limit(1)
+    : [];
+  if (visibleChatTodo) {
+    const [todo] = await pgDb
+      .update(ProjectBrainTodoTable)
+      .set({ status: parsed.data.status, reviewedAt: new Date() })
+      .where(
+        and(
+          eq(ProjectBrainTodoTable.id, todoId),
+          eq(ProjectBrainTodoTable.projectId, projectId),
+          inArray(ProjectBrainTodoTable.status, allowedFrom),
+          eq(ProjectBrainTodoTable.sourceType, "chat"),
+          inArray(ProjectBrainTodoTable.chatSourceId, chatSourceIds),
+          projectBrainRunIsActiveSourceRevision(
+            ProjectBrainTodoTable.runId,
+            ProjectBrainTodoTable.projectId,
+            ProjectBrainTodoTable.sourceItemId,
+            ProjectBrainTodoTable.chatSourceId,
+          ),
+        ),
+      )
+      .returning({
+        id: ProjectBrainTodoTable.id,
+        status: ProjectBrainTodoTable.status,
+      });
+    if (!todo)
+      return Response.json(
+        { error: "Task has already changed state" },
+        { status: 409 },
+      );
+    if (todo.status === "accepted") {
+      await notifyAcceptedProjectBrainTodo({ projectId, todoId: todo.id });
+    }
+    return Response.json(
+      { todo },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const ownerIds = await getProjectCollectionSourceOwnerIds(access);
   if (!access.project.collectionIds.length || !ownerIds.length) {
     return new Response("Not found", { status: 404 });
@@ -88,6 +174,7 @@ export async function PATCH(
           ProjectBrainTodoTable.runId,
           ProjectBrainTodoTable.projectId,
           ProjectBrainTodoTable.sourceItemId,
+          ProjectBrainTodoTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, access.project.collectionIds),
         inArray(CollectionTable.userId, ownerIds),
@@ -97,8 +184,6 @@ export async function PATCH(
     .limit(1);
   if (!visible) return new Response("Not found", { status: 404 });
 
-  const allowedFrom =
-    parsed.data.status === "completed" ? "accepted" : "proposed";
   const [todo] = await pgDb
     .update(ProjectBrainTodoTable)
     .set({ status: parsed.data.status, reviewedAt: new Date() })
@@ -106,11 +191,12 @@ export async function PATCH(
       and(
         eq(ProjectBrainTodoTable.id, todoId),
         eq(ProjectBrainTodoTable.projectId, projectId),
-        eq(ProjectBrainTodoTable.status, allowedFrom),
+        inArray(ProjectBrainTodoTable.status, allowedFrom),
         projectBrainRunIsActiveSourceRevision(
           ProjectBrainTodoTable.runId,
           ProjectBrainTodoTable.projectId,
           ProjectBrainTodoTable.sourceItemId,
+          ProjectBrainTodoTable.chatSourceId,
         ),
       ),
     )

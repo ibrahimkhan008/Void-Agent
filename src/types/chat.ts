@@ -171,6 +171,8 @@ export const chatApiSchemaRequestBodySchema = z.object({
     })
     .optional(),
   toolChoice: z.enum(["auto", "none", "manual", "codemode"]),
+  // Plan mode is a user-selected, server-enforced restricted tool mode.
+  planMode: z.boolean().optional(),
   mentions: z.array(ChatMentionSchema).optional(),
   imageTool: z
     .object({
@@ -202,7 +204,7 @@ export type ChatRepository = {
 
   selectThread(id: string): Promise<ChatThread | null>;
 
-  deleteChatMessage(id: string): Promise<void>;
+  deleteChatMessage(id: string, userId: string): Promise<boolean>;
 
   selectMessage(id: string): Promise<ChatMessage | null>;
 
@@ -245,10 +247,20 @@ export type ChatRepository = {
     thread: PartialBy<Omit<ChatThread, "createdAt">, "userId">,
   ): Promise<ChatThread>;
 
+  /** Insert a new title or fill an empty owner-matched title, never replace one. */
+  setThreadTitleIfEmpty(
+    id: string,
+    title: string,
+    userId: string,
+  ): Promise<string | null>;
+
   insertMessage(message: Omit<ChatMessage, "createdAt">): Promise<ChatMessage>;
   upsertMessage(message: Omit<ChatMessage, "createdAt">): Promise<ChatMessage>;
 
-  deleteMessagesByChatIdAfterTimestamp(messageId: string): Promise<void>;
+  deleteMessagesByChatIdAfterTimestamp(
+    messageId: string,
+    userId: string,
+  ): Promise<boolean>;
 
   deleteAllThreads(userId: string): Promise<void>;
 

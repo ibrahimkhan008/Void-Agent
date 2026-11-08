@@ -6,6 +6,10 @@ import {
   type CustomReviewColumnInput,
   buildReviewColumns,
 } from "lib/tabular/review-columns";
+import {
+  REVIEW_COLUMN_PRESETS,
+  buildReviewPresetColumn,
+} from "lib/tabular/review-presets";
 import type { ReviewColumn } from "lib/tabular/review-schema";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,51 +19,7 @@ import { Button } from "ui/button";
 import { Input } from "ui/input";
 import { Label } from "ui/label";
 
-const presets = [
-  {
-    id: "summary",
-    label: "Summary",
-    type: "text",
-    prompt: "Summarize the document in 2-3 sentences.",
-  },
-  {
-    id: "parties",
-    label: "Parties",
-    type: "list",
-    prompt: "Identify the named people or organizations and their roles.",
-  },
-  {
-    id: "key_dates",
-    label: "Key dates",
-    type: "date",
-    prompt: "List the important dates and what each date refers to.",
-  },
-  {
-    id: "obligations",
-    label: "Obligations",
-    type: "list",
-    prompt: "List the main obligations stated in the document.",
-  },
-  {
-    id: "risks",
-    label: "Risks",
-    type: "list",
-    prompt: "Identify material risks explicitly described in this document.",
-  },
-  {
-    id: "penalty",
-    label: "Penalties & remedies",
-    type: "text",
-    prompt:
-      "Describe any penalty clauses, liquidated damages, indemnification provisions, or breach remedies stated in this document.",
-  },
-  {
-    id: "jurisdiction",
-    label: "Jurisdiction",
-    type: "text",
-    prompt: "Identify the governing law and jurisdiction, if stated.",
-  },
-] as const;
+const presets = Object.values(REVIEW_COLUMN_PRESETS);
 
 type ReviewItem = CollectionItem & { collectionName: string };
 type ReviewSummary = {
@@ -150,7 +110,11 @@ export default function TabularReviewsDashboard() {
   const create = async () => {
     const selectedPresets = presets
       .filter((preset) => fields.includes(preset.id))
-      .map((preset) => ({ ...preset }));
+      .map((preset) =>
+        buildReviewPresetColumn(
+          preset.id as keyof typeof REVIEW_COLUMN_PRESETS,
+        ),
+      );
     const columns: ReviewColumn[] | null = buildReviewColumns(
       selectedPresets,
       customColumns,

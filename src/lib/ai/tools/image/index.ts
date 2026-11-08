@@ -7,6 +7,10 @@ import {
   DEFAULT_IMAGE_EDIT_MODEL,
   IMAGE_EDIT_MODEL_MAP,
 } from "lib/ai/image/edit-models";
+import {
+  generateGatewayMultiReferenceImage,
+  isGatewayMultiReferenceConfigured,
+} from "lib/ai/image/gateway-multi-reference";
 import { generateImageWithFlare } from "lib/ai/image/generate-flare-image";
 import {
   DEFAULT_IMAGE_GENERATION_MODEL,
@@ -25,6 +29,14 @@ import logger from "logger";
 import { safe, watchError } from "ts-safe";
 import z from "zod";
 import { ImageToolName } from "..";
+import { inferImageToolMode } from "./image-mode";
+import {
+  type ImageReference,
+  findLatestImageReference,
+  findLatestUserImageReferences,
+  loadOwnedImageForEdit,
+  loadOwnedImageReferencesForEdit,
+} from "./image-source";
 
 export type ImageToolResult = {
   images: {
@@ -35,7 +47,7 @@ export type ImageToolResult = {
   mode?: "create" | "edit" | "composite";
   guide?: string;
   model: string;
-  provider?: "flare";
+  provider?: "flare" | "ai-gateway";
 };
 
 /**
@@ -61,17 +73,7 @@ function extractLatestUserPrompt(messages: ModelMessage[]): string {
   return "A beautiful image";
 }
 
-type LatestUserImage = {
-  url: string;
-  mimeType: string;
-};
-
-const EDIT_INTENT_REGEX =
-  /\b(edit|change|replace|remove|background|stylize|style|restyle|retouch|enhance|convert|transform|ghibli|anime)\b/i;
-const CREATE_INTENT_REGEX = /\b(generate|create|draw|render|design|make)\b/i;
-
 const SIZE_REGEX = /\b(1792x1024|1024x1792|1024x1024)\b/i;
-const ATTACHED_IMAGE_URL_REGEX = /\[Attached image URL:\s*([^\]]+)\]/gi;
 
 const MODEL_ALIASES: Array<{ regex: RegExp; model: string }> = [
   {
@@ -88,22 +90,6 @@ const MODEL_ALIASES: Array<{ regex: RegExp; model: string }> = [
   { regex: /\bsdxl\s*lite\b/i, model: "sdxl-lite" },
   { regex: /\bsdxl\b/i, model: "sdxl" },
 ];
-
-const inferMode = (
-  inputMode: "create" | "edit" | "composite" | undefined,
-  prompt: string,
-  hasImageInput: boolean,
-): "create" | "edit" | "composite" => {
-  if (inputMode) return inputMode;
-  if (!hasImageInput) return "create";
-
-  const hasEditIntent = EDIT_INTENT_REGEX.test(prompt);
-  const hasCreateIntent = CREATE_INTENT_REGEX.test(prompt);
-
-  if (hasEditIntent) return "edit";
-  if (hasCreateIntent && !hasEditIntent) return "create";
-  return "edit";
-};
 
 const extractRequestedModel = (prompt: string): string | undefined => {
   for (const alias of MODEL_ALIASES) {
@@ -162,59 +148,8 @@ const resolveGenerationModel = (requestedModel?: string) => {
   return DEFAULT_IMAGE_GENERATION_MODEL;
 };
 
-const extractLatestUserImage = (
-  messages: ModelMessage[],
-): LatestUserImage | null => {
-  const recentMessages = messages.slice(-8);
-  for (let i = recentMessages.length - 1; i >= 0; i -= 1) {
-    const msg = recentMessages[i];
-    if (msg.role !== "user") continue;
-
-    if (isString(msg.content)) {
-      const matches = Array.from(
-        msg.content.matchAll(ATTACHED_IMAGE_URL_REGEX),
-      );
-      const lastMatch = matches.at(-1);
-      if (lastMatch?.[1]) {
-        return {
-          url: lastMatch[1].trim(),
-          mimeType: "image/png",
-        };
-      }
-      continue;
-    }
-
-    if (!Array.isArray(msg.content)) continue;
-
-    for (let j = msg.content.length - 1; j >= 0; j -= 1) {
-      const part: any = msg.content[j];
-      if (part?.type === "file") {
-        const mediaType =
-          typeof part.mediaType === "string" ? part.mediaType : "";
-        const url = typeof part.url === "string" ? part.url : "";
-        if (mediaType.startsWith("image/") && url) {
-          return {
-            url,
-            mimeType: mediaType || "image/png",
-          };
-        }
-      }
-      if (part?.type === "text" && typeof part.text === "string") {
-        const matches = Array.from(
-          part.text.matchAll(ATTACHED_IMAGE_URL_REGEX),
-        );
-        const lastMatch = matches.at(-1);
-        if (lastMatch?.[1]) {
-          return {
-            url: lastMatch[1].trim(),
-            mimeType: "image/png",
-          };
-        }
-      }
-    }
-  }
-  return null;
-};
+const extractLatestUserImage = (messages: ModelMessage[]) =>
+  findLatestImageReference(messages, ImageToolName);
 
 const resolveSizeFromPrompt = (
   prompt: string,
@@ -241,7 +176,7 @@ const isUsableImageReference = (url: string) => {
   return false;
 };
 
-const createImageRefFromUrl = (url: string): LatestUserImage | null => {
+const createImageRefFromUrl = (url: string): ImageReference | null => {
   const normalized = url.trim();
   if (!isUsableImageReference(normalized)) {
     return null;
@@ -255,47 +190,11 @@ const createImageRefFromUrl = (url: string): LatestUserImage | null => {
   };
 };
 
-const normalizeImageUrlForServerFetch = (url: string) => {
-  if (/^https?:\/\//i.test(url)) return url;
-
-  const origin =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    process.env.BETTER_AUTH_URL;
-
-  if (!origin) return null;
-  return new URL(url, origin).toString();
-};
-
-const fetchImageAsBase64 = async (image: LatestUserImage) => {
-  if (image.url.startsWith("data:")) {
-    const parts = image.url.split(",");
-    if (parts.length >= 2) {
-      return {
-        base64: parts[1],
-        mimeType: image.mimeType || "image/png",
-      };
-    }
-  }
-
-  const normalizedUrl = normalizeImageUrlForServerFetch(image.url);
-  if (!normalizedUrl) {
-    throw new Error(
-      "Could not resolve uploaded image URL. Please re-upload and try again.",
-    );
-  }
-
-  const response = await fetch(normalizedUrl);
-  if (!response.ok) {
-    throw new Error("Failed to load uploaded image for editing");
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return {
-    base64: buffer.toString("base64"),
-    mimeType:
-      response.headers.get("content-type") || image.mimeType || "image/png",
-  };
-};
+const fetchImageAsBase64 = async (
+  image: ImageReference,
+  ownerId: string | undefined,
+  abortSignal?: AbortSignal,
+) => loadOwnedImageForEdit(image, ownerId, abortSignal);
 
 const uploadGeneratedImages = async (
   images: { base64: string; mimeType?: string; originalUrl?: string }[],
@@ -394,7 +293,7 @@ export function createFlareImageTool(
 
   return createTool({
     name: ImageToolName,
-    description: `Generate or edit images. Use this tool when user asks to create an image, or to edit an uploaded image (style transfer, background change, etc.). If the user provides an image and asks for modifications, set mode='edit'. Model aliases: "nano banana pro" = "nbpro" and "nano banana" = "nano-banana". You can infer model/size from prompt (e.g. square/portrait/landscape).`,
+    description: `Generate or edit images. Use mode='edit' to modify one uploaded image. Use mode='composite' only when the user explicitly asks to combine multiple uploaded images; multiple attachments alone do not imply composition. Composition requires AI Gateway configuration. Model aliases: "nano banana pro" = "nbpro" and "nano banana" = "nano-banana". You can infer model/size from prompt (e.g. square/portrait/landscape).`,
     inputSchema: z.object({
       prompt: z
         .string()
@@ -412,7 +311,7 @@ export function createFlareImageTool(
         .enum(["create", "edit", "composite"])
         .optional()
         .describe(
-          "Mode of operation. Use edit when modifying an uploaded image.",
+          "Mode of operation. Use edit to modify one uploaded image. Use composite only when explicitly combining 2–4 uploaded images.",
         ),
       model: z
         .string()
@@ -458,8 +357,11 @@ export function createFlareImageTool(
         }
         const latestUserImage =
           explicitImageRef || extractLatestUserImage(messages);
+        const gatewayImageReferences = explicitImageRef
+          ? [explicitImageRef]
+          : findLatestUserImageReferences(messages);
 
-        const mode = inferMode(
+        const mode = inferImageToolMode(
           inputMode,
           finalPrompt,
           Boolean(latestUserImage),
@@ -477,6 +379,54 @@ export function createFlareImageTool(
           size ||
           inputSize ||
           resolveSizeFromPrompt(finalPrompt, inputAspectRatio || "square");
+
+        if (mode === "composite") {
+          if (gatewayImageReferences.length < 2) {
+            throw new Error(
+              "Image composition requires at least two images uploaded in the same message.",
+            );
+          }
+          if (!isGatewayMultiReferenceConfigured()) {
+            throw new Error(
+              "Combining multiple images is not configured. Set AI_GATEWAY_API_KEY to enable this feature.",
+            );
+          }
+          if (enforceFreeLimits && userId) {
+            const check = await canUseFreeTierImageEdit(userId);
+            if (!check.allowed) {
+              const limits = await getFreeTierLimits();
+              throw new Error(
+                `Free plan allows ${limits.dailyImageEdits} image edits per day. Upgrade to continue.`,
+              );
+            }
+          }
+
+          const references = await loadOwnedImageReferencesForEdit(
+            gatewayImageReferences,
+            userId,
+            abortSignal,
+          );
+          const composite = await generateGatewayMultiReferenceImage({
+            prompt: finalPrompt,
+            images: references,
+            abortSignal,
+          });
+          const resultImages = await uploadEditedImages(
+            composite.images,
+            userId,
+          );
+          if (enforceFreeLimits && userId && resultImages.length > 0) {
+            await recordFreeTierImageEditSuccess(userId);
+          }
+
+          return {
+            images: resultImages,
+            mode: "composite",
+            model: composite.model,
+            provider: "ai-gateway",
+            guide: `Image composition completed with ${composite.model}.`,
+          } as ImageToolResult;
+        }
 
         if (mode === "edit") {
           if (enforceFreeLimits && userId) {
@@ -500,7 +450,11 @@ export function createFlareImageTool(
           );
           const editProvider =
             IMAGE_EDIT_MODEL_MAP[selectedEditModel]?.provider || "flare";
-          const imagePayload = await fetchImageAsBase64(latestUserImage);
+          const imagePayload = await fetchImageAsBase64(
+            latestUserImage,
+            userId,
+            abortSignal,
+          );
 
           logger.info(
             `Editing image: model=${selectedEditModel}, provider=${editProvider}, size=${resolvedSize}`,

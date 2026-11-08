@@ -58,6 +58,7 @@ export { mcpInstallRepository } from "./pg/repositories/mcp-install-repository.p
 export { agentInstallRepository } from "./pg/repositories/agent-install-repository.pg";
 export { agentViewRepository } from "./pg/repositories/agent-view-repository.pg";
 export { teamRepository } from "./pg/repositories/team-repository.pg";
+export { teamInvitationRepository } from "./pg/repositories/team-invitation-repository.pg";
 export { teamModelRoutingRepository } from "./pg/repositories/team-model-routing-repository.pg";
 export { subscriptionRepository } from "./pg/repositories/subscription-repository.pg";
 

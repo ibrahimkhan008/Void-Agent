@@ -4,9 +4,9 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import type { ScheduledJob } from "lib/db/pg/schema.pg";
-import { schedulerRepository } from "lib/db/repository";
 import type { ScheduledJobIdempotency } from "lib/db/pg/repositories/scheduler-repository.pg";
+import type { ScheduledJob } from "lib/db/pg/schema.pg";
+import { agentRepository, schedulerRepository } from "lib/db/repository";
 import { computeNextRun, isValidTimezone, validateCron } from "./cron-parser";
 
 const MIN_LEAD_MS = 30_000;
@@ -255,6 +255,17 @@ export const createScheduledJobForUser = async (
   requestKey?: string,
 ): Promise<ScheduledJob> => {
   const normalized = normalizeScheduleCreateInput(raw, now);
+  if (normalized.agentId) {
+    const agent = await agentRepository.selectAgentById(
+      normalized.agentId,
+      userId,
+    );
+    // Public/read-only visibility is enough to use an agent interactively,
+    // but a scheduled run executes later with the owner's authority.
+    if (!agent || agent.userId !== userId) {
+      throw new Error("Agent not found");
+    }
+  }
   let idempotency: ScheduledJobIdempotency | undefined;
   if (requestKey !== undefined) {
     if (!/^[A-Za-z0-9._:-]{1,200}$/.test(requestKey)) {
@@ -316,6 +327,7 @@ export const createOneShotFromNaturalLanguage = async (params: {
 
 export const publicScheduledJob = (job: ScheduledJob) => ({
   id: job.id,
+  agentId: job.agentId,
   name: job.name,
   cron: job.cron,
   timezone: job.timezone ?? "UTC",

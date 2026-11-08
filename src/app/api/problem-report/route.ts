@@ -2,10 +2,20 @@ import { getSession } from "auth/server";
 import { desc, eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import { ProblemReportTable } from "lib/db/pg/schema.pg";
+import { sendEmail } from "lib/email/resend";
+import {
+  isUserStorageKey,
+  storageKeyFromUrl,
+} from "lib/file-storage/storage-utils";
 import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
+import {
+  getProblemReportNotificationRecipient,
+  problemReportNotificationHtml,
+  problemReportNotificationSubject,
+} from "lib/problem-report/notification";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
-import { isUserStorageKey, storageKeyFromUrl } from "lib/file-storage/storage-utils";
+import logger from "logger";
 import { problemReportInputSchema } from "../../../types/problem-report";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +91,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session?.user.id) return new Response("Unauthorized", { status: 401 });
-  if (!hasSameOrigin(request)) return new Response("Forbidden", { status: 403 });
+  if (!hasSameOrigin(request))
+    return new Response("Forbidden", { status: 403 });
   const rate = await checkApiRateLimit({
     kind: "problem-report-create",
     id: session.user.id,
@@ -104,7 +115,10 @@ export async function POST(request: Request) {
       keyFromUrl !== shot.key ||
       keys.has(shot.key)
     ) {
-      return Response.json({ error: "Invalid screenshot attachment" }, { status: 400 });
+      return Response.json(
+        { error: "Invalid screenshot attachment" },
+        { status: 400 },
+      );
     }
     keys.add(shot.key);
   }
@@ -117,9 +131,40 @@ export async function POST(request: Request) {
         screenshots,
         context: safeContext(parsed.data.context, request),
       })
-      .returning({ id: ProblemReportTable.id, status: ProblemReportTable.status });
+      .returning({
+        id: ProblemReportTable.id,
+        status: ProblemReportTable.status,
+      });
     if (!report) throw new Error("Report insert returned no row");
-    return Response.json(report, { status: 201, headers: { "Cache-Control": "no-store" } });
+
+    // The row is durable before this optional, best-effort notification.
+    const notificationRecipient = getProblemReportNotificationRecipient();
+    if (notificationRecipient) {
+      try {
+        await sendEmail({
+          to: notificationRecipient,
+          subject: problemReportNotificationSubject({
+            reportId: report.id,
+            description: parsed.data.description,
+          }),
+          html: problemReportNotificationHtml({
+            reportId: report.id,
+            description: parsed.data.description,
+            pageUrl: safeContext(parsed.data.context, request)?.pageUrl,
+            locale: parsed.data.context?.locale,
+            viewport: parsed.data.context?.viewport,
+            screenshotCount: screenshots.length,
+          }),
+          from: "noreply",
+        });
+      } catch (error) {
+        logger.warn("Problem report notification email failed", error);
+      }
+    }
+    return Response.json(report, {
+      status: 201,
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch {
     return Response.json({ error: "Unable to submit report" }, { status: 503 });
   }

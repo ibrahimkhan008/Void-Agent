@@ -177,15 +177,37 @@ describe("projectBrainRunIsActiveSourceRevision", () => {
         ProjectBrainFactTable.runId,
         ProjectBrainFactTable.projectId,
         ProjectBrainFactTable.sourceItemId,
+        ProjectBrainFactTable.chatSourceId,
       ),
     );
     expect(compiled.sql).toContain('"project_brain_source_state"');
     expect(compiled.sql).toContain(
       "active_source.source_version_id = active_run.source_version_id",
     );
-    expect(compiled.sql).toContain(
-      "active_source.updated_at >= (\n        SELECT source_item.updated_at",
-    );
+    expect(compiled.sql).toContain("active_source.updated_at >= (");
+    expect(compiled.sql).toContain("SELECT source_item.updated_at");
     expect(compiled.sql).toContain('"project_brain_fact"."run_id"');
+  });
+
+  it("guards chat evidence against stale, revoked, or detached sources", () => {
+    const compiled = new PgDialect().sqlToQuery(
+      projectBrainRunIsActiveSourceRevision(
+        ProjectBrainFactTable.runId,
+        ProjectBrainFactTable.projectId,
+        ProjectBrainFactTable.sourceItemId,
+        ProjectBrainFactTable.chatSourceId,
+      ),
+    );
+    expect(compiled.sql).toContain('"project_brain_chat_source"');
+    expect(compiled.sql).toContain(
+      "active_chat_source.active_fingerprint = active_run.source_fingerprint",
+    );
+    expect(compiled.sql).toContain("active_chat_source.revoked_at IS NULL");
+    expect(compiled.sql).toContain(
+      "active_thread.project_id = active_chat_source.project_id",
+    );
+    expect(compiled.sql).toContain(
+      "active_thread.user_id = active_chat_source.owner_user_id",
+    );
   });
 });

@@ -4,13 +4,21 @@ import JSZip from "jszip";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
+  CollectionTable,
   DocumentTable,
   TabularReviewCellTable,
   TabularReviewItemTable,
   TabularReviewSourceDocumentTable,
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
-import type { ReviewColumn } from "lib/tabular/review-schema";
+import {
+  type ReviewColumn,
+  TABULAR_REVIEW_MAX_SOURCE_CHARS,
+} from "lib/tabular/review-schema";
+import {
+  formatReviewCitationEvidenceForExport,
+  resolvePinnedReviewCitationEvidence,
+} from "lib/tabular/review-source";
 
 export const dynamic = "force-dynamic";
 
@@ -78,12 +86,24 @@ export async function GET(
       .select({
         itemId: TabularReviewSourceDocumentTable.itemId,
         documentId: TabularReviewSourceDocumentTable.documentId,
+        position: TabularReviewSourceDocumentTable.position,
+        content: DocumentTable.content,
         createdAt: DocumentTable.createdAt,
+        sourceOwnerId: CollectionTable.userId,
+        sourceStatus: CollectionItemTable.status,
       })
       .from(TabularReviewSourceDocumentTable)
       .leftJoin(
         DocumentTable,
         eq(DocumentTable.id, TabularReviewSourceDocumentTable.documentId),
+      )
+      .leftJoin(
+        CollectionItemTable,
+        eq(CollectionItemTable.id, TabularReviewSourceDocumentTable.itemId),
+      )
+      .leftJoin(
+        CollectionTable,
+        eq(CollectionTable.id, CollectionItemTable.collectionId),
       )
       .where(eq(TabularReviewSourceDocumentTable.reviewId, id)),
   ]);
@@ -106,6 +126,25 @@ export async function GET(
     sourceSummary.set(page.itemId, summary);
   }
   const columns = review.columns as ReviewColumn[];
+  const pagesByItem = new Map<
+    string,
+    Array<{
+      documentId: string | null;
+      position: number;
+      content: string | null;
+    }>
+  >();
+  for (const page of sourcePages) {
+    const pages = pagesByItem.get(page.itemId) ?? [];
+    const callerStillOwnsReadySource =
+      page.sourceOwnerId === session.user.id && page.sourceStatus === "ready";
+    pages.push({
+      documentId: callerStillOwnsReadySource ? page.documentId : null,
+      position: page.position,
+      content: callerStillOwnsReadySource ? page.content : null,
+    });
+    pagesByItem.set(page.itemId, pages);
+  }
   const rows = [
     [
       "Document",
@@ -122,12 +161,22 @@ export async function GET(
       const snapshot = !source
         ? "Legacy review: source snapshot unavailable"
         : source.available !== source.count
-          ? `Incomplete pinned source (${source.available}/${source.count} pages)`
-          : `${source.count} pinned ${source.count === 1 ? "page" : "pages"}${source.latestAt ? `; newest ${source.latestAt.toISOString()}` : ""}`;
+          ? `Incomplete pinned source (${source.available}/${source.count} segments)`
+          : `${source.count} pinned ${source.count === 1 ? "source segment" : "source segments"}${source.latestAt ? `; newest ${source.latestAt.toISOString()}` : ""}`;
       return [
         item.filename || item.itemId,
         snapshot,
-        ...columns.map((column) => byColumn.get(column.id) ?? ""),
+        ...columns.map((column) => {
+          const value = byColumn.get(column.id) ?? "";
+          if (!value || column.type !== "citation") return value;
+          const evidence = resolvePinnedReviewCitationEvidence(
+            value,
+            pagesByItem.get(item.itemId) ?? [],
+            TABULAR_REVIEW_MAX_SOURCE_CHARS,
+          );
+          if (!evidence) return value;
+          return formatReviewCitationEvidenceForExport(evidence);
+        }),
       ];
     }),
   ];

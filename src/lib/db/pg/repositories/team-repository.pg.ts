@@ -204,6 +204,35 @@ export const teamRepository = {
     return row as TeamMember;
   },
 
+  /**
+   * Create a new membership without changing an existing member's role.
+   * This is the owner/admin team-member workflow; the unique constraint is
+   * used as the concurrency guard and its budget policy is created atomically.
+   */
+  async createTeamMember(
+    teamId: string,
+    userId: string,
+    role: Exclude<TeamRole, "owner" | "admin">,
+  ): Promise<TeamMember | null> {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(TeamMemberTable)
+        .values({ teamId, userId, role } satisfies NewTeamMember)
+        .onConflictDoNothing({
+          target: [TeamMemberTable.teamId, TeamMemberTable.userId],
+        })
+        .returning();
+      if (!row) return null;
+      await tx.insert(TeamMemberAiPolicyTable).values({
+        memberId: row.id,
+        monthlyCapMicros: 15_000_000,
+        currency: "EUR",
+        hardStop: true,
+      });
+      return row as TeamMember;
+    });
+  },
+
   async removeTeamMember(teamId: string, userId: string): Promise<boolean> {
     // Refuse to remove the team's owner — they must transfer
     // ownership first (or delete the team). This is a defence-in-

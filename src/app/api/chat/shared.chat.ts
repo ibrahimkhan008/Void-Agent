@@ -1,24 +1,22 @@
 import "server-only";
 import {
   LoadAPIKeyError,
-  UIMessage,
   Tool,
-  jsonSchema,
-  tool as createTool,
-  isToolUIPart,
-  UIMessagePart,
   ToolUIPart,
-  getToolName,
+  UIMessage,
+  UIMessagePart,
   UIMessageStreamWriter,
+  tool as createTool,
+  getToolName,
+  isToolUIPart,
+  jsonSchema,
 } from "ai";
+import type { AgentFileBinding } from "app-types/agent";
 import {
   ChatMention,
   ChatMetadata,
   ManualToolConfirmTag,
 } from "app-types/chat";
-import type { AgentFileBinding } from "app-types/agent";
-import { errorToString, exclude, objectFlow, toAny } from "lib/utils";
-import logger from "logger";
 import {
   AllowedMCPServer,
   McpServerCustomizationsPrompt,
@@ -26,10 +24,12 @@ import {
   VercelAIMcpToolTag,
 } from "app-types/mcp";
 import { MANUAL_REJECT_RESPONSE_PROMPT } from "lib/ai/prompts";
+import { errorToString, exclude, objectFlow, toAny } from "lib/utils";
+import logger from "logger";
 
 import { ObjectJsonSchema7 } from "app-types/util";
-import { safe } from "ts-safe";
 import { workflowRepository } from "lib/db/repository";
+import { safe } from "ts-safe";
 
 import {
   VercelAIWorkflowTool,
@@ -37,21 +37,25 @@ import {
   VercelAIWorkflowToolStreamingResultTag,
   VercelAIWorkflowToolTag,
 } from "app-types/workflow";
-import { createWorkflowExecutor } from "lib/ai/workflow/executor/workflow-executor";
-import { NodeKind } from "lib/ai/workflow/workflow.interface";
+import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
+import { getMcpApprovalTargetFingerprint } from "lib/ai/mcp/mcp-approval-target";
 import { mcpClientsManager } from "lib/ai/mcp/mcp-manager";
+import { stripMcpApprovalField } from "lib/ai/speech/mcp-voice-approval";
+import { AppDefaultToolkit } from "lib/ai/tools";
+import {
+  getMcpApprovalTokenKey,
+  mcpToolApprovalSchema,
+} from "lib/ai/tools/hitl/mcp-tool-approval";
+import { getWorkflowApprovalTokenField } from "lib/ai/tools/hitl/workflow-run-approval";
 import {
   APP_DEFAULT_TOOL_KIT,
   getAppDefaultToolKitForUser,
 } from "lib/ai/tools/tool-kit";
-import { AppDefaultToolkit } from "lib/ai/tools";
-import { getEnabledCategories } from "lib/site-config-runtime";
-import { getMcpApprovalTokenKey, mcpToolApprovalSchema } from "lib/ai/tools/hitl/mcp-tool-approval";
-import { mcpToolApprovalRepository } from "lib/db/pg/repositories/mcp-tool-approval-repository.pg";
-import { executeApprovedMcpTool } from "lib/ai/mcp/execute-approved-mcp-tool";
-import { getWorkflowApprovalTokenField } from "lib/ai/tools/hitl/workflow-run-approval";
+import type { WorkflowExecutionInput } from "lib/ai/workflow/execution-state";
 import { loadApprovedWorkflow } from "lib/ai/workflow/load-approved-workflow";
-import { stripMcpApprovalField } from "lib/ai/speech/mcp-voice-approval";
+import { startSavedWorkflowExecution } from "lib/ai/workflow/run-saved-workflow";
+import { mcpToolApprovalRepository } from "lib/db/pg/repositories/mcp-tool-approval-repository.pg";
+import { getEnabledCategories } from "lib/site-config-runtime";
 
 export function filterMCPToolsByMentions(
   tools: Record<string, VercelAIMcpTool>,
@@ -128,6 +132,7 @@ export function manualToolExecuteByLastMessage(
   tools: Record<string, VercelAIMcpTool | VercelAIWorkflowTool | Tool>,
   userId: string,
   abortSignal?: AbortSignal,
+  userRole?: string | null,
 ) {
   const { input } = part;
 
@@ -149,21 +154,42 @@ export function manualToolExecuteByLastMessage(
           messages: [],
         });
       } else if (VercelAIMcpToolTag.isMaybe(tool)) {
-        const approvalTokenKey = tool._approvalTokenKey ?? "voidAgentApprovalToken";
-        const { [approvalTokenKey]: _approvalToken, ...toolPayload } = input as Record<string, unknown>;
+        const approvalTokenKey =
+          tool._approvalTokenKey ?? "voidAgentApprovalToken";
+        const proposalConfigFingerprint = tool._approvalConfigFingerprint;
+        const { [approvalTokenKey]: _approvalToken, ...toolPayload } =
+          input as Record<string, unknown>;
         const approval = mcpToolApprovalSchema.parse({
           serverId: tool._mcpServerId,
           serverName: tool._mcpServerName,
           toolName: tool._originToolName,
           payload: toolPayload,
         });
-        return mcpToolApprovalRepository.issue(userId, approval).then((approvalToken) =>
-          tool.execute!({ ...toolPayload, [approvalTokenKey]: approvalToken }, {
-            toolCallId: part.toolCallId,
-            abortSignal: abortSignal ?? new AbortController().signal,
-            messages: [],
-          }),
-        );
+        return getMcpApprovalTargetFingerprint({ userId, userRole, approval })
+          .then((fingerprint) => {
+            if (
+              !proposalConfigFingerprint ||
+              fingerprint !== proposalConfigFingerprint
+            )
+              throw new Error(
+                "MCP server configuration changed; review a fresh tool proposal.",
+              );
+            return mcpToolApprovalRepository.issue(
+              userId,
+              approval,
+              proposalConfigFingerprint,
+            );
+          })
+          .then((approvalToken) =>
+            tool.execute!(
+              { ...toolPayload, [approvalTokenKey]: approvalToken },
+              {
+                toolCallId: part.toolCallId,
+                abortSignal: abortSignal ?? new AbortController().signal,
+                messages: [],
+              },
+            ),
+          );
       }
       return tool.execute!(input, {
         toolCallId: part.toolCallId,
@@ -352,12 +378,19 @@ export const workflowToVercelAITool = ({
     .toUpperCase();
   const toolName = rawToolName.length ? rawToolName : `WORKFLOW_${id}`;
 
-  const approvalTokenField = getWorkflowApprovalTokenField(schema.properties ?? {});
+  const approvalTokenField = getWorkflowApprovalTokenField(
+    schema.properties ?? {},
+  );
   const toolSchema = jsonSchema({
     ...schema,
     properties: {
       ...(schema.properties ?? {}),
-      [approvalTokenField]: { type: "string", minLength: 40, maxLength: 128, description: "One-use approval token from proposeWorkflowRun" },
+      [approvalTokenField]: {
+        type: "string",
+        minLength: 40,
+        maxLength: 128,
+        description: "One-use approval token from proposeWorkflowRun",
+      },
     },
     required: [...(schema.required ?? []), approvalTokenField],
   });
@@ -365,7 +398,8 @@ export const workflowToVercelAITool = ({
     description: `${name} (workflowId ${id}). Before running, use proposeWorkflowRun with platform saved-workflow, target ${id}, workflowName ${name}, the exact input payload, and approvalTokenField ${approvalTokenField}. Then pass the returned token under ${approvalTokenField}; execution checks current publication/access. ${description?.trim().slice(0, 50) ?? ""}`,
     inputSchema: toolSchema,
     async execute(query, { toolCallId, abortSignal }) {
-      const { [approvalTokenField]: approvalToken, ...workflowInput } = query as Record<string, unknown>;
+      const { [approvalTokenField]: approvalToken, ...workflowInput } =
+        query as Record<string, unknown>;
       const history: VercelAIWorkflowToolStreaming[] = [];
       const toolResult = VercelAIWorkflowToolStreamingResultTag.create({
         toolCallId,
@@ -377,117 +411,55 @@ export const workflowToVercelAITool = ({
         result: undefined,
         status: "running",
       });
-      return safe(id)
-        .map(() => loadApprovedWorkflow({
+      const emitUpdate = () =>
+        dataStream.write({
+          type: "tool-output-available",
+          toolCallId,
+          output: toolResult,
+          // Server-executed tool: prevent automatic resend from replaying effects.
+          providerExecuted: true,
+        });
+      try {
+        const workflow = await loadApprovedWorkflow({
           userId,
           workflowId: id,
           workflowName: name,
           approvalTokenField,
           approvalToken,
           payload: workflowInput,
-        }))
-        .map((workflow) => {
-          const executor = createWorkflowExecutor({
-            nodes: workflow.nodes,
-            edges: workflow.edges,
-          });
-          toolResult.workflowIcon = workflow.icon;
-
-          abortSignal?.addEventListener("abort", () => executor.exit());
-          executor.subscribe((e) => {
-            if (
-              e.eventType == "WORKFLOW_START" ||
-              e.eventType == "WORKFLOW_END"
-            )
-              return;
-            if (e.node.name == "SKIP") return;
-            if (e.eventType == "NODE_START") {
-              const node = workflow.nodes.find(
-                (node) => node.id == e.node.name,
-              )!;
-              if (!node) return;
-              history.push({
-                id: e.nodeExecutionId,
-                name: node.name,
-                status: "running",
-                startedAt: e.startedAt,
-                kind: node.kind as NodeKind,
-              });
-            } else if (e.eventType == "NODE_END") {
-              const result = history.find((r) => r.id == e.nodeExecutionId);
-              if (result) {
-                if (e.isOk) {
-                  result.status = "success";
-                  result.result = {
-                    input: e.node.output.getInput(e.node.name),
-                    output: e.node.output.getOutput({
-                      nodeId: e.node.name,
-                      path: [],
-                    }),
-                  };
-                } else {
-                  result.status = "fail";
-                  result.error = {
-                    name: e.error?.name || "ERROR",
-                    message: errorToString(e.error),
-                  };
-                }
-                result.endedAt = e.endedAt;
-              }
-            }
-
-            dataStream.write({
-              type: "tool-output-available",
-              toolCallId,
-              output: toolResult,
-              // Server-executed tool: mark providerExecuted so the client's
-              // sendAutomaticallyWhen predicate does not auto-resend (which
-              // would re-run this workflow and duplicate the message).
-              providerExecuted: true,
-            });
-          });
-          return executor.run(
-            {
-              query: query ?? ({} as any),
-            },
-            {
-              disableHistory: true,
-            },
-          );
-        })
-        .map((result) => {
-          toolResult.endedAt = Date.now();
-          toolResult.status = result.isOk ? "success" : "fail";
-          toolResult.error = result.error
-            ? {
-                name: result.error.name || "ERROR",
-                message: errorToString(result.error) || "Unknown Error",
-              }
-            : undefined;
-          const outputNodeResults = history
-            .filter((h) => h.kind == NodeKind.Output)
-            .map((v) => v.result?.output)
-            .filter(Boolean);
-          toolResult.history = history.map((h) => ({
-            ...h,
-            result: undefined, // save tokens.
-          }));
-          toolResult.result =
-            outputNodeResults.length == 1
-              ? outputNodeResults[0]
-              : outputNodeResults;
-          return toolResult;
-        })
-        .ifFail((err) => {
-          return {
-            error: {
-              name: err?.name || "ERROR",
-              message: errorToString(err),
-              history,
-            },
-          };
-        })
-        .unwrap();
+        });
+        toolResult.workflowIcon = workflow.icon;
+        const outcome = await startSavedWorkflowExecution({
+          userId,
+          workflow,
+          workflowName: name,
+          executionInput: workflowInput as WorkflowExecutionInput,
+          workflowIcon: workflow.icon,
+          abortSignal,
+          onProgress: (nextHistory) => {
+            toolResult.history = nextHistory;
+            emitUpdate();
+          },
+        });
+        toolResult.endedAt = Date.now();
+        toolResult.status = outcome.status;
+        toolResult.executionId = outcome.executionId;
+        toolResult.pendingEffect =
+          "pendingEffect" in outcome ? outcome.pendingEffect : undefined;
+        toolResult.error = "error" in outcome ? outcome.error : undefined;
+        toolResult.history = outcome.history;
+        toolResult.result = "result" in outcome ? outcome.result : undefined;
+        emitUpdate();
+        return toolResult;
+      } catch (error) {
+        return {
+          error: {
+            name: error instanceof Error ? error.name : "ERROR",
+            message: errorToString(error),
+            history,
+          },
+        };
+      }
     },
   }) as VercelAIWorkflowTool;
 
@@ -529,50 +501,139 @@ export const loadMcpTools = (opt?: {
   mentions?: ChatMention[];
   allowedMcpServers?: Record<string, AllowedMCPServer>;
   userId?: string;
+  userRole?: string | null;
 }) =>
-  safe(() => mcpClientsManager.tools())
-    .map((tools) => {
-      if (opt?.mentions?.length) {
-        return filterMCPToolsByMentions(tools, opt.mentions);
-      }
-      return filterMCPToolsByAllowedMCPServers(tools, opt?.allowedMcpServers);
-    })
-    .map((tools) => Object.fromEntries(Object.entries(tools).map(([id, mcpTool]) => {
-      const schema = toAny(mcpTool.inputSchema) as ObjectJsonSchema7;
-      const required = Array.isArray(schema.required) ? schema.required : [];
-      const properties = schema.properties ?? {};
-      const approvalTokenKey = getMcpApprovalTokenKey(properties);
-      const inputSchema = jsonSchema({
-        ...schema,
-        properties: {
-          ...properties,
-          [approvalTokenKey]: { type: "string", minLength: 40, maxLength: 128, description: "One-use token from the MCP review card" },
-        },
-        required: [...required.filter((key) => key !== approvalTokenKey), approvalTokenKey],
-      });
-      return [id, VercelAIMcpToolTag.create({
-        ...mcpTool,
-        _approvalTokenKey: approvalTokenKey,
-        _originalDescription: mcpTool.description,
-        inputSchema,
-        description: `${mcpTool.description ?? ""}\nRequires explicit approval of the exact arguments via proposeMcpToolCall before execution; pass the token in ${approvalTokenKey}.`,
-        execute: async (input, _options) => {
-          const { [approvalTokenKey]: approvalToken, ...toolPayload } = input as Record<string, unknown>;
-          return executeApprovedMcpTool({
-            userId: opt?.userId,
-            token: approvalToken,
-            approvalPayload: {
+  safe(async () => {
+    if (!opt?.userId) return {} as Record<string, VercelAIMcpTool>;
+    const userId = opt.userId;
+    const requestedServerIds = new Set(
+      opt.mentions?.length
+        ? opt.mentions
+            .filter(
+              (mention) =>
+                mention.type === "mcpTool" || mention.type === "mcpServer",
+            )
+            .map((mention) => mention.serverId)
+        : Object.keys(opt.allowedMcpServers ?? {}),
+    );
+    if (requestedServerIds.size === 0)
+      return {} as Record<string, VercelAIMcpTool>;
+
+    // Only synchronize MCP servers this chat is allowed to expose. A failed
+    // refresh is recorded as missing and that server's stale tool schema is
+    // omitted below.
+    const fingerprintsByServer = new Map<string, string>();
+    await Promise.all(
+      Array.from(requestedServerIds).map(async (serverId) => {
+        try {
+          const fingerprint =
+            await mcpClientsManager.refreshClientIfConfigChanged(serverId);
+          if (fingerprint) fingerprintsByServer.set(serverId, fingerprint);
+        } catch {
+          // Fail closed for this server while allowing other MCPs to load.
+        }
+      }),
+    );
+    if (fingerprintsByServer.size === 0)
+      return {} as Record<string, VercelAIMcpTool>;
+
+    const allTools = await mcpClientsManager.tools();
+    const tools = opt.mentions?.length
+      ? filterMCPToolsByMentions(allTools, opt.mentions)
+      : filterMCPToolsByAllowedMCPServers(allTools, opt.allowedMcpServers);
+
+    const entries = await Promise.all(
+      Object.entries(tools).map(async ([id, mcpTool]) => {
+        const approvalConfigFingerprint = fingerprintsByServer.get(
+          mcpTool._mcpServerId,
+        );
+        if (
+          !approvalConfigFingerprint ||
+          mcpTool._approvalConfigFingerprint !== approvalConfigFingerprint
+        ) {
+          return null;
+        }
+        try {
+          const currentFingerprint = await getMcpApprovalTargetFingerprint({
+            userId,
+            userRole: opt.userRole,
+            approval: {
               serverId: mcpTool._mcpServerId,
               serverName: mcpTool._mcpServerName,
-              toolName: mcpTool._originToolName,
-              payload: toolPayload,
             },
-            execute: () => mcpClientsManager.toolCall(mcpTool._mcpServerId, mcpTool._originToolName, toolPayload),
           });
-        },
-      })];
-    })))
-    .orElse({} as Record<string, VercelAIMcpTool>);
+          if (currentFingerprint !== approvalConfigFingerprint) return null;
+        } catch {
+          return null;
+        }
+
+        const schema = toAny(mcpTool.inputSchema) as ObjectJsonSchema7;
+        const required = Array.isArray(schema.required) ? schema.required : [];
+        const properties = schema.properties ?? {};
+        const approvalTokenKey = getMcpApprovalTokenKey(properties);
+        const inputSchema = jsonSchema({
+          ...schema,
+          properties: {
+            ...properties,
+            [approvalTokenKey]: {
+              type: "string",
+              minLength: 40,
+              maxLength: 128,
+              description: "One-use token from the MCP review card",
+            },
+          },
+          required: [
+            ...required.filter((key) => key !== approvalTokenKey),
+            approvalTokenKey,
+          ],
+        });
+        return [
+          id,
+          VercelAIMcpToolTag.create({
+            ...mcpTool,
+            _approvalTokenKey: approvalTokenKey,
+            _originalDescription: mcpTool.description,
+            inputSchema,
+            description: `${mcpTool.description ?? ""}\nRequires explicit approval of the exact arguments via proposeMcpToolCall before execution; pass the token in ${approvalTokenKey}. Copy this serverConfigFingerprint exactly into the approval proposal: ${approvalConfigFingerprint}`,
+            execute: async (input, _options) => {
+              const { [approvalTokenKey]: approvalToken, ...toolPayload } =
+                input as Record<string, unknown>;
+              return executeApprovedMcpTool({
+                userId,
+                token: approvalToken,
+                approvalPayload: {
+                  serverId: mcpTool._mcpServerId,
+                  serverName: mcpTool._mcpServerName,
+                  toolName: mcpTool._originToolName,
+                  payload: toolPayload,
+                },
+                getCurrentConfigFingerprint: () =>
+                  getMcpApprovalTargetFingerprint({
+                    userId,
+                    userRole: opt.userRole,
+                    approval: {
+                      serverId: mcpTool._mcpServerId,
+                      serverName: mcpTool._mcpServerName,
+                    },
+                  }),
+                execute: (expectedConfigFingerprint) =>
+                  mcpClientsManager.toolCall(
+                    mcpTool._mcpServerId,
+                    mcpTool._originToolName,
+                    toolPayload,
+                    expectedConfigFingerprint,
+                    mcpTool._mcpServerName,
+                  ),
+              });
+            },
+          }),
+        ] as const;
+      }),
+    );
+    return Object.fromEntries(
+      entries.flatMap((entry) => (entry ? [entry] : [])),
+    );
+  }).orElse({} as Record<string, VercelAIMcpTool>);
 
 export function getVoiceMcpToolDefinition(tool: VercelAIMcpTool) {
   const schema = toAny(tool.inputSchema) as ObjectJsonSchema7;

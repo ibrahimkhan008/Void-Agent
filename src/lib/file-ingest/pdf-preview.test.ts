@@ -40,6 +40,17 @@ describe("extractPdfPreview", () => {
       partial: true,
     });
     expect(pdfMocks.getPage).toHaveBeenCalledTimes(2);
+    expect(pdfMocks.getDocumentProxy).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.objectContaining({
+        disableAutoFetch: true,
+        disableFontFace: true,
+        enableXfa: false,
+        isEvalSupported: false,
+        maxImageSize: 2_000_000,
+        stopAtErrors: true,
+      }),
+    );
     expect(pdfMocks.destroy).toHaveBeenCalledOnce();
   });
 

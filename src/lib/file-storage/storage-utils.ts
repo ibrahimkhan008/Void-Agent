@@ -49,6 +49,7 @@ export const getContentTypeFromFilename = (filename: string): string => {
     wav: "audio/wav",
     ogg: "audio/ogg",
     m4a: "audio/mp4",
+    weba: "audio/webm",
 
     // Video
     mp4: "video/mp4",

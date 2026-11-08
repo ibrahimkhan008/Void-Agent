@@ -1,5 +1,6 @@
 "use client";
 
+import { ModelDisplayMetadataSettings } from "@/components/admin/model-display-metadata-settings";
 import { TeamMemberBudgetSettings } from "@/components/admin/team-member-budget-settings";
 import {
   FallbackChainSelector,
@@ -15,6 +16,7 @@ import {
   showSaveSuccess,
 } from "@/components/admin/ui/toast-helpers";
 import { createProviderDiscoveryRequest } from "lib/admin/provider-discovery-request";
+import type { ModelDisplayMetadataMap } from "lib/ai/model-display-metadata";
 import {
   AlertCircleIcon,
   BotIcon,
@@ -24,6 +26,7 @@ import {
   EyeOff,
   Link2,
   Loader2,
+  Pencil,
   Plus,
   RotateCcw,
   RotateCcwIcon,
@@ -62,6 +65,7 @@ interface ModelsConfig {
   providers: Record<string, ProviderInfo>;
   globalFallback?: string;
   dynamicProviders?: Record<string, DynamicProviderConfig>;
+  modelDisplayMetadata?: ModelDisplayMetadataMap;
 }
 
 interface ProviderStatus {
@@ -270,6 +274,9 @@ export default function ModelsPage() {
 
   // Dynamic provider modal state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(
+    null,
+  );
   const [newProvider, setNewProvider] = useState({
     name: "",
     baseURL: "",
@@ -391,12 +398,16 @@ export default function ModelsPage() {
     setSaving(true);
     setSaved(false);
     try {
+      // Catalog display metadata has its own editor and may have been saved
+      // independently since this provider configuration was loaded.
+      const settings = { ...config };
+      delete settings.modelDisplayMetadata;
       const res = await fetch("/api/admin/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           key: "models",
-          settings: config,
+          settings,
         }),
       });
       const responseData = await res.json();
@@ -513,6 +524,7 @@ export default function ModelsPage() {
       const discoveryRequest = createProviderDiscoveryRequest(
         newProvider.baseURL,
         newProvider.apiKey,
+        editingProviderId ?? undefined,
       );
       const res = await fetch(discoveryRequest.url, discoveryRequest.init);
       const data = await res.json();
@@ -544,11 +556,17 @@ export default function ModelsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(editingProviderId ? { id: editingProviderId } : {}),
           name: newProvider.name.trim(),
           baseURL: newProvider.baseURL.trim(),
-          apiKey: newProvider.apiKey,
+          ...(newProvider.apiKey.trim()
+            ? { apiKey: newProvider.apiKey.trim() }
+            : {}),
           models: discoveredModels,
-          enabled: true,
+          enabled:
+            editingProviderId != null
+              ? (config.dynamicProviders?.[editingProviderId]?.enabled ?? true)
+              : true,
         }),
       });
       const data = await res.json();
@@ -561,27 +579,49 @@ export default function ModelsPage() {
             [id]: {
               name: newProvider.name.trim(),
               baseURL: newProvider.baseURL.trim(),
-              apiKeyConfigured: !!newProvider.apiKey,
-              enabled: true,
+              apiKeyConfigured:
+                !!newProvider.apiKey.trim() ||
+                (editingProviderId != null &&
+                  (config.dynamicProviders?.[editingProviderId]
+                    ?.apiKeyConfigured ??
+                    false)),
+              enabled:
+                editingProviderId != null
+                  ? (config.dynamicProviders?.[editingProviderId]?.enabled ??
+                    true)
+                  : true,
               models: discoveredModels.length > 0 ? discoveredModels : [],
-              addedAt: new Date().toISOString(),
+              addedAt:
+                config.dynamicProviders?.[id]?.addedAt ??
+                new Date().toISOString(),
             },
           },
           providers: {
             ...prev.providers,
             [id]: {
-              enabled: true,
-              apiKeyConfigured: !!newProvider.apiKey,
-              defaultModel: "",
-              fallbackChain: [],
+              enabled:
+                editingProviderId != null
+                  ? (config.providers[id]?.enabled ?? true)
+                  : true,
+              apiKeyConfigured:
+                !!newProvider.apiKey.trim() ||
+                (editingProviderId != null &&
+                  (config.providers[id]?.apiKeyConfigured ?? false)),
+              defaultModel: config.providers[id]?.defaultModel ?? "",
+              fallbackChain: config.providers[id]?.fallbackChain ?? [],
               isDynamic: true,
               baseURL: newProvider.baseURL.trim(),
               models: discoveredModels.length > 0 ? discoveredModels : [],
             },
           },
         }));
-        showSaveSuccess(`${newProvider.name} added successfully`);
+        showSaveSuccess(
+          editingProviderId
+            ? `${newProvider.name} updated successfully`
+            : `${newProvider.name} added successfully`,
+        );
         setShowAddModal(false);
+        setEditingProviderId(null);
         setNewProvider({ name: "", baseURL: "", apiKey: "" });
         setDiscoveredModels([]);
         setShowApiKey(false);
@@ -593,6 +633,22 @@ export default function ModelsPage() {
     } finally {
       setSavingProvider(false);
     }
+  };
+
+  const handleEditProvider = (id: string) => {
+    const provider = config.dynamicProviders?.[id];
+    if (!provider) return;
+    setEditingProviderId(id);
+    setNewProvider({
+      name: provider.name ?? id,
+      baseURL: provider.baseURL ?? "",
+      // Secrets are intentionally never read back into the UI. Leaving this
+      // empty tells the server to retain the existing encrypted key.
+      apiKey: "",
+    });
+    setDiscoveredModels(provider.models ?? config.providers[id]?.models ?? []);
+    setShowApiKey(false);
+    setShowAddModal(true);
   };
 
   const handleRemoveProvider = (id: string) => {
@@ -731,16 +787,22 @@ export default function ModelsPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <TeamMemberBudgetSettings />
+      <ModelDisplayMetadataSettings />
 
-      {/* Add Dynamic Provider Modal */}
+      {/* Add/Edit Dynamic Provider Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-xl border bg-card p-6 shadow-xl space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Custom Provider</h2>
+              <h2 className="text-lg font-semibold">
+                {editingProviderId
+                  ? "Edit Custom Provider"
+                  : "Add Custom Provider"}
+              </h2>
               <button
                 onClick={() => {
                   setShowAddModal(false);
+                  setEditingProviderId(null);
                   setNewProvider({ name: "", baseURL: "", apiKey: "" });
                   setDiscoveredModels([]);
                   setShowApiKey(false);
@@ -784,7 +846,9 @@ export default function ModelsPage() {
                 <label className="block text-sm font-medium mb-1.5">
                   API Key
                   <span className="text-xs text-muted-foreground font-normal ml-1">
-                    (optional)
+                    {editingProviderId
+                      ? "(optional; leave blank to keep the saved key)"
+                      : "(optional)"}
                   </span>
                 </label>
                 <div className="relative">
@@ -794,7 +858,11 @@ export default function ModelsPage() {
                     onChange={(e) =>
                       setNewProvider((p) => ({ ...p, apiKey: e.target.value }))
                     }
-                    placeholder="sk-..."
+                    placeholder={
+                      editingProviderId
+                        ? "Leave blank to keep the saved key"
+                        : "sk-..."
+                    }
                     className="w-full h-9 px-3 pr-10 rounded-md border bg-background text-sm"
                   />
                   <button
@@ -857,6 +925,7 @@ export default function ModelsPage() {
                 size="sm"
                 onClick={() => {
                   setShowAddModal(false);
+                  setEditingProviderId(null);
                   setNewProvider({ name: "", baseURL: "", apiKey: "" });
                   setDiscoveredModels([]);
                   setShowApiKey(false);
@@ -876,12 +945,21 @@ export default function ModelsPage() {
                 {savingProvider ? (
                   <>
                     <Loader2 className="size-4 animate-spin mr-2" />
-                    Adding...
+                    {editingProviderId ? "Saving..." : "Adding..."}
                   </>
                 ) : (
                   <>
-                    <Plus className="size-4 mr-1.5" />
-                    Add Provider
+                    {editingProviderId ? (
+                      <>
+                        <Pencil className="size-4 mr-1.5" />
+                        Save Changes
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="size-4 mr-1.5" />
+                        Add Provider
+                      </>
+                    )}
                   </>
                 )}
               </Button>
@@ -1041,6 +1119,14 @@ export default function ModelsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditProvider(key)}
+                      >
+                        <Pencil className="size-3.5 mr-1.5" />
+                        Edit
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

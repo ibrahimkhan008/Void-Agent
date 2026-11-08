@@ -5,11 +5,15 @@ const mocks = vi.hoisted(() => ({
   getConfig: vi.fn().mockResolvedValue(null),
   getSession: vi.fn(),
   getUserProvider: vi.fn(),
+  getUserProviderCapabilities: vi.fn(),
 }));
 
 vi.mock("lib/db/repository", () => ({
   siteConfigRepository: { getConfig: mocks.getConfig },
-  userModelProviderRepository: { getForRuntime: mocks.getUserProvider },
+  userModelProviderRepository: {
+    getForRuntime: mocks.getUserProvider,
+    getCapabilitiesForModel: mocks.getUserProviderCapabilities,
+  },
 }));
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 
@@ -268,5 +272,113 @@ describe("personal model provider runtime resolution", () => {
         model: "model-a",
       }),
     ).rejects.toThrow("Personal model provider is unavailable");
+  });
+
+  it("allows personal-provider tool calling only for an explicitly enabled owned model", async () => {
+    const model = {
+      provider: "user-9a9b17b2-a413-42cc-a50a-a6e9dfd5f658",
+      model: "model-a",
+    };
+    mocks.getUserProviderCapabilities.mockResolvedValueOnce({
+      supportsToolCalling: true,
+    });
+    expect(
+      await modelsModule.supportsToolCallingForChatModel(
+        "owner-a",
+        model,
+        {} as never,
+      ),
+    ).toBe(true);
+    expect(mocks.getUserProviderCapabilities).toHaveBeenCalledWith(
+      "owner-a",
+      "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658",
+      "model-a",
+    );
+
+    mocks.getUserProviderCapabilities.mockResolvedValueOnce(null);
+    expect(
+      await modelsModule.supportsToolCallingForChatModel(
+        "owner-a",
+        model,
+        {} as never,
+      ),
+    ).toBe(false);
+  });
+
+  it("fails closed for malformed personal provider IDs", async () => {
+    mocks.getUserProviderCapabilities.mockClear();
+    expect(
+      await modelsModule.supportsToolCallingForChatModel(
+        "owner-a",
+        { provider: "user-not-a-uuid", model: "model-a" },
+        {} as never,
+      ),
+    ).toBe(false);
+    expect(mocks.getUserProviderCapabilities).not.toHaveBeenCalled();
+  });
+});
+
+describe("provider availability in the failure fallback chain", () => {
+  it("filters disabled configured providers and keeps legacy-enabled statics", () => {
+    const config = {
+      providers: {
+        openai: { enabled: false },
+        groq: { enabled: true },
+      },
+      dynamicProviders: {
+        disabledgateway: { enabled: false },
+        enabledgateway: { enabled: true },
+      },
+    };
+    const enabled = (provider: string) =>
+      modelsModule.isFallbackProviderEnabled(provider, config);
+
+    expect(
+      modelsModule.filterFallbackEntries(
+        [
+          { provider: "openai", model: "GPT 5.2" },
+          { provider: "groq", model: "Llama 4 Scout" },
+          { provider: "disabledgateway", model: "private" },
+          { provider: "enabledgateway", model: "approved" },
+        ],
+        enabled,
+      ),
+    ).toEqual([
+      { provider: "groq", model: "Llama 4 Scout" },
+      { provider: "enabledgateway", model: "approved" },
+    ]);
+    expect(
+      modelsModule.isFallbackProviderEnabled("anthropic", {
+        providers: {},
+      }),
+    ).toBe(true);
+    expect(
+      modelsModule.isFallbackProviderEnabled("disabledgateway", {
+        dynamicProviders: { disabledgateway: {} },
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the selected model without fallback when admin state cannot be read", async () => {
+    const { customModelProvider, invalidateDynamicProviderHydration } =
+      modelsModule;
+    mocks.getConfig
+      .mockReset()
+      .mockRejectedValueOnce(new Error("config unavailable"))
+      .mockRejectedValueOnce(new Error("config unavailable"));
+    invalidateDynamicProviderHydration();
+    const selected = customModelProvider.getModel({
+      provider: "openai",
+      model: "GPT 5.2",
+    });
+
+    const resolved = await customModelProvider.getModelWithFailureFallbackAsync(
+      {
+        provider: "openai",
+        model: "GPT 5.2",
+      },
+    );
+
+    expect(resolved).toBe(selected);
   });
 });

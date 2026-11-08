@@ -130,6 +130,7 @@ export async function GET(
       sourceItemId: ProjectBrainFactTable.sourceItemId,
       filename: CollectionItemTable.filename,
       sourceUrl: CollectionItemTable.sourceUrl,
+      factCapturedAt: ProjectBrainFactTable.createdAt,
       sourceCollectionId: CollectionItemTable.collectionId,
       sourceOwnerId: CollectionTable.userId,
       sourceStatus: CollectionItemTable.status,
@@ -146,10 +147,12 @@ export async function GET(
     .where(
       and(
         eq(ProjectBrainFactTable.projectId, projectId),
+        eq(ProjectBrainFactTable.sourceType, "document"),
         projectBrainRunIsActiveSourceRevision(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
         ne(ProjectBrainFactTable.reviewStatus, "rejected"),
         inArray(CollectionItemTable.collectionId, collectionIds),
@@ -160,12 +163,19 @@ export async function GET(
     .orderBy(desc(ProjectBrainFactTable.createdAt))
     .limit(500);
 
-  const visibleFacts = facts.filter(
-    (fact) =>
-      fact.sourceStatus === "ready" &&
-      collectionIds.includes(fact.sourceCollectionId) &&
-      ownerIds.includes(fact.sourceOwnerId),
-  );
+  const visibleFacts = facts
+    .filter(
+      (fact) =>
+        fact.sourceStatus === "ready" &&
+        collectionIds.includes(fact.sourceCollectionId) &&
+        ownerIds.includes(fact.sourceOwnerId),
+    )
+    .map((fact) => ({
+      ...fact,
+      sourceItemId: fact.sourceItemId ?? "",
+      sourceCollectionId: fact.sourceCollectionId ?? "",
+      sourceOwnerId: fact.sourceOwnerId ?? "",
+    }));
   const pageIds = [
     ...new Set(
       visibleFacts
@@ -194,14 +204,19 @@ export async function GET(
       subject,
       predicate,
       object,
+      evidence,
       reviewStatus,
       subjectPageId,
       objectPageId,
+      filename,
+      sourceUrl,
+      factCapturedAt,
     }) => ({
       id,
       subject,
       predicate,
       object,
+      evidence,
       reviewStatus,
       subjectPageId,
       objectPageId,
@@ -211,6 +226,9 @@ export async function GET(
       objectPageTitle: objectPageId
         ? (pageTitles.get(objectPageId) ?? null)
         : null,
+      filename,
+      sourceUrl,
+      factCapturedAt,
     }),
   );
   const factById = new Map(visibleFacts.map((fact) => [fact.id, fact]));

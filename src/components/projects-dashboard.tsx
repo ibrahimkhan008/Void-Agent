@@ -3,15 +3,17 @@
 import { ProjectBrainPanel } from "@/components/project-brain-panel";
 import { ProjectCollaboratorsPanel } from "@/components/project-collaborators-panel";
 import { ProjectDocumentsPanel } from "@/components/project-documents-panel";
+import { ProjectSetupWizard } from "@/components/project-setup-wizard";
+import { ProjectThreadHistory } from "@/components/project-thread-history";
 import { useCollections } from "@/hooks/queries/use-collections";
 import {
   Project,
   useProjectTeams,
   useProjects,
 } from "@/hooks/queries/use-projects";
-import { FolderKanban, Loader2, Plus, Trash2 } from "lucide-react";
+import { FolderKanban, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
 import {
@@ -50,7 +52,29 @@ export default function ProjectsDashboard() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [setupProjectId, setSetupProjectId] = useState<string | null>(null);
   const projects = data?.projects ?? [];
+
+  useEffect(() => {
+    const requestedProjectId = new URLSearchParams(window.location.search).get(
+      "setup",
+    );
+    if (requestedProjectId) setSetupProjectId(requestedProjectId);
+  }, []);
+
+  const openSetup = (projectId: string) => {
+    setSetupProjectId(projectId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("setup", projectId);
+    window.history.replaceState(null, "", url);
+  };
+
+  const closeSetup = () => {
+    setSetupProjectId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("setup");
+    window.history.replaceState(null, "", url);
+  };
 
   const save = async () => {
     if (!draft.name.trim()) return toast.error("Project name is required");
@@ -72,10 +96,12 @@ export default function ProjectsDashboard() {
         },
       );
       if (!response.ok) throw new Error(await response.text());
+      const result = (await response.json()) as { project?: Project };
       await mutate();
       setDraft(emptyDraft());
       setEditing(null);
       toast.success(editing ? "Project updated" : "Project created");
+      if (!editing && result.project?.id) openSetup(result.project.id);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not save project",
@@ -303,6 +329,19 @@ export default function ProjectsDashboard() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
+                      onClick={() => openSetup(project.id)}
+                      disabled={project.role === "viewer"}
+                    >
+                      <Sparkles className="mr-2 size-4" />
+                      {project.onboardingCompletedAt
+                        ? "Review setup"
+                        : project.onboardingStep &&
+                            project.onboardingStep !== "goal"
+                          ? "Resume setup"
+                          : "Set up project"}
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => edit(project)}
                       disabled={project.role === "viewer"}
                     >
@@ -320,23 +359,35 @@ export default function ProjectsDashboard() {
                     )}
                   </div>
                 </div>
-                <ProjectBrainPanel
-                  projectId={project.id}
-                  canReview={project.role !== "viewer"}
-                />
-                {project.teamId && (
-                  <ProjectCollaboratorsPanel
-                    projectId={project.id}
-                    projectRole={project.role ?? "owner"}
-                    accessMode={project.accessMode ?? "team"}
+                {setupProjectId === project.id ? (
+                  <ProjectSetupWizard
+                    key={project.id}
+                    project={project}
+                    onClose={closeSetup}
                     onProjectChanged={mutate}
                   />
+                ) : (
+                  <>
+                    <ProjectBrainPanel
+                      projectId={project.id}
+                      canReview={project.role !== "viewer"}
+                    />
+                    <ProjectThreadHistory projectId={project.id} />
+                    {project.teamId && (
+                      <ProjectCollaboratorsPanel
+                        projectId={project.id}
+                        projectRole={project.role ?? "owner"}
+                        accessMode={project.accessMode ?? "team"}
+                        onProjectChanged={mutate}
+                      />
+                    )}
+                    <ProjectDocumentsPanel
+                      projectId={project.id}
+                      collectionIds={project.collectionIds}
+                      canEdit={project.role !== "viewer"}
+                    />
+                  </>
                 )}
-                <ProjectDocumentsPanel
-                  projectId={project.id}
-                  collectionIds={project.collectionIds}
-                  canEdit={project.role !== "viewer"}
-                />
               </CardContent>
             </Card>
           ))

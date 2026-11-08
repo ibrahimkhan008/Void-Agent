@@ -116,6 +116,24 @@ describe("POST /api/voice/transcript/task-command", () => {
     expect(await response.json()).toEqual({ approvalToken: "a".repeat(48) });
   });
 
+  it("supports a user-approved task handoff from an owned browser voice transcript", async () => {
+    mocks.selectMessage.mockResolvedValue({
+      id: messageId,
+      threadId: "thread-1",
+      role: "user",
+      parts: [{ type: "text", text: "Review the launch checklist" }],
+      metadata: { source: "voice_realtime", voiceSessionId: "session-1" },
+    });
+    const response = await POST(makeRequest({ ...payload, action: "approve" }));
+    expect(response.status).toBe(200);
+    expect(mocks.issue).toHaveBeenCalledWith("owner-1", {
+      provider: "asana",
+      targetId: "project-1",
+      name: "Review launch",
+      details: "Review launch checklist",
+    });
+  });
+
   it("rejects a forged destination and does not create a task", async () => {
     const response = await POST(
       makeRequest({ ...payload, targetId: "foreign-project" }),

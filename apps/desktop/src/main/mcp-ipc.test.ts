@@ -100,6 +100,16 @@ describe("desktop MCP IPC config consent", () => {
     expect(result).toMatchObject({
       content: [{ type: "text", text: "read result" }],
     });
+    const successAudit = JSON.parse(
+      mocks.appendFile.mock.calls.at(-1)?.[1] as string,
+    );
+    expect(successAudit).toMatchObject({
+      action: "mcp.tool-call",
+      argsHash: "audit-hash",
+      resultHash: "audit-hash",
+      outcome: "success",
+    });
+    expect(JSON.stringify(successAudit)).not.toContain("read result");
   });
 
   it("requires exact-origin remote consent and binds renewed consent to credentials", async () => {
@@ -129,6 +139,66 @@ describe("desktop MCP IPC config consent", () => {
     expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(
       changedCredentials,
       call,
+    );
+  });
+
+  it("shows remote destination and network disclosure before sending exact arguments", async () => {
+    const { event, callTool } = setup();
+    const remote = {
+      url: "https://remote-tool-consent.example/mcp",
+      headers: { Authorization: "Bearer do-not-display-this" },
+    };
+
+    await callTool(event, {
+      config: remote,
+      toolName: "read_file",
+      params: { path: "report.txt" },
+    });
+
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
+    const configConsent = mocks.showMessageBox.mock.calls[0]?.[1];
+    expect(configConsent?.title).toBe("Allow a remote MCP server?");
+    expect(configConsent?.detail).toContain("Authorization");
+    expect(configConsent?.detail).not.toContain("do-not-display-this");
+
+    const callConsent = mocks.showMessageBox.mock.calls[1]?.[1];
+    expect(callConsent).toMatchObject({
+      title: "Send a remote MCP tool request?",
+      message: "Send “read_file” to https://remote-tool-consent.example?",
+      buttons: ["Send request", "Cancel"],
+    });
+    expect(callConsent?.detail).toContain(
+      "sends these exact arguments to https://remote-tool-consent.example",
+    );
+    expect(callConsent?.detail).toContain('"path": "report.txt"');
+    expect(callConsent?.detail).toContain("untrusted content");
+    expect(callConsent?.detail).not.toContain("do-not-display-this");
+    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(remote, {
+      toolName: "read_file",
+      params: { path: "report.txt" },
+    });
+  });
+
+  it("does not dispatch a remote MCP call after the user cancels its request consent", async () => {
+    const { event, callTool } = setup();
+    const remote = { url: "https://remote-cancel.example/mcp" };
+    mocks.showMessageBox
+      .mockResolvedValueOnce({ response: 0 })
+      .mockResolvedValueOnce({ response: 1 });
+
+    await expect(
+      callTool(event, {
+        config: remote,
+        toolName: "read_file",
+        params: { path: "private.txt" },
+      }),
+    ).rejects.toThrow("Remote MCP tool request was not approved");
+
+    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
+    expect(mocks.appendFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining('"outcome":"denied"'),
+      expect.any(Object),
     );
   });
 

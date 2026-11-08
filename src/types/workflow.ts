@@ -1,7 +1,7 @@
 import { Tool } from "ai";
-import { ObjectJsonSchema7, Visibility } from "./util";
 import { NodeKind } from "lib/ai/workflow/workflow.interface";
 import { tag } from "lib/tag";
+import { ObjectJsonSchema7, Visibility } from "./util";
 
 export type WorkflowIcon = {
   type: "emoji";
@@ -144,9 +144,23 @@ export type VercelAIWorkflowToolStreamingResult = {
   startedAt: number;
   endedAt: number;
   history: VercelAIWorkflowToolStreaming[];
+  executionId?: string;
+  pendingEffect?: {
+    nodeId: string;
+    kind: "llm" | "http" | "tool";
+    target: string;
+    payload: Record<string, unknown>;
+    hash: string;
+  };
   error?: { name: string; message: string };
   result?: any;
-  status: "running" | "success" | "fail";
+  status:
+    | "running"
+    | "success"
+    | "fail"
+    | "awaiting_approval"
+    | "effect_uncertain"
+    | "cancelled";
 };
 
 export const VercelAIWorkflowToolStreamingResultTag =

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Loader2 } from "lucide-react";
+import { Copy, Download, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "ui/button";
@@ -46,6 +46,9 @@ export function GalleryAgentCard({ agent }: GalleryAgentCardProps) {
   const [installing, setInstalling] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cloning, setCloning] = useState(false);
+  const [cloned, setCloned] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
 
   // Fire-and-forget view record — independent of install.
   const recordView = () => {
@@ -80,6 +83,36 @@ export function GalleryAgentCard({ agent }: GalleryAgentCardProps) {
       setError(err instanceof Error ? err.message : "Install failed");
     } finally {
       setInstalling(false);
+    }
+  };
+
+  const handleClone = async () => {
+    recordView();
+    setCloning(true);
+    setCloneError(null);
+    try {
+      const res = await fetch(`/api/agent/${agent.id}/clone`, {
+        method: "POST",
+      });
+      if (res.status === 401) {
+        router.push(`/sign-in?next=${encodeURIComponent("/gallery/agents")}`);
+        return;
+      }
+      const payload = (await res.json().catch(() => ({}))) as {
+        agentId?: string;
+        error?: string;
+      };
+      if (!res.ok || !payload.agentId) {
+        throw new Error(payload.error || `Copy failed (${res.status})`);
+      }
+      setCloned(true);
+      router.push(`/agent/${payload.agentId}`);
+    } catch (err) {
+      setCloneError(
+        err instanceof Error ? err.message : "Could not copy agent",
+      );
+    } finally {
+      setCloning(false);
     }
   };
 
@@ -150,6 +183,36 @@ export function GalleryAgentCard({ agent }: GalleryAgentCardProps) {
             </>
           )}
         </Button>
+        <Button
+          onClick={handleClone}
+          disabled={cloning || cloned}
+          variant="outline"
+          className="mt-2 w-full"
+          data-testid="gallery-agent-clone"
+          data-agent-id={agent.id}
+        >
+          {cloning ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Copying…
+            </>
+          ) : cloned ? (
+            <>Copied</>
+          ) : (
+            <>
+              <Copy className="size-4" />
+              Copy to my agents
+            </>
+          )}
+        </Button>
+        {cloneError ? (
+          <p
+            className="mt-2 text-xs text-destructive"
+            data-testid="gallery-agent-clone-error"
+          >
+            {cloneError}
+          </p>
+        ) : null}
         {error ? (
           <p
             className="text-xs text-destructive mt-2"

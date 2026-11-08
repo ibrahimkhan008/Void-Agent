@@ -7,6 +7,7 @@ import {
   VercelAIMcpToolTag,
 } from "app-types/mcp";
 import { colorize } from "consola/utils";
+import { createMcpServerConfigFingerprint } from "lib/ai/tools/hitl/mcp-tool-approval";
 import { normalizeToolInputSchema } from "lib/ai/tools/sanitize-tool-schemas";
 import { McpServerTable } from "lib/db/pg/schema.pg";
 import {
@@ -48,6 +49,7 @@ export class MCPClientsManager {
       name: string;
     }
   >();
+  private clientConfigs = new Map<string, MCPServerConfig>();
   private initializedLock = new Locker();
   private initialized = false;
   private logger = globalLogger.withDefaults({
@@ -151,10 +153,27 @@ export class MCPClientsManager {
                     _originToolName: tool.name,
                     _mcpServerName: clientName,
                     _mcpServerId: id,
+                    _approvalConfigFingerprint: this.clientConfigs.get(id)
+                      ? createMcpServerConfigFingerprint(
+                          this.clientConfigs.get(id),
+                        )
+                      : undefined,
                     _readOnlyHint: tool.annotations?.readOnlyHint === true,
-                    execute: (params, options: ToolCallOptions) => {
+                    // This method publishes definitions for inspection and
+                    // approval-bound wrappers. Keep the raw definition inert:
+                    // dispatch must go through executeApprovedMcpTool, or a
+                    // separately authorized read-only subsystem.
+                    execute: async (_params, options: ToolCallOptions) => {
                       options?.abortSignal?.throwIfAborted();
-                      return this.toolCall(id, tool.name, params);
+                      return {
+                        isError: true,
+                        error: {
+                          name: "ApprovalRequired",
+                          message:
+                            "MCP calls must be dispatched through an approved execution path.",
+                        },
+                        content: [],
+                      };
                     },
                   }),
               };
@@ -182,6 +201,7 @@ export class MCPClientsManager {
     const client = createMCPClient(id, name, serverConfig, {
       autoDisconnectSeconds: this.autoDisconnectSeconds,
     });
+    this.clientConfigs.set(id, structuredClone(serverConfig));
     this.clients.set(id, { client, name });
     if (options.connectImmediately === false) {
       return client;
@@ -223,6 +243,7 @@ export class MCPClientsManager {
   async disconnectClient(id: string) {
     const client = this.clients.get(id);
     this.clients.delete(id);
+    this.clientConfigs.delete(id);
     if (client) {
       void client.client.disconnect();
     }
@@ -242,9 +263,71 @@ export class MCPClientsManager {
     return this.clients.get(id)!;
   }
 
+  /**
+   * Synchronizes one server's cached client with storage before building a
+   * user-visible tool definition. Returns the fingerprint of the config the
+   * active client was created with, or undefined if it cannot be verified.
+   * This is intentionally opt-in so ordinary MCP operations do not poll DB.
+   */
+  async refreshClientIfConfigChanged(id: string): Promise<string | undefined> {
+    await this.waitInitialized();
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const stored = await this.storage.get(id);
+        if (!stored || stored.enabled === false) return undefined;
+
+        const storedFingerprint = createMcpServerConfigFingerprint(
+          stored.config,
+        );
+        const active = this.clients.get(id);
+        const activeConfig = this.clientConfigs.get(id);
+        const activeFingerprint = activeConfig
+          ? createMcpServerConfigFingerprint(activeConfig)
+          : undefined;
+
+        if (
+          !active ||
+          active.name !== stored.name ||
+          activeFingerprint !== storedFingerprint
+        ) {
+          await this.refreshClient(id);
+          continue;
+        }
+
+        // Re-read storage after comparing the active client to close changes
+        // made by another application instance during this check.
+        const latest = await this.storage.get(id);
+        const latestFingerprint = latest
+          ? createMcpServerConfigFingerprint(latest.config)
+          : undefined;
+        const current = this.clients.get(id);
+        const currentConfig = this.clientConfigs.get(id);
+        const currentFingerprint = currentConfig
+          ? createMcpServerConfigFingerprint(currentConfig)
+          : undefined;
+        if (
+          latest &&
+          latest.enabled !== false &&
+          current &&
+          current.name === latest.name &&
+          currentFingerprint === latestFingerprint
+        ) {
+          return currentFingerprint;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        "Could not synchronize MCP client before tool listing",
+        error,
+      );
+    }
+    return undefined;
+  }
+
   async cleanup() {
     const clients = Array.from(this.clients.values());
     this.clients.clear();
+    this.clientConfigs.clear();
     await Promise.allSettled(clients.map(({ client }) => client.disconnect()));
   }
 
@@ -283,9 +366,15 @@ export class MCPClientsManager {
     }
     return this.toolCall(client.id, toolName, input);
   }
-  async toolCall(id: string, toolName: string, input: unknown) {
+  async toolCall(
+    id: string,
+    toolName: string,
+    input: unknown,
+    expectedConfigFingerprint?: string,
+    expectedServerName?: string,
+  ) {
     try {
-      const clientEntry = await this.getClient(id);
+      let clientEntry = await this.getClient(id);
       if (!clientEntry) {
         return {
           isError: true,
@@ -295,6 +384,64 @@ export class MCPClientsManager {
           },
           content: [],
         };
+      }
+
+      if (expectedConfigFingerprint) {
+        if (!expectedServerName) {
+          throw new Error(
+            "Approved MCP calls require the reviewed server name",
+          );
+        }
+        const stored = await this.storage.get(id);
+        if (
+          !stored ||
+          stored.enabled === false ||
+          stored.name !== expectedServerName ||
+          createMcpServerConfigFingerprint(stored.config) !==
+            expectedConfigFingerprint
+        ) {
+          throw new Error("MCP server changed or was disabled after approval");
+        }
+        const activeConfig = this.clientConfigs.get(id);
+        if (
+          !activeConfig ||
+          createMcpServerConfigFingerprint(activeConfig) !==
+            expectedConfigFingerprint
+        ) {
+          await this.refreshClient(id);
+          clientEntry = this.clients.get(id);
+        }
+        const latest = await this.storage.get(id);
+        if (
+          !clientEntry ||
+          !latest ||
+          latest.enabled === false ||
+          latest.name !== expectedServerName ||
+          createMcpServerConfigFingerprint(latest.config) !==
+            expectedConfigFingerprint ||
+          !this.clientConfigs.get(id) ||
+          createMcpServerConfigFingerprint(this.clientConfigs.get(id)!) !==
+            expectedConfigFingerprint
+        ) {
+          throw new Error("MCP server configuration changed after approval");
+        }
+
+        // Recheck mutable server identity and enabled state as close to the
+        // network dispatch as possible. The first checks may have refreshed a
+        // client while an administrator changed or disabled this row.
+        const dispatchTarget = await this.storage.get(id);
+        if (
+          !dispatchTarget ||
+          dispatchTarget.enabled === false ||
+          dispatchTarget.name !== expectedServerName ||
+          createMcpServerConfigFingerprint(dispatchTarget.config) !==
+            expectedConfigFingerprint ||
+          !this.clientConfigs.get(id) ||
+          createMcpServerConfigFingerprint(this.clientConfigs.get(id)!) !==
+            expectedConfigFingerprint
+        ) {
+          throw new Error("MCP server changed or was disabled before dispatch");
+        }
       }
 
       const result = await clientEntry.client.callTool(toolName, input);

@@ -5,7 +5,12 @@ import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { preferences, toastMock } = vi.hoisted(() => ({
-  preferences: { notifications: { backgroundChatAlerts: true } },
+  preferences: {
+    notifications: {
+      backgroundChatAlerts: true,
+      chatAlertsOnlyWhenAway: false,
+    },
+  },
   toastMock: vi.fn(),
 }));
 
@@ -70,12 +75,18 @@ describe("useChatBackgroundAlerts delivery", () => {
 
   beforeEach(() => {
     preferences.notifications.backgroundChatAlerts = true;
+    preferences.notifications.chatAlertsOnlyWhenAway = false;
     toastMock.mockClear();
     desktopShow = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(document, "hidden", {
       configurable: true,
       value: false,
     });
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: () => true,
+    });
+    window.history.replaceState({}, "", "/");
     Object.defineProperty(window, "desktop", {
       configurable: true,
       value: { notifications: { show: desktopShow } },
@@ -164,6 +175,70 @@ describe("useChatBackgroundAlerts delivery", () => {
         status: "ready",
       });
     });
+    expect(toastMock).not.toHaveBeenCalled();
+  });
+
+  it("suppresses alerts when the visible page is already showing that thread", async () => {
+    window.history.replaceState({}, "", "/chat/thread-active-1");
+    const initial: ChatAlertHookProps = {
+      threadId: "thread-active-1",
+      messages: [] as UIMessage[],
+      status: "streaming",
+    };
+    const { rerender } = renderHook(
+      (props: ChatAlertHookProps) => useChatBackgroundAlerts(props),
+      { initialProps: initial },
+    );
+
+    await act(async () => {
+      rerender({ ...initial, status: "ready" });
+    });
+
+    expect(toastMock).not.toHaveBeenCalled();
+    expect(desktopShow).not.toHaveBeenCalled();
+  });
+
+  it("sends only-when-away alerts to the desktop while the visible tab is unfocused", async () => {
+    preferences.notifications.chatAlertsOnlyWhenAway = true;
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: () => false,
+    });
+    const initial: ChatAlertHookProps = {
+      threadId: "thread-away-1",
+      messages: [] as UIMessage[],
+      status: "submitted",
+    };
+    const { rerender } = renderHook(
+      (props: ChatAlertHookProps) => useChatBackgroundAlerts(props),
+      { initialProps: initial },
+    );
+
+    await act(async () => {
+      rerender({ ...initial, status: "ready" });
+    });
+
+    expect(desktopShow).toHaveBeenCalledOnce();
+    expect(toastMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send only-when-away alerts while the tab is visible and focused", async () => {
+    preferences.notifications.chatAlertsOnlyWhenAway = true;
+    const initial: ChatAlertHookProps = {
+      threadId: "thread-not-away-1",
+      messages: [] as UIMessage[],
+      status: "submitted",
+    };
+    const { rerender } = renderHook(
+      (props: ChatAlertHookProps) => useChatBackgroundAlerts(props),
+      { initialProps: initial },
+    );
+
+    await act(async () => {
+      rerender({ ...initial, status: "ready" });
+    });
+
+    expect(desktopShow).not.toHaveBeenCalled();
     expect(toastMock).not.toHaveBeenCalled();
   });
 

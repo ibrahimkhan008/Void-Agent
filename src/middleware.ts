@@ -25,6 +25,9 @@ const PUBLIC_PATHS = new Set([
   // P4.C — MCP marketplace. Anonymous visitors can browse;
   // the "Install" button redirects to sign-in.
   "/marketplace/mcp",
+  // The invitation token lives in the URL fragment and is submitted only
+  // after this public landing page confirms the signed-in user.
+  "/team-invitations/accept",
 ]);
 
 const PUBLIC_FILE_EXTENSIONS = [
@@ -61,6 +64,13 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/admin") {
     return NextResponse.redirect(new URL("/admin/users", request.url));
+  }
+
+  if (pathname === "/team-invitations/accept") {
+    const response = NextResponse.next();
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   }
 
   // Published pages are unlisted capability links; visitors do not need an

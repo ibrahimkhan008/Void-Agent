@@ -50,6 +50,8 @@ export function ProjectDocumentsPanel({
     [],
   );
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
@@ -91,9 +93,11 @@ export function ProjectDocumentsPanel({
       if (!response.ok) throw new Error("Could not load project documents");
       const result = (await response.json()) as {
         documents: ProjectDocument[];
+        nextCursor?: string | null;
         writableCollectionIds?: string[];
       };
       setDocuments(result.documents);
+      setNextCursor(result.nextCursor ?? null);
       setWritableCollectionIds(result.writableCollectionIds ?? []);
       setLoadError(false);
     } catch {
@@ -102,6 +106,36 @@ export function ProjectDocumentsPanel({
       setLoading(false);
     }
   }, [projectId]);
+
+  const loadOlderDocuments = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/documents?cursor=${encodeURIComponent(nextCursor)}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        documents?: ProjectDocument[];
+        nextCursor?: string | null;
+        writableCollectionIds?: string[];
+        error?: string;
+      };
+      if (!response.ok || !Array.isArray(result.documents))
+        throw new Error(result.error ?? "Could not load older documents.");
+      setDocuments((current) => [...current, ...result.documents!]);
+      setNextCursor(result.nextCursor ?? null);
+      setWritableCollectionIds(result.writableCollectionIds ?? []);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not load older documents.",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     void refresh();
@@ -270,7 +304,16 @@ export function ProjectDocumentsPanel({
     }
   };
 
-  const removeFromProject = async (itemId: string) => {
+  const removeFromProject = async (document: ProjectDocument) => {
+    const filename = document.filename || "this document";
+    if (
+      !window.confirm(
+        `Remove "${filename}" from this project? The source will remain in its Knowledge collection and any other projects that use it.`,
+      )
+    ) {
+      return;
+    }
+    const itemId = document.id;
     setRemovingItemId(itemId);
     try {
       const response = await fetch(
@@ -324,7 +367,7 @@ export function ProjectDocumentsPanel({
               <input
                 className="sr-only"
                 type="file"
-                accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv,.tsv,.yaml,.yml,.log"
+                accept=".pdf,.docx,.xlsx,.pptx,.txt,.md,.markdown,.json,.csv,.tsv,.yaml,.yml,.log"
                 disabled={
                   uploading || !collectionId || !availableCollections.length
                 }
@@ -431,7 +474,7 @@ export function ProjectDocumentsPanel({
                       variant="ghost"
                       size="sm"
                       aria-label={`Remove ${document.filename ?? "document"} from project`}
-                      onClick={() => void removeFromProject(document.id)}
+                      onClick={() => void removeFromProject(document)}
                       disabled={removingItemId === document.id}
                     >
                       {removingItemId === document.id ? (
@@ -625,6 +668,17 @@ export function ProjectDocumentsPanel({
             </li>
           ))}
         </ul>
+      )}
+      {nextCursor && !loading && !loadError && (
+        <Button
+          className="mt-3"
+          variant="outline"
+          size="sm"
+          onClick={() => void loadOlderDocuments()}
+          disabled={loadingMore}
+        >
+          {loadingMore ? "Loading older documents…" : "Load older documents"}
+        </Button>
       )}
     </section>
   );

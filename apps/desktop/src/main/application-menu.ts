@@ -6,6 +6,7 @@ export type DesktopApplicationMenuOptions = {
   canOpenDevTools: boolean;
   onChangeServer: () => void;
   onCheckForUpdates: () => void;
+  onOpenUpdaterLogs: () => void;
   onAbout: () => void;
 };
 
@@ -72,6 +73,10 @@ export function buildDesktopApplicationMenu(
         {
           label: "Check for Updates…",
           click: options.onCheckForUpdates,
+        },
+        {
+          label: "Open Update Logs Folder",
+          click: options.onOpenUpdaterLogs,
         },
         ...(mac ? [] : [{ type: "separator" as const }, ...serverItems]),
       ],

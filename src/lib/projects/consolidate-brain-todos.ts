@@ -16,6 +16,7 @@ export type ConsolidatedProjectBrainTodo = {
   dueDate: string | null;
   status: "accepted" | "completed";
   taskIds: string[];
+  completedTaskIds: string[];
   sourceCount: number;
   evidence: Array<{
     todoId: string;
@@ -62,6 +63,7 @@ export function consolidateProjectBrainTodos(
           left.id.localeCompare(right.id),
       );
       const open = sorted.filter((todo) => todo.status === "accepted");
+      const completed = sorted.filter((todo) => todo.status === "completed");
       const dates = sorted
         .flatMap((todo) => (todo.dueDate ? [todo.dueDate] : []))
         .sort();
@@ -72,6 +74,7 @@ export function consolidateProjectBrainTodos(
         dueDate: dates[0] ?? null,
         status: open.length ? ("accepted" as const) : ("completed" as const),
         taskIds: open.map((todo) => todo.id),
+        completedTaskIds: completed.map((todo) => todo.id),
         sourceCount: new Set(sorted.map((todo) => todo.sourceItemId)).size,
         evidence: sorted.slice(0, 10).map((todo) => ({
           todoId: todo.id,

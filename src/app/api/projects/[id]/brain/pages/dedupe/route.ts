@@ -203,6 +203,7 @@ export async function POST(
             ProjectBrainFactTable.runId,
             ProjectBrainFactTable.projectId,
             ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
           ),
           inArray(CollectionItemTable.collectionId, collectionIds),
           inArray(CollectionTable.userId, ownerIds),

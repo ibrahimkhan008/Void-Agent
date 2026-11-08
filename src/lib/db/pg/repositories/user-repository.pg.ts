@@ -1,9 +1,11 @@
 import {
   BasicUserWithLastLogin,
+  OnboardingPreference,
   User,
   UserPreferences,
   UserRepository,
 } from "app-types/user";
+import { count, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { pgDb as db, pgDb } from "../db.pg";
 import {
   AccountTable,
@@ -12,7 +14,6 @@ import {
   SessionTable,
   UserTable,
 } from "../schema.pg";
-import { count, desc, eq, getTableColumns, sql } from "drizzle-orm";
 
 // Helper function to get user columns without password
 const getUserColumnsWithoutPassword = () => {
@@ -71,6 +72,28 @@ export const pgUserRepository: UserRepository = {
       ...result,
       preferences: result.preferences ?? null,
     };
+  },
+  updateOnboardingPreference: async (
+    userId: string,
+    onboarding: OnboardingPreference,
+  ): Promise<User> => {
+    // Merge only this JSON key in PostgreSQL. A read/replace cycle here could
+    // erase notes, skills, or notification preferences written concurrently.
+    const [result] = await db
+      .update(UserTable)
+      .set({
+        preferences: sql<UserPreferences>`jsonb_set(
+          COALESCE(${UserTable.preferences}::jsonb, '{}'::jsonb),
+          '{onboarding}',
+          ${JSON.stringify(onboarding)}::jsonb,
+          true
+        )::json`,
+        updatedAt: new Date(),
+      })
+      .where(eq(UserTable.id, userId))
+      .returning();
+    if (!result) throw new Error("User not found");
+    return { ...result, preferences: result.preferences ?? null };
   },
   getPreferences: async (userId: string) => {
     const [result] = await db

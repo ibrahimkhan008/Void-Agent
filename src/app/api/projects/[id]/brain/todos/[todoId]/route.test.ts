@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   update: vi.fn(),
   notifyAcceptedProjectBrainTodo: vi.fn(),
+  getActiveProjectBrainChatSourceOwnerIds: vi.fn(),
   predicates: [] as unknown[],
 }));
 
@@ -23,6 +24,10 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
 }));
 vi.mock("lib/notifications/project-brain-todo-accepted", () => ({
   notifyAcceptedProjectBrainTodo: mocks.notifyAcceptedProjectBrainTodo,
+}));
+vi.mock("lib/projects/project-chat-brain-source", () => ({
+  getActiveProjectBrainChatSourceOwnerIds:
+    mocks.getActiveProjectBrainChatSourceOwnerIds,
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, update: mocks.update },
@@ -58,6 +63,7 @@ beforeEach(() => {
   mocks.getProjectCollectionSourceOwnerIds.mockResolvedValue(["member-1"]);
   mocks.checkApiRateLimit.mockResolvedValue({ allowed: true });
   mocks.notifyAcceptedProjectBrainTodo.mockResolvedValue({ inserted: 1 });
+  mocks.getActiveProjectBrainChatSourceOwnerIds.mockResolvedValue([]);
   const selectQuery = {
     from: vi.fn().mockReturnThis(),
     innerJoin: vi.fn().mockReturnThis(),
@@ -150,6 +156,25 @@ describe("PATCH project brain todo review", () => {
       projectId,
       todoId,
     });
+  });
+
+  it("allows reopening completed todos and rejects a stale concurrent reopen", async () => {
+    const reopened = await PATCH(makeRequest("accepted"), params);
+    expect(reopened.status).toBe(200);
+    expect(mocks.update.mock.results.at(-1)?.value.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "accepted" }),
+    );
+    const reopenPredicate = new PgDialect().sqlToQuery(
+      mocks.predicates.at(-1) as never,
+    );
+    expect(reopenPredicate.sql).toContain('"project_brain_todo"."status" in');
+    expect(reopenPredicate.params).toEqual(
+      expect.arrayContaining(["completed", "proposed"]),
+    );
+
+    mocks.update.mock.results.at(-1)?.value.returning.mockResolvedValueOnce([]);
+    const staleReopen = await PATCH(makeRequest("accepted"), params);
+    expect(staleReopen.status).toBe(409);
   });
 
   it("rejects unsupported transitions and rate-limits reviews", async () => {

@@ -2,8 +2,10 @@ import { getSession } from "auth/server";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
+  ChatThreadTable,
   CollectionItemTable,
   CollectionTable,
+  ProjectBrainChatSourceTable,
   ProjectBrainFactTable,
 } from "lib/db/pg/schema.pg";
 import {
@@ -12,6 +14,7 @@ import {
   mayEditProject,
 } from "lib/projects/access";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
+import { getActiveProjectBrainChatSourceOwnerIds } from "lib/projects/project-chat-brain-source";
 import { hasSameOrigin } from "lib/security/same-origin";
 import { z } from "zod";
 
@@ -40,6 +43,75 @@ export async function PATCH(
   const parsed = reviewSchema.safeParse(body);
   if (!parsed.success)
     return Response.json({ error: "Invalid review status" }, { status: 400 });
+
+  const chatOwnerIds = await getActiveProjectBrainChatSourceOwnerIds(projectId);
+  const chatSources = chatOwnerIds.length
+    ? await pgDb
+        .select({ id: ProjectBrainChatSourceTable.id })
+        .from(ProjectBrainChatSourceTable)
+        .innerJoin(
+          ChatThreadTable,
+          eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+        )
+        .where(
+          and(
+            eq(ProjectBrainChatSourceTable.projectId, projectId),
+            inArray(ProjectBrainChatSourceTable.ownerUserId, chatOwnerIds),
+            isNull(ProjectBrainChatSourceTable.revokedAt),
+            eq(ChatThreadTable.projectId, projectId),
+            eq(ChatThreadTable.userId, ProjectBrainChatSourceTable.ownerUserId),
+          ),
+        )
+    : [];
+  const chatSourceIds = chatSources.map((source) => source.id);
+  const [chatFact] = chatSourceIds.length
+    ? await pgDb
+        .update(ProjectBrainFactTable)
+        .set({ reviewStatus: parsed.data.status, reviewedAt: new Date() })
+        .where(
+          and(
+            eq(ProjectBrainFactTable.id, factId),
+            eq(ProjectBrainFactTable.projectId, projectId),
+            eq(ProjectBrainFactTable.sourceType, "chat"),
+            eq(ProjectBrainFactTable.reviewStatus, "proposed"),
+            inArray(ProjectBrainFactTable.chatSourceId, chatSourceIds),
+            projectBrainRunIsActiveSourceRevision(
+              ProjectBrainFactTable.runId,
+              ProjectBrainFactTable.projectId,
+              ProjectBrainFactTable.sourceItemId,
+              ProjectBrainFactTable.chatSourceId,
+            ),
+          ),
+        )
+        .returning()
+    : [];
+  if (chatFact) return Response.json({ fact: chatFact });
+
+  const [reviewedChatFact] = chatSourceIds.length
+    ? await pgDb
+        .select({ id: ProjectBrainFactTable.id })
+        .from(ProjectBrainFactTable)
+        .where(
+          and(
+            eq(ProjectBrainFactTable.id, factId),
+            eq(ProjectBrainFactTable.projectId, projectId),
+            eq(ProjectBrainFactTable.sourceType, "chat"),
+            inArray(ProjectBrainFactTable.chatSourceId, chatSourceIds),
+            projectBrainRunIsActiveSourceRevision(
+              ProjectBrainFactTable.runId,
+              ProjectBrainFactTable.projectId,
+              ProjectBrainFactTable.sourceItemId,
+              ProjectBrainFactTable.chatSourceId,
+            ),
+          ),
+        )
+    : [];
+  if (reviewedChatFact) {
+    return Response.json(
+      { error: "Fact was already reviewed" },
+      { status: 409 },
+    );
+  }
 
   const ownerIds = await getProjectCollectionOwnerIds(access);
   if (!access.project.collectionIds.length || !ownerIds.length) {
@@ -82,6 +154,7 @@ export async function PATCH(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
       ),
     )
@@ -108,6 +181,7 @@ export async function PATCH(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
       ),
     );

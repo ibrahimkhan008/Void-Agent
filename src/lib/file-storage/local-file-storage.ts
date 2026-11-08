@@ -8,7 +8,10 @@ import type {
   FileStorage,
   UploadOptions,
 } from "./file-storage.interface";
-import { assertFileSizeWithinLimit, readStreamWithLimit } from "./limited-download";
+import {
+  assertFileSizeWithinLimit,
+  readStreamWithLimit,
+} from "./limited-download";
 import {
   getContentTypeFromFilename,
   resolveStoragePrefix,
@@ -46,8 +49,11 @@ const EXT_BY_CONTENT_TYPE: Record<string, string> = {
   "image/gif": "gif",
   "image/svg+xml": "svg",
   "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
   "audio/wav": "wav",
+  "audio/ogg": "ogg",
   "audio/mp4": "m4a",
+  "audio/webm": "weba",
   "video/mp4": "mp4",
   "video/webm": "webm",
   "application/pdf": "pdf",
@@ -143,10 +149,7 @@ export const createLocalFileStorage = (): FileStorage => {
       try {
         const stat = await fs.stat(filePath);
         assertFileSizeWithinLimit(stat.size, maxBytes);
-        return await readStreamWithLimit(
-          createReadStream(filePath),
-          maxBytes,
-        );
+        return await readStreamWithLimit(createReadStream(filePath), maxBytes);
       } catch (error: unknown) {
         if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
           throw new FileNotFoundError(key, error as Error);

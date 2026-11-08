@@ -2,6 +2,7 @@
 
 import logger from "logger";
 import { DEFAULT_IMAGE_EDIT_MODEL } from "./edit-models";
+import { downloadProviderImage, readProviderJson } from "./provider-image";
 
 // Note: IMAGE_EDIT_MODELS, IMAGE_EDIT_MODEL_MAP, DEFAULT_IMAGE_EDIT_MODEL
 // should be imported directly from "./edit-models" by consumers
@@ -81,6 +82,9 @@ export async function editImageWithFlare(
       Authorization: `Bearer ${apiKey}`,
     },
     body: formData,
+    redirect: "error",
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
     signal: options.abortSignal,
   });
 
@@ -90,33 +94,25 @@ export async function editImageWithFlare(
     throw new Error(`Flare API error: ${response.status}`);
   }
 
-  const result: FlareImageResponse = await response.json();
+  const result: FlareImageResponse = await readProviderJson(response);
   const images: EditedImage[] = [];
 
   if (result.data && Array.isArray(result.data)) {
     for (const item of result.data) {
       if (item.url) {
-        // Fetch the image and convert to base64 for storage
+        // Provider-returned URLs are still untrusted input. Only download
+        // from the configured API origin and refuse redirects/oversized data.
         try {
-          const imgResp = await fetch(item.url);
-          if (imgResp.ok) {
-            const buffer = Buffer.from(await imgResp.arrayBuffer());
-            const contentType =
-              imgResp.headers.get("content-type") || "image/png";
-            images.push({
-              url: item.url,
-              base64: buffer.toString("base64"),
-              mimeType: contentType,
-            });
-          } else {
-            images.push({ url: item.url });
-          }
-        } catch (err) {
-          logger.error(
-            `Failed to fetch edited image from URL: ${item.url}`,
-            err,
+          const downloaded = await downloadProviderImage(
+            item.url,
+            FLARE_BASE_URL,
+            { signal: options.abortSignal },
           );
-          images.push({ url: item.url });
+          images.push({ url: item.url, ...downloaded });
+        } catch (error) {
+          logger.warn("Rejected Flare edited image URL or response", {
+            errorName: error instanceof Error ? error.name : "unknown",
+          });
         }
       } else if (item.b64_json) {
         images.push({

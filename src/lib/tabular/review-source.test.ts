@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   assemblePinnedReviewSource,
+  formatReviewCitationEvidenceForExport,
   groupReviewSourceDocuments,
+  resolvePinnedReviewCitationEvidence,
 } from "./review-source";
 
 describe("groupReviewSourceDocuments", () => {
@@ -79,5 +81,88 @@ describe("assemblePinnedReviewSource", () => {
         5,
       ),
     ).toEqual({ ok: true, source: "01234" });
+  });
+});
+
+describe("resolvePinnedReviewCitationEvidence", () => {
+  it("maps verified quotes to ordered source segments, not supposed PDF pages", () => {
+    const result = resolvePinnedReviewCitationEvidence(
+      "Renewal is annual [1].\n<CITATIONS>\n[1]: The agreement renews annually.\n</CITATIONS>",
+      [
+        {
+          documentId: "second",
+          position: 1,
+          content: "The agreement renews annually.",
+        },
+        {
+          documentId: "first",
+          position: 0,
+          content: "The contract starts today.",
+        },
+      ],
+      1_000,
+    );
+
+    expect(result).toEqual({
+      answer: "Renewal is annual [1].",
+      citations: [
+        {
+          passageNumber: 1,
+          quote: "The agreement renews annually.",
+          sourcePositions: [2],
+        },
+      ],
+    });
+  });
+
+  it("shows every pinned segment when the exact quote occurs in multiple sources", () => {
+    const result = resolvePinnedReviewCitationEvidence(
+      "It says this [1].\n<CITATIONS>\n[1]: Same exact sentence.\n</CITATIONS>",
+      [
+        { documentId: "a", position: 0, content: "Same exact sentence." },
+        { documentId: "b", position: 1, content: "Same exact sentence." },
+      ],
+      1_000,
+    );
+
+    expect(result?.citations[0]?.sourcePositions).toEqual([1, 2]);
+  });
+
+  it("does not claim source positions for unverifiable citations or truncated text", () => {
+    const pages = [
+      { documentId: "a", position: 0, content: "A verified quote." },
+      { documentId: "b", position: 1, content: "A later quote." },
+    ];
+    expect(
+      resolvePinnedReviewCitationEvidence(
+        "Claim [1].\n<CITATIONS>\n[1]: fabricated\n</CITATIONS>",
+        pages,
+        1_000,
+      ),
+    ).toBeNull();
+    expect(
+      resolvePinnedReviewCitationEvidence(
+        "Claim [1].\n<CITATIONS>\n[1]: A later quote.\n</CITATIONS>",
+        pages,
+        20,
+      ),
+    ).toBeNull();
+  });
+
+  it("formats verified citation evidence for a spreadsheet cell", () => {
+    expect(
+      formatReviewCitationEvidenceForExport({
+        answer: "Renewal is annual [1].",
+        citations: [
+          {
+            passageNumber: 1,
+            quote: "The agreement renews annually.",
+            sourcePositions: [2],
+          },
+        ],
+      }),
+    ).toBe(
+      "Renewal is annual [1].\nEvidence:\n[1] source segment 2: “The agreement renews annually.”",
+    );
   });
 });

@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
     const allowedMcpTools = await loadMcpTools({
       mentions: enabledMentions,
       userId: session.user.id,
+      userRole: session.user.role,
     });
     const toolNames = Object.keys(allowedMcpTools ?? {});
 
@@ -89,7 +90,12 @@ export async function POST(request: NextRequest) {
 
     const toolIdMap: Record<
       string,
-      { serverId: string; serverName: string; toolName: string }
+      {
+        serverId: string;
+        serverName: string;
+        toolName: string;
+        serverConfigFingerprint?: string;
+      }
     > = {};
     const openAiStyleTools = Object.entries(allowedMcpTools ?? {}).map(
       ([name, tool]) => {
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
           serverId: tool._mcpServerId,
           serverName: tool._mcpServerName,
           toolName: tool._originToolName,
+          serverConfigFingerprint: tool._approvalConfigFingerprint,
         };
         const definition = getVoiceMcpToolDefinition(tool);
         return {

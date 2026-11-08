@@ -85,6 +85,7 @@ export async function PATCH(
           ProjectBrainEventTable.runId,
           ProjectBrainEventTable.projectId,
           ProjectBrainEventTable.sourceItemId,
+          ProjectBrainEventTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, collectionIds),
         inArray(CollectionTable.userId, ownerIds),
@@ -106,6 +107,7 @@ export async function PATCH(
           ProjectBrainEventTable.runId,
           ProjectBrainEventTable.projectId,
           ProjectBrainEventTable.sourceItemId,
+          ProjectBrainEventTable.chatSourceId,
         ),
         exists(
           pgDb

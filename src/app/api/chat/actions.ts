@@ -22,7 +22,6 @@ import { serverCache } from "lib/cache";
 import { CacheKeys } from "lib/cache/cache-keys";
 import {
   agentRepository,
-  chatExportRepository,
   chatRepository,
   mcpMcpToolCustomizationRepository,
   mcpServerCustomizationRepository,
@@ -35,6 +34,7 @@ import { Agent } from "app-types/agent";
 import { ObjectJsonSchema7 } from "app-types/util";
 import { JSONSchema7 } from "json-schema";
 import { normalizeToolInputSchema } from "lib/ai/tools/sanitize-tool-schemas";
+import { createOwnerChatShare } from "lib/chat/export-share-service";
 import { getCollectionAccess } from "lib/collections/access";
 import { CHAT_MESSAGE_WINDOW } from "lib/const";
 import { jsonSchemaToZod } from "lib/json-schema-to-zod";
@@ -43,6 +43,10 @@ import {
   canEditProjectRole,
   isProjectCollectionScopeAllowed,
 } from "lib/projects/policy";
+import {
+  refreshProjectBrainChatSource,
+  revokeProjectBrainChatSource,
+} from "lib/projects/project-chat-brain-source";
 import { getVoiceTranscriptForHandoff } from "lib/voice/handoff";
 import { convertToSavePart } from "./shared.chat";
 
@@ -158,11 +162,33 @@ export async function updateThreadProjectAction(
     throw new Error("Project is read-only");
   }
   if (!thread) return false; // The first POST persists a new thread's selection.
+  if (thread.projectId && thread.projectId !== projectId) {
+    await revokeProjectBrainChatSource({
+      threadId,
+      projectId: thread.projectId,
+      userId,
+    });
+  }
   await chatRepository.updateThread(threadId, {
     userId,
     projectId,
     collectionIds: projectAccess?.project.collectionIds ?? null,
   });
+  if (projectId && thread.projectId !== projectId) {
+    try {
+      await refreshProjectBrainChatSource({
+        threadId,
+        userId,
+        forceEnqueue: true,
+      });
+    } catch (error) {
+      logger.error("Could not enqueue project chat analysis after assignment", {
+        threadId,
+        projectId,
+        error,
+      });
+    }
+  }
   return true;
 }
 
@@ -230,13 +256,28 @@ export async function deleteMessageAction(messageId: string) {
   if (!msg) return;
   const thread = await chatRepository.selectThread(msg.threadId);
   if (thread?.userId !== userId) throw new Error("Unauthorized");
-  await chatRepository.deleteChatMessage(messageId);
+  const deleted = await chatRepository.deleteChatMessage(messageId, userId);
+  if (!deleted) return;
+  if (thread?.projectId) {
+    await refreshProjectBrainChatSource({
+      threadId: thread.id,
+      userId,
+      forceEnqueue: true,
+    });
+  }
 }
 
 export async function deleteThreadAction(threadId: string) {
   const userId = await getUserId();
   const thread = await chatRepository.selectThread(threadId);
   if (thread && thread.userId !== userId) throw new Error("Unauthorized");
+  if (thread?.projectId) {
+    await revokeProjectBrainChatSource({
+      threadId,
+      projectId: thread.projectId,
+      userId,
+    });
+  }
   await chatRepository.deleteThread(threadId);
 }
 
@@ -249,17 +290,42 @@ export async function deleteMessagesByChatIdAfterTimestampAction(
   if (!msg) return;
   const thread = await chatRepository.selectThread(msg.threadId);
   if (thread?.userId !== userId) throw new Error("Unauthorized");
-  await chatRepository.deleteMessagesByChatIdAfterTimestamp(messageId);
+  const deleted = await chatRepository.deleteMessagesByChatIdAfterTimestamp(
+    messageId,
+    userId,
+  );
+  if (!deleted) return;
+  if (thread?.projectId) {
+    await refreshProjectBrainChatSource({
+      threadId: thread.id,
+      userId,
+      forceEnqueue: true,
+    });
+  }
 }
 
 export async function updateThreadAction(
   id: string,
-  thread: Partial<Omit<ChatThread, "createdAt" | "updatedAt" | "userId">>,
+  thread: Partial<
+    Omit<
+      ChatThread,
+      "createdAt" | "updatedAt" | "userId" | "projectId" | "collectionIds"
+    >
+  >,
 ) {
   const userId = await getUserId();
   const existingThread = await chatRepository.selectThread(id);
   if (existingThread && existingThread.userId !== userId)
     throw new Error("Unauthorized");
+  const rawThreadUpdate = thread as Record<string, unknown>;
+  if (
+    Object.hasOwn(rawThreadUpdate, "projectId") ||
+    Object.hasOwn(rawThreadUpdate, "collectionIds")
+  ) {
+    throw new Error(
+      "Project and collection scope must be updated with their dedicated actions",
+    );
+  }
   await chatRepository.updateThread(id, { ...thread, userId });
 }
 
@@ -427,17 +493,7 @@ export async function exportChatAction({
   expiresAt?: Date;
 }) {
   const userId = await getUserId();
-
-  const isAccess = await chatRepository.checkAccess(threadId, userId);
-  if (!isAccess) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  return await chatExportRepository.exportChat({
-    threadId,
-    exporterId: userId,
-    expiresAt: expiresAt ?? undefined,
-  });
+  return createOwnerChatShare(threadId, userId, expiresAt);
 }
 
 export async function upsertThreadMessageAction({
@@ -461,4 +517,12 @@ export async function upsertThreadMessageAction({
     parts: message.parts.map((part) => convertToSavePart(part as any)),
     metadata: message.metadata as any,
   });
+  const thread = await chatRepository.selectThread(threadId);
+  if (thread?.projectId) {
+    await refreshProjectBrainChatSource({
+      threadId,
+      userId,
+      forceEnqueue: true,
+    });
+  }
 }

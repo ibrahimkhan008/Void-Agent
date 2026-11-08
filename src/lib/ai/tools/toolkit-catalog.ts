@@ -132,18 +132,6 @@ export const TOOLKIT_CATALOG: ToolkitInfo[] = [
     defaultOn: false,
   },
   {
-    id: AppDefaultToolkit.Browser,
-    configKey: "Browser",
-    apiKeyId: "firecrawl",
-    label: "Browser Agent",
-    icon: "🌐",
-    description: "Automated browsing of real pages",
-    capability:
-      "Drive a real browser to navigate pages, click through flows and extract what a plain fetch cannot reach.",
-    tools: ["Browser Agent"],
-    defaultOn: false,
-  },
-  {
     id: AppDefaultToolkit.Http,
     configKey: "Http",
     label: "HTTP Fetch",

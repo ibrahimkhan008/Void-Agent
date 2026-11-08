@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 vi.mock("lib/db/repository", () => ({
+  agentRepository: {
+    selectAgentById: vi.fn(async (id: string, userId: string) => ({
+      id,
+      userId,
+    })),
+  },
   schedulerRepository: {
     createScheduledJob: vi.fn(),
   },
@@ -14,7 +20,34 @@ import {
   normalizeScheduleCreateInput,
   normalizeScheduleUpdateInput,
   parseSimpleScheduleText,
+  publicScheduledJob,
 } from "./jobs";
+
+describe("publicScheduledJob", () => {
+  it("preserves the agent association needed to edit and identify a schedule", () => {
+    const job = {
+      id: "job-1",
+      userId: "123e4567-e89b-42d3-a456-426614174000",
+      agentId: "123e4567-e89b-42d3-a456-426614174001",
+      name: "Research digest",
+      cron: "0 9 * * 1-5",
+      timezone: "UTC",
+      claimToken: null,
+      claimExpiresAt: null,
+      payload: { triggerMessage: "Summarize research" },
+      lastRunAt: null,
+      nextRunAt: new Date("2030-04-05T09:00:00.000Z"),
+      status: "active",
+      createdAt: new Date("2030-04-01T09:00:00.000Z"),
+      updatedAt: new Date("2030-04-01T09:00:00.000Z"),
+    } as ScheduledJob;
+
+    expect(publicScheduledJob(job)).toMatchObject({
+      id: "job-1",
+      agentId: "123e4567-e89b-42d3-a456-426614174001",
+    });
+  });
+});
 
 describe("parseSimpleScheduleText", () => {
   const now = new Date("2026-06-02T10:00:00.000Z");
@@ -162,6 +195,25 @@ describe("normalizeScheduleCreateInput", () => {
 });
 
 describe("createScheduledJobForUser approval idempotency", () => {
+  it("rejects a shared/read-only agent before persisting a schedule", async () => {
+    const { agentRepository, schedulerRepository } = await import(
+      "lib/db/repository"
+    );
+    vi.mocked(agentRepository.selectAgentById).mockResolvedValueOnce({
+      id: "00000000-0000-4000-8000-000000000001",
+      userId: "agent-owner",
+    } as never);
+    await expect(
+      createScheduledJobForUser("user-1", {
+        scheduleType: "recurring",
+        prompt: "Run this later",
+        cron: "0 9 * * *",
+        agentId: "00000000-0000-4000-8000-000000000001",
+      }),
+    ).rejects.toThrow("Agent not found");
+    expect(schedulerRepository.createScheduledJob).not.toHaveBeenCalled();
+  });
+
   it("uses a stable hash across retries of a recurring schedule", async () => {
     const { schedulerRepository } = await import("lib/db/repository");
     vi.mocked(schedulerRepository.createScheduledJob).mockResolvedValue({

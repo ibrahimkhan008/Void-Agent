@@ -40,7 +40,133 @@ describe("ProjectDocumentsPanel tracked DOCX review", () => {
   });
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("asks before unlinking and explains that collection files are retained", async () => {
+    const document = {
+      id: "item-1",
+      collectionId: "collection-1",
+      filename: "brief.pdf",
+      mediaType: "application/pdf",
+      status: "ready",
+      createdAt: "2026-11-07T12:00:00.000Z",
+    };
+    fetchMock.mockResolvedValueOnce(
+      response({
+        documents: [document],
+        writableCollectionIds: ["collection-1"],
+      }),
+    );
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        collectionIds={["collection-1"]}
+        canEdit
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Remove brief.pdf from project",
+      }),
+    );
+
+    expect(confirm).toHaveBeenCalledWith(
+      'Remove "brief.pdf" from this project? The source will remain in its Knowledge collection and any other projects that use it.',
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlinks only after confirmation and refreshes the project list", async () => {
+    const document = {
+      id: "item-1",
+      collectionId: "collection-1",
+      filename: "brief.pdf",
+      mediaType: "application/pdf",
+      status: "ready",
+      createdAt: "2026-11-07T12:00:00.000Z",
+    };
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          documents: [document],
+          writableCollectionIds: ["collection-1"],
+        }),
+      )
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce(
+        response({ documents: [], writableCollectionIds: ["collection-1"] }),
+      );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        collectionIds={["collection-1"]}
+        canEdit
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Remove brief.pdf from project",
+      }),
+    );
+
+    expect(await screen.findByText("No project documents yet.")).toBeTruthy();
+    expect(fetchMock.mock.calls[1]).toEqual([
+      "/api/projects/project-1/documents/item-1",
+      { method: "DELETE" },
+    ]);
+  });
+
+  it("loads and appends older project documents on demand", async () => {
+    const first = {
+      id: "item-new",
+      collectionId: "collection-1",
+      filename: "new.pdf",
+      mediaType: "application/pdf",
+      status: "ready",
+      createdAt: "2026-11-07T12:00:00.000Z",
+    };
+    const older = { ...first, id: "item-old", filename: "older.pdf" };
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          documents: [first],
+          nextCursor: "cursor/value",
+          writableCollectionIds: ["collection-1"],
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          documents: [older],
+          nextCursor: null,
+          writableCollectionIds: ["collection-1"],
+        }),
+      );
+
+    render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        collectionIds={["collection-1"]}
+        canEdit
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load older documents" }),
+    );
+
+    expect(await screen.findByText("older.pdf")).toBeTruthy();
+    expect(screen.getByText("new.pdf")).toBeTruthy();
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "/api/projects/project-1/documents?cursor=cursor%2Fvalue",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Load older documents" }),
+    ).toBeNull();
   });
 
   it("generates a tracked edit and exposes accept/reject plus an accepted download", async () => {
@@ -125,5 +251,25 @@ describe("ProjectDocumentsPanel tracked DOCX review", () => {
         decision: "accepted",
       }),
     });
+  });
+
+  it("offers XLSX and PPTX project knowledge uploads", async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({ documents: [], writableCollectionIds: ["collection-1"] }),
+    );
+
+    const view = render(
+      <ProjectDocumentsPanel
+        projectId="project-1"
+        collectionIds={["collection-1"]}
+        canEdit
+      />,
+    );
+    await screen.findByText("No project documents yet.");
+    const fileInput =
+      view.container.querySelector<HTMLInputElement>('input[type="file"]');
+
+    expect(fileInput?.accept).toContain(".xlsx");
+    expect(fileInput?.accept).toContain(".pptx");
   });
 });

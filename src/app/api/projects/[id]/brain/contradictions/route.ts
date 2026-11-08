@@ -151,6 +151,7 @@ export async function POST(
             ProjectBrainFactTable.runId,
             ProjectBrainFactTable.projectId,
             ProjectBrainFactTable.sourceItemId,
+            ProjectBrainFactTable.chatSourceId,
           ),
           eq(ProjectBrainFactTable.reviewStatus, "accepted"),
           inArray(CollectionItemTable.collectionId, collectionIds),
@@ -160,7 +161,10 @@ export async function POST(
       )
       .orderBy(desc(ProjectBrainFactTable.createdAt))
       .limit(1000);
-    const visibleFacts: ProjectBrainClaim[] = rows;
+    const visibleFacts: ProjectBrainClaim[] = rows.map((row) => ({
+      ...row,
+      sourceItemId: row.sourceItemId ?? "",
+    }));
     const allCandidates = findProjectBrainConflictCandidates(
       visibleFacts,
       visibleFacts,
@@ -405,6 +409,7 @@ export async function GET(
               ProjectBrainFactTable.runId,
               ProjectBrainFactTable.projectId,
               ProjectBrainFactTable.sourceItemId,
+              ProjectBrainFactTable.chatSourceId,
             ),
         inArray(ProjectBrainFactTable.id, factIds),
         inArray(CollectionItemTable.collectionId, collectionIds),
@@ -492,6 +497,7 @@ export async function PATCH(
             ProjectBrainFactTable.runId,
             ProjectBrainFactTable.projectId,
             ProjectBrainFactTable.sourceItemId,
+            ProjectBrainFactTable.chatSourceId,
           ),
           inArray(ProjectBrainFactTable.id, [
             parsed.data.firstFactId,

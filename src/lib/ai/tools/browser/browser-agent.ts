@@ -8,6 +8,10 @@ import { safe } from "ts-safe";
 import { z } from "zod";
 import { isCrawlGatewayEnabled, runViaCrawlGateway } from "./crawl-gateway";
 import {
+  BROWSER_NETWORK_ISOLATION_VERIFIED,
+  browserAutomationDisabledResult,
+} from "./execution-gate";
+import {
   type SteelSession,
   allocateContainer,
   createSteelSession,
@@ -357,6 +361,13 @@ export const createBrowserAgentToolForUser = (
       "browser Agent: perform real interactive website tasks (search, click, type, navigate) from a natural-language instruction using a live, self-hosted browser. Reuses one persistent browser per chat thread and returns a live-view URL of the running browser.",
     inputSchema: jsonSchemaToZod(browserAgentSchema),
     execute: async (params) => {
+      // Never execute arbitrary browser traffic until the browser process and
+      // its VM have a verified network-egress boundary. The tool registry is
+      // also empty, but keep this guard at the execution boundary so an
+      // internal import or future registry change cannot re-enable it.
+      if (!BROWSER_NETWORK_ISOLATION_VERIFIED)
+        return browserAutomationDisabledResult();
+
       const cacheKey = getSessionCacheKey(userId, threadId);
       const threadKey = getThreadKey(userId, threadId);
       const maxSteps = clamp(params.maxSteps ?? MAX_STEPS_DEFAULT, 1, 20);

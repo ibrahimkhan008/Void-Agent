@@ -1,7 +1,6 @@
 "use client";
 
 import { ConnectorLogoIcon } from "@/components/ui/connector-logo-icon";
-import { Button } from "ui/button";
 import { cn } from "lib/utils";
 import {
   ArrowUpRight,
@@ -19,60 +18,9 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "ui/button";
 
-type ConnectorProvider =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "google-docs"
-  | "google-forms"
-  | "google-keep"
-  | "google-meet"
-  | "google-sheets"
-  | "google-slides"
-  | "google-tasks"
-  | "youtube"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github"
-  | "confluence"
-  | "jira"
-  | "linear"
-  | "asana"
-  | "clickup"
-  | "productboard"
-  | "testrail"
-  | "coda"
-  | "outline"
-  | "slab"
-  | "guru"
-  | "highspot"
-  | "document360"
-  | "gitlab"
-  | "bitbucket"
-  | "dropbox"
-  | "zendesk"
-  | "freshdesk"
-  | "salesforce"
-  | "hubspot"
-  | "airtable"
-  | "gong"
-  | "egnyte"
-  | "teams"
-  | "discord"
-  | "bookstack"
-  | "gitbook"
-  | "canvas"
-  | "loopio"
-  | "discourse"
-  | "xenforo"
-  | "drupal-wiki"
-  | "axero"
-  | "zulip"
-  | "mediawiki"
-  | "fireflies"
-  | "wikipedia";
+import type { ConnectorProvider } from "lib/connectors/providers-list";
 
 export type { ConnectorProvider };
 

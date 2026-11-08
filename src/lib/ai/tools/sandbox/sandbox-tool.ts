@@ -1,12 +1,21 @@
 import { tool } from "ai";
+import type { AgentFileBinding } from "app-types/agent";
+import { serverFileStorage } from "lib/file-storage";
+import {
+  getContentTypeFromFilename,
+  sanitizeFilename,
+} from "lib/file-storage/storage-utils";
+import { stageAgentFiles } from "lib/sandbox/agent-files";
+import {
+  MAX_SANDBOX_ARTIFACT_BYTES,
+  resolveSandboxArtifactPath,
+} from "lib/sandbox/artifact-export";
 import {
   getPreviewUrl,
   isE2BConfigured,
   startDevServer,
 } from "lib/sandbox/client";
 import { getThreadSandbox, resetThreadSandbox } from "lib/sandbox/session";
-import type { AgentFileBinding } from "app-types/agent";
-import { stageAgentFiles } from "lib/sandbox/agent-files";
 import {
   WORK_DIR,
   describeEnvironmentContents,
@@ -61,6 +70,7 @@ export const sandboxTool = (ctx: {
       "You are effectively ROOT (passwordless sudo) — `sudo -n apt-get install <pkg>` succeeds, so install anything missing rather than giving up. Prebuilt envs just make that unnecessary — install any toolchain you need: pip, npm, cargo, compilers, services.",
       "",
       "Write a whole project with a single write_many call, and change existing files with edit rather than rewriting them with write.",
+      "When you create a file the user needs, call action='export' with its relative workspace path; supported formats are saved to that user's private attachment storage and shown with preview/download controls. HTML previews are sanitized and isolated; scripts, links, forms, and external resources are removed or blocked.",
     ].join("\n"),
     inputSchema: z.object({
       action: z
@@ -73,6 +83,7 @@ export const sandboxTool = (ctx: {
           "edit",
           "read",
           "list",
+          "export",
           "serve",
           "reset",
         ])
@@ -352,6 +363,117 @@ export const sandboxTool = (ctx: {
                 .slice(0, 200)
                 .map((e) => ({ name: e.name, type: e.type })),
             };
+          }
+
+          case "export": {
+            try {
+              if (!path)
+                return { error: "path is required for action='export'" };
+              const artifact = resolveSandboxArtifactPath(path, WORK_DIR);
+              if (!artifact) {
+                return {
+                  error: "unsupported-artifact",
+                  message:
+                    "Choose a supported PDF, image, spreadsheet, HTML, document, text, audio, or video file inside the workspace. Executable formats and paths outside the workspace cannot be exported.",
+                };
+              }
+
+              // Reject symlinks in every path component so an export cannot
+              // escape the workspace through a model-created link.
+              const relative = artifact.path.slice(WORK_DIR.length + 1);
+              const segments = relative.split("/");
+              let parent = WORK_DIR;
+              for (const segment of segments.slice(0, -1)) {
+                parent = `${parent}/${segment}`;
+                const parentInfo = await sbx.files.getInfo(parent);
+                if (parentInfo.type !== "dir") {
+                  return {
+                    error: "artifact-not-found",
+                    message: "That file is not available for export.",
+                  };
+                }
+              }
+
+              const info = await sbx.files.getInfo(artifact.path);
+              if (info.type !== "file") {
+                return {
+                  error: "artifact-not-found",
+                  message: "That file is not available for export.",
+                };
+              }
+              if (!Number.isSafeInteger(info.size) || info.size < 0) {
+                return {
+                  error: "artifact-unavailable",
+                  message: "The file size could not be verified.",
+                };
+              }
+              if (info.size > MAX_SANDBOX_ARTIFACT_BYTES) {
+                return {
+                  error: "artifact-too-large",
+                  message: `Files larger than ${MAX_SANDBOX_ARTIFACT_BYTES / (1024 * 1024)} MiB cannot be exported.`,
+                };
+              }
+
+              const stream = await sbx.files.read(artifact.path, {
+                format: "stream",
+              });
+              const reader = stream.getReader();
+              const chunks: Uint8Array[] = [];
+              let totalBytes = 0;
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  totalBytes += value.byteLength;
+                  if (totalBytes > MAX_SANDBOX_ARTIFACT_BYTES) {
+                    await reader.cancel();
+                    return {
+                      error: "artifact-too-large",
+                      message: `Files larger than ${MAX_SANDBOX_ARTIFACT_BYTES / (1024 * 1024)} MiB cannot be exported.`,
+                    };
+                  }
+                  chunks.push(value);
+                }
+              } finally {
+                reader.releaseLock();
+              }
+              if (totalBytes !== info.size) {
+                return {
+                  error: "artifact-changed",
+                  message:
+                    "The file changed while it was being exported. Try again.",
+                };
+              }
+
+              const mimeType = getContentTypeFromFilename(artifact.filename);
+              const filename = sanitizeFilename(artifact.filename);
+              const uploaded = await serverFileStorage.upload(
+                Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))),
+                {
+                  filename,
+                  contentType: mimeType,
+                  ownerId: ctx.userId,
+                },
+              );
+              return {
+                ...notice,
+                artifacts: [
+                  {
+                    filename,
+                    mimeType,
+                    sizeBytes: totalBytes,
+                    url: uploaded.sourceUrl,
+                  },
+                ],
+                message: "The generated file is ready to preview or download.",
+              };
+            } catch {
+              return {
+                error: "artifact-export-failed",
+                message:
+                  "The generated file could not be exported. Try a supported file inside the workspace.",
+              };
+            }
           }
 
           case "serve": {

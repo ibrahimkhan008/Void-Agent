@@ -1,4 +1,5 @@
 import type { MCPServerConfig } from "app-types/mcp";
+import { createMcpServerConfigFingerprint } from "lib/ai/tools/hitl/mcp-tool-approval";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MCPClientsManager,
@@ -16,6 +17,7 @@ vi.mock("./mcp-tool-id", () => ({
 }));
 
 vi.mock("lib/utils", () => ({
+  errorToString: vi.fn((error) => String(error)),
   Locker: class MockLocker {
     lock = vi.fn();
     unlock = vi.fn();
@@ -72,6 +74,7 @@ describe("MCPClientsManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("BETTER_AUTH_SECRET", "test-mcp-fingerprint-secret");
 
     // Mock process.on to prevent actual listener registration
     vi.spyOn(process, "on").mockImplementation(() => process);
@@ -80,6 +83,9 @@ describe("MCPClientsManager", () => {
       connect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
       updateToolInfo: vi.fn().mockResolvedValue(undefined),
+      callTool: vi
+        .fn()
+        .mockResolvedValue({ content: [{ type: "text", text: "called" }] }),
       getInfo: vi.fn(() => ({
         name: "test-server",
         config: mockServerConfig,
@@ -145,6 +151,7 @@ describe("MCPClientsManager", () => {
     if (manager) {
       await manager.cleanup();
     }
+    vi.unstubAllEnvs();
   });
 
   describe("constructor", () => {
@@ -242,6 +249,166 @@ describe("MCPClientsManager", () => {
       const tools = await manager.tools();
       expect(tools["test-server:test-tool"]?._readOnlyHint).toBe(true);
       expect(tools["test-server:write-tool"]?._readOnlyHint).toBe(false);
+    });
+  });
+
+  describe("approval-bound tool calls", () => {
+    beforeEach(async () => {
+      manager = new MCPClientsManager(mockStorage);
+      await manager.init();
+      await manager.addClient("test-server", "test-server", mockServerConfig);
+    });
+
+    it("refuses to dispatch when the server config changed under the same id and name", async () => {
+      const retargetedConfig = {
+        url: "https://different.example/mcp",
+        headers: { authorization: "new-secret" },
+      };
+      vi.mocked(mockStorage.get).mockResolvedValue({
+        ...mockServer,
+        config: retargetedConfig,
+      });
+
+      const result = await manager.toolCall(
+        "test-server",
+        "write-tool",
+        { id: "42" },
+        createMcpServerConfigFingerprint(mockServerConfig),
+        mockServer.name,
+      );
+
+      expect(result).toMatchObject({
+        isError: true,
+        error: {
+          message: "Error: MCP server changed or was disabled after approval",
+        },
+      });
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+    });
+
+    it("refuses approved calls to disabled or renamed records", async () => {
+      const fingerprint = createMcpServerConfigFingerprint(mockServerConfig);
+      for (const target of [
+        { ...mockServer, enabled: false },
+        { ...mockServer, name: "replacement-server" },
+      ]) {
+        vi.mocked(mockStorage.get).mockResolvedValueOnce(target);
+        const result = await manager.toolCall(
+          "test-server",
+          "write-tool",
+          { id: "42" },
+          fingerprint,
+          mockServer.name,
+        );
+        expect(result).toMatchObject({
+          isError: true,
+          error: { name: "Error" },
+        });
+      }
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+    });
+
+    it("rechecks enabled state immediately before dispatch", async () => {
+      vi.mocked(mockStorage.get)
+        .mockResolvedValueOnce(mockServer)
+        .mockResolvedValueOnce(mockServer)
+        .mockResolvedValueOnce({ ...mockServer, enabled: false });
+
+      const result = await manager.toolCall(
+        "test-server",
+        "write-tool",
+        { id: "42" },
+        createMcpServerConfigFingerprint(mockServerConfig),
+        mockServer.name,
+      );
+
+      expect(result).toMatchObject({
+        isError: true,
+        error: {
+          message: "Error: MCP server changed or was disabled before dispatch",
+        },
+      });
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+    });
+
+    it("refreshes tool definitions but keeps their generic executors inert", async () => {
+      const newConfig = { url: "https://new-crm.example/mcp" };
+      const newClient = {
+        ...mockClient,
+        connect: vi.fn().mockResolvedValue(undefined),
+        disconnect: vi.fn().mockResolvedValue(undefined),
+        updateToolInfo: vi.fn().mockResolvedValue(undefined),
+        callTool: vi
+          .fn()
+          .mockResolvedValue({ content: [{ type: "text", text: "new" }] }),
+        client: {
+          toolInfo: [
+            {
+              name: "new-tool",
+              description: "Tool from the updated CRM",
+              inputSchema: {
+                type: "object",
+                properties: { version: { const: "new" } },
+              },
+            },
+          ],
+        },
+        toolInfo: [
+          {
+            name: "new-tool",
+            description: "Tool from the updated CRM",
+            inputSchema: {
+              type: "object",
+              properties: { version: { const: "new" } },
+            },
+          },
+        ],
+      };
+      vi.mocked(mockCreateMCPClient).mockImplementation((_id, _name, config) =>
+        "url" in config && config.url === newConfig.url
+          ? newClient
+          : mockClient,
+      );
+      vi.mocked(mockStorage.get).mockResolvedValue({
+        ...mockServer,
+        config: newConfig,
+      });
+
+      const fingerprint =
+        await manager.refreshClientIfConfigChanged("test-server");
+      const tools = await manager.tools();
+
+      expect(fingerprint).toBe(createMcpServerConfigFingerprint(newConfig));
+      expect(tools["test-server:new-tool"]).toBeDefined();
+      expect(tools["test-server:new-tool"]._approvalConfigFingerprint).toBe(
+        fingerprint,
+      );
+      expect(tools["test-server:test-tool"]).toBeUndefined();
+      await expect(
+        tools["test-server:new-tool"].execute?.({}, {} as never),
+      ).resolves.toMatchObject({
+        isError: true,
+        error: { name: "ApprovalRequired" },
+      });
+      expect(newClient.callTool).not.toHaveBeenCalled();
+      expect(mockClient.callTool).not.toHaveBeenCalled();
+    });
+
+    it("fails closed when a changed config cannot refresh", async () => {
+      const newConfig = { url: "https://new-crm.example/mcp" };
+      const failingClient = {
+        ...mockClient,
+        connect: vi.fn().mockRejectedValue(new Error("connection failed")),
+      };
+      vi.mocked(mockCreateMCPClient).mockReturnValue(failingClient);
+      vi.mocked(mockStorage.get).mockResolvedValue({
+        ...mockServer,
+        config: newConfig,
+      });
+
+      await expect(
+        manager.refreshClientIfConfigChanged("test-server"),
+      ).resolves.toBeUndefined();
     });
   });
 

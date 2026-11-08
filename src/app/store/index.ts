@@ -20,6 +20,7 @@ export interface UploadedFile {
   previewUrl?: string;
   abortController?: AbortController;
   dataUrl?: string; // Full data URL format: "data:image/png;base64,..."
+  isImageMask?: boolean;
 }
 
 export interface CanvasSlide {
@@ -48,6 +49,7 @@ export interface AppState {
   workflowToolList: WorkflowSummary[];
   currentThreadId: ChatThread["id"] | null;
   toolChoice: "auto" | "none" | "manual" | "codemode";
+  planMode: boolean;
   allowedMcpServers?: Record<string, AllowedMCPServer>;
   allowedAppDefaultToolkit?: AppDefaultToolkit[];
   generatingTitleThreadIds: string[];
@@ -69,6 +71,11 @@ export interface AppState {
   };
   threadImageEditSize: {
     [threadId: string]: string | undefined;
+  };
+  threadImageMasks: {
+    [threadId: string]:
+      | { sourceFileId: string; maskFileId: string }
+      | undefined;
   };
   toolPresets: {
     allowedMcpServers?: Record<string, AllowedMCPServer>;
@@ -148,11 +155,13 @@ const initialState: AppState = {
   threadImageToolSize: {},
   threadImageEditModel: {},
   threadImageEditSize: {},
+  threadImageMasks: {},
   mcpList: [],
   agentList: [],
   workflowToolList: [],
   currentThreadId: null,
   toolChoice: "auto",
+  planMode: false,
   allowedMcpServers: undefined,
   openUserSettings: false,
   openCustomize: false,
@@ -220,6 +229,7 @@ export const appStore = create<AppState & AppDispatch>()(
       partialize: (state) => ({
         chatModel: state.chatModel || initialState.chatModel,
         toolChoice: state.toolChoice || initialState.toolChoice,
+        planMode: state.planMode ?? initialState.planMode,
         allowedMcpServers:
           state.allowedMcpServers || initialState.allowedMcpServers,
         allowedAppDefaultToolkit: (

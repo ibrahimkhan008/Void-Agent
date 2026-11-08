@@ -101,4 +101,30 @@ describe("Composio app connections UI", () => {
     await waitFor(() => expect(screen.queryByText("github")).toBeNull());
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it("shows shared accounts without offering a disconnect action", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          configured: true,
+          toolkits: [],
+          accounts: [
+            {
+              id: "shared-account",
+              toolkit: "google_drive",
+              status: "ACTIVE",
+              accountType: "SHARED",
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ComposioAppConnections />);
+
+    expect(await screen.findByText("Shared")).toBeTruthy();
+    expect(screen.getByText("google drive")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Disconnect" })).toBeNull();
+  });
 });

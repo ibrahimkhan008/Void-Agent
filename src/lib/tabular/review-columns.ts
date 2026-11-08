@@ -1,18 +1,30 @@
+import type { ReviewColumnPresetId } from "lib/tabular/review-presets";
 import {
   type ReviewColumn,
   TABULAR_REVIEW_MAX_COLUMNS,
 } from "lib/tabular/review-schema";
 
-export type CustomReviewColumnInput = Pick<
-  ReviewColumn,
-  "label" | "prompt" | "type"
->;
+export type CustomReviewColumnInput = {
+  label: string;
+  prompt: string;
+  type: ReviewColumn["type"];
+};
+
+type SelectedPresetColumn = {
+  id: string;
+  label: string;
+  prompt: string;
+  preset?: ReviewColumnPresetId;
+  type: ReviewColumn["type"];
+};
 
 /** Build the exact, bounded column shape accepted by the review API. */
 export function buildReviewColumns(
-  presets: ReviewColumn[],
+  presets: SelectedPresetColumn[],
   customColumns: CustomReviewColumnInput[],
-): ReviewColumn[] | null {
+): Array<
+  SelectedPresetColumn | (CustomReviewColumnInput & { id: string })
+> | null {
   if (presets.length + customColumns.length > TABULAR_REVIEW_MAX_COLUMNS) {
     return null;
   }

@@ -19,16 +19,26 @@ export async function GET() {
 
   try {
     const config = await siteConfigRepository.getConfig("models");
+    const toolsConfig = await siteConfigRepository
+      .getConfig("tools")
+      .catch(() => null);
     const dynamicProviders = (config?.dynamicProviders ?? {}) as Record<
       string,
       any
+    >;
+    const apiKeysSecrets = (toolsConfig?.apiKeysSecrets ?? {}) as Record<
+      string,
+      unknown
     >;
     const list = Object.entries(dynamicProviders).map(
       ([id, p]: [string, any]) => ({
         id,
         name: p.name ?? id,
         baseURL: p.baseURL ?? "",
-        apiKeyConfigured: !!p.apiKey,
+        apiKeyConfigured:
+          (typeof p.apiKey === "string" && p.apiKey.length > 0) ||
+          (typeof apiKeysSecrets[`dyn_${id}`] === "string" &&
+            (apiKeysSecrets[`dyn_${id}`] as string).trim().length > 0),
         models: p.models ?? [],
         enabled: p.enabled ?? false,
         addedAt: p.addedAt ?? "",

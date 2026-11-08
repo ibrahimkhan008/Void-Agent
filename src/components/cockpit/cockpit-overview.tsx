@@ -30,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "ui/card";
+import { CockpitUpdates } from "./cockpit-updates";
 import { FinanceOverview } from "./finance-overview";
 
 type TeamChoice = {
@@ -282,6 +283,8 @@ export function CockpitOverview() {
       </section>
 
       <FinanceOverview teamId={teamId} />
+
+      <CockpitUpdates />
 
       <section aria-label="Operational alerts" className="space-y-3">
         <div>

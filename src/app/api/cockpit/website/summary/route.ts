@@ -1,12 +1,13 @@
 import { getSession } from "auth/server";
 import { resolveStripeScope } from "lib/cockpit/access";
 import { loadWebsiteSummary, publicWebsiteError } from "lib/cockpit/website";
+import { withPrivateNoStore } from "lib/http/with-private-no-store";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export const GET = withPrivateNoStore(async (request: Request) => {
   const session = await getSession();
   if (!session?.user.id) return new Response("Unauthorized", { status: 401 });
   try {
@@ -49,4 +50,4 @@ export async function GET(request: Request) {
       { status, headers: { "Cache-Control": "private, no-store" } },
     );
   }
-}
+});

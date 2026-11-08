@@ -13,13 +13,22 @@ import { Trash2, Workflow as WorkflowIcon } from "lucide-react";
 import { toast } from "sonner";
 import { notify } from "lib/notify";
 import { useTranslations } from "next-intl";
+import { WorkflowExecutionHistory } from "./workflow-execution-history";
 
-type SavedDraft = { id: string; name: string; description?: string | null; updatedAt: string };
+type SavedDraft = {
+  id: string;
+  name: string;
+  description?: string | null;
+  updatedAt: string;
+};
 
 export default function SavedWorkflowsPage() {
   const router = useRouter();
   const t = useTranslations();
-  const { data: workflows = [], isLoading } = useSWR<SavedDraft[]>("/api/saved-workflows", fetcher);
+  const { data: workflows = [], isLoading } = useSWR<SavedDraft[]>(
+    "/api/saved-workflows",
+    fetcher,
+  );
   const [creating, setCreating] = useState(false);
 
   const createDraft = async () => {
@@ -42,10 +51,14 @@ export default function SavedWorkflowsPage() {
   };
 
   const deleteDraft = async (id: string) => {
-    const confirmed = await notify.confirm({ description: t("Workflow.deleteConfirm") });
+    const confirmed = await notify.confirm({
+      description: t("Workflow.deleteConfirm"),
+    });
     if (!confirmed) return;
     try {
-      const response = await fetch(`/api/saved-workflows/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/saved-workflows/${id}`, {
+        method: "DELETE",
+      });
       if (!response.ok) throw new Error("Could not delete workflow draft");
       await mutate("/api/saved-workflows");
       toast.success(t("Workflow.deleted"));
@@ -59,24 +72,62 @@ export default function SavedWorkflowsPage() {
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Saved workflow drafts</h1>
-          <p className="text-sm text-muted-foreground">Private workflows saved in Void-Agent.</p>
+          <p className="text-sm text-muted-foreground">
+            Private workflows saved in Void-Agent.
+          </p>
         </div>
-        <Button onClick={createDraft} disabled={creating}>Create draft</Button>
+        <Button onClick={createDraft} disabled={creating}>
+          Create draft
+        </Button>
       </header>
+      <WorkflowExecutionHistory />
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-32" />)}</div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
       ) : workflows.length ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {workflows.map((workflow) => (
             <Card key={workflow.id} className="bg-secondary hover:bg-input">
               <CardHeader>
-                <div className="flex items-center gap-2"><WorkflowIcon className="size-4 text-muted-foreground" /><CardTitle className="truncate text-base"><Link href={`/saved-workflows/${workflow.id}`}>{workflow.name}</Link></CardTitle><span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Draft</span><Button variant="ghost" size="icon" className="ml-auto" aria-label={`Delete ${workflow.name}`} onClick={() => { void deleteDraft(workflow.id); }}><Trash2 className="size-4" /></Button></div>
-                {workflow.description && <CardDescription className="line-clamp-2">{workflow.description}</CardDescription>}
+                <div className="flex items-center gap-2">
+                  <WorkflowIcon className="size-4 text-muted-foreground" />
+                  <CardTitle className="truncate text-base">
+                    <Link href={`/saved-workflows/${workflow.id}`}>
+                      {workflow.name}
+                    </Link>
+                  </CardTitle>
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    Draft
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto"
+                    aria-label={`Delete ${workflow.name}`}
+                    onClick={() => {
+                      void deleteDraft(workflow.id);
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                {workflow.description && (
+                  <CardDescription className="line-clamp-2">
+                    {workflow.description}
+                  </CardDescription>
+                )}
               </CardHeader>
             </Card>
           ))}
         </div>
-      ) : <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No saved workflow drafts yet.</p>}
+      ) : (
+        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          No saved workflow drafts yet.
+        </p>
+      )}
     </section>
   );
 }

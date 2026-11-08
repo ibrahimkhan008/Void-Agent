@@ -119,6 +119,7 @@ export async function loadProjectBrainStatusContext(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
         eq(ProjectBrainFactTable.reviewStatus, "accepted"),
         inArray(CollectionItemTable.collectionId, scope.collectionIds),
@@ -161,6 +162,7 @@ export async function loadProjectBrainStatusContext(
           ProjectBrainTodoTable.runId,
           ProjectBrainTodoTable.projectId,
           ProjectBrainTodoTable.sourceItemId,
+          ProjectBrainTodoTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, scope.collectionIds),
         inArray(CollectionTable.userId, scope.ownerIds),
@@ -198,6 +200,7 @@ export async function loadProjectBrainStatusContext(
           ProjectBrainEventTable.runId,
           ProjectBrainEventTable.projectId,
           ProjectBrainEventTable.sourceItemId,
+          ProjectBrainEventTable.chatSourceId,
         ),
         inArray(CollectionItemTable.collectionId, scope.collectionIds),
         inArray(CollectionTable.userId, scope.ownerIds),
@@ -215,9 +218,10 @@ export async function loadProjectBrainStatusContext(
     { sourceItemId: string; sourceVersionId: string }
   >();
   for (const row of [...factRows, ...todoRows, ...eventRows]) {
-    const key = `${row.sourceItemId}:${row.sourceVersionId}`;
+    const sourceItemId = row.sourceItemId ?? "";
+    const key = `${sourceItemId}:${row.sourceVersionId}`;
     sourceRefsByKey.set(key, {
-      sourceItemId: row.sourceItemId,
+      sourceItemId,
       sourceVersionId: row.sourceVersionId,
     });
   }

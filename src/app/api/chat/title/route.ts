@@ -20,11 +20,16 @@ import {
   reserveTeamBudgetForAiRequest,
   settleTeamBudgetForAiRequest,
 } from "lib/ai/team-member-ai-budget-runtime";
+import {
+  deriveThreadTitleFromText,
+  normalizeThreadTitle,
+} from "lib/chat/thread-title";
 import { chatRepository, userRepository } from "lib/db/repository";
 import { readBoundedJsonRequest } from "lib/http/bounded-json-request";
 import { getProjectAccess } from "lib/projects/access";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { getFreeTierLimitCheck } from "lib/rate-limit/free-tier-usage";
+import { hasSameOrigin } from "lib/security/same-origin";
 import globalLogger from "logger";
 import { handleError } from "../shared.chat";
 
@@ -78,6 +83,10 @@ function isTitleRequest(value: unknown): value is {
 }
 
 export async function POST(request: Request) {
+  if (!hasSameOrigin(request)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   let teamBudgetLease: TeamBudgetLease | undefined;
   let budgetSettled = false;
   const settleBudget = async (input: {
@@ -240,13 +249,21 @@ export async function POST(request: Request) {
         await settleBudget({ usage: ctx.totalUsage }).catch((error) =>
           logger.error("Could not finalize title budget reservation", error),
         );
-        chatRepository
-          .upsertThread({
-            id: threadId,
-            title: ctx.text,
-            userId: session.user.id,
-          })
-          .catch((err) => logger.error(err));
+        const title =
+          normalizeThreadTitle(ctx.text) || deriveThreadTitleFromText(message);
+        if (!title) return;
+        try {
+          const storedTitle = await chatRepository.setThreadTitleIfEmpty(
+            threadId,
+            title,
+            session.user.id,
+          );
+          if (storedTitle === null) {
+            logger.error("Could not persist title for owned chat thread");
+          }
+        } catch (err) {
+          logger.error("Could not persist generated chat title", err);
+        }
       },
     });
 

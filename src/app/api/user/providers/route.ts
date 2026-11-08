@@ -1,4 +1,5 @@
 import { getSession } from "auth/server";
+import { validateUserProviderCapabilities } from "lib/ai/user-model-provider-capabilities";
 import {
   USER_PROVIDER_DISCOVERY_TIMEOUT_MS,
   fetchUserModelProvider,
@@ -22,6 +23,12 @@ const providerSchema = z
     name: z.string().trim().min(1).max(80),
     baseUrl: z.string().trim().url().max(2_048),
     apiKey: z.string().max(4_096).optional(),
+    capabilities: z
+      .record(
+        z.string().min(1).max(200),
+        z.object({ supportsToolCalling: z.boolean() }).strict(),
+      )
+      .optional(),
   })
   .strict();
 
@@ -116,7 +123,18 @@ export async function POST(request: Request) {
     }
     if (!existing) return json({ error: "Provider not found" }, 404);
   }
-  const apiKey = provider.apiKey?.trim() || existing?.apiKey || "";
+  const submittedApiKey = provider.apiKey?.trim() || "";
+  const endpointChanged = Boolean(existing && existing.baseUrl !== baseUrl);
+  if (endpointChanged && existing?.apiKey && !submittedApiKey) {
+    return json(
+      { error: "Enter an API key before changing the provider endpoint" },
+      400,
+    );
+  }
+  // A saved credential may be reused only for the endpoint the user originally
+  // approved. A changed public URL requires an explicitly entered replacement.
+  const apiKey =
+    submittedApiKey || (!endpointChanged ? existing?.apiKey : undefined) || "";
 
   let modelsResponse: Response;
   try {
@@ -154,17 +172,28 @@ export async function POST(request: Request) {
     return json({ error: "Provider returned no compatible models" }, 422);
   }
 
+  const capabilities = validateUserProviderCapabilities(
+    endpointChanged ? undefined : provider.capabilities,
+    modelIds,
+  );
+  if (!capabilities) {
+    return json(
+      { error: "Capabilities must reference only discovered model IDs" },
+      400,
+    );
+  }
+
   try {
     const saved = await userModelProviderRepository.saveForUser({
       userId: auth.userId,
       id: provider.id,
       name: provider.name,
       baseUrl,
-      apiKey:
-        provider.apiKey === undefined ? undefined : provider.apiKey.trim(),
+      apiKey: submittedApiKey || undefined,
       modelIds,
+      capabilities,
     });
-    return json({ provider: saved });
+    return json({ provider: saved, capabilitiesReset: endpointChanged });
   } catch {
     return json({ error: "Provider could not be saved" }, 503);
   }

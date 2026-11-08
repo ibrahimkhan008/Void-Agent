@@ -1,10 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
 const sessionMock = vi.fn();
 const checkAccessMock = vi.fn();
+const selectThreadMock = vi.fn();
 const forkThreadMock = vi.fn();
+const getProjectAccessMock = vi.fn();
+const getTeamRoleMock = vi.fn();
 
 vi.mock("auth/server", () => ({
   getSession: (...args: any[]) => sessionMock(...args),
@@ -13,10 +16,20 @@ vi.mock("auth/server", () => ({
 vi.mock("lib/db/repository", () => ({
   chatRepository: {
     checkAccess: (...args: any[]) => checkAccessMock(...args),
+    selectThread: (...args: any[]) => selectThreadMock(...args),
     forkThread: (...args: any[]) => forkThreadMock(...args),
   },
 }));
+vi.mock("lib/projects/access", () => ({
+  getProjectAccess: (...args: any[]) => getProjectAccessMock(...args),
+  getTeamRole: (...args: any[]) => getTeamRoleMock(...args),
+}));
+vi.mock("lib/projects/policy", () => ({
+  canEditProjectRole: (role: string | null | undefined) =>
+    role === "owner" || role === "editor",
+}));
 
+import { ForkSnapshotLimitError } from "lib/chat/fork-limits";
 // Import after mocks.
 import { POST } from "./route";
 
@@ -35,19 +48,34 @@ describe("POST /api/thread/[id]/fork", () => {
   beforeEach(() => {
     sessionMock.mockReset();
     checkAccessMock.mockReset();
+    selectThreadMock.mockReset();
     forkThreadMock.mockReset();
+    getProjectAccessMock.mockReset();
+    getTeamRoleMock.mockReset();
+    selectThreadMock.mockResolvedValue({
+      id: "src-thread-1",
+      userId: "user-1",
+      projectId: null,
+      orgId: null,
+    });
   });
 
   it("returns 401 when not signed in", async () => {
     sessionMock.mockResolvedValue(null);
-    const res = await POST(makeRequest({ forkFromMessageId: "m1" }), validParams);
+    const res = await POST(
+      makeRequest({ forkFromMessageId: "m1" }),
+      validParams,
+    );
     expect(res.status).toBe(401);
     expect(forkThreadMock).not.toHaveBeenCalled();
   });
 
   it("returns 401 when session has no user id", async () => {
     sessionMock.mockResolvedValue({ user: {} });
-    const res = await POST(makeRequest({ forkFromMessageId: "m1" }), validParams);
+    const res = await POST(
+      makeRequest({ forkFromMessageId: "m1" }),
+      validParams,
+    );
     expect(res.status).toBe(401);
   });
 
@@ -112,6 +140,58 @@ describe("POST /api/thread/[id]/fork", () => {
     );
     expect(res.status).toBe(404);
     expect(forkThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("rechecks project access and blocks viewers from creating a project fork", async () => {
+    sessionMock.mockResolvedValue(okSession);
+    checkAccessMock.mockResolvedValue(true);
+    selectThreadMock.mockResolvedValue({
+      id: "src-thread-1",
+      userId: "user-1",
+      projectId: "project-1",
+      orgId: "team-1",
+    });
+    getProjectAccessMock.mockResolvedValue({ role: "viewer" });
+
+    const res = await POST(
+      makeRequest({ forkFromMessageId: "m1" }),
+      validParams,
+    );
+
+    expect(res.status).toBe(403);
+    expect(getProjectAccessMock).toHaveBeenCalledWith("project-1", "user-1");
+    expect(forkThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("allows an authorized project editor to fork while preserving project scope", async () => {
+    sessionMock.mockResolvedValue(okSession);
+    checkAccessMock.mockResolvedValue(true);
+    selectThreadMock.mockResolvedValue({
+      id: "src-thread-1",
+      userId: "user-1",
+      projectId: "project-1",
+      orgId: "team-1",
+    });
+    getProjectAccessMock.mockResolvedValue({ role: "editor" });
+    forkThreadMock.mockResolvedValue({
+      id: "new-thread-3",
+      title: "original (branch)",
+      userId: "user-1",
+      projectId: "project-1",
+      createdAt: new Date(),
+    });
+
+    const res = await POST(
+      makeRequest({ forkFromMessageId: "m1" }),
+      validParams,
+    );
+
+    expect(res.status).toBe(200);
+    expect(getProjectAccessMock).toHaveBeenCalledWith("project-1", "user-1");
+    expect(forkThreadMock).toHaveBeenCalledWith(
+      { sourceThreadId: "src-thread-1", forkFromMessageId: "m1" },
+      "user-1",
+    );
   });
 
   it("returns 200 with the new thread on success", async () => {
@@ -179,6 +259,20 @@ describe("POST /api/thread/[id]/fork", () => {
       validParams,
     );
     expect(res.status).toBe(404);
+  });
+
+  it("returns 413 when the fork prefix exceeds bounded snapshot limits", async () => {
+    sessionMock.mockResolvedValue(okSession);
+    checkAccessMock.mockResolvedValue(true);
+    forkThreadMock.mockRejectedValue(new ForkSnapshotLimitError());
+
+    const res = await POST(
+      makeRequest({ forkFromMessageId: "m1" }),
+      validParams,
+    );
+
+    expect(res.status).toBe(413);
+    expect(await res.text()).toContain("Fork prefix exceeds limits");
   });
 
   it("returns 500 for unexpected repository errors", async () => {

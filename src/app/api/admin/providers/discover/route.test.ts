@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   requireAdminPermission: vi.fn(),
   rateLimit: vi.fn(),
   requestProviderDiscovery: vi.fn(),
+  getConfig: vi.fn(),
+  decrypt: vi.fn(),
 }));
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
@@ -15,6 +17,10 @@ vi.mock("lib/auth/permissions", () => ({
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.rateLimit,
 }));
+vi.mock("lib/db/repository", () => ({
+  siteConfigRepository: { getConfig: mocks.getConfig },
+}));
+vi.mock("lib/security/encryption", () => ({ decrypt: mocks.decrypt }));
 vi.mock("lib/admin/provider-discovery", async () => {
   const actual = await vi.importActual<
     typeof import("lib/admin/provider-discovery")
@@ -50,6 +56,15 @@ describe("POST /api/admin/providers/discover", () => {
         data: [{ id: "model-a" }, { name: "model-b" }, { id: "model-a" }],
       }),
     });
+    mocks.getConfig.mockResolvedValue({
+      dynamicProviders: {
+        "gateway-one": {
+          baseURL: "https://provider.test/v1",
+          apiKey: "encrypted-key",
+        },
+      },
+    });
+    mocks.decrypt.mockReturnValue("stored-secret");
   });
 
   it("requires admin permission before processing or fetching", async () => {
@@ -82,6 +97,38 @@ describe("POST /api/admin/providers/discover", () => {
       windowMs: 60_000,
     });
     expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("uses a saved key server-side for the matching provider endpoint", async () => {
+    const response = await POST(
+      request({
+        providerId: "gateway-one",
+        baseURL: "https://provider.test/v1/",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.decrypt).toHaveBeenCalledWith("encrypted-key");
+    expect(mocks.requestProviderDiscovery).toHaveBeenCalledWith(
+      "https://provider.test/v1/models",
+      "stored-secret",
+    );
+    expect(JSON.stringify(await response.json())).not.toContain(
+      "stored-secret",
+    );
+  });
+
+  it("never reuses a saved key after the provider endpoint changes", async () => {
+    const response = await POST(
+      request({
+        providerId: "gateway-one",
+        baseURL: "https://other-provider.test/v1",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.decrypt).not.toHaveBeenCalled();
+    expect(mocks.requestProviderDiscovery).not.toHaveBeenCalled();
   });
 
   it("rejects invalid schemas and oversized request bodies without contacting providers", async () => {

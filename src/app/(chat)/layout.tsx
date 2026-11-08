@@ -1,19 +1,18 @@
-import { SidebarProvider } from "ui/sidebar";
-import { AppSidebar } from "@/components/layouts/app-sidebar";
 import { AppHeader } from "@/components/layouts/app-header";
+import { AppSidebar } from "@/components/layouts/app-sidebar";
 import { cookies } from "next/headers";
+import { SidebarProvider } from "ui/sidebar";
 
+import { CanvasPanelWrapper } from "@/components/canvas/canvas-panel-wrapper";
+import { AppPopupProvider } from "@/components/layouts/app-popup-provider";
+import { OnboardingCookieSync } from "@/components/onboarding/onboarding-cookie-sync";
+import { WarningBanner } from "@/components/warning-banner";
 import { getSession } from "lib/auth/server";
 import { COOKIE_KEY_SIDEBAR_STATE } from "lib/const";
-import { AppPopupProvider } from "@/components/layouts/app-popup-provider";
-import { SWRConfigProvider } from "./swr-config";
-import { UserDetailContent } from "@/components/user/user-detail/user-detail-content";
-import { UserDetailContentSkeleton } from "@/components/user/user-detail/user-detail-content-skeleton";
-import { WarningBanner } from "@/components/warning-banner";
-import { CanvasPanelWrapper } from "@/components/canvas/canvas-panel-wrapper";
 import { userRepository } from "lib/db/repository";
+import { resolveOnboardingGate } from "lib/onboarding/gate";
+import { SWRConfigProvider } from "./swr-config";
 
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 export const experimental_ppr = true;
 
@@ -26,6 +25,17 @@ export default async function ChatLayout({
     redirect("/sign-in");
   }
 
+  let syncOnboardingCookie = false;
+  if (cookieStore.get("onboarding_complete")?.value !== "1") {
+    const preferences = await userRepository.getPreferences(session.user.id);
+    const gate = resolveOnboardingGate({
+      hasCompletionCookie: false,
+      step: preferences?.onboarding?.step,
+    });
+    if (gate === "redirect") redirect("/onboarding");
+    syncOnboardingCookie = gate === "sync-cookie";
+  }
+
   const dbUser = await userRepository.getUserById(session.user.id);
   const effectiveUser = dbUser ?? session.user;
 
@@ -34,13 +44,8 @@ export default async function ChatLayout({
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
       <SWRConfigProvider user={session.user}>
-        <AppPopupProvider
-          userSettingsComponent={
-            <Suspense fallback={<UserDetailContentSkeleton />}>
-              <UserDetailContent view="user" />
-            </Suspense>
-          }
-        />
+        <OnboardingCookieSync enabled={syncOnboardingCookie} />
+        <AppPopupProvider />
         <AppSidebar user={effectiveUser} />
         <main className="relative bg-background w-full flex flex-col h-screen overflow-hidden">
           <WarningBanner />

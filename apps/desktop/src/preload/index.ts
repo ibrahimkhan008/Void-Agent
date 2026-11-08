@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("desktop", {
           configHash: string;
           toolName?: string;
           argsHash?: string;
+          resultHash?: string;
           outcome: "success" | "denied" | "failure";
         }>
       >,

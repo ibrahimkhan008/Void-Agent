@@ -16,6 +16,7 @@ import {
   FileTextIcon,
   ImagesIcon,
   Loader2,
+  PaintbrushIcon,
   PaperclipIcon,
   PencilIcon,
   PlusIcon,
@@ -37,6 +38,7 @@ import { cn, fetcher, generateUUID } from "@/lib/utils";
 import { Editor } from "@tiptap/react";
 import { WorkflowSummary } from "app-types/workflow";
 import { getModelContextWindow } from "lib/ai/model-context-windows";
+import { hasPersonalAutomaticCatalog } from "lib/ai/personal-auto-routing";
 import { DefaultToolName, ImageToolName } from "lib/ai/tools";
 import equal from "lib/equal";
 import { useTranslations } from "next-intl";
@@ -65,6 +67,7 @@ import { DefaultToolIcon } from "./default-tool-icon";
 
 import { useChatModels } from "@/hooks/queries/use-chat-models";
 import { isFilePartSupported, isIngestSupported } from "@/lib/ai/file-support";
+import { createImageMaskMessagePart } from "@/lib/ai/image/image-mask-message";
 import { FileUIPart, TextUIPart } from "ai";
 import { AgentSummary } from "app-types/agent";
 import {
@@ -78,6 +81,7 @@ import {
 } from "lib/ai/image/models";
 import { EMOJI_DATA } from "lib/const";
 import { toast } from "sonner";
+import { ImageMaskEditor } from "./image-mask-editor";
 
 // Size options for Nano Banana Pro model
 const NANO_BANANA_PRO_SIZES = [
@@ -221,9 +225,23 @@ export default function PromptInput({
 }: PromptInputProps) {
   const t = useTranslations("Chat");
   const [isUploadDropdownOpen, setIsUploadDropdownOpen] = useState(false);
+  const [maskEditorFile, setMaskEditorFile] = useState<UploadedFile | null>(
+    null,
+  );
+  const [isUploadingMask, setIsUploadingMask] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFiles } = useThreadFileUploader(threadId);
-  const { data: providers } = useChatModels();
+  const {
+    data: providers,
+    error: chatModelsError,
+    isLoading: chatModelsLoading,
+  } = useChatModels();
+  const { data: imageEditCapabilities } = useSWR<{
+    maskedEditingAvailable?: boolean;
+  }>("/api/images/edit", fetcher, {
+    revalidateOnFocus: false,
+    errorRetryCount: 0,
+  });
   const { data: routingPolicy, error: routingPolicyError } = useSWR<{
     policy?: { enabled?: boolean };
   }>(
@@ -245,6 +263,24 @@ export default function PromptInput({
           ? "enabled"
           : "disabled"
         : "loading";
+  const hasPersonalAutoRoutingCatalog = hasPersonalAutomaticCatalog(
+    providers ?? [],
+    (provider, model) => getModelContextWindow({ provider, model }),
+  );
+  const personalAutoRoutingStatus:
+    | "enabled"
+    | "disabled"
+    | "loading"
+    | "error"
+    | undefined = teamId
+    ? undefined
+    : chatModelsError
+      ? "error"
+      : chatModelsLoading
+        ? "loading"
+        : hasPersonalAutoRoutingCatalog
+          ? "enabled"
+          : "disabled";
 
   const [
     globalModel,
@@ -254,6 +290,7 @@ export default function PromptInput({
     threadImageToolSize,
     threadImageEditModel,
     threadImageEditSize,
+    threadImageMasks,
     appStoreMutate,
   ] = appStore(
     useShallow((state) => [
@@ -264,6 +301,7 @@ export default function PromptInput({
       state.threadImageToolSize,
       state.threadImageEditModel,
       state.threadImageEditSize,
+      state.threadImageMasks,
       state.mutate,
     ]),
   );
@@ -304,7 +342,6 @@ export default function PromptInput({
     if (!threadId) return [];
     return threadFiles[threadId] ?? [];
   }, [threadFiles, threadId]);
-
   const imageToolModel = useMemo(() => {
     if (!threadId) return undefined;
     return threadImageToolModel[threadId];
@@ -314,6 +351,11 @@ export default function PromptInput({
     if (!threadId) return undefined;
     return threadImageEditModel[threadId];
   }, [threadImageEditModel, threadId]);
+
+  const userUploadedFiles = useMemo(
+    () => uploadedFiles.filter((file) => !file.isImageMask || !imageEditModel),
+    [uploadedFiles, imageEditModel],
+  );
 
   const imageToolSize = useMemo(() => {
     if (!threadId) return undefined;
@@ -487,6 +529,61 @@ export default function PromptInput({
       });
     },
     [uploadedFiles, threadId, appStoreMutate],
+  );
+
+  const uploadImageMask = useCallback(
+    async (source: UploadedFile, mask: File) => {
+      if (!threadId || mask.size > 2 * 1024 * 1024) {
+        toast.error("Image masks must be smaller than 2 MiB.");
+        return;
+      }
+      setIsUploadingMask(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", mask);
+        const response = await fetch("/api/storage/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || typeof result.url !== "string") {
+          throw new Error(result.error || "Could not upload the image mask.");
+        }
+        const previousMask = threadImageMasks[threadId];
+        const maskFileId = generateUUID();
+        appStoreMutate((previous) => ({
+          threadFiles: {
+            ...previous.threadFiles,
+            [threadId]: [
+              ...(previous.threadFiles[threadId] ?? []).filter(
+                (file) => file.id !== previousMask?.maskFileId,
+              ),
+              {
+                id: maskFileId,
+                url: result.url,
+                name: mask.name,
+                mimeType: "image/png",
+                size: mask.size,
+                isImageMask: true,
+              },
+            ],
+          },
+          threadImageMasks: {
+            ...previous.threadImageMasks,
+            [threadId]: { sourceFileId: source.id, maskFileId },
+          },
+        }));
+        setMaskEditorFile(null);
+        toast.success("Image mask saved for this source image.");
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not upload the mask.",
+        );
+      } finally {
+        setIsUploadingMask(false);
+      }
+    },
+    [threadId, threadImageMasks, appStoreMutate],
   );
 
   // uploadFiles handled by hook
@@ -776,7 +873,7 @@ export default function PromptInput({
     const userMessage = input?.trim() || "";
 
     // Allow sending with just images (no text required)
-    const hasFiles = uploadedFiles.length > 0;
+    const hasFiles = userUploadedFiles.length > 0;
     if (userMessage.length === 0 && !hasFiles) return;
 
     // Handle image editing mode
@@ -787,9 +884,10 @@ export default function PromptInput({
         return;
       }
 
-      const imageFile = uploadedFiles.find((f) =>
-        f.mimeType.startsWith("image/"),
-      );
+      const activeMask = threadId ? threadImageMasks[threadId] : undefined;
+      const imageFile = activeMask
+        ? userUploadedFiles.find((file) => file.id === activeMask.sourceFileId)
+        : userUploadedFiles.find((f) => f.mimeType.startsWith("image/"));
       if (!imageFile) {
         toast.error("Please upload an image to edit.");
         return;
@@ -809,11 +907,24 @@ export default function PromptInput({
         prompt: userMessage,
         mode: "edit" as const,
       };
+      const maskFile =
+        activeMask?.sourceFileId === imageFile.id
+          ? uploadedFiles.find((file) => file.id === activeMask.maskFileId)
+          : undefined;
+      if (activeMask && !maskFile) {
+        toast.error(
+          "The paired image mask is no longer available. Paint it again.",
+        );
+        setIsEditingImage(false);
+        return;
+      }
 
       try {
         // Get image as base64
         let imageBase64 = "";
-        if (imageFile.dataUrl) {
+        if (maskFile) {
+          // Masked edits resolve both owner-managed URLs again on the server.
+        } else if (imageFile.dataUrl) {
           // Extract base64 from data URL
           imageBase64 = imageFile.dataUrl.split(",")[1] || "";
         } else if (imageFile.url) {
@@ -843,6 +954,16 @@ export default function PromptInput({
             filename: imageFile.name,
           } as FileUIPart,
           { type: "text", text: `Edit image: ${userMessage}` } as TextUIPart,
+          ...(maskFile
+            ? [
+                createImageMaskMessagePart({
+                  sourceFileId: imageFile.id,
+                  maskFileId: maskFile.id,
+                  sourceUrl: imageFile.url,
+                  maskUrl: maskFile.url,
+                }),
+              ]
+            : []),
         ];
 
         // Add image-edit prompt to chat history without triggering /api/chat.
@@ -884,6 +1005,10 @@ export default function PromptInput({
             ...prev.threadFiles,
             [threadId!]: [],
           },
+          threadImageMasks: {
+            ...prev.threadImageMasks,
+            [threadId!]: undefined,
+          },
         }));
 
         // Show same in-chat animation as image generation during edit.
@@ -908,7 +1033,9 @@ export default function PromptInput({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageBase64,
+            ...(maskFile
+              ? { imageUrl: imageFile.url, maskUrl: maskFile.url }
+              : { imageBase64 }),
             imageMimeType: imageFile.mimeType,
             prompt: userMessage,
             model: imageEditModel,
@@ -1079,7 +1206,7 @@ export default function PromptInput({
     }
 
     setInput("");
-    const attachmentParts = uploadedFiles.reduce<
+    const attachmentParts = userUploadedFiles.reduce<
       Array<FileUIPart | TextUIPart | any>
     >((acc, file) => {
       const isFileSupported = isFilePartSupported(
@@ -1108,7 +1235,7 @@ export default function PromptInput({
     }, []);
 
     if (attachmentParts.length) {
-      const summary = uploadedFiles
+      const summary = userUploadedFiles
         .map((file, index) => {
           const type = file.mimeType || "unknown";
           return `${index + 1}. ${file.name} (${type})`;
@@ -1803,6 +1930,7 @@ export default function PromptInput({
                         onSelect={setChatModel}
                         currentModel={chatModel}
                         teamAutoRoutingStatus={teamAutoRoutingStatus}
+                        personalAutoRoutingStatus={personalAutoRoutingStatus}
                         filterModel={modelFilter}
                         showModeToggle={true}
                         modelSpeed={modelSpeed}
@@ -1858,6 +1986,7 @@ export default function PromptInput({
                         onSelect={setChatModel}
                         currentModel={chatModel}
                         teamAutoRoutingStatus={teamAutoRoutingStatus}
+                        personalAutoRoutingStatus={personalAutoRoutingStatus}
                         filterModel={modelFilter}
                         showModeToggle={true}
                         modelSpeed={modelSpeed}
@@ -1953,9 +2082,9 @@ export default function PromptInput({
               </div>
 
               {/* Uploaded Files Preview - Below Input */}
-              {uploadedFiles.length > 0 && (
+              {userUploadedFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {uploadedFiles.map((file) => {
+                  {userUploadedFiles.map((file) => {
                     const isImage = file.mimeType.startsWith("image/");
                     const imageSrc =
                       file.previewUrl || file.url || file.dataUrl || "";
@@ -1984,7 +2113,9 @@ export default function PromptInput({
                             <span className="text-[11px] text-muted-foreground/80">
                               {displayExt}
                             </span>
-                            {(file.mimeType === "audio/wav" || file.mimeType === "audio/x-wav") && (
+                            {file.mimeType
+                              ?.toLowerCase()
+                              .startsWith("audio/") && (
                               <span className="mt-1 text-[10px] leading-tight text-muted-foreground">
                                 Sent as an untrusted transcript
                               </span>
@@ -2018,6 +2149,30 @@ export default function PromptInput({
                           )}
                         >
                           <div className="flex gap-2 items-center">
+                            {imageEditModel &&
+                              imageEditCapabilities?.maskedEditingAvailable &&
+                              isImage &&
+                              file.url && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="secondary"
+                                      size="icon"
+                                      className="rounded-full"
+                                      onClick={() => setMaskEditorFile(file)}
+                                      disabled={file.isUploading}
+                                    >
+                                      <PaintbrushIcon className="size-4" />
+                                      <span className="sr-only">
+                                        Paint area to edit
+                                      </span>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Paint area to edit
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                             {isSummarizable && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -2096,6 +2251,16 @@ export default function PromptInput({
                     );
                   })}
                 </div>
+              )}
+              {maskEditorFile && (
+                <ImageMaskEditor
+                  open={Boolean(maskEditorFile)}
+                  imageUrl={maskEditorFile.url || maskEditorFile.dataUrl || ""}
+                  imageName={maskEditorFile.name}
+                  applying={isUploadingMask}
+                  onOpenChange={(open) => !open && setMaskEditorFile(null)}
+                  onApply={(mask) => uploadImageMask(maskEditorFile, mask)}
+                />
               )}
             </div>
           </div>

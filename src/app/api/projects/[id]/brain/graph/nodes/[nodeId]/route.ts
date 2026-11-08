@@ -104,6 +104,7 @@ export async function GET(
           ProjectBrainFactTable.runId,
           ProjectBrainFactTable.projectId,
           ProjectBrainFactTable.sourceItemId,
+          ProjectBrainFactTable.chatSourceId,
         ),
         ne(ProjectBrainFactTable.reviewStatus, "rejected"),
         inArray(CollectionItemTable.collectionId, collectionIds),

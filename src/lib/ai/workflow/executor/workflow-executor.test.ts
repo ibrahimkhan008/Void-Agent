@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DBEdge, DBNode } from "app-types/workflow";
-import { NodeKind } from "../workflow.interface";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  StringConditionOperator,
   BooleanConditionOperator,
+  StringConditionOperator,
 } from "../condition";
+import { NodeKind } from "../workflow.interface";
 
 // Mock MCP modules to avoid server-only imports
 vi.mock("lib/ai/mcp/mcp-manager", () => ({
@@ -200,6 +200,36 @@ describe("createWorkflowExecutor", () => {
 
     expect(startIndex).toBeLessThan(noopIndex);
     expect(noopIndex).toBeLessThan(endIndex);
+  });
+
+  it("replays a completed node from its checkpoint and persists new node results", async () => {
+    const nodes: DBNode[] = [
+      createNode("start", NodeKind.Input, "Start Node"),
+      createNode("noop", "NOOP", "No Operation"),
+      createNode("end", NodeKind.Output, "End Node"),
+    ];
+    const edges: DBEdge[] = [
+      createEdge("e1", "start", "noop"),
+      createEdge("e2", "noop", "end"),
+    ];
+    const checkpointedNodeIds: string[] = [];
+    const executor = createWorkflowExecutor({
+      nodes,
+      edges,
+      execution: {
+        completedNodes: {
+          start: { input: null, output: { seeded: true } },
+        },
+        onNodeCheckpoint: async (nodeId) => {
+          checkpointedNodeIds.push(nodeId);
+        },
+      },
+    });
+
+    const result = await executor.run({ query: { original: "input" } });
+
+    expect(result.isOk).toBe(true);
+    expect(checkpointedNodeIds).toEqual(["noop", "end"]);
   });
 
   it("2. should handle REAL conditional branching with actual condition evaluation", async () => {

@@ -36,6 +36,7 @@ export const ChatExportCreateSchema = z.object({
     }),
   ),
   expiresAt: z.date().nullish(),
+  legacyShareEnabled: z.boolean().default(false),
 });
 
 export type ChatExportComment = {
@@ -79,6 +80,8 @@ export type ChatExportSummary = {
   commentCount: number;
   exportedAt: Date;
   expiresAt?: Date;
+  hasActiveShare: boolean;
+  legacyShareEnabled: boolean;
 };
 
 export type ChatExportRepository = {
@@ -90,8 +93,16 @@ export type ChatExportRepository = {
   insert(data: z.infer<typeof ChatExportCreateSchema>): Promise<string>;
   selectById(id: string): Promise<ChatExport | null>;
   selectByIdWithUser(id: string): Promise<ChatExportWithUser | null>;
+  selectByShareTokenHash(tokenHash: string): Promise<ChatExportWithUser | null>;
+  selectLegacyByIdWithUser(id: string): Promise<ChatExportWithUser | null>;
   selectByExporterId(exporterId: string): Promise<ChatExport[]>;
   selectSummaryByExporterId(exporterId: string): Promise<ChatExportSummary[]>;
+  createShareToken(
+    id: string,
+    ownerId: string,
+    tokenHash: string,
+  ): Promise<boolean>;
+  revokeShareToken(id: string, ownerId: string): Promise<boolean>;
   checkAccess(id: string, userId: string): Promise<boolean>;
   deleteById(id: string): Promise<void>;
   isExpired(id: string): Promise<boolean>;

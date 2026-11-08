@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import { getSession } from "auth/server";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
+  ChatThreadTable,
   CollectionItemTable,
   CollectionTable,
   DocumentTable,
+  ProjectBrainChatSourceTable,
   ProjectBrainFactTable,
   ProjectBrainRunTable,
   ProjectBrainSourceVersionTable,
@@ -19,6 +21,7 @@ import {
 import { isProjectBrainRunRecoverable } from "lib/projects/brain-schema";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
 import { consolidateProjectBrainTodos } from "lib/projects/consolidate-brain-todos";
+import { getActiveProjectBrainChatSourceOwnerIds } from "lib/projects/project-chat-brain-source";
 import { ensureProjectBrainSourceVersion } from "lib/projects/source-versions";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
@@ -41,9 +44,9 @@ export async function GET(
 
   const collectionIds = access.project.collectionIds;
   const ownerIds = await getProjectCollectionSourceOwnerIds(access);
-  // Brain facts and run metadata are derived from source documents. Keep them
-  // within the same current project/source visibility boundary used by graph
-  // reads, so detached collections and departed members do not leak history.
+  // Document-backed facts and run metadata stay within the current project,
+  // collection, and owner visibility boundary. Chat-backed records are queried
+  // separately below after checking that their owners remain project editors.
   const hasVisibleSources = collectionIds.length > 0 && ownerIds.length > 0;
   const [runs, facts, sourceRows, sourceVersions, todos] = await Promise.all([
     hasVisibleSources
@@ -97,6 +100,7 @@ export async function GET(
                 ProjectBrainFactTable.runId,
                 ProjectBrainFactTable.projectId,
                 ProjectBrainFactTable.sourceItemId,
+                ProjectBrainFactTable.chatSourceId,
               ),
               inArray(CollectionItemTable.collectionId, collectionIds),
               inArray(CollectionTable.userId, ownerIds),
@@ -167,6 +171,7 @@ export async function GET(
           .select({
             id: ProjectBrainTodoTable.id,
             sourceItemId: ProjectBrainTodoTable.sourceItemId,
+            chatSourceId: ProjectBrainTodoTable.chatSourceId,
             sourceVersionId: ProjectBrainRunTable.sourceVersionId,
             sourceLabel: CollectionItemTable.filename,
             title: ProjectBrainTodoTable.title,
@@ -197,6 +202,7 @@ export async function GET(
                 ProjectBrainTodoTable.runId,
                 ProjectBrainTodoTable.projectId,
                 ProjectBrainTodoTable.sourceItemId,
+                ProjectBrainTodoTable.chatSourceId,
               ),
               inArray(CollectionItemTable.collectionId, collectionIds),
               inArray(CollectionTable.userId, ownerIds),
@@ -208,19 +214,228 @@ export async function GET(
       : Promise.resolve([]),
   ]);
 
+  const chatOwnerIds = await getActiveProjectBrainChatSourceOwnerIds(projectId);
+  const chatSources = chatOwnerIds.length
+    ? await pgDb
+        .select({
+          id: ProjectBrainChatSourceTable.id,
+          threadId: ProjectBrainChatSourceTable.threadId,
+          title: ChatThreadTable.title,
+          activeFingerprint: ProjectBrainChatSourceTable.activeFingerprint,
+          updatedAt: ProjectBrainChatSourceTable.updatedAt,
+        })
+        .from(ProjectBrainChatSourceTable)
+        .innerJoin(
+          ChatThreadTable,
+          eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+        )
+        .where(
+          and(
+            eq(ProjectBrainChatSourceTable.projectId, projectId),
+            inArray(ProjectBrainChatSourceTable.ownerUserId, chatOwnerIds),
+            isNull(ProjectBrainChatSourceTable.revokedAt),
+            eq(ChatThreadTable.projectId, projectId),
+            eq(ChatThreadTable.userId, ProjectBrainChatSourceTable.ownerUserId),
+          ),
+        )
+        .orderBy(desc(ProjectBrainChatSourceTable.updatedAt))
+        .limit(100)
+    : [];
+  const chatSourceIds = chatSources.map((source) => source.id);
+  const [chatRuns, chatFacts, chatSourceVersions, chatTodos] =
+    chatSourceIds.length
+      ? await Promise.all([
+          pgDb
+            .select({
+              id: ProjectBrainRunTable.id,
+              sourceItemId: ProjectBrainRunTable.sourceItemId,
+              chatSourceId: ProjectBrainRunTable.chatSourceId,
+              sourceType: ProjectBrainRunTable.sourceType,
+              status: ProjectBrainRunTable.status,
+              attempts: ProjectBrainRunTable.attempts,
+              factCount: ProjectBrainRunTable.factCount,
+              errorMessage: ProjectBrainRunTable.errorMessage,
+              createdAt: ProjectBrainRunTable.createdAt,
+              updatedAt: ProjectBrainRunTable.updatedAt,
+            })
+            .from(ProjectBrainRunTable)
+            .innerJoin(
+              ProjectBrainChatSourceTable,
+              eq(
+                ProjectBrainChatSourceTable.id,
+                ProjectBrainRunTable.chatSourceId,
+              ),
+            )
+            .innerJoin(
+              ChatThreadTable,
+              eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+            )
+            .where(
+              and(
+                eq(ProjectBrainRunTable.projectId, projectId),
+                eq(ProjectBrainRunTable.sourceType, "chat"),
+                inArray(ProjectBrainRunTable.chatSourceId, chatSourceIds),
+                eq(
+                  ProjectBrainChatSourceTable.activeFingerprint,
+                  ProjectBrainRunTable.sourceFingerprint,
+                ),
+                isNull(ProjectBrainChatSourceTable.revokedAt),
+                eq(ChatThreadTable.projectId, projectId),
+                eq(
+                  ChatThreadTable.userId,
+                  ProjectBrainChatSourceTable.ownerUserId,
+                ),
+              ),
+            )
+            .orderBy(desc(ProjectBrainRunTable.createdAt))
+            .limit(30),
+          pgDb
+            .select({ fact: ProjectBrainFactTable })
+            .from(ProjectBrainFactTable)
+            .innerJoin(
+              ProjectBrainChatSourceTable,
+              eq(
+                ProjectBrainChatSourceTable.id,
+                ProjectBrainFactTable.chatSourceId,
+              ),
+            )
+            .innerJoin(
+              ChatThreadTable,
+              eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+            )
+            .where(
+              and(
+                eq(ProjectBrainFactTable.projectId, projectId),
+                eq(ProjectBrainFactTable.sourceType, "chat"),
+                inArray(ProjectBrainFactTable.chatSourceId, chatSourceIds),
+                projectBrainRunIsActiveSourceRevision(
+                  ProjectBrainFactTable.runId,
+                  ProjectBrainFactTable.projectId,
+                  ProjectBrainFactTable.sourceItemId,
+                  ProjectBrainFactTable.chatSourceId,
+                ),
+                eq(ChatThreadTable.projectId, projectId),
+                eq(
+                  ChatThreadTable.userId,
+                  ProjectBrainChatSourceTable.ownerUserId,
+                ),
+              ),
+            )
+            .orderBy(desc(ProjectBrainFactTable.createdAt))
+            .limit(100)
+            .then((rows) => rows.map(({ fact }) => fact)),
+          pgDb
+            .select({
+              id: ProjectBrainSourceVersionTable.id,
+              sourceItemId: ProjectBrainSourceVersionTable.sourceItemId,
+              chatSourceId: ProjectBrainSourceVersionTable.chatSourceId,
+              sourceType: ProjectBrainSourceVersionTable.sourceType,
+              contentLength: ProjectBrainSourceVersionTable.contentLength,
+              snapshotAvailable: sql<boolean>`${ProjectBrainSourceVersionTable.contentSnapshot} IS NOT NULL`,
+              createdAt: ProjectBrainSourceVersionTable.createdAt,
+            })
+            .from(ProjectBrainSourceVersionTable)
+            .innerJoin(
+              ProjectBrainChatSourceTable,
+              eq(
+                ProjectBrainChatSourceTable.id,
+                ProjectBrainSourceVersionTable.chatSourceId,
+              ),
+            )
+            .where(
+              and(
+                eq(ProjectBrainSourceVersionTable.projectId, projectId),
+                eq(ProjectBrainSourceVersionTable.sourceType, "chat"),
+                inArray(
+                  ProjectBrainSourceVersionTable.chatSourceId,
+                  chatSourceIds,
+                ),
+                eq(
+                  ProjectBrainChatSourceTable.activeFingerprint,
+                  ProjectBrainSourceVersionTable.sourceFingerprint,
+                ),
+                isNull(ProjectBrainChatSourceTable.revokedAt),
+              ),
+            )
+            .orderBy(desc(ProjectBrainSourceVersionTable.createdAt))
+            .limit(200),
+          pgDb
+            .select({
+              id: ProjectBrainTodoTable.id,
+              sourceItemId: ProjectBrainTodoTable.sourceItemId,
+              chatSourceId: ProjectBrainTodoTable.chatSourceId,
+              sourceVersionId: ProjectBrainRunTable.sourceVersionId,
+              sourceLabel: ChatThreadTable.title,
+              title: ProjectBrainTodoTable.title,
+              details: ProjectBrainTodoTable.details,
+              evidence: ProjectBrainTodoTable.evidence,
+              dueDate: ProjectBrainTodoTable.dueDate,
+              status: ProjectBrainTodoTable.status,
+              createdAt: ProjectBrainTodoTable.createdAt,
+              reviewedAt: ProjectBrainTodoTable.reviewedAt,
+            })
+            .from(ProjectBrainTodoTable)
+            .innerJoin(
+              ProjectBrainRunTable,
+              eq(ProjectBrainRunTable.id, ProjectBrainTodoTable.runId),
+            )
+            .innerJoin(
+              ProjectBrainChatSourceTable,
+              eq(
+                ProjectBrainChatSourceTable.id,
+                ProjectBrainTodoTable.chatSourceId,
+              ),
+            )
+            .innerJoin(
+              ChatThreadTable,
+              eq(ChatThreadTable.id, ProjectBrainChatSourceTable.threadId),
+            )
+            .where(
+              and(
+                eq(ProjectBrainTodoTable.projectId, projectId),
+                eq(ProjectBrainTodoTable.sourceType, "chat"),
+                inArray(ProjectBrainTodoTable.chatSourceId, chatSourceIds),
+                projectBrainRunIsActiveSourceRevision(
+                  ProjectBrainTodoTable.runId,
+                  ProjectBrainTodoTable.projectId,
+                  ProjectBrainTodoTable.sourceItemId,
+                  ProjectBrainTodoTable.chatSourceId,
+                ),
+                eq(ChatThreadTable.projectId, projectId),
+                eq(
+                  ChatThreadTable.userId,
+                  ProjectBrainChatSourceTable.ownerUserId,
+                ),
+              ),
+            )
+            .orderBy(desc(ProjectBrainTodoTable.createdAt))
+            .limit(100),
+        ])
+      : [[], [], [], []];
+
+  const allRuns = [...runs, ...chatRuns];
+  const allFacts = [...facts, ...chatFacts];
+  const allSourceVersions = [...sourceVersions, ...chatSourceVersions];
+  const allTodos = [...todos, ...chatTodos];
   const consolidatedTodos = consolidateProjectBrainTodos(
-    todos.filter(
-      (todo) => todo.status === "accepted" || todo.status === "completed",
-    ),
+    allTodos
+      .filter(
+        (todo) => todo.status === "accepted" || todo.status === "completed",
+      )
+      .map((todo) => ({
+        ...todo,
+        sourceItemId: todo.sourceItemId ?? todo.chatSourceId ?? "",
+      })),
   );
 
   return Response.json(
     {
-      runs,
-      facts,
+      runs: allRuns,
+      facts: allFacts,
       sources: sourceRows,
-      sourceVersions,
-      todos,
+      chatSources,
+      sourceVersions: allSourceVersions,
+      todos: allTodos,
       consolidatedTodos,
     },
     { headers: { "Cache-Control": "no-store" } },

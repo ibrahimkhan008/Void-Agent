@@ -53,10 +53,28 @@ describe("voice device segment review", () => {
       const url = String(input);
       if (url === "/api/voice/devices")
         return Response.json({ devices: [device] });
+      if (url.endsWith("/rotate-credential"))
+        return Response.json({
+          deviceId: device.id,
+          displayName: device.displayName,
+          token: "nvdev_live_one-time",
+        });
       if (url.endsWith("/history?limit=20"))
         return Response.json({ items: [] });
       if (url.endsWith("/sessions?limit=20"))
-        return Response.json({ items: [session] });
+        return Response.json({ items: [session], nextCursor: "older-page" });
+      if (url.includes("/sessions?limit=20&cursor=older-page"))
+        return Response.json({
+          items: [
+            {
+              ...session,
+              id: "row-older",
+              sessionId: "session-older",
+              transcript: "An older voice capture",
+            },
+          ],
+          nextCursor: null,
+        });
       if (url.endsWith("/sessions/session-1/segments"))
         return Response.json({
           items: [
@@ -99,5 +117,43 @@ describe("voice device segment review", () => {
       `/api/voice/devices/${device.id}/sessions/session-1/segments`,
       { cache: "no-store" },
     );
+  });
+
+  it("shows the rotated credential once and lets the owner hide it", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<VoiceDevicesDashboard />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Rotate credential" }),
+    );
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(await screen.findByText("nvdev_live_one-time")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/voice/devices/${device.id}/rotate-credential`,
+      { method: "POST" },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hide token" }));
+    expect(screen.queryByText("nvdev_live_one-time")).toBeNull();
+    confirm.mockRestore();
+  });
+
+  it("loads older owner-visible sessions and appends them to history", async () => {
+    render(<VoiceDevicesDashboard />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Show recent transcripts for Desk device",
+      }),
+    );
+    await screen.findByText("Hello there");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load older sessions" }),
+    );
+    expect(await screen.findByText("An older voice capture")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/voice/devices/${device.id}/sessions?limit=20&cursor=older-page`,
+      { cache: "no-store" },
+    );
+    expect(
+      screen.queryByRole("button", { name: "Load older sessions" }),
+    ).toBeNull();
   });
 });

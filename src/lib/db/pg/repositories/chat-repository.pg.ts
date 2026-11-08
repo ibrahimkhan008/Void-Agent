@@ -9,8 +9,25 @@ import {
 } from "../schema.pg";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gte, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { MAX_CONVERSATION_ARCHIVE_MESSAGES } from "lib/chat/conversation-archive";
+import {
+  ForkSnapshotLimitError,
+  MAX_FORK_MESSAGES,
+  exceedsForkSnapshotLimits,
+} from "lib/chat/fork-limits";
 import { CHAT_MESSAGE_WINDOW } from "lib/const";
 
 export const pgChatRepository: ChatRepository = {
@@ -31,8 +48,23 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
-  deleteChatMessage: async (id: string): Promise<void> => {
-    await db.delete(ChatMessageTable).where(eq(ChatMessageTable.id, id));
+  deleteChatMessage: async (id: string, userId: string): Promise<boolean> => {
+    const deleted = await db
+      .delete(ChatMessageTable)
+      .where(
+        and(
+          eq(ChatMessageTable.id, id),
+          inArray(
+            ChatMessageTable.threadId,
+            db
+              .select({ id: ChatThreadTable.id })
+              .from(ChatThreadTable)
+              .where(eq(ChatThreadTable.userId, userId)),
+          ),
+        ),
+      )
+      .returning({ id: ChatMessageTable.id });
+    return deleted.length > 0;
   },
 
   selectMessage: async (id: string): Promise<ChatMessage | null> => {
@@ -270,6 +302,38 @@ export const pgChatRepository: ChatRepository = {
     return result;
   },
 
+  setThreadTitleIfEmpty: async (
+    id: string,
+    title: string,
+    userId: string,
+  ): Promise<string | null> => {
+    const [updated] = (await db
+      .insert(ChatThreadTable)
+      .values({ id, title, userId })
+      .onConflictDoUpdate({
+        target: [ChatThreadTable.id],
+        set: { title },
+        // The title endpoint may race the chat route or another title request.
+        // Only fill a blank title belonging to this user; never replace a title
+        // that another request or the user has already written.
+        setWhere: and(
+          eq(ChatThreadTable.userId, userId),
+          eq(ChatThreadTable.title, ""),
+        ),
+      })
+      .returning({ title: ChatThreadTable.title })) as Array<{ title: string }>;
+    if (updated) return updated.title;
+
+    const [existing] = await db
+      .select({ title: ChatThreadTable.title })
+      .from(ChatThreadTable)
+      .where(
+        and(eq(ChatThreadTable.id, id), eq(ChatThreadTable.userId, userId)),
+      )
+      .limit(1);
+    return existing?.title ?? null;
+  },
+
   deleteThread: async (id: string): Promise<void> => {
     // 1. Delete all messages in the thread
     await db.delete(ChatMessageTable).where(eq(ChatMessageTable.threadId, id));
@@ -314,23 +378,36 @@ export const pgChatRepository: ChatRepository = {
 
   deleteMessagesByChatIdAfterTimestamp: async (
     messageId: string,
-  ): Promise<void> => {
-    const [message] = await db
-      .select()
-      .from(ChatMessageTable)
-      .where(eq(ChatMessageTable.id, messageId));
-    if (!message) {
-      return;
-    }
-    // Delete messages that are in the same thread AND created before or at the same time as the target message
-    await db
+    userId: string,
+  ): Promise<boolean> => {
+    // Keep the cursor comparison inside PostgreSQL. JS Date conversion can
+    // lose timestamp precision; tie-break with id, matching history ordering.
+    const targetThreadId = sql`(select ${ChatMessageTable.threadId} from ${ChatMessageTable} where ${ChatMessageTable.id} = ${messageId})`;
+    const targetCreatedAt = sql`(select ${ChatMessageTable.createdAt} from ${ChatMessageTable} where ${ChatMessageTable.id} = ${messageId})`;
+    const laterThanTarget = or(
+      gt(ChatMessageTable.createdAt, targetCreatedAt),
+      and(
+        eq(ChatMessageTable.createdAt, targetCreatedAt),
+        gte(ChatMessageTable.id, messageId),
+      ),
+    );
+    const deleted = await db
       .delete(ChatMessageTable)
       .where(
         and(
-          eq(ChatMessageTable.threadId, message.threadId),
-          gte(ChatMessageTable.createdAt, message.createdAt),
+          eq(ChatMessageTable.threadId, targetThreadId),
+          laterThanTarget,
+          inArray(
+            ChatMessageTable.threadId,
+            db
+              .select({ id: ChatThreadTable.id })
+              .from(ChatThreadTable)
+              .where(eq(ChatThreadTable.userId, userId)),
+          ),
         ),
-      );
+      )
+      .returning({ id: ChatMessageTable.id });
+    return deleted.length > 0;
   },
 
   deleteAllThreads: async (userId: string): Promise<void> => {
@@ -391,117 +468,128 @@ export const pgChatRepository: ChatRepository = {
     { sourceThreadId, forkFromMessageId, branchLabel },
     userId,
   ): Promise<ChatThread> => {
-    // 1. Load the source thread (and its title for the new thread).
-    const [sourceThread] = (await db
-      .select()
-      .from(ChatThreadTable)
-      .where(
-        and(
-          eq(ChatThreadTable.id, sourceThreadId),
-          eq(ChatThreadTable.userId, userId),
-        ),
-      )) as ChatThread[];
+    return db.transaction(async (tx) => {
+      // Recheck ownership inside the transaction after the route's ACL checks.
+      const [sourceThread] = (await tx
+        .select()
+        .from(ChatThreadTable)
+        .where(
+          and(
+            eq(ChatThreadTable.id, sourceThreadId),
+            eq(ChatThreadTable.userId, userId),
+          ),
+        )
+        .for("share")
+        .limit(1)) as ChatThread[];
+      if (!sourceThread) {
+        throw new Error("Source thread not found or access denied");
+      }
 
-    if (!sourceThread) {
-      throw new Error("Source thread not found or access denied");
-    }
+      const [forkPoint] = await tx
+        .select({ id: ChatMessageTable.id })
+        .from(ChatMessageTable)
+        .where(
+          and(
+            eq(ChatMessageTable.id, forkFromMessageId),
+            eq(ChatMessageTable.threadId, sourceThreadId),
+          ),
+        )
+        .limit(1);
+      if (!forkPoint) {
+        throw new Error("Fork message not found in source thread");
+      }
 
-    // 2. Pull the whole source thread in a deterministic order, then find
-    //    the fork point inside it.
-    //
-    //    Anchoring on the message id rather than on its timestamp is
-    //    deliberate. Postgres stores `timestamp` with microsecond
-    //    precision, while a JS Date carries only milliseconds — so a
-    //    `createdAt` that has been round-tripped through the driver is
-    //    almost always a few hundred microseconds OLDER than the row it
-    //    came from. The previous `lte(createdAt, forkPoint.createdAt)`
-    //    therefore excluded the fork point itself: every fork silently
-    //    dropped the assistant message the user clicked "fork from here"
-    //    on, which on a two-message thread produced a fork containing
-    //    only the original question.
-    //
-    //    The secondary sort on id keeps the order stable if two messages
-    //    ever share a timestamp.
-    const threadMessages = (await db
-      .select()
-      .from(ChatMessageTable)
-      .where(eq(ChatMessageTable.threadId, sourceThreadId))
-      .orderBy(
-        asc(ChatMessageTable.createdAt),
-        asc(ChatMessageTable.id),
-      )) as ChatMessage[];
+      // Compare against the fork point in SQL to preserve PostgreSQL's
+      // microsecond timestamp precision. The ID tie-breaker matches history
+      // ordering when multiple messages have the same timestamp.
+      const prefixCondition = sql`(${ChatMessageTable.createdAt}, ${ChatMessageTable.id}) <= (
+        SELECT ${ChatMessageTable.createdAt}, ${ChatMessageTable.id}
+        FROM ${ChatMessageTable}
+        WHERE ${ChatMessageTable.id} = ${forkFromMessageId}
+          AND ${ChatMessageTable.threadId} = ${sourceThreadId}
+      )`;
+      const [bounds] = await tx
+        .select({
+          messageCount: count(),
+          contentBytes:
+            sql<number>`coalesce(sum(octet_length(${ChatMessageTable.parts}::text)), 0)`.mapWith(
+              Number,
+            ),
+        })
+        .from(ChatMessageTable)
+        .where(
+          and(eq(ChatMessageTable.threadId, sourceThreadId), prefixCondition),
+        );
 
-    const forkIndex = threadMessages.findIndex(
-      (msg) => msg.id === forkFromMessageId,
-    );
-    if (forkIndex === -1) {
-      // Covers both "no such message" and "message belongs to another
-      // thread", since we only ever searched this thread's messages.
-      throw new Error("Fork message not found in source thread");
-    }
+      if (
+        exceedsForkSnapshotLimits({
+          messageCount: bounds?.messageCount ?? 0,
+          contentBytes: bounds?.contentBytes ?? 0,
+        })
+      ) {
+        throw new ForkSnapshotLimitError();
+      }
 
-    // 3. Everything up to and including the fork point. This is the
-    //    "snapshot" the new thread starts from.
-    const sourceMessages = threadMessages.slice(0, forkIndex + 1);
+      const sourceMessages = (await tx
+        .select()
+        .from(ChatMessageTable)
+        .where(
+          and(eq(ChatMessageTable.threadId, sourceThreadId), prefixCondition),
+        )
+        .orderBy(asc(ChatMessageTable.createdAt), asc(ChatMessageTable.id))
+        .limit(MAX_FORK_MESSAGES + 1)) as ChatMessage[];
+      if (sourceMessages.length > MAX_FORK_MESSAGES) {
+        throw new ForkSnapshotLimitError();
+      }
 
-    // 4. Create the new thread. Title inherits from source with an
-    //    optional " (branch)" suffix so the user can see at a glance
-    //    which conversations are forks vs originals.
-    const newThreadId = randomUUID();
-    const newTitle = branchLabel
-      ? `${sourceThread.title} (${branchLabel})`
-      : `${sourceThread.title} (branch)`;
+      // Copy the thread and messages atomically, preserving project/team/model
+      // scope. A failed bulk message insert rolls back the branch metadata too.
+      const newThreadId = randomUUID();
+      const newTitle = branchLabel
+        ? `${sourceThread.title} (${branchLabel})`
+        : `${sourceThread.title} (branch)`;
+      const [createdThread] = (await tx
+        .insert(ChatThreadTable)
+        .values({
+          id: newThreadId,
+          title: newTitle,
+          userId,
+          orgId: sourceThread.orgId,
+          routingModelProvider: sourceThread.routingModelProvider,
+          routingModel: sourceThread.routingModel,
+          projectId: sourceThread.projectId,
+          collectionIds: sourceThread.collectionIds,
+          parentThreadId: sourceThreadId,
+          forkFromMessageId,
+          branchLabel: branchLabel ?? null,
+        })
+        .returning()) as ChatThread[];
+      if (!createdThread) {
+        throw new Error("Failed to create forked thread");
+      }
 
-    const [createdThread] = (await db
-      .insert(ChatThreadTable)
-      .values({
-        id: newThreadId,
-        title: newTitle,
-        userId,
-        parentThreadId: sourceThreadId,
-        forkFromMessageId,
-        branchLabel: branchLabel ?? null,
-      })
-      .returning()) as ChatThread[];
-
-    if (!createdThread) {
-      throw new Error("Failed to create forked thread");
-    }
-
-    // 5. Copy each source message into the new thread, with a fresh
-    //    id so the lineage is independent. `parts` and `metadata` are
-    //    preserved verbatim — the user is forking the conversation
-    //    *content*, not creating a new semantic thread.
-    //
-    //    We do NOT carry the `usage` token count, since the assistant
-    //    hasn't been re-run on the fork yet and we don't want stale
-    //    billing data attributed to a conversation that hasn't
-    //    happened.
-    const clonedMessages: Omit<ChatMessage, "createdAt">[] = sourceMessages.map(
-      (msg) => ({
-        id: randomUUID(),
-        threadId: newThreadId,
-        role: msg.role,
-        parts: msg.parts,
-        ...(msg.metadata
-          ? {
-              metadata: {
-                ...msg.metadata,
-                usage: undefined,
-              },
-            }
-          : {}),
-      }),
-    );
-
-    // Skip the per-row insert path and use bulk insertMessages for
-    // a single round trip. (insertMessages lets Drizzle assign
-    // createdAt via the column default.)
-    await pgChatRepository.insertMessages(clonedMessages);
-
-    return createdThread;
+      const clonedMessages: Omit<ChatMessage, "createdAt">[] =
+        sourceMessages.map((msg) => ({
+          id: randomUUID(),
+          threadId: newThreadId,
+          orgId: sourceThread.orgId,
+          role: msg.role,
+          parts: msg.parts,
+          ...(msg.metadata
+            ? {
+                metadata: {
+                  ...msg.metadata,
+                  usage: undefined,
+                },
+              }
+            : {}),
+        }));
+      if (clonedMessages.length > 0) {
+        await tx.insert(ChatMessageTable).values(clonedMessages);
+      }
+      return createdThread;
+    });
   },
-
   updateThreadInsights: async (
     threadId,
     userId,

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { tool } from "ai";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
@@ -25,6 +25,8 @@ const queryTerms = (query: string) =>
     0,
     12,
   );
+
+const escapeLikeTerm = (term: string) => term.replace(/[\\%_]/gu, "\\$&");
 
 const normalizeEntity = (value: string) =>
   value.trim().replace(/\s+/g, " ").toLowerCase();
@@ -108,6 +110,7 @@ export function createProjectKnowledgeGraphTool(args: {
               ProjectBrainEventTable.runId,
               ProjectBrainEventTable.projectId,
               ProjectBrainEventTable.sourceItemId,
+              ProjectBrainEventTable.chatSourceId,
             ),
             eq(ProjectBrainEventTable.status, "accepted"),
             inArray(CollectionItemTable.collectionId, collectionIds),
@@ -125,6 +128,7 @@ export function createProjectKnowledgeGraphTool(args: {
           (event) =>
             event.eventStatus === "accepted" &&
             event.sourceStatus === "ready" &&
+            Boolean(event.sourceItemId) &&
             collectionIds.includes(event.sourceCollectionId) &&
             ownerIds.includes(event.sourceOwnerId),
         )
@@ -137,7 +141,7 @@ export function createProjectKnowledgeGraphTool(args: {
           source:
             event.filename ||
             event.sourceUrl ||
-            `Source ${event.sourceItemId.slice(0, 8)}`,
+            `Source ${(event.sourceItemId ?? "").slice(0, 8)}`,
         }));
 
       const baseSelect = () =>
@@ -167,6 +171,33 @@ export function createProjectKnowledgeGraphTool(args: {
             CollectionTable,
             eq(CollectionTable.id, CollectionItemTable.collectionId),
           );
+      // Search in Postgres before applying the result cap. The previous
+      // implementation loaded the newest 500 accepted facts for the project
+      // and then searched that in memory, which made older but relevant facts
+      // unreachable once a project accumulated enough history. Terms are
+      // parameterized and bounded by queryTerms; wildcard characters are
+      // escaped so user input cannot widen the LIKE pattern.
+      const searchFields = [
+        ProjectBrainFactTable.subject,
+        ProjectBrainFactTable.predicate,
+        ProjectBrainFactTable.object,
+        ProjectBrainFactTable.evidence,
+      ] as const;
+      const termMatches = terms.flatMap((term) => {
+        const pattern = `%${escapeLikeTerm(term)}%`;
+        return searchFields.map((field) => ilike(field, pattern));
+      });
+      const scoreExpression = sql<number>`(${sql.join(
+        terms.map((term) => {
+          const pattern = `%${escapeLikeTerm(term)}%`;
+          const matchingField = sql.join(
+            searchFields.map((field) => sql`${field} ILIKE ${pattern}`),
+            sql` OR `,
+          );
+          return sql`CASE WHEN (${matchingField}) THEN 1 ELSE 0 END`;
+        }),
+        sql` + `,
+      )})`;
       const rows = await baseSelect()
         .where(
           and(
@@ -175,15 +206,17 @@ export function createProjectKnowledgeGraphTool(args: {
               ProjectBrainFactTable.runId,
               ProjectBrainFactTable.projectId,
               ProjectBrainFactTable.sourceItemId,
+              ProjectBrainFactTable.chatSourceId,
             ),
             eq(ProjectBrainFactTable.reviewStatus, "accepted"),
             inArray(CollectionItemTable.collectionId, collectionIds),
             inArray(CollectionTable.userId, ownerIds),
             eq(CollectionItemTable.status, "ready"),
+            sql`(${sql.join(termMatches, sql` OR `)})`,
           ),
         )
-        .orderBy(desc(ProjectBrainFactTable.createdAt))
-        .limit(500);
+        .orderBy(desc(scoreExpression), desc(ProjectBrainFactTable.createdAt))
+        .limit(300);
 
       const currentRows = rows.filter(
         (fact) =>
@@ -224,6 +257,7 @@ export function createProjectKnowledgeGraphTool(args: {
                 ProjectBrainFactTable.runId,
                 ProjectBrainFactTable.projectId,
                 ProjectBrainFactTable.sourceItemId,
+                ProjectBrainFactTable.chatSourceId,
               ),
               eq(ProjectBrainFactTable.reviewStatus, "accepted"),
               inArray(CollectionItemTable.collectionId, collectionIds),
@@ -299,8 +333,10 @@ export function createProjectKnowledgeGraphTool(args: {
             evidence,
             confidence,
             source:
-              filename || sourceUrl || `Source ${sourceItemId.slice(0, 8)}`,
-            sourceItemId,
+              filename ||
+              sourceUrl ||
+              `Source ${(sourceItemId ?? "").slice(0, 8)}`,
+            sourceItemId: sourceItemId ?? "",
             matchedBy: directFactIds.has(id) ? "text" : "entity-or-alias",
           }),
         );

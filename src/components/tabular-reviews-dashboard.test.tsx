@@ -89,6 +89,7 @@ describe("TabularReviewsDashboard custom fields", () => {
         id: string;
         label: string;
         type: string;
+        preset?: string;
         prompt: string;
       }>;
     };
@@ -96,8 +97,39 @@ describe("TabularReviewsDashboard custom fields", () => {
       id: "penalty",
       label: "Penalties & remedies",
       type: "text",
+      preset: "penalty",
       prompt:
-        "Describe any penalty clauses, liquidated damages, indemnification provisions, or breach remedies stated in this document.",
+        "Describe any penalty clauses, liquidated damages, indemnification provisions, or breach remedies.",
+    });
+  });
+
+  test("uses the upstream key-date list preset with explicit date formatting", async () => {
+    render(<TabularReviewsDashboard />);
+
+    fireEvent.click(await screen.findByLabelText(/lease\.pdf/));
+    fireEvent.click(screen.getByRole("button", { name: "Create comparison" }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/tabular-reviews/review-1"),
+    );
+    const post = vi
+      .mocked(fetch)
+      .mock.calls.find(([, init]) => init?.method === "POST");
+    const payload = JSON.parse(String(post?.[1]?.body)) as {
+      columns: Array<{
+        id: string;
+        type: string;
+        preset?: string;
+        prompt: string;
+      }>;
+    };
+    expect(payload.columns).toContainEqual({
+      id: "key_dates",
+      label: "Key dates",
+      type: "list",
+      preset: "key_dates",
+      prompt:
+        "List all important dates mentioned in this document (effective date, expiry, deadlines, etc.). Format each as 'YYYY-MM-DD: description'.",
     });
   });
 

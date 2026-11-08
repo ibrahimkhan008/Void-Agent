@@ -3,6 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
+  CollectionTable,
   DocumentTable,
   TabularReviewCellTable,
   TabularReviewItemTable,
@@ -10,6 +11,9 @@ import {
   TabularReviewTable,
 } from "lib/db/pg/schema.pg";
 import { hasSameOrigin } from "lib/security/same-origin";
+import type { ReviewColumn } from "lib/tabular/review-schema";
+import { TABULAR_REVIEW_MAX_SOURCE_CHARS } from "lib/tabular/review-schema";
+import { resolvePinnedReviewCitationEvidence } from "lib/tabular/review-source";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +58,24 @@ export async function GET(
       .select({
         itemId: TabularReviewSourceDocumentTable.itemId,
         documentId: TabularReviewSourceDocumentTable.documentId,
+        position: TabularReviewSourceDocumentTable.position,
+        content: DocumentTable.content,
         createdAt: DocumentTable.createdAt,
+        sourceOwnerId: CollectionTable.userId,
+        sourceStatus: CollectionItemTable.status,
       })
       .from(TabularReviewSourceDocumentTable)
       .leftJoin(
         DocumentTable,
         eq(DocumentTable.id, TabularReviewSourceDocumentTable.documentId),
+      )
+      .leftJoin(
+        CollectionItemTable,
+        eq(CollectionItemTable.id, TabularReviewSourceDocumentTable.itemId),
+      )
+      .leftJoin(
+        CollectionTable,
+        eq(CollectionTable.id, CollectionItemTable.collectionId),
       )
       .where(eq(TabularReviewSourceDocumentTable.reviewId, id)),
   ]);
@@ -81,6 +97,42 @@ export async function GET(
     }
     sourceSummary.set(page.itemId, current);
   }
+  const pagesByItem = new Map<
+    string,
+    Array<{
+      documentId: string | null;
+      position: number;
+      content: string | null;
+    }>
+  >();
+  for (const page of sourcePages) {
+    const pages = pagesByItem.get(page.itemId) ?? [];
+    const callerStillOwnsReadySource =
+      page.sourceOwnerId === session.user.id && page.sourceStatus === "ready";
+    pages.push({
+      documentId: callerStillOwnsReadySource ? page.documentId : null,
+      position: page.position,
+      content: callerStillOwnsReadySource ? page.content : null,
+    });
+    pagesByItem.set(page.itemId, pages);
+  }
+  const citationColumnIds = new Set(
+    (review.columns as ReviewColumn[])
+      .filter((column) => column.type === "citation")
+      .map((column) => column.id),
+  );
+  const cellsWithCitationEvidence = cells.map((cell) => ({
+    ...cell,
+    ...(citationColumnIds.has(cell.columnId) && cell.value
+      ? {
+          citationEvidence: resolvePinnedReviewCitationEvidence(
+            cell.value,
+            pagesByItem.get(cell.itemId) ?? [],
+            TABULAR_REVIEW_MAX_SOURCE_CHARS,
+          ),
+        }
+      : {}),
+  }));
   return Response.json({
     review,
     items: items.map((item) => {
@@ -92,7 +144,7 @@ export async function GET(
         latestSourceCreatedAt: summary?.latestAt?.toISOString() ?? null,
       };
     }),
-    cells,
+    cells: cellsWithCitationEvidence,
   });
 }
 

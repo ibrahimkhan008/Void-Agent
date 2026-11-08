@@ -1,5 +1,5 @@
 import { getSession } from "auth/server";
-import { publishedPageRepository } from "lib/db/repository";
+import { publishedPageRepository, teamRepository } from "lib/db/repository";
 import { readBoundedRequestBody } from "lib/http/bounded-request-body";
 import {
   PublishedPageQuotaError,
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   if (!hasSameOrigin(request))
     return Response.json({ error: "Forbidden" }, { status: 403 });
-  const session = await getSession();
+  const session = await getSession({ disableCookieCache: true });
   const userId = session?.user?.id;
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -57,6 +57,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Page is too large" }, { status: 413 });
   }
 
+  const activeTeamId = session.session.activeTeamId ?? null;
+  if (
+    activeTeamId &&
+    !(await teamRepository.getTeamMember(activeTeamId, userId))
+  ) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   let slug: string;
   if (parsed.data.slug) {
     if (!isValidPageSlug(parsed.data.slug))
@@ -87,9 +95,7 @@ export async function POST(request: Request) {
       title: parsed.data.title,
       html: parsed.data.html,
       ownerId: userId,
-      organizationId: (
-        session.session as { activeOrganizationId?: string | null } | undefined
-      )?.activeOrganizationId,
+      organizationId: activeTeamId,
     });
     return Response.json(
       { ...published, url: `/p/${published.slug}` },

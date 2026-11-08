@@ -1,13 +1,14 @@
 "use client";
 
 import { type UIMessage, isToolUIPart } from "ai";
+import { getActionableChatErrorMessage } from "lib/chat/error-display";
 import equal from "lib/equal";
-import { memo, useMemo } from "react";
+import React, { memo, useMemo } from "react";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ChatMetadata } from "app-types/chat";
 import { cn } from "lib/utils";
-import { TriangleAlertIcon } from "lucide-react";
+import { Loader2, RotateCcw, TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   AssistMessagePart,
@@ -205,14 +206,16 @@ export const PreviewMessage = memo(
 
 export const ErrorMessage = ({
   error,
+  onRetry,
+  recovery,
 }: {
   error: Error;
+  onRetry?: () => void;
+  recovery?: "checking" | "running";
   message?: UIMessage;
 }) => {
   const t = useTranslations();
-
-  // Log actual error for debugging (server-side only visible in logs)
-  console.error("Chat error:", error);
+  const displayMessage = getActionableChatErrorMessage(error);
 
   return (
     <div className="w-full mx-auto max-w-3xl px-6 animate-in fade-in mt-4">
@@ -225,12 +228,30 @@ export const ErrorMessage = ({
             <div className="flex-1">
               <p className="font-medium text-sm mb-2">{t("Chat.Error")}</p>
               <div className="text-sm text-muted-foreground">
-                <div className="whitespace-pre-wrap">
-                  We are having some issues right now. Please try again later.
-                </div>
-                <p className="text-xs text-muted-foreground mt-3 italic">
-                  {t("Chat.thisMessageWasNotSavedPleaseTryTheChatAgain")}
-                </p>
+                <div className="whitespace-pre-wrap">{displayMessage}</div>
+                {recovery && (
+                  <p role="status" className="mt-2 flex items-center gap-2">
+                    <Loader2 className="size-3.5 animate-spin" />
+                    {recovery === "checking"
+                      ? "Checking for a saved response…"
+                      : "The response is still running…"}
+                  </p>
+                )}
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    disabled={recovery !== undefined}
+                    className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {recovery ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="size-3.5" />
+                    )}
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
           </div>

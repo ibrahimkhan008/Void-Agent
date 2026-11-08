@@ -15,7 +15,16 @@ export async function extractPdfPreview(
     Math.min(options.maxPages ?? MAX_PDF_PREVIEW_PAGES, MAX_PDF_PREVIEW_PAGES),
   );
   const maxChars = Math.max(1, options.maxChars);
-  const pdf = await getDocumentProxy(data);
+  const pdf = await getDocumentProxy(data, {
+    // Text previews never need embedded images, automatic range fetching,
+    // XFA, font-face installation, or evaluated PDF JavaScript.
+    disableAutoFetch: true,
+    disableFontFace: true,
+    enableXfa: false,
+    isEvalSupported: false,
+    maxImageSize: 2_000_000,
+    stopAtErrors: true,
+  });
   const pages: string[] = [];
   let remaining = maxChars;
   let truncated = false;

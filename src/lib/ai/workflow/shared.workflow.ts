@@ -1,19 +1,19 @@
+import { Edge } from "@xyflow/react";
+import { UIMessage } from "ai";
 import {
   ObjectJsonSchema7,
   TipTapMentionJsonContent,
   TipTapMentionJsonContentPart,
 } from "app-types/util";
+import { DBEdge, DBNode } from "app-types/workflow";
 import { JSONSchema7 } from "json-schema";
+import { exclude, isString } from "lib/utils";
+import { GraphEvent } from "ts-edge";
 import {
-  UINode,
   OutputSchemaSourceKey,
+  UINode,
   WorkflowNodeData,
 } from "./workflow.interface";
-import { exclude, isString } from "lib/utils";
-import { DBEdge, DBNode } from "app-types/workflow";
-import { Edge } from "@xyflow/react";
-import { GraphEvent } from "ts-edge";
-import { UIMessage } from "ai";
 
 export const defaultObjectJsonSchema: ObjectJsonSchema7 = {
   type: "object",
@@ -219,25 +219,42 @@ export function convertTiptapJsonToText({
           : String(mentionItem);
       return value;
     });
-  return (
-    json.content
-      ?.flatMap((p) => p.content)
-      .filter(Boolean)
-      .reduce((prev, part) => {
-        let data = "";
-        if (!part) return prev;
-        if (part.type === "text") {
-          data += ` ${part.text}`;
-        } else if (part.type === "mention") {
-          data += parser(part);
-        } else if (part.type === "hardBreak") {
-          data += "\n\n";
+  type ContentNode = {
+    type?: string;
+    text?: string;
+    attrs?: { id?: string; label?: string };
+    content?: ContentNode[];
+  };
+  const processContent = (content: ContentNode[]): string =>
+    content
+      .map((node) => {
+        if (node.type === "text") return ` ${node.text ?? ""}`;
+        if (node.type === "mention") {
+          return parser(
+            node as Extract<TipTapMentionJsonContentPart, { type: "mention" }>,
+          );
         }
+        if (node.type === "hardBreak") return "\n\n";
+        if (node.type === "bulletList") {
+          return (
+            (node.content ?? [])
+              .map(
+                (listItem) =>
+                  `\n• ${processContent(listItem.content ?? []).trim()}`,
+              )
+              .join("") + "\n"
+          );
+        }
+        if (node.type === "listItem" || node.content) {
+          return processContent(node.content ?? []);
+        }
+        return "";
+      })
+      .join("");
 
-        return prev + data;
-      }, "")
-      .trim() || ""
-  );
+  return processContent((json.content ?? []) as ContentNode[])
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .trim();
 }
 
 export function convertTiptapJsonToAiMessage({

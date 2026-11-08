@@ -50,6 +50,7 @@ beforeEach(() => {
         status: "accepted",
         createdAt: new Date("2026-10-21T00:00:00Z"),
         sourceItemId: "source-1",
+        sourceVersionId: "version-1",
         filename: "plan.md",
         collectionId,
       },
@@ -90,6 +91,7 @@ describe("GET project brain timeline", () => {
       expect.objectContaining({
         status: "accepted",
         evidence: "The team met on 2026-10-20.",
+        sourceVersionId: "version-1",
       }),
     ]);
     const query = new PgDialect().sqlToQuery(mocks.predicates[0] as never);

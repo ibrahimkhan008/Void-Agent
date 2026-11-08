@@ -4,6 +4,7 @@ import { pgDb } from "lib/db/pg/db.pg";
 import {
   CollectionItemTable,
   CollectionTable,
+  ProjectBrainRunTable,
   ProjectBrainSourceVersionTable,
 } from "lib/db/pg/schema.pg";
 import {
@@ -11,6 +12,7 @@ import {
   getProjectCollectionSourceOwnerIds,
 } from "lib/projects/access";
 import { projectBrainSourceFingerprint } from "lib/projects/brain-schema";
+import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { z } from "zod";
 
@@ -61,6 +63,13 @@ export async function GET(
         CollectionTable,
         eq(CollectionTable.id, CollectionItemTable.collectionId),
       )
+      .innerJoin(
+        ProjectBrainRunTable,
+        eq(
+          ProjectBrainRunTable.sourceVersionId,
+          ProjectBrainSourceVersionTable.id,
+        ),
+      )
       .where(
         and(
           eq(ProjectBrainSourceVersionTable.id, versionId),
@@ -68,10 +77,16 @@ export async function GET(
           inArray(CollectionItemTable.collectionId, collectionIds),
           inArray(CollectionTable.userId, ownerIds),
           eq(CollectionItemTable.status, "ready"),
+          projectBrainRunIsActiveSourceRevision(
+            ProjectBrainRunTable.id,
+            ProjectBrainRunTable.projectId,
+            ProjectBrainRunTable.sourceItemId,
+            ProjectBrainRunTable.chatSourceId,
+          ),
         ),
       )
       .limit(1);
-    if (!revision?.content)
+    if (!revision?.content || !revision.sourceItemId)
       return new Response("Source revision not found", { status: 404 });
     if (
       revision.content.length > 60_000 ||

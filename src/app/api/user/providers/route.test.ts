@@ -72,6 +72,7 @@ describe("user model providers API", () => {
       name: input.name,
       baseUrl: input.baseUrl,
       modelIds: input.modelIds,
+      capabilities: input.capabilities,
       hasApiKey: true,
     }));
     mocks.remove.mockResolvedValue(true);
@@ -79,12 +80,24 @@ describe("user model providers API", () => {
 
   it("returns only the authenticated owner's sanitized provider records", async () => {
     mocks.list.mockResolvedValue([
-      { id: "owned", hasApiKey: true, modelIds: ["a"] },
+      {
+        id: "owned",
+        hasApiKey: true,
+        modelIds: ["a"],
+        capabilities: { a: { supportsToolCalling: false } },
+      },
     ]);
     const response = await GET(request("GET"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      providers: [{ id: "owned", hasApiKey: true, modelIds: ["a"] }],
+      providers: [
+        {
+          id: "owned",
+          hasApiKey: true,
+          modelIds: ["a"],
+          capabilities: { a: { supportsToolCalling: false } },
+        },
+      ],
     });
     expect(mocks.list).toHaveBeenCalledWith("owner-a");
   });
@@ -120,10 +133,43 @@ describe("user model providers API", () => {
     );
   });
 
+  it("accepts tool calling only for IDs rediscovered from the saved endpoint", async () => {
+    const response = await POST(
+      request("POST", {
+        name: "Personal gateway",
+        baseUrl: "https://provider.example/v1",
+        capabilities: { "model-a": { supportsToolCalling: true } },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelIds: ["model-a", "model-b"],
+        capabilities: {
+          "model-a": { supportsToolCalling: true },
+          "model-b": { supportsToolCalling: false },
+        },
+      }),
+    );
+  });
+
+  it("rejects tool capability claims for stale model IDs", async () => {
+    const response = await POST(
+      request("POST", {
+        name: "Personal gateway",
+        baseUrl: "https://provider.example/v1",
+        capabilities: { "stale-model": { supportsToolCalling: true } },
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("updates only an owned provider and reuses its key when the form leaves it blank", async () => {
     const id = "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658";
     mocks.get.mockResolvedValueOnce({
       id,
+      baseUrl: "https://provider.example/v1",
       apiKey: "previous-secret",
       modelIds: ["old-model"],
     });
@@ -131,7 +177,7 @@ describe("user model providers API", () => {
       request("POST", {
         id,
         name: "Renamed gateway",
-        baseUrl: "https://provider.example/v1",
+        baseUrl: "https://provider.example/v1/",
       }),
     );
     expect(response.status).toBe(200);
@@ -148,6 +194,112 @@ describe("user model providers API", () => {
     );
     expect(mocks.save).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "owner-a", id, apiKey: undefined }),
+    );
+  });
+
+  it("rejects an endpoint change without sending the saved key", async () => {
+    const id = "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658";
+    mocks.get.mockResolvedValueOnce({
+      id,
+      baseUrl: "https://provider.example/v1",
+      apiKey: "previous-secret",
+      modelIds: ["old-model"],
+    });
+
+    const response = await POST(
+      request("POST", {
+        id,
+        name: "Renamed gateway",
+        baseUrl: "https://other-provider.example/v1",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body).toEqual({
+      error: "Enter an API key before changing the provider endpoint",
+    });
+    expect(JSON.stringify(body)).not.toContain("previous-secret");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("clears tool declarations when the endpoint changes, even if model IDs match", async () => {
+    const id = "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658";
+    mocks.get.mockResolvedValueOnce({
+      id,
+      baseUrl: "https://old-provider.example/v1",
+      apiKey: "previous-secret",
+      modelIds: ["model-a", "model-b"],
+    });
+
+    const response = await POST(
+      request("POST", {
+        id,
+        name: "Replacement gateway",
+        baseUrl: "https://new-provider.example/v1",
+        apiKey: "new-secret",
+        capabilities: { "model-a": { supportsToolCalling: true } },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ capabilitiesReset: true });
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id,
+        capabilities: {
+          "model-a": { supportsToolCalling: false },
+          "model-b": { supportsToolCalling: false },
+        },
+      }),
+    );
+  });
+
+  it("uses only a replacement key when the endpoint changes", async () => {
+    const id = "9a9b17b2-a413-42cc-a50a-a6e9dfd5f658";
+    mocks.get.mockResolvedValueOnce({
+      id,
+      baseUrl: "https://provider.example/v1",
+      apiKey: "previous-secret",
+      modelIds: ["old-model"],
+    });
+
+    const response = await POST(
+      request("POST", {
+        id,
+        name: "Updated gateway",
+        baseUrl: "https://other-provider.example/v1",
+        apiKey: "replacement-secret",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      "https://other-provider.example/v1/models",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Bearer replacement-secret",
+          "api-key": "replacement-secret",
+        },
+      }),
+      64 * 1024,
+      15_000,
+    );
+    expect(mocks.fetch.mock.calls[0]?.[1]).not.toMatchObject({
+      headers: expect.objectContaining({
+        Authorization: expect.stringContaining("previous-secret"),
+      }),
+    });
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "owner-a",
+        id,
+        apiKey: "replacement-secret",
+      }),
+    );
+    expect(JSON.stringify(await response.json())).not.toContain(
+      "replacement-secret",
     );
   });
 

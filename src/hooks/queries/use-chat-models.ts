@@ -1,4 +1,5 @@
 import { appStore } from "@/app/store";
+import type { ModelDisplayMetadata } from "lib/ai/model-display-metadata";
 import { fetcher } from "lib/utils";
 import useSWR, { SWRConfiguration } from "swr";
 
@@ -14,6 +15,7 @@ export const useChatModels = (options?: SWRConfiguration) => {
         isImageInputUnsupported: boolean;
         isBlackboxModel: boolean;
         supportedFileMimeTypes: string[];
+        displayMetadata?: ModelDisplayMetadata;
       }[];
     }[]
   >("/api/chat/models", fetcher, {

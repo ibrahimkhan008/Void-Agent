@@ -14,6 +14,7 @@ import {
   Plus,
   Share2,
   Trash2,
+  X,
   WandSparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -36,6 +37,11 @@ import { Label } from "ui/label";
 import { Skeleton } from "ui/skeleton";
 import { Textarea } from "ui/textarea";
 import { McpServerCustomizationContent } from "./mcp-customization-popup";
+import {
+  SkillsSearchDialog,
+  type SkillImportDraft,
+} from "./skills-search-dialog";
+import { Checkbox } from "ui/checkbox";
 
 export function UserInstructionsContent() {
   const t = useTranslations();
@@ -350,10 +356,39 @@ export function ExportsManagementContent() {
     }
   };
 
-  const handleCopyLink = (exportId: string) => {
-    const link = `${window.location.origin}/export/${exportId}`;
-    navigator.clipboard.writeText(link);
-    toast.success(t("Chat.ChatPreferences.linkCopied"));
+  const handleCopyLink = async (exportId: string) => {
+    try {
+      const response = await fetch(`/api/export/${exportId}/share`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Could not create share link");
+      const { token } = (await response.json()) as { token?: string };
+      if (!token) throw new Error("Could not create share link");
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/export/${token}`,
+      );
+      toast.success(t("Chat.ChatPreferences.linkCopied"));
+      refetchExports();
+    } catch {
+      toast.error("Could not create or copy the share link");
+    }
+  };
+
+  const handleRevokeLink = async (exportId: string) => {
+    const answer = await notify.confirm({
+      description: "Anyone with this link will lose access to the shared chat.",
+    });
+    if (!answer) return;
+    try {
+      const response = await fetch(`/api/export/${exportId}/share`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Could not revoke share link");
+      toast.success("Share link revoked");
+      refetchExports();
+    } catch {
+      toast.error("Could not revoke the share link");
+    }
   };
 
   return (
@@ -386,9 +421,11 @@ export function ExportsManagementContent() {
               <div
                 key={exportItem.id}
                 onClick={() => {
-                  window.open(`/export/${exportItem.id}`, "_blank");
+                  if (exportItem.legacyShareEnabled) {
+                    window.open(`/export/${exportItem.id}`, "_blank");
+                  }
                 }}
-                className="border rounded-lg p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                className={`border rounded-lg p-4 hover:bg-accent/50 transition-colors ${exportItem.legacyShareEnabled ? "cursor-pointer" : ""}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -439,6 +476,21 @@ export function ExportsManagementContent() {
                       <LinkIcon className="size-4" />
                     </Button>
 
+                    {exportItem.hasActiveShare && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRevokeLink(exportItem.id);
+                        }}
+                        title="Revoke share link"
+                      >
+                        <X className="size-4 hover:text-destructive" />
+                      </Button>
+                    )}
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -472,6 +524,11 @@ type SkillItem = {
   name: string;
   markdown: string;
   description?: string;
+  source?: string;
+  slug?: string;
+  license?: string;
+  licenseNotice?: string;
+  sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -485,6 +542,14 @@ type GenerateSkillResponse = {
   description?: string;
   markdown: string;
 };
+
+const skillRepositoryHref = (source?: string) =>
+  source &&
+  /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(
+    source,
+  )
+    ? `https://github.com/${source}`
+    : null;
 
 export function SkillsContent() {
   const {
@@ -504,12 +569,18 @@ export function SkillsContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isRegistryOpen, setIsRegistryOpen] = useState(false);
+  const [importDraft, setImportDraft] = useState<SkillImportDraft | null>(null);
+  const [confirmImportedInstructions, setConfirmImportedInstructions] =
+    useState(false);
 
   const resetEditor = () => {
     setName("");
     setDescription("");
     setMarkdown("");
     setEditingSkillId(null);
+    setImportDraft(null);
+    setConfirmImportedInstructions(false);
   };
 
   const openNewSkillEditor = () => {
@@ -519,6 +590,8 @@ export function SkillsContent() {
       "## Goal\n\n## When to use\n\n## Instructions\n\n## Constraints\n\n## Output format\n",
     );
     setEditingSkillId("new");
+    setImportDraft(null);
+    setConfirmImportedInstructions(false);
   };
 
   const openExistingSkillEditor = (skill: SkillItem) => {
@@ -526,6 +599,34 @@ export function SkillsContent() {
     setDescription(skill.description ?? "");
     setMarkdown(skill.markdown);
     setEditingSkillId(skill.id);
+    setImportDraft(
+      skill.source && skill.slug && skill.license
+        ? {
+            name: skill.name,
+            description: skill.description,
+            markdown: skill.markdown,
+            source: skill.source,
+            slug: skill.slug,
+            license: skill.license,
+            licenseNotice: skill.licenseNotice ?? "",
+          }
+        : null,
+    );
+    setConfirmImportedInstructions(true);
+  };
+
+  const handleImportDraft = (draft: SkillImportDraft) => {
+    setName(
+      draft.name
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "")
+        .slice(0, 64),
+    );
+    setDescription(draft.description ?? "");
+    setMarkdown(draft.markdown);
+    setEditingSkillId("new");
+    setImportDraft(draft);
+    setConfirmImportedInstructions(false);
   };
 
   const handleGenerateSkill = async () => {
@@ -565,12 +666,27 @@ export function SkillsContent() {
   };
 
   const handleSaveSkill = async () => {
+    if (importDraft && !confirmImportedInstructions) {
+      toast.error(
+        "Review the imported instructions and confirm the license before saving.",
+      );
+      return;
+    }
     const payload = {
       id:
         editingSkillId && editingSkillId !== "new" ? editingSkillId : undefined,
       name,
       description,
       markdown,
+      ...(importDraft
+        ? {
+            source: importDraft.source,
+            slug: importDraft.slug,
+            license: importDraft.license,
+            licenseNotice: importDraft.licenseNotice,
+            importConfirmed: confirmImportedInstructions,
+          }
+        : {}),
     };
 
     setIsSaving(true);
@@ -667,11 +783,25 @@ export function SkillsContent() {
         <p className="text-sm text-muted-foreground">
           {skills.length} skill{skills.length === 1 ? "" : "s"}
         </p>
-        <Button variant="outline" onClick={openNewSkillEditor}>
-          <Plus className="size-4 mr-2" />
-          New skill
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsRegistryOpen(true)}>
+            Browse library
+          </Button>
+          <Button variant="outline" onClick={openNewSkillEditor}>
+            <Plus className="size-4 mr-2" />
+            New skill
+          </Button>
+        </div>
       </div>
+
+      <SkillsSearchDialog
+        open={isRegistryOpen}
+        onOpenChange={setIsRegistryOpen}
+        savedSources={skills.flatMap((skill) =>
+          skill.source && skill.slug ? [`${skill.source}/${skill.slug}`] : [],
+        )}
+        onImport={handleImportDraft}
+      />
 
       {isLoading ? (
         <div className="space-y-3 mb-6">
@@ -699,6 +829,23 @@ export function SkillsContent() {
                   {skill.description ? (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                       {skill.description}
+                    </p>
+                  ) : null}
+                  {skill.source && skill.license ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Imported under {skill.license} from{" "}
+                      {skillRepositoryHref(skill.source) ? (
+                        <a
+                          className="underline underline-offset-2"
+                          href={skillRepositoryHref(skill.source)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {skill.source}
+                        </a>
+                      ) : (
+                        skill.source
+                      )}
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground mt-1">
@@ -779,8 +926,59 @@ export function SkillsContent() {
             />
           </div>
 
+          {importDraft ? (
+            <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+              <p>
+                Imported from {importDraft.source} under {importDraft.license}.
+                Treat these instructions as untrusted and review them before
+                saving. They are not executed as code.
+                {skillRepositoryHref(importDraft.source) ? (
+                  <>
+                    {" "}
+                    Source:{" "}
+                    <a
+                      className="underline underline-offset-2"
+                      href={skillRepositoryHref(importDraft.source)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {skillRepositoryHref(importDraft.source)}
+                    </a>
+                    .
+                  </>
+                ) : null}
+              </p>
+              <details className="text-xs">
+                <summary className="cursor-pointer font-medium">
+                  License notice
+                </summary>
+                <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-background p-2">
+                  {importDraft.licenseNotice}
+                </pre>
+              </details>
+              <label className="flex cursor-pointer items-start gap-2">
+                <Checkbox
+                  checked={confirmImportedInstructions}
+                  onCheckedChange={(checked) =>
+                    setConfirmImportedInstructions(checked === true)
+                  }
+                  aria-label="Confirm reviewed skill license and instructions"
+                />
+                <span>
+                  I reviewed these instructions and confirm I can use them under
+                  this license.
+                </span>
+              </label>
+            </div>
+          ) : null}
+
           <div className="flex justify-end">
-            <Button onClick={handleSaveSkill} disabled={isSaving}>
+            <Button
+              onClick={handleSaveSkill}
+              disabled={
+                isSaving || Boolean(importDraft && !confirmImportedInstructions)
+              }
+            >
               {isSaving ? (
                 <Loader className="size-4 animate-spin mr-2" />
               ) : null}

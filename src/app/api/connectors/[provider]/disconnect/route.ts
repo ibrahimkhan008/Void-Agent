@@ -1,118 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "auth/server";
+import { and, eq } from "drizzle-orm";
+import {
+  type ConnectorProvider,
+  isConnectorProvider,
+} from "lib/connectors/providers-list";
+import { revokeConnectorToken } from "lib/connectors/refresh";
 import { pgDb as db } from "lib/db/pg/db.pg";
 import { UserConnectorTable } from "lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
-import { getSession } from "auth/server";
-import { revokeConnectorToken } from "lib/connectors/refresh";
-
-type ProviderType =
-  | "gmail"
-  | "google-drive"
-  | "google-calendar"
-  | "google-docs"
-  | "google-forms"
-  | "google-keep"
-  | "google-meet"
-  | "google-sheets"
-  | "google-slides"
-  | "google-tasks"
-  | "youtube"
-  | "outlook"
-  | "slack"
-  | "notion"
-  | "github"
-  | "confluence"
-  | "jira"
-  | "linear"
-  | "asana"
-  | "clickup"
-  | "productboard"
-  | "testrail"
-  | "coda"
-  | "outline"
-  | "slab"
-  | "guru"
-  | "highspot"
-  | "document360"
-  | "gitlab"
-  | "bitbucket"
-  | "dropbox"
-  | "zendesk"
-  | "freshdesk"
-  | "salesforce"
-  | "hubspot"
-  | "airtable"
-  | "gong"
-  | "egnyte"
-  | "teams"
-  | "discord"
-  | "bookstack"
-  | "gitbook"
-  | "canvas"
-  | "loopio"
-  | "discourse"
-  | "xenforo"
-  | "drupal-wiki"
-  | "axero"
-  | "zulip"
-  | "mediawiki"
-  | "fireflies"
-  | "wikipedia";
-
-const SUPPORTED: ReadonlySet<ProviderType> = new Set([
-  "gmail",
-  "google-drive",
-  "google-calendar",
-  "google-docs",
-  "google-forms",
-  "google-keep",
-  "google-meet",
-  "google-sheets",
-  "google-slides",
-  "google-tasks",
-  "youtube",
-  "outlook",
-  "slack",
-  "notion",
-  "github",
-  "confluence",
-  "jira",
-  "linear",
-  "asana",
-  "clickup",
-  "productboard",
-  "testrail",
-  "coda",
-  "outline",
-  "slab",
-  "guru",
-  "highspot",
-  "document360",
-  "gitlab",
-  "bitbucket",
-  "dropbox",
-  "zendesk",
-  "freshdesk",
-  "salesforce",
-  "hubspot",
-  "airtable",
-  "gong",
-  "egnyte",
-  "teams",
-  "discord",
-  "bookstack",
-  "gitbook",
-  "canvas",
-  "loopio",
-  "discourse",
-  "xenforo",
-  "drupal-wiki",
-  "axero",
-  "zulip",
-  "mediawiki",
-  "fireflies",
-  "wikipedia",
-]);
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   _request: NextRequest,
@@ -125,13 +20,13 @@ export async function POST(
     }
 
     const { provider } = await params;
-    if (!SUPPORTED.has(provider as ProviderType)) {
+    if (!isConnectorProvider(provider)) {
       return NextResponse.json(
         { error: `Unknown provider: ${provider}` },
         { status: 400 },
       );
     }
-    const providerTyped = provider as ProviderType;
+    const providerTyped: ConnectorProvider = provider;
 
     // Get the connector to revoke the token
     const connector = await db

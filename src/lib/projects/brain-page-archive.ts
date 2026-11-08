@@ -80,6 +80,7 @@ function currentIdentityPageFact(pageId: SQLWrapper, scope: PageScope) {
             ProjectBrainFactTable.runId,
             ProjectBrainFactTable.projectId,
             ProjectBrainFactTable.sourceItemId,
+            ProjectBrainFactTable.chatSourceId,
           ),
           inArray(CollectionItemTable.collectionId, scope.collectionIds),
           inArray(CollectionTable.userId, scope.ownerIds),

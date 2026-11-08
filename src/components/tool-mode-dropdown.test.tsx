@@ -1,30 +1,44 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const store = vi.hoisted(() => ({
-  state: { toolChoice: "auto" as string },
+  state: { toolChoice: "auto" as string, planMode: false },
   mutate: vi.fn(),
 }));
 
 vi.mock("@/app/store", () => ({
-  appStore: (selector: (state: { toolChoice: string; mutate: typeof store.mutate }) => unknown) =>
+  appStore: (
+    selector: (state: {
+      toolChoice: string;
+      planMode: boolean;
+      mutate: typeof store.mutate;
+    }) => unknown,
+  ) =>
     selector({
       toolChoice: store.state.toolChoice,
+      planMode: store.state.planMode,
       mutate: store.mutate,
     }),
 }));
-vi.mock("zustand/shallow", () => ({ useShallow: (selector: unknown) => selector }));
+vi.mock("zustand/shallow", () => ({
+  useShallow: (selector: unknown) => selector,
+}));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 vi.mock("ui/button", () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) =>
+  Button: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) =>
     React.createElement("button", props, children),
 }));
 vi.mock("ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => children,
-  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => children,
-  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => children,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) =>
+    children,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) =>
+    children,
 }));
 vi.mock("ui/tooltip", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => children,
@@ -40,6 +54,7 @@ vi.mock("lucide-react", () => ({
   Code2: () => null,
   PenOff: () => null,
   Settings2: () => null,
+  ListTodo: () => null,
 }));
 
 import { ToolModeDropdown } from "./tool-mode-dropdown";
@@ -47,11 +62,16 @@ import { ToolModeDropdown } from "./tool-mode-dropdown";
 describe("ToolModeDropdown keyboard shortcut", () => {
   beforeEach(() => {
     store.state.toolChoice = "auto";
+    store.state.planMode = false;
     store.mutate.mockReset();
     store.mutate.mockImplementation((update: unknown) => {
       const next =
         typeof update === "function"
-          ? (update as (state: typeof store.state) => Partial<typeof store.state>)(store.state)
+          ? (
+              update as (
+                state: typeof store.state,
+              ) => Partial<typeof store.state>
+            )(store.state)
           : (update as Partial<typeof store.state>);
       store.state = { ...store.state, ...next };
     });
@@ -86,5 +106,16 @@ describe("ToolModeDropdown keyboard shortcut", () => {
     expect(event.defaultPrevented).toBe(false);
     expect(store.mutate).not.toHaveBeenCalled();
     expect(store.state.toolChoice).toBe("auto");
+  });
+
+  it("toggles explicit plan-only mode without changing tool choice", () => {
+    render(<ToolModeDropdown />);
+    const planButton = screen.getByRole("button", { name: "Plan only" });
+
+    fireEvent.click(planButton);
+    expect(store.state.planMode).toBe(true);
+    expect(store.state.toolChoice).toBe("auto");
+    fireEvent.click(planButton);
+    expect(store.state.planMode).toBe(false);
   });
 });

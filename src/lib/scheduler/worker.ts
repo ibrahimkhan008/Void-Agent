@@ -13,6 +13,10 @@ import {
 import { processProjectBrainQueue } from "lib/projects/brain-queue";
 import logger from "logger";
 
+import {
+  type ScheduledChatOutcome,
+  inspectScheduledChatResponse,
+} from "./chat-response";
 import { computeNextRun } from "./cron-parser";
 import { acquireLeaderLock, releaseLeaderLock } from "./leader";
 
@@ -43,6 +47,7 @@ const LEADER_TTL_MS = 50_000;
 const CLAIM_BATCH = 10;
 const CLAIM_LEASE_MS = 3 * 60_000;
 const CLAIM_HEARTBEAT_MS = 60_000;
+const SCHEDULED_CHAT_TIMEOUT_MS = 5 * 60_000;
 
 const getOwnerTag = (): string => {
   return `pid-${process.pid}-${Date.now()}`;
@@ -247,6 +252,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
         : await schedulerRepository.createScheduledRun(job.id);
       let runStatus: "completed" | "failed" = "failed";
       let runError: string | undefined;
+      let requestTimedOut = false;
 
       try {
         const chatModel = await chatRepository.selectLatestChatModelByUserId(
@@ -258,21 +264,39 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
           triggerMessage,
           chatModel,
         });
-        const response = await fetch(chatUrl, {
-          method: "POST",
-          headers: buildChatHeaders(job.userId),
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "");
+        const abortController = new AbortController();
+        const deadline = Date.now() + SCHEDULED_CHAT_TIMEOUT_MS;
+        const timeoutId = setTimeout(() => {
+          requestTimedOut = true;
+          abortController.abort();
+        }, SCHEDULED_CHAT_TIMEOUT_MS);
+        timeoutId.unref?.();
+        let response: Response;
+        let outcome: ScheduledChatOutcome;
+        try {
+          response = await fetch(chatUrl, {
+            method: "POST",
+            headers: buildChatHeaders(job.userId),
+            body: JSON.stringify(body),
+            signal: abortController.signal,
+          });
+          outcome = await inspectScheduledChatResponse(response, {
+            timeoutMs: Math.max(1, deadline - Date.now()),
+          });
+          if (requestTimedOut) {
+            outcome = { success: false, error: "chat-api-timeout" };
+          }
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (!outcome.success) {
           await schedulerRepository.updateScheduledRun(run.id, {
             status: "failed",
             completedAt: new Date(),
-            error: `chat-api-${response.status}: ${errorText.slice(0, 500)}`,
+            error: outcome.error,
           });
           result.failed += 1;
-          runError = `chat-api-${response.status}`;
+          runError = outcome.error;
           await notifyScheduledRun({
             userId: job.userId,
             runId: run.id,
@@ -287,6 +311,7 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
             output: {
               threadId,
               chatStatus: response.status,
+              finishReason: outcome.finishReason,
             },
           });
           result.ran += 1;
@@ -300,8 +325,12 @@ export const runSchedulerTick = async (): Promise<SchedulerTickResult> => {
           });
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        runError = message.slice(0, 1000);
+        const message = requestTimedOut
+          ? "chat-api-timeout"
+          : err instanceof Error
+            ? err.message.slice(0, 1000)
+            : "scheduled-run-failed";
+        runError = message;
         logger.error(`[scheduler] run for job ${job.id} threw:`, err);
         await schedulerRepository.updateScheduledRun(run.id, {
           status: "failed",

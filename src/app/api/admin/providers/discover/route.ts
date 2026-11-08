@@ -6,8 +6,10 @@ import {
   requestProviderDiscovery,
 } from "lib/admin/provider-discovery";
 import { requireAdminPermission } from "lib/auth/permissions";
+import { siteConfigRepository } from "lib/db/repository";
 import { readBoundedRequestBody } from "lib/http/bounded-request-body";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import { decrypt } from "lib/security/encryption";
 import { hasSameOrigin } from "lib/security/same-origin";
 import { UrlBlockedError } from "lib/webhooks/url-guard";
 import { NextResponse } from "next/server";
@@ -18,6 +20,10 @@ const requestSchema = z
   .object({
     baseURL: z.string().trim().url().max(2_048),
     apiKey: z.string().max(4_096).optional(),
+    providerId: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{0,63}$/u)
+      .optional(),
   })
   .strict();
 
@@ -94,7 +100,59 @@ export async function POST(request: Request) {
     );
   }
 
-  const { baseURL, apiKey } = parsed.data;
+  const { baseURL, providerId } = parsed.data;
+  let apiKey = parsed.data.apiKey?.trim() || undefined;
+  if (!apiKey && providerId) {
+    try {
+      const config = await siteConfigRepository.getConfig("models");
+      const providers = config?.dynamicProviders as
+        | Record<string, { baseURL?: unknown; apiKey?: unknown }>
+        | undefined;
+      const saved = providers?.[providerId];
+      if (!saved)
+        return json({ success: false, error: "Provider not found" }, 404);
+      if (
+        typeof saved.baseURL !== "string" ||
+        normalizeProviderBaseURL(saved.baseURL) !==
+          normalizeProviderBaseURL(baseURL)
+      ) {
+        return json(
+          {
+            success: false,
+            error: "Enter the API key to discover models at a changed endpoint",
+          },
+          400,
+        );
+      }
+
+      if (typeof saved.apiKey === "string" && saved.apiKey) {
+        try {
+          apiKey = decrypt(saved.apiKey);
+        } catch {
+          // The provider may predate encryption or have no direct key.
+        }
+      }
+      if (!apiKey) {
+        const tools = await siteConfigRepository.getConfig("tools");
+        const secrets = tools?.apiKeysSecrets as
+          | Record<string, unknown>
+          | undefined;
+        const encryptedFallback = secrets?.[`dyn_${providerId}`];
+        if (typeof encryptedFallback === "string" && encryptedFallback) {
+          try {
+            apiKey = decrypt(encryptedFallback);
+          } catch {
+            // Continue with unauthenticated discovery if no usable key exists.
+          }
+        }
+      }
+    } catch {
+      return json(
+        { success: false, error: "Provider settings are unavailable" },
+        503,
+      );
+    }
+  }
   try {
     const modelsUrl = new URL(`${baseURL.replace(/\/$/, "")}/models`);
     const response = await requestProviderDiscovery(
@@ -165,5 +223,15 @@ export async function POST(request: Request) {
       });
     }
     return json({ success: false, error: "Model discovery failed" });
+  }
+}
+
+function normalizeProviderBaseURL(value: string): string | null {
+  try {
+    const url = new URL(value);
+    url.pathname = url.pathname.replace(/\/+$/u, "");
+    return url.toString().replace(/\/$/u, "");
+  } catch {
+    return null;
   }
 }

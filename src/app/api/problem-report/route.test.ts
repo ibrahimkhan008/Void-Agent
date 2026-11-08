@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   insertValues: vi.fn(),
   insertReturning: vi.fn(),
   sameOrigin: vi.fn(),
+  sendEmail: vi.fn(),
 }));
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
@@ -17,6 +18,7 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
 vi.mock("lib/security/same-origin", () => ({
   hasSameOrigin: mocks.sameOrigin,
 }));
+vi.mock("lib/email/resend", () => ({ sendEmail: mocks.sendEmail }));
 vi.mock("drizzle-orm", () => ({
   desc: (column: unknown) => ({ direction: "desc", column }),
   eq: (column: unknown, value: unknown) => ({ column, value }),
@@ -27,9 +29,9 @@ vi.mock("lib/db/pg/db.pg", () => ({
       from: () => ({
         where: (condition: unknown) => {
           mocks.selectWhere(condition);
-          return ({
-          orderBy: () => ({ limit: mocks.selectLimit }),
-          });
+          return {
+            orderBy: () => ({ limit: mocks.selectLimit }),
+          };
         },
       }),
     }),
@@ -60,13 +62,18 @@ const request = (body: unknown, origin = "https://app.test") =>
   });
 
 describe("problem reports", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.allowed.mockResolvedValue({ allowed: true });
     mocks.sameOrigin.mockReturnValue(true);
+    mocks.sendEmail.mockResolvedValue(undefined);
     mocks.selectLimit.mockResolvedValue([]);
-    mocks.insertReturning.mockResolvedValue([{ id: "report-1", status: "open" }]);
+    mocks.insertReturning.mockResolvedValue([
+      { id: "report-1", status: "open" },
+    ]);
     mocks.insertValues.mockReturnValue({ returning: mocks.insertReturning });
   });
 
@@ -88,19 +95,65 @@ describe("problem reports", () => {
       expect.objectContaining({
         userId: "user-1",
         description: "The upload dialog stays open after success.",
-        context: expect.objectContaining({ pageUrl: "https://app.test/chat/thread" }),
+        context: expect.objectContaining({
+          pageUrl: "https://app.test/chat/thread",
+        }),
       }),
     );
-    expect(mocks.insertValues.mock.calls[0][0].context.pageUrl).not.toContain("access_token");
+    expect(mocks.insertValues.mock.calls[0][0].context.pageUrl).not.toContain(
+      "access_token",
+    );
+  });
+
+  it("notifies the configured mailbox after persistence without failing the report", async () => {
+    vi.stubEnv("PROBLEM_REPORT_NOTIFY_TO", "reports@example.com");
+    const response = await POST(
+      request({
+        description: "The export action fails.",
+        screenshots: [],
+        context: { pageUrl: "https://app.test/chat/thread?token=secret" },
+      }),
+    );
+    expect(response.status).toBe(201);
+    expect(mocks.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "reports@example.com",
+        subject: expect.stringContaining("The export action fails."),
+        html: expect.stringContaining("https://app.test/chat/thread"),
+        from: "noreply",
+      }),
+    );
+    expect(mocks.sendEmail.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.insertReturning.mock.invocationCallOrder[0],
+    );
+
+    mocks.sendEmail.mockRejectedValueOnce(
+      new Error("mail provider unavailable"),
+    );
+    const stillStored = await POST(request({ description: "Another report." }));
+    expect(stillStored.status).toBe(201);
+  });
+
+  it("keeps report submission available when notifications are not configured", async () => {
+    vi.stubEnv("PROBLEM_REPORT_NOTIFY_TO", "");
+    const response = await POST(
+      request({ description: "A report without email." }),
+    );
+    expect(response.status).toBe(201);
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
 
   it("rejects cross-origin, oversized, and empty reports before persistence", async () => {
     mocks.sameOrigin.mockReturnValue(false);
-    const csrf = await POST(request({ description: "A valid report description" }));
+    const csrf = await POST(
+      request({ description: "A valid report description" }),
+    );
     mocks.sameOrigin.mockReturnValue(true);
     const oversized = await POST(request({ description: "x".repeat(17_000) }));
     const empty = await POST(request({ description: "   " }));
-    expect([csrf.status, oversized.status, empty.status]).toEqual([403, 413, 400]);
+    expect([csrf.status, oversized.status, empty.status]).toEqual([
+      403, 413, 400,
+    ]);
     expect(mocks.insertValues).not.toHaveBeenCalled();
   });
 
@@ -154,13 +207,22 @@ describe("problem reports", () => {
         status: "open",
         createdAt: new Date("2026-11-01T00:00:00Z"),
         updatedAt: new Date("2026-11-01T00:00:00Z"),
-        screenshots: [{ key: "uploads/user-1/shot.png", name: "shot.png", contentType: "image/png", size: 10 }],
+        screenshots: [
+          {
+            key: "uploads/user-1/shot.png",
+            name: "shot.png",
+            contentType: "image/png",
+            size: 10,
+          },
+        ],
       },
     ]);
     const response = await GET();
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.reports[0].screenshots[0].url).toBe("/api/files/uploads/user-1/shot.png");
+    expect(body.reports[0].screenshots[0].url).toBe(
+      "/api/files/uploads/user-1/shot.png",
+    );
     expect(mocks.selectWhere).toHaveBeenCalledWith({
       column: "user_id",
       value: "user-1",
@@ -169,7 +231,9 @@ describe("problem reports", () => {
 
   it("requires authentication and applies the submission rate limit", async () => {
     mocks.getSession.mockResolvedValueOnce(null);
-    const unauthorized = await POST(request({ description: "A useful report." }));
+    const unauthorized = await POST(
+      request({ description: "A useful report." }),
+    );
     mocks.getSession.mockResolvedValue({ user: { id: "user-1" } });
     mocks.allowed.mockResolvedValueOnce({ allowed: false });
     const limited = await POST(request({ description: "A useful report." }));

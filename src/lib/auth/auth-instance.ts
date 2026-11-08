@@ -4,11 +4,7 @@ import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import {
-  admin as adminPlugin,
-  oneTimeToken,
-  organization as organizationPlugin,
-} from "better-auth/plugins";
+import { admin as adminPlugin, oneTimeToken } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import {
@@ -90,11 +86,6 @@ const options = {
     // `teams.enabled` to `true` — sub-teams are modelled through
     // `team_member.role` instead.
     // -------------------------------------------------------------------------
-    organizationPlugin({
-      allowUserToCreateOrganization: true,
-      organizationLimit: 10,
-      teams: { enabled: false },
-    }),
     oneTimeToken({
       expiresIn: 5,
       storeToken: "hashed",
@@ -206,6 +197,26 @@ const options = {
               id: user.id,
               name: user.name,
             });
+
+            // Seed the built-in private agent templates for a new account.
+            // This is best-effort, so a preset storage issue never blocks signup.
+            try {
+              const { AUTO_SEED_PRESETS } = await import(
+                "lib/ai/agent/presets"
+              );
+              const { seedPresetsForUser } = await import(
+                "lib/db/pg/repositories/agent-repository.pg"
+              );
+              await seedPresetsForUser(user.id, AUTO_SEED_PRESETS);
+              logger.info(
+                `Seeded ${AUTO_SEED_PRESETS.length} preset agents for user ${user.id}`,
+              );
+            } catch (error) {
+              logger.error("Failed to seed preset agents for new user:", {
+                error,
+                userId: user.id,
+              });
+            }
           } catch (error) {
             logger.error("Failed to send signup email:", error);
           }
@@ -306,6 +317,13 @@ const options = {
     },
   },
   session: {
+    additionalFields: {
+      activeTeamId: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+    },
     cookieCache: {
       enabled: true,
       maxAge: authSessionCookieCacheMaxAge,
@@ -393,10 +411,15 @@ const purgeBannedUserAccess = async (userId: string) => {
   }
 };
 
-export const getSession = async () => {
+export const getSession = async (
+  options: { disableCookieCache?: boolean } = {},
+) => {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
+      ...(options.disableCookieCache
+        ? { query: { disableCookieCache: true } }
+        : {}),
     });
     if (!session) {
       logger.error("No session found");

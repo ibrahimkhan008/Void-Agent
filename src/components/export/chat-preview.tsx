@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import type {
   ChatExportCommentWithUser,
   ChatExportWithUser,
 } from "app-types/chat-export";
@@ -15,7 +15,20 @@ import Comments from "./comments";
 export default function ChatPreview({
   thread,
   comments,
-}: { thread: ChatExportWithUser; comments: ChatExportCommentWithUser[] }) {
+  allowComments = true,
+}: {
+  thread: Pick<
+    ChatExportWithUser,
+    | "id"
+    | "title"
+    | "messages"
+    | "exportedAt"
+    | "exporterName"
+    | "exporterImage"
+  >;
+  comments: ChatExportCommentWithUser[];
+  allowComments?: boolean;
+}) {
   return (
     <div
       className="flex flex-col min-w-0 h-full relative"
@@ -24,9 +37,11 @@ export default function ChatPreview({
       <div className="absolute top-0 left-0 w-full h-full -z-10">
         <Particles particleCount={400} particleBaseSize={10} />
       </div>
-      <div className="fixed top-0 right-0 p-4">
-        <Comments id={thread.id} defaultComments={comments} />
-      </div>
+      {allowComments && (
+        <div className="fixed top-0 right-0 p-4">
+          <Comments id={thread.id} defaultComments={comments} />
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 overflow-y-auto pb-20">
         <div className="w-full mx-auto max-w-3xl px-6 py-8">

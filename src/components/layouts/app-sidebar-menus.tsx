@@ -107,6 +107,27 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <TooltipTrigger asChild>
+                <Link href="/team-members">
+                  <SidebarMenuButton className="font-semibold">
+                    <Users className="size-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">
+                      Team members
+                    </span>
+                  </SidebarMenuButton>
+                </Link>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right" align="center">
+                  Team members
+                </TooltipContent>
+              )}
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <TooltipTrigger asChild>
                 <Link href="/cockpit">
                   <SidebarMenuButton className="font-semibold">
                     <WalletCards className="size-4" />

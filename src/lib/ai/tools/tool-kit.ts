@@ -4,14 +4,6 @@ import type { DynamicTool } from "lib/db/pg/repositories/site-config-repository.
 import { siteConfigRepository } from "lib/db/repository";
 import { AppDefaultToolkit, DefaultToolName } from ".";
 import { artifactCreationTool } from "./artifacts/artifact-creator";
-import {
-  browserAgentTool,
-  createBrowserAgentToolForUser,
-} from "./browser/browser-agent";
-import {
-  cloakBrowserTool,
-  createCloakBrowserToolForUser,
-} from "./browser/cloak-browser";
 import { buildAppTool } from "./build/build-tool";
 import { canvasDesignTool } from "./canvas/ecanvas-tool";
 import { canvasPptMakerTool } from "./canvas/ppt-maker";
@@ -145,10 +137,10 @@ export const APP_DEFAULT_TOOL_KIT: Record<
     [DefaultToolName.YouTubeSearch]: youtubeSearchTool,
     [DefaultToolName.YouTubeTranscript]: youtubeTranscriptTool,
   },
-  [AppDefaultToolkit.Browser]: {
-    [DefaultToolName.BrowserAgent]: browserAgentTool,
-    [DefaultToolName.CloakBrowser]: cloakBrowserTool,
-  },
+  // Browser automation is unavailable until the browser runtime has an
+  // enforceable network-egress boundary. URL validation cannot constrain
+  // redirects, subresources, WebSockets, or page-initiated requests.
+  [AppDefaultToolkit.Browser]: {},
   [AppDefaultToolkit.Http]: {
     [DefaultToolName.Http]: httpFetchTool,
   },
@@ -258,16 +250,9 @@ export function getAppDefaultToolKitForUser(
         threadId: threadId ?? "",
       }),
     },
-    [AppDefaultToolkit.Browser]: {
-      [DefaultToolName.BrowserAgent]: createBrowserAgentToolForUser(
-        userId,
-        threadId,
-      ),
-      [DefaultToolName.CloakBrowser]: createCloakBrowserToolForUser(
-        userId,
-        threadId,
-      ),
-    },
+    // Keep browser automation disabled in the user-scoped registry too, so
+    // user context cannot re-enable Steel/Crawl/Cloak execution.
+    [AppDefaultToolkit.Browser]: {},
     [AppDefaultToolkit.Connectors]: {
       [DefaultToolName.Gmail]: createGmailToolForUser(userId),
       [DefaultToolName.GoogleDrive]: createDriveToolForUser(userId),

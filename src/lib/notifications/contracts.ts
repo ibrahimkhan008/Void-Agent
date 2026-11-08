@@ -17,8 +17,29 @@ export const pushSubscriptionSchema = z
   .strict();
 
 export const notificationReadSchema = z
-  .object({ ids: z.array(z.string().uuid()).min(1).max(100).optional() })
-  .strict();
+  .object({
+    ids: z.array(z.string().uuid()).min(1).max(100).optional(),
+    all: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    ({ ids, all }) => !(ids && all) && (Boolean(ids?.length) || all === true),
+    "Choose notification IDs or mark all as read",
+  );
+
+/** Parse the upstream comma-separated notification type filter safely. */
+export const notificationTypeListSchema = z
+  .string()
+  .max(400)
+  .transform((value) => [
+    ...new Set(value.split(",").map((type) => type.trim())),
+  ])
+  .pipe(
+    z
+      .array(z.string().regex(/^[a-z0-9_:.]{1,40}$/))
+      .min(1)
+      .max(10),
+  );
 
 export const readBoundedJson = async (
   request: Request,

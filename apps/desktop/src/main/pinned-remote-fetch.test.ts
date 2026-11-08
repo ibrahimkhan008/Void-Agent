@@ -3,6 +3,7 @@ import {
   createPinnedLookup,
   createPinnedRemoteMcpFetch,
   resolvePublicAddresses,
+  withBoundedRemoteMcpBody,
 } from "./pinned-remote-fetch.js";
 
 describe("desktop remote MCP destination pinning", () => {
@@ -93,5 +94,70 @@ describe("desktop remote MCP destination pinning", () => {
     await expect(safeFetch("https://mcp.example/rpc")).rejects.toThrow(
       "DNS unavailable",
     );
+  });
+
+  it("cancels an oversized chunked response and destroys its pinned agent", async () => {
+    const cancel = vi.fn();
+    let index = 0;
+    const chunks = Array.from({ length: 8 }, () => new Uint8Array([1, 2, 3]));
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          const chunk = chunks[index++];
+          if (chunk) controller.enqueue(chunk);
+          else controller.close();
+        },
+        cancel,
+      }),
+    );
+    const agent = { close: vi.fn(), destroy: vi.fn() };
+    const bounded = await withBoundedRemoteMcpBody(
+      response as never,
+      agent as never,
+      5,
+    );
+
+    await expect(bounded.arrayBuffer()).rejects.toThrow(
+      "response exceeded the byte limit",
+    );
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(agent.destroy).toHaveBeenCalledOnce();
+    expect(agent.close).not.toHaveBeenCalled();
+  });
+
+  it("rejects declared oversize and redirect responses before body consumption", async () => {
+    const cancel = vi.fn();
+    const source = () =>
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array([1]));
+        },
+        cancel,
+      });
+    const agent = { close: vi.fn(), destroy: vi.fn() };
+
+    await expect(
+      withBoundedRemoteMcpBody(
+        new Response(source(), {
+          headers: { "content-length": "11" },
+        }) as never,
+        agent as never,
+        10,
+      ),
+    ).rejects.toThrow("byte limit");
+    await expect(
+      withBoundedRemoteMcpBody(
+        new Response(source(), {
+          status: 302,
+          headers: { location: "https://other.example/" },
+        }) as never,
+        agent as never,
+        10,
+      ),
+    ).rejects.toThrow("redirects are disabled");
+
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(agent.destroy).toHaveBeenCalledTimes(2);
+    expect(agent.close).not.toHaveBeenCalled();
   });
 });

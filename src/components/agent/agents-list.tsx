@@ -1,5 +1,6 @@
 "use client";
 
+import { MyInstalledAgents } from "@/components/gallery/my-installed-agents";
 import { Visibility } from "@/components/shareable-actions";
 import { ShareableCard } from "@/components/shareable-card";
 import { useMutateAgents } from "@/hooks/queries/use-agents";
@@ -8,7 +9,7 @@ import { AgentSummary, AgentUpdateSchema } from "app-types/agent";
 import { canCreateAgent } from "lib/auth/client-permissions";
 import { notify } from "lib/notify";
 import { fetcher } from "lib/utils";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, Library, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
@@ -119,14 +120,24 @@ export function AgentsList({
         <h1 className="text-2xl font-bold" data-testid="agents-title">
           {t("Layout.agents")}
         </h1>
-        {canCreate && (
-          <Link href="/agent/new">
-            <Button variant="ghost" data-testid="create-agent-button">
-              <Plus />
-              {t("Agent.newAgent")}
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {canCreate && (
+            <Link href="/agents/presets">
+              <Button variant="outline" data-testid="agent-presets-button">
+                <Library className="mr-2 size-4" />
+                Agent templates
+              </Button>
+            </Link>
+          )}
+          {canCreate && (
+            <Link href="/agent/new">
+              <Button variant="ghost" data-testid="create-agent-button">
+                <Plus />
+                {t("Agent.newAgent")}
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* My Agents Section */}
@@ -182,6 +193,8 @@ export function AgentsList({
           </div>
         </div>
       )}
+
+      <MyInstalledAgents />
 
       {/* Shared/Available Agents Section */}
       <div className="flex flex-col gap-4 mt-8">
