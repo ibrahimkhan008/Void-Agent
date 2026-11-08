@@ -658,3 +658,14 @@ Better Chatbot extracts source-grounded project events for timeline/status/voice
 
 ## Per-user OpenAI-compatible providers (2026-11-07)
 Use a separate owner-scoped table rather than extending the admin-global `site_config.models.dynamicProviders` registry. Store the provider endpoint, discovered model allowlist, and AES-256-GCM encrypted API key; expose only a no-secret projection to the owner UI. Resolve models per request from the authenticated session and require an exact owner/provider/model match. Do not hydrate personal credentials into module-global maps, Team Auto, agent catalogs, or background execution. All outbound requests must use a pinned public HTTPS:443 transport with redirects denied and bounded bodies/timeouts. Local machine endpoints need a separate authenticated client-side proxy and remain deferred.
+
+### 2026-11-08 17:49 IST - Plan Mode integration strategy
+- Adapted V2 Plan Mode to the existing AI SDK 5 route and global composer mode selector. The request flag is only a mode preference; the route itself selects the tool allowlist and never trusts client-selected mentions or toolkit permissions for this mode.
+- Tool allowlist: configured web search/content and YouTube read tools, currently authorized project knowledge/status/document reads, plus bounded `createPlan`. No MCP, workflow, approval, code, image, scheduling, publishing or mutation tools are exposed. Existing approval workflows remain unchanged.
+- Plan mode is disabled for embeds and scheduler calls and returns a clear 409 if the resolved model cannot make tool calls. A plan is rendered inline from the saved tool call and does not persist a separate plan document/table.
+
+## Strategy update - 2026-11-08 19:00 IST
+
+- **C33 alerts:** adapt the client delivery policy while retaining primary preference storage, private notification text, and existing default behavior. Same-thread alerts are suppressed; the optional only-when-away preference is owner-scoped and boolean-validated.
+- **C34 Agentset:** add an optional provider adapter rather than replacing the primary local pgvector/RAG implementation. The feature is disabled by default, uses the fixed official HTTPS origin and bounded requests, and rechecks returned source metadata against current primary ACL/document state. Full remote ingestion/job lifecycle and chat integration remain future work because they need a persistent mapping/lifecycle design.
+- **C35 voice actions:** reuse the existing C31 read-only Composio boundary for OpenAI Realtime voice. Encrypted ephemeral owner-bound account refs, active-owner rechecks, schema validation, rate limits, redaction, result bounds, and untrusted-result framing are mandatory. Do not port upstream direct mutating execution; implement writes only after a server-bound approval workflow exists.

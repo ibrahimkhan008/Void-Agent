@@ -630,3 +630,16 @@ No implementation batch is scheduled for the reference Slack channel-subscriptio
 The compatible native menu gap is implemented. Next F021 closure requires platform runtime verification for first-run and server switching, OAuth deep-link return, native notifications/downloads, and signed package update installation. No checkout-window port is planned until Dodo's checkout host and return handling are validated by the primary payments integration.
 ## 2026-11-07 checkpoint
 F037 now has a complete local implementation slice for tracked DOCX proposals/review/accept/reject with migration 0069 authored, but it is not closed until safe disposable PostgreSQL migration and authenticated browser/storage flows are verified. F030 finance cockpit and F026 intent preview landed as bounded UI slices. Next major parity work must continue from the existing matrix; no broad family is marked COMPLETE from this batch. The validated local batch is being staged selectively and pushed only after the current branch/remote check.
+
+## Remaining work checkpoint - 2026-11-08 19:00 IST
+
+The latest batch added C33-C35 as PARTIAL workflows. Next work remains substantial:
+
+1. Map the unclassified portion of the 206 reference route/page/tool surfaces into distinct user workflows and reconcile each against primary source behavior.
+2. Complete Agentset lifecycle parity if retained: local document mirroring, ingestion/status/cancel/revoke, namespace and embedding-profile management UI, and safe injection of verified results into chat/project-brain context.
+3. Design server-bound exact-payload approval for mutating Composio voice/chat actions; until then, keep writes unavailable.
+4. Build a safe browser/voice execution sandbox with enforceable DNS-pinned egress isolation before reconsidering B20 arbitrary browser automation.
+5. Verify the remaining PARTIAL workflows in browser and PostgreSQL-backed journeys where available; the local test/build results are not live-service evidence.
+6. Continue the advanced tool, collaboration, notification, desktop, and knowledge audits; document every exclusion and preserve all primary security controls.
+
+Do not derive a completion percentage from this scoped register. It currently counts 96 candidates but is not the full reference denominator.

@@ -29,7 +29,7 @@ full suite passes with limited workers and explicit 30s timeout. Initial full li
 unused bindings were baseline findings, now corrected. No ignored failure remains
 in the recorded final full unit invocation.
 
-## Checkpoint 2 � bounded history
+## Checkpoint 2 ï¿½ bounded history
 
 - `src/lib/db/pg/repositories/chat-repository.pagination.test.ts`: 2/2 pass.
 - `pnpm check-types`: pass after normalizing the thread-decision JSON write shape to the database `{text, at}` representation.
@@ -299,26 +299,26 @@ The project graph endpoint now supports reference-style `?focus=<node>&depth=<1-
 - Build warnings remain: inferred workspace root, dynamic request during static probes, optional Redis/Upstash and E2B config, PG SSL compatibility, E2B/unpdf dependency-analysis warnings, and existing `<img>` lint warnings. No live provider/browser/PostgreSQL/MCP verification.
 
 ## Workflow approval / HTTP SSRF batch (2026-11-06 04:56 IST)
-- pnpm exec vitest run src/lib/webhooks/url-guard.test.ts src/lib/ai/workflow/workflow-review.test.ts src/lib/ai/workflow/load-approved-workflow.test.ts src/app/api/approvals/workflow-run/route.test.ts src/lib/ai/tools/hitl/workflow-run-approval.test.ts --maxWorkers=2 — PASS, 23 tests / 5 files.
-- pnpm check-types — PASS.
+- pnpm exec vitest run src/lib/webhooks/url-guard.test.ts src/lib/ai/workflow/workflow-review.test.ts src/lib/ai/workflow/load-approved-workflow.test.ts src/app/api/approvals/workflow-run/route.test.ts src/lib/ai/tools/hitl/workflow-run-approval.test.ts --maxWorkers=2 â€” PASS, 23 tests / 5 files.
+- pnpm check-types â€” PASS.
 - Existing URL guard tests plus added graph stability/manifest secrecy/graph edit/API revision checks passed. No PostgreSQL, browser, external MCP, or live outbound HTTP verification in this batch.
 - Final verification for this source batch (2026-11-06 05:08 IST): pnpm build passed; Next compiled, ran lint/type checking, and generated 192/192 pages. Existing workspace-root, dynamic-route, E2B/unpdf, optional Redis, PostgreSQL SSL and image warnings remain. git diff --check passed (only pre-existing LF/CRLF notices).
 - Build rerun note: first attempt exposed unsupported BigInt literals in the IPv6 helper. The helper was rewritten with ES2019-compatible 16-bit group checks; all focused tests/typecheck/lint and the subsequent production build passed.
 
 ## n8n workflow execute route (2026-11-06)
-- `pnpm exec vitest run 'src/app/api/workflow/[id]/execute/route.test.ts' --maxWorkers=2` — PASS, 3 tests.
-- `pnpm check-types` — PASS.
-- Focused `pnpm exec biome lint` on the route and tests — PASS.
-- `git diff --check` — PASS; only pre-existing line-ending normalization warnings.
+- `pnpm exec vitest run 'src/app/api/workflow/[id]/execute/route.test.ts' --maxWorkers=2` â€” PASS, 3 tests.
+- `pnpm check-types` â€” PASS.
+- Focused `pnpm exec biome lint` on the route and tests â€” PASS.
+- `git diff --check` â€” PASS; only pre-existing line-ending normalization warnings.
 - No live n8n account/provider run performed.
 
 ## Embedded workflow MCP access batch (2026-11-06 05:29 IST)
-- Focused helper, saved-workflow load and approval API suites — PASS, 13 tests.
-- URL guard and workflow review suite — PASS, 24 tests in the earlier combined run; includes public/private mapped IPv6 and NAT64 cases.
-- n8n execute route suite — PASS, 3 tests.
-- `pnpm check-types` default 2 GB heap — process OOM; rerun with `NODE_OPTIONS=--max-old-space-size=4096` — PASS.
-- `pnpm exec biome lint` on the affected helper/route/test sources — PASS.
-- `pnpm build` — PASS; Next generated 192/192 pages. Existing E2B/unpdf, dynamic route, optional Redis, SSL, workspace-root, and `<img>` warnings are non-fatal.
+- Focused helper, saved-workflow load and approval API suites â€” PASS, 13 tests.
+- URL guard and workflow review suite â€” PASS, 24 tests in the earlier combined run; includes public/private mapped IPv6 and NAT64 cases.
+- n8n execute route suite â€” PASS, 3 tests.
+- `pnpm check-types` default 2 GB heap â€” process OOM; rerun with `NODE_OPTIONS=--max-old-space-size=4096` â€” PASS.
+- `pnpm exec biome lint` on the affected helper/route/test sources â€” PASS.
+- `pnpm build` â€” PASS; Next generated 192/192 pages. Existing E2B/unpdf, dynamic route, optional Redis, SSL, workspace-root, and `<img>` warnings are non-fatal.
 - `git diff --check` is rerun after the context/doc append in this checkpoint; only line-ending normalization notices are expected from existing work.
 ## Project-brain source visibility batch (2026-11-06)
 
@@ -350,7 +350,7 @@ Typed project-brain page IDs now back graph node IDs wherever an accepted/source
 - Verification: 24/24 graph/detail/merge tests; focused Biome; pnpm build passed production compilation/type/lint checking and generated 192/192 pages. Build retains existing workspace-root, dynamic-rendering, dependency-analysis, optional Redis/E2B, SSL and image warnings.
 - Limits: no live PostgreSQL or browser workflow; migration 0042 remains unapplied. Existing graph methods still use the bounded in-memory fact window; source-version snapshots, merged-from detail, consolidated truth/status/todo, and reference background dedupe remain incomplete. F010/F011/F013 remain PARTIAL.
 ## F027 owner-scoped voice device transcript history (2026-11-06 07:02:15 +05:30)
-Added a bounded recent-history endpoint at /api/voice/devices/[id]/history and a per-device history view. It reads only user-role transcript messages explicitly tagged source=voice_device and the exact device ID, joins through both the owning device and owning chat thread, validates a 1–50 limit, applies per-user rate limiting, returns no-store responses, and exposes only text/language/timestamp/thread link. This reuses Void-Agent's existing transcript-as-reviewable-chat workflow rather than creating a competing transcript/action database.
+Added a bounded recent-history endpoint at /api/voice/devices/[id]/history and a per-device history view. It reads only user-role transcript messages explicitly tagged source=voice_device and the exact device ID, joins through both the owning device and owning chat thread, validates a 1â€“50 limit, applies per-user rate limiting, returns no-store responses, and exposes only text/language/timestamp/thread link. This reuses Void-Agent's existing transcript-as-reviewable-chat workflow rather than creating a competing transcript/action database.
 - Evidence: src/lib/db/pg/repositories/voice-device-repository.pg.ts, new history route/tests, src/components/voice-devices-dashboard.tsx.
 - Verification: focused history/device audio/transcript tests 7/7; focused Biome passed; root typecheck passed with NODE_OPTIONS=--max-old-space-size=4096 (default 2 GB process OOMed); fresh pnpm build passed and generated 192/192 pages. Existing nonfatal build warnings remain.
 - Limits: no PostgreSQL-backed query, browser or hardware test; migration 0039 is unapplied. Firmware registration bootstrap and session/segment database, gateway/WebSocket transport and approved-action protocol are still absent. The reference checkout itself has no bridge script and its websocket route requires an external gateway. F027 remains PARTIAL.
@@ -571,7 +571,7 @@ The final storage/preview/local-file route suite passed 39/39 across 6 files; wh
 
 ## F018 private Blob test record (2026-11-06)
 - Added Vercel Blob driver cases for default public compatibility, private upload/get/delete behavior, and invalid mode rejection.
-- Focused run: `pnpm exec vitest run src/lib/file-storage/vercel-blob-storage.test.ts src/lib/file-storage/storage-utils.test.ts src/app/api/storage/download/route.test.ts` — 12/12 passing across 3 files.
+- Focused run: `pnpm exec vitest run src/lib/file-storage/vercel-blob-storage.test.ts src/lib/file-storage/storage-utils.test.ts src/app/api/storage/download/route.test.ts` â€” 12/12 passing across 3 files.
 - Still required: full TypeScript/build after this batch; private-store staging upload token and browser/model attachment verification. Mock tests do not validate Vercel account/store configuration.
 
 ## F018 private S3 tests (2026-11-06)
@@ -582,7 +582,7 @@ The final storage/preview/local-file route suite passed 39/39 across 6 files; wh
 ## F018 final validation (2026-11-06)
 After adding private S3 owner URLs, the focused storage/config/download/file-route suite passed 31/31 across six files; root TypeScript passed; focused Biome and scoped whitespace checks passed; fresh `pnpm build` exited 0 and generated 192/192 pages. The build reported established workspace, dependency, image, optional Redis/E2B, PostgreSQL SSL, and dynamic-route diagnostics. No live Blob/S3 ACL, browser, Postgres, or model-provider attachment test was performed. Public objects remain public until migrated and removed. F018 remains PARTIAL.
 
-## 2026-11-06 — Generic HTTP approval batch
+## 2026-11-06 â€” Generic HTTP approval batch
 - pnpm exec vitest run src/lib/ai/tools/http/fetch.test.ts src/lib/ai/tools/hitl/http-request-approval.test.ts src/lib/db/pg/repositories/http-request-approval-repository.pg.test.ts src/lib/webhooks/url-guard.test.ts src/app/api/approvals/http-request/route.test.ts: 22 tests passed across five files.
 - Whole-project pnpm exec tsc --noEmit --pretty false --incremental false with 6 GB Node heap: passed.
 - Focused Biome on new HTTP approval modules/tests: passed after import ordering; git diff --check scoped to this batch: passed (existing LF/CRLF notices).
@@ -608,7 +608,7 @@ Project-brain source-provenance production-build follow-up: pnpm build exited 0 
 - Focused project-brain API/helper suite: 23/23 passed across four files. Root TypeScript no-emit passed after the final route-contract change. Previous project-brain source-lineage DB journal check passed; no schema changed in this batch.
 - A fresh production build reached static generation 192/192 and final tracing, but its process handle expired before an exit code was captured. Treat this build as UNVERIFIED; rerun a fresh build before reporting it as passing. No PostgreSQL/browser workflow or migration 0051 application was performed. F010/F012 remain PARTIAL.
 
-### Current migration focus — project-brain dream cycle audit (2026-11-06)
+### Current migration focus â€” project-brain dream cycle audit (2026-11-06)
 - The reference's manual/nightly dream cycle consists of model-judged page deduplication, cross-source contradiction detection, salience recomputation, and stale-page archival; it records stage metrics and warnings and is separate from source extraction/consolidation.
 - Void-Agent has source-version-aware facts, conflict review/history, graph reads, and an audited editor-driven same-type page merge. It does not yet have an equivalent project-wide dedupe/salience/archive scheduler or a verified end-to-end dream cycle. No work on this feature should overwrite user-reviewed fact decisions or auto-merge identities without evidence and review.
 - Next action: implement compatible salience refresh and safe stale-page handling in Void-Agent's existing typed-page/fact schema, with project/source visibility checks, role/rate limiting, tests, and explicit UI trigger; then assess whether model-judged automatic dedupe is safe given its user-approved identity merge contract.
@@ -620,7 +620,7 @@ Project-brain source-provenance production-build follow-up: pnpm build exited 0 
 - pnpm exec biome check --write on changed TS/TSX: passed; git diff --check on this batch: passed.
 - pnpm build: exit 0; 192/192 static pages. Existing workspace root, dependency analysis, <img>, optional Redis/E2B, SSL and authenticated dynamic-route warnings were observed. No live PostgreSQL migration, browser journey, or external service call was run.
 
-### 2026-11-06 15:53:03 +05:30 — final exact-source verification update
+### 2026-11-06 15:53:03 +05:30 â€” final exact-source verification update
 The accepted project-brain entity page list now sorts by salience so the refreshed score affects the visible ranking. After that final UI/API source change, the focused pages/salience suites passed 10/10 and a fresh pnpm build exited 0 with all 192 static pages generated. Build still emits existing workspace-root, dependency-analysis, <img>, optional Redis/E2B, SSL-mode and authenticated dynamic-route diagnostics. Migration 0052 remains unapplied; no live PostgreSQL/browser run was done.
 
 ## 2026-11-06 duplicate identity review verification
@@ -718,7 +718,7 @@ The accepted project-brain entity page list now sorts by salience so the refresh
 - Focused scheduler/API suites passed 51 tests across 7 files; TypeScript, `pnpm db:check`, and scoped Biome passed. PostgreSQL-backed concurrency and worker crash tests remain unavailable; migrations 0055/0056 are authored but unapplied. The system remains at-least-once if the process dies after causing the chat side effect but before persisting completion. Manual run remains unimplemented.
 
 ## F019/F025 status correction and n8n review gate (2026-11-06)
-- Corrected stale base classifications: F004, F010–F013, F019 and F021 were marked MISSING despite later implementation evidence in this matrix. They are now PARTIAL; later implementation notes remain authoritative.
+- Corrected stale base classifications: F004, F010â€“F013, F019 and F021 were marked MISSING despite later implementation evidence in this matrix. They are now PARTIAL; later implementation notes remain authoritative.
 - F019 evidence: `src/lib/ai/chat-stream-context.ts`, `src/app/api/chat/[id]/stream/route.ts`, `src/app/api/chat/route.ts`, and `src/components/chat-bot.tsx` implement Redis-buffered stream resumption, owner-scoped HEAD/GET, stop signaling, and client resume. Redis is optional and no live Redis/browser journey was performed; status PARTIAL.
 - F025: Void-Agent Run controls for n8n now fetch a bounded effect manifest and executable-definition hash, show an explicit review, issue a user-scoped one-use token bound to platform/workflow/revision/input, re-fetch and revalidate immediately before execution, and consume before calling n8n. Manual-trigger JSON is passed through `triggerToStartFrom`; output is reduced to a bounded acknowledgement so execution data is not returned.
 - F025 evidence: `src/lib/n8n/workflow-review.ts`, `browser-approval.ts`, `client.ts`, workflow approval API, execute API, `workflow-list-page.tsx`, `n8n-workflow-embed.tsx`, and `node-config/execute-tab.tsx`. Payloads have a 24-level JSON nesting cap, a 20 KB request bound, owner session, same-origin validation and rate limits. No database schema change; approvals reuse atomic one-use verification deletion.
@@ -726,19 +726,19 @@ The accepted project-brain entity page list now sorts by salience so the refresh
 - Verification: 20 focused approval tests across 6 files passed; 6 GB TypeScript check, scoped Biome, and Drizzle journal check passed. Production build completed with 192/192 static pages after fixing JSX lint; existing E2B/unpdf critical-dependency, `<img>`, dynamic-server, optional Redis/E2B, workspace-root and PostgreSQL SSL warnings remain. No live n8n/browser/PostgreSQL test, no push/deploy.
 
 ## F026 reviewed voice transcript handoff (2026-11-06)
-- Added a user-selected handoff from enrolled-device transcript history into the saved conversation. The chat page loads the transcript from the database through an owner/thread/message/source-checked server action, then displays the exact transcript in a review card. Only a second explicit “Send to assistant” click creates a normal user chat message.
+- Added a user-selected handoff from enrolled-device transcript history into the saved conversation. The chat page loads the transcript from the database through an owner/thread/message/source-checked server action, then displays the exact transcript in a review card. Only a second explicit â€œSend to assistantâ€ click creates a normal user chat message.
 - Device audio/transcript routes remain side-effect-free. Any subsequent model tool call goes through normal chat authorization and the existing exact-payload approvals; no voice-triggered tool, agent, schedule, or workflow is executed directly.
 - The transcript handoff accepts only `source: voice_device`, matching owner/thread/message, plain text only, capped at 24,000 characters. A forged URL query can only open the review card; it cannot submit the transcript automatically. The query is removed before loading.
 - Evidence: `src/lib/voice/handoff.ts` and tests, `loadVoiceTranscriptForHandoffAction` in `src/app/api/chat/actions.ts`, the device dashboard handoff affordance, and the `processVoice` review flow in `src/components/chat-bot.tsx`.
 - Verification: voice/chat regression set 23/23 across 8 files; handoff/audio/finalize subset 7/7; TypeScript passed with 6 GB heap; scoped Biome passed; production build passed and generated 192/192 static pages. Existing warnings remain for optional Redis/E2B configuration, multi-instance memory rate limiting, PostgreSQL SSL mode, dynamic session routes, E2B/unpdf dependencies, `<img>` use and workspace-root inference.
-- F026 remains PARTIAL: no live device/audio provider, browser journey, or PostgreSQL test; the reference’s automated voice intent classifier and draft workflows are not yet replicated. Direct side-effect dispatch was intentionally not adopted because the reference invokes tools before history dedupe, allowing retries to repeat side effects. No schema migration, push, deploy or reference change.
+- F026 remains PARTIAL: no live device/audio provider, browser journey, or PostgreSQL test; the referenceâ€™s automated voice intent classifier and draft workflows are not yet replicated. Direct side-effect dispatch was intentionally not adopted because the reference invokes tools before history dedupe, allowing retries to repeat side effects. No schema migration, push, deploy or reference change.
 
 ### Final F026 interstitial build verification (2026-11-06)
 - Final voice handoff behavior is review-only on page load: the `processVoice` URL marker retrieves an owner-checked transcript and renders an exact-text review card; a separate Send to assistant button submits it. This was added after the earlier voice validation run.
 - Final `pnpm build` passed after this UI change and generated 192/192 static pages. Existing warnings remain: E2B/unpdf critical-dependency traces, `<img>` optimization warnings, dynamic-session prerender diagnostics, optional Redis/E2B config, memory-rate-limit multi-instance notice, PostgreSQL SSL-mode notice, and Next workspace root inferred from multiple lockfiles. Scoped voice tests 23/23, TypeScript and Biome passed. No live browser/device/PostgreSQL verification.
 
 ### F018 stored-document preview verification (2026-11-06 20:30:13 +05:30)
-- Focused command: pnpm test -- src/app/api/storage/document/route.test.ts src/lib/file-ingest/docx.test.ts src/lib/file-ingest/pptx.test.ts � 3 files, 30 tests passed.
+- Focused command: pnpm test -- src/app/api/storage/document/route.test.ts src/lib/file-ingest/docx.test.ts src/lib/file-ingest/pptx.test.ts ï¿½ 3 files, 30 tests passed.
 - pnpm check-types passed; scoped Biome formatting/check passed; pnpm db:check passed.
 - pnpm build passed; Next generated 192/192 static pages. Existing workspace-root, dependency-analysis, optional Redis/E2B, PostgreSQL SSL, <img>, and dynamic-session diagnostics remain.
 - Not verified: live PostgreSQL/storage, object-store ACL, browser attachment journey, external model/provider behavior.
@@ -808,7 +808,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 ## 2026-11-07 CreateAgent schedule and published-page verification addendum
 
 ### F024 optional recurring schedule from CreateAgent
-- Focused test command: `pnpm exec vitest run src/lib/ai/tools/hitl/index.test.ts src/lib/scheduler/jobs.test.ts src/lib/db/pg/repositories/scheduler-repository.pg.test.ts src/app/api/scheduler/jobs/route.test.ts` � passed, 4 files / 38 tests.
+- Focused test command: `pnpm exec vitest run src/lib/ai/tools/hitl/index.test.ts src/lib/scheduler/jobs.test.ts src/lib/db/pg/repositories/scheduler-repository.pg.test.ts src/app/api/scheduler/jobs/route.test.ts` ï¿½ passed, 4 files / 38 tests.
 - Covers tool proposal bounds, schedule hash stability for recurring retries, exact schedule payload hash binding, transactional reservation insertion/replay, key payload conflict, deleted-job tombstone, caller-owned agent check, and key propagation.
 - `pnpm db:check` passed with 0061 in the journal; scoped `biome lint` passed; `git diff --check` passed. `pnpm check-types` did not pass because of two errors in concurrent files outside this batch: `src/app/api/chat/route.ts:1830` (`orgId` absent on `ChatThread`) and `src/lib/ai/team-member-ai-budget.ts:13` unused `TeamBudgetAuthorizationError` import. No production build, PostgreSQL migration application, browser workflow, or live recurring execution was run.
 
@@ -837,7 +837,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 
 ## F032 streaming markdown rendering (2026-11-07)
 
-- Command: `pnpm test -- src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx` � 2 files, 9 tests passed.
+- Command: `pnpm test -- src/lib/markdown-blocks.test.ts src/components/markdown.test.tsx` ï¿½ 2 files, 9 tests passed.
 - Mounted React component test verifies the settled paragraph is not re-rendered as the tail changes, then verifies the tail re-renders when streaming completes. Parser coverage also verifies a 50,000-line blank run is collapsed without large variadic argument expansion while loose-list boundaries remain intact. Captured ReactMarkdown props assert GFM/remark-math and KaTeX remain configured and no raw-HTML or custom URL-transform plugin was added.
 - `pnpm exec biome check` passed on the seven affected source/test files; scoped `git diff --check` passed with only the repository's existing LF/CRLF notices.
 - Integrated typecheck/build intentionally not run in this batch; parent is coordinating integrated checks. F032 remains PARTIAL until these pass. No browser benchmark or live external integration applies to this render-only slice.
@@ -905,7 +905,7 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Full pnpm test passed 1,862 tests across 320 files. pnpm build passed and generated 196/196 pages. Existing non-fatal dependency, workspace-root, lint, dynamic-route, optional-service configuration and PostgreSQL SSL notices remain.
 - No live database migration/authorization, browser workflow, VAPID delivery, or Stripe/Vercel credential test was performed. F029 and F030 remain PARTIAL.
 
-## Integrated migration snapshot � 2026-11-07
+## Integrated migration snapshot ï¿½ 2026-11-07
 
 - Typecheck: `pnpm check-types` passed with `NODE_OPTIONS=--max-old-space-size=6144`.
 - Full suite: `pnpm test` passed **1,921 tests across 331 files**.
@@ -943,8 +943,8 @@ After the parallel edge-case review, focused tests for the stored preview route,
 - Scoped Biome passed across 9 SEO source/test/schema files; git diff --check passed with only a schema LF/CRLF notice. pnpm db:check passed. Integrated typecheck/build remains with root's verification batch.
 
 ## F025 n8n approval focused verification (2026-11-07)
-- pnpm vitest run src/lib/n8n/workflow-review.test.ts src/app/api/approvals/workflow-run/route.test.ts — PASS, 2 files / 13 tests. Coverage: exact literal HTTP preview, configured credential metadata redaction, inline header and JSON-string secret redaction, dynamic expression rejection, unknown action rejection, oversized effect rejection, and no approval-token issuance for unreviewable n8n definitions.
-- pnpm exec biome check on the four touched review/route implementation and test files — PASS. Scoped git diff --check — PASS with Windows LF/CRLF normalization notices. No live n8n, PostgreSQL, provider, or browser flow was run.
+- pnpm vitest run src/lib/n8n/workflow-review.test.ts src/app/api/approvals/workflow-run/route.test.ts â€” PASS, 2 files / 13 tests. Coverage: exact literal HTTP preview, configured credential metadata redaction, inline header and JSON-string secret redaction, dynamic expression rejection, unknown action rejection, oversized effect rejection, and no approval-token issuance for unreviewable n8n definitions.
+- pnpm exec biome check on the four touched review/route implementation and test files â€” PASS. Scoped git diff --check â€” PASS with Windows LF/CRLF normalization notices. No live n8n, PostgreSQL, provider, or browser flow was run.
 ## F008 project-brain status budget regression (2026-11-07)
 - Focused Vitest: 3 files / 25 tests passed across `src/app/api/projects/[id]/brain/status/route.test.ts`, `src/lib/projects/project-brain-status.test.ts`, and `src/lib/ai/team-member-ai-budget-runtime.test.ts`.
 - Coverage includes server-derived persisted team scope/model, matching-snapshot reuse, usage settlement, conservative estimate when provider usage is absent, stale-evidence rejection after billing, and no reservation release if settlement fails after provider inference.
@@ -1253,3 +1253,479 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Focused review/source/schema/route/tool-card suites: 27/27 across 6 files. Scoped Biome passed; integrated pnpm check-types passed with a 6 GiB heap; pnpm db:check passed; git diff --check passed.
 - Fresh production build passed with exit 0 and 206/206 generated pages. Existing warnings remain: E2B/unpdf dependency analysis, Next image lint notices, optional Redis/Upstash/E2B configuration, dynamic session probes, workspace-root/multiple-lockfile notice, PostgreSQL SSL-mode notice, and request-scoped rate limits falling back to in-memory without Upstash.
 - No disposable PostgreSQL execution, live DB/browser/provider workflow, production migration, or deployment. Migration 0073 remains unapplied.
+
+## Model catalog metadata and combined migration diff (2026-11-08)
+- Focused tests covering model metadata schema/lookup, admin config validation/merge, authenticated model catalog projection, picker filters, admin editor, project-brain retrieval, and mention rendering: 8 files / 28 tests passed.
+- Scoped Biome on 21 changed source/test files: pass. pnpm check-types with NODE_OPTIONS=--max-old-space-size=6144: pass. git diff --check: pass.
+- Fresh pnpm build: exit 0; generated all 206/206 static page slots. Build emitted warnings for dynamic dependency analysis, existing image tags, missing optional Redis/Upstash/E2B settings, dynamic session probes during static rendering, multiple lockfiles/workspace-root inference, and PostgreSQL SSL-mode semantics.
+- Build-time environment did not have Upstash Redis or E2B configured. No live provider, authenticated browser/admin, PostgreSQL, or production-sized query-plan check was performed. No migration was applied and no deployment/push occurred.
+- These results validate source compilation and focused behavior; they do not establish end-to-end parity. A13 and B07 remain PARTIAL.
+
+## Source-scoped project status in chat (2026-11-08)
+- Added current project status prompt formatting through the existing fingerprint-based accepted-source context. Access reuse is constrained to the matching project ID; output is bounded and XML-escaped, and failures/timeouts omit the optional block.
+- Combined focused suite across model metadata/config/picker, project-brain retrieval/status, and mention rendering: 9 files / 34 tests passed. Scoped Biome passed. pnpm check-types passed with a 6 GB Node heap.
+- Fresh production build exited 0 and generated 206/206 page slots. Existing warnings remain for dynamic dependencies, image tags, optional Redis/Upstash/E2B configuration, dynamic session probing, lockfile-root inference and PostgreSQL SSL-mode semantics.
+- No live PostgreSQL/provider/browser verification, production migration, or deployment. B07 remains PARTIAL; this evidence does not prove complete workflow parity.
+
+## Project-status intent gate (2026-11-08)
+- Status fingerprint context is now queried only for status/progress/milestone/blocker/risk/deadline/upcoming-task style questions; ordinary project chat skips those extra source-context reads.
+- Final combined focused suite after the gate: 9 files / 35 tests passed. Scoped Biome passed. pnpm check-types passed with a 6 GB Node heap. Fresh pnpm build passed, generating 206/206 page slots.
+- Existing dependency-analysis, image, missing optional-service, dynamic-session, lockfile-root and PostgreSQL SSL warnings remain. No live database/provider/browser test or deployment; B07 remains PARTIAL.
+
+## 2026-11-08 - C08 workflow execution persistence foundation
+- `pnpm exec vitest run src/lib/ai/workflow/execution-state.test.ts src/lib/db/pg/repositories/workflow-execution-repository.pg.test.ts`: 8/8 passed.
+- `pnpm db:check`: passed.
+- Scoped Biome check/write for new workflow execution types, repository, tests, and schema: passed.
+- `pnpm check-types` with `NODE_OPTIONS=--max-old-space-size=6144`: passed.
+- `git diff --check`: passed (only existing LF/CRLF normalization notices).
+- Not verified: live PostgreSQL execution, migration application, executor pause/resume, API and approval-card flows, production build, authenticated browser journey. The capability remains PARTIAL.
+## 2026-11-08 - C08 graph checkpoint/replay support
+- Focused workflow executor, execution-state, and persistence repository suites: 15/15 tests across 3 files passed, including saved node replay and checkpoint emission; existing linear, branch, and parallel graph tests remain green.
+- Scoped Biome and `git diff --check`: passed. `pnpm db:check`: passed on the schema/migration before this latest executor-only patch.
+- Typecheck is running after the latest serial-execution hook. No production build, migration apply, live PostgreSQL, or browser journey. Chat/API/UI pause/resume is still missing, so C08 remains PARTIAL.
+### Typecheck completion follow-up - 2026-11-08 02:08 IST
+- The typecheck started during executor-hook validation completed successfully with `NODE_OPTIONS=--max-old-space-size=6144`. A fresh final sequence after the executor serialization change also passed: `pnpm check-types`, `pnpm db:check`, and `git diff --check`.
+### C08 approval rejection and verification update - 2026-11-08 02:08 IST
+- Added a repository transition to cancel only the pending effect bound to the signed-in owner's exact effect hash; mismatched owner/hash/status returns no row and cannot alter another execution.
+- Final focused tests: 16/16 across 3 workflow files. Scoped Biome, `pnpm check-types` with a 6 GB Node heap, `pnpm db:check`, and `git diff --check` pass.
+- This is still persistence/executor groundwork. The approval/resume API, chat-card UI, exact effect preview redaction, and end-to-end workflow are outstanding. No migration apply, live PostgreSQL, production build, push, or deploy.
+### 2026-11-08 - C08 approval API/UI wiring
+- Focused workflow/execution/repository/decision-route suites: 19/19 tests across 4 files passed.
+- pnpm check-types: passed. pnpm db:check: passed. Scoped Biome on changed C08 files: passed. git diff --check: passed.
+- A broad Biome scan over the whole workflow tree reported formatting diagnostics in existing unrelated legacy files; that broad scan was not used as a reason to reformat unrelated code. The scoped changed-file scan passes.
+- Not verified: production build, migration application, live PostgreSQL execution, authenticated browser approval/resume journey, full test suite. C08 and the wider migration remain incomplete.
+### 2026-11-08 - C08 sensitive effect persistence
+- Focused workflow/approval suite: 25/25 tests across 6 files passed; the new exact-argument replay and encrypted-at-rest payload checks are included.
+- pnpm check-types: passed. pnpm db:check: passed. Scoped Biome: passed. git diff --check: passed. pnpm build: passed, including 206/206 static page generation.
+- Build warnings observed: Next inferred a parent workspace root because of multiple lockfiles; dependency critical import warnings for the sandbox/document stack; legacy image lint warnings; expected optional Redis/E2B configuration warnings; dynamic session reads logged during static attempts before routes were treated as dynamic; and PostgreSQL SSL alias warnings.
+- Not verified: live/local PostgreSQL apply/query, authenticated browser approval/resume, provider-backed workflow execution, full full-suite regression. C08 remains PARTIAL.
+### 2026-11-08 - C12 connector lifecycle
+- Connector pause/resume/disconnect route suites: 9/9 passed across 3 files.
+- pnpm check-types with NODE_OPTIONS=--max-old-space-size=6144: passed (an initial default-heap attempt exited from Node OOM; rerun succeeded).
+- Scoped Biome: passed. git diff --check: passed.
+- The 206-page production build passed earlier in this session before the C12 connector changes; a production build after C12 remains pending. No PostgreSQL migration/apply or live OAuth-provider lifecycle was exercised.
+- No full suite or authenticated browser test in this batch. C12 remains PARTIAL.
+### 2026-11-08 - A21 upload boundary
+- Combined focused C08/C12/A21 suite: 40/40 tests across 10 files passed.
+- pnpm check-types with 6 GB Node heap: passed. Scoped Biome: passed. git diff --check: passed.
+- A production build previously passed 206/206 pages before the latest C12 and A21 edits. A post-edit full build has not yet been run.
+- A21 remains PARTIAL: no authenticated storage-to-provider browser workflow or real storage integration was run; the direct chat-ingestion owner-boundary regression remains to be added.
+### 2026-11-08 - C08/C12/A21 post-batch verification
+- 48 focused tests passed across 12 files.
+- pnpm check-types with NODE_OPTIONS=--max-old-space-size=6144: passed. Scoped Biome across 32 changed source/test files: passed. pnpm db:check: passed. git diff --check: passed.
+- pnpm build: passed after C08 encryption/replay, C12 provider lifecycle, and A21 attachment ownership/upload changes; 206/206 pages generated.
+- Existing warnings remain for multiple lockfiles/workspace-root inference, E2B/unpdf critical imports, image lint, optional Redis/E2B setup, dynamic routes encountered during static attempts, and PostgreSQL SSL alias behavior.
+- No full test suite, live PostgreSQL migration/run, provider OAuth workflow, or authenticated browser journey was verified. Those remain required before the affected workflows can be COMPLETE.
+## 2026-11-08 - Upstream workflow conversion, D01 citation traceability, C13 MCP approval security
+- Fetched `better-chatbot/main` at `6f4183566bc48616303cb84055f11f79578c82fe`. No merge base exists; the direct tree delta is 3,798 paths due to the 2.0 monorepo restructure, so upstream behavior is being adapted into Void-Agent's existing source layout.
+- Upstream workflow parser port (`5cb318f`): 2/2 focused tests, scoped Biome, and `git diff --check` pass.
+- D01 citation presentation/export batch: 31/31 focused tests across 7 files pass; scoped Biome across 9 changed files passes. Citation resolution is based on exact validated quotes and ready caller-owned pinned sources; positions are described as source segments, not PDF pages.
+- C13 current post-issuance hardening: 44/44 focused tests across 5 files pass; `pnpm check-types` with `NODE_OPTIONS=--max-old-space-size=6144` passes. Token record stores a hash of arguments plus a SHA-256 digest of full MCP config; runtime rechecks ownership, enabled state, server identity/config and active manager client before dispatch.
+- C13 is still PARTIAL: an additional audit found a stale proposal-to-click gap, so captured target context must also flow from chat/voice tool definition creation to approval issuance. That work is underway in parallel.
+- Not verified: fresh production build for this combined batch, live PostgreSQL, authenticated browser journeys, or provider-backed executions. No migration applied, push, deployment, production DB action, or secondary-checkout edit.
+## 2026-11-08 04:44 IST â€” MCP, error guidance, notifications, budget route
+- Locally reran MCP approval/manager/executor/voice approval/repository and safe chat error-display suites: 73 tests passed across 8 files.
+- Locally reran notification list and mark-read route suites: 8 tests passed across 2 files.
+- C02 `/api/agent/ai` monthly team-budget route suite: 11 tests passed (agent report; prior local run in this continuation).
+- Error-display focused suite: 5 tests passed (included in the 73-test combined local rerun).
+- Agent-reported checks: C13 6 GB heap `pnpm check-types`, scoped Biome, `git diff --check` passed before project-brain edits; notification scoped Biome passed; error-display scoped Biome passed.
+- Current concurrent `pnpm check-types` fails with 39 diagnostics in project-brain chat-learning files being actively edited; no diagnostics were reported in C15 notification or upstream error-display files. The project-brain batch is not complete.
+- No full suite or post-change build yet. No live PostgreSQL, browser, provider, or migration apply. Latest production build predates these batches.
+## 2026-11-08 04:52 IST â€” Notifications, push enrollment, voice delegation
+- C15 notifications routes plus shared notification contracts: 13/13 tests passed locally, including rejection of empty/false mark-all payloads and acceptance of explicit `{all:true}`.
+- C16 browser push + notification integration: locally ran 26 tests across 6 files; all passed. C16-specific subset reported by its implementation agent: 19/19 across 4 files. Scoped Biome passed. No live browser permission or VAPID delivery.
+- B22 voice `runAgent` route/provider suite: 11/11 across 3 files passed locally; scoped Biome and `git diff --check` passed. No provider-backed run. ElevenLabs requires an external blocking-tool dashboard entry.
+- Prior concurrent typecheck after early project-brain changes had 11 diagnostics in brain-related files and none in notifications/push/voice; that brain batch remains in progress and another integrated typecheck is required after its fixes.
+- No full test suite or fresh build after these edits; no database migration applied or live database/browser workflow run.
+## 2026-11-08 05:03 IST — B23/B20 voice browser-search checkpoint
+- B23 focused route/client/shared-tool tests: 9/9; combined B22+B23 voice tests: 18/18 across 5 files.
+- Scoped Biome lint passed for the changed route/client/tool/hook files; `git diff --check` passed. `pnpm check-types` with 6 GB heap exited 0 on the current tree. No provider-backed search or ElevenLabs dashboard integration was run.
+- B20 is still MISSING: no Kernel browser isolation, credential-vault and org-policy lifecycle exists in primary; existing Steel/Crawl/Cloak paths cannot safely be exposed to voice due arbitrary navigation/interactions, SSRF via redirect/subresource, prompt injection, persistent sessions, interactive viewer, and unverified abort/cleanup. Do not count the separately implemented read-only B23 search as browser parity.
+- No full production build, live PostgreSQL, push, deployment, or reference checkout change was performed in this batch.
+
+## 2026-11-08 05:05 IST â€” Project chat learning vertical slice
+- Project chat source ingestion/review/context focused suite: 32/32 tests across 6 files (implementation agent run).
+- `pnpm check-types` with 6 GB heap, `pnpm db:check`, scoped Biome across 23 project-brain touched paths, and `git diff --check` passed after the project chat integration.
+- Migration 0075 is additive and journaled, not applied. No PostgreSQL-backed worker/review or browser journey.
+- Additional current local/agent focused results: C15/C16 notification and push: 26/26 across 6 files; B22/B23 combined voice delegation/research: 18/18 across 5 files; C01 agent preset route/repository/catalog: 7/7 across 3 files in root rerun; C13 plus chat error-display: 73/73 across 8 files. Build/full suite still pending after recent edits.
+## 2026-11-08 05:11 IST â€” Account settings and desktop MCP consent
+- C17 lazy settings route/UI tests: root rerun 5/5 across 2 files; implementation agent additionally ran 18/18 across 4 files, full `pnpm check-types` with 6 GB, and scoped Biome. No live account/email/session journey.
+- C20 remote native MCP consent tests: 22/22 across 5 local desktop MCP files; desktop typecheck/build and scoped Biome passed (implementation agent reports a wider 27/27 six-file set). No live Electron/remote-server journey.
+- Full application build not rerun after the latest aggregate changes. No database migration apply, push, or deploy.
+## 2026-11-08 - B20 Kernel isolation audit
+- Source-audited upstream browser-run/Kernel call flow and compared the current official SDK `BrowserNetworkConfig` contract. `allowed_hosts` is a proxy egress restriction, not a VM-wide network boundary; upstream executes arbitrary Playwright code in the browser VM. Proxy-v3/org-flag state, private-address handling for hostname DNS, and all-process egress isolation are not verified.
+- No browser implementation or tests were added. B20 remains MISSING; no Kernel credentials, browser session, live DNS, or external browser request were used. See `docs/integration-progress.md` and `docs/security-review.md` for the exact blocker and vendor incident note.
+
+## 2026-11-08 05:43 IST â€” B05 project document safety UX
+- Focused B05 suites passed 18/18 across 5 files (document panel, unlink route, private download route, tracked-edit proposal route, tracked-edit download route).
+- Scoped Biome and full TypeScript (`node --max-old-space-size=6144 .../typescript/bin/tsc --noEmit`) passed. `git diff --check` passed with only Git LF/CRLF normalization notices.
+- No live PostgreSQL/storage/browser flow or production action was run.
+### C22 problem-report notifications - 2026-11-08
+
+- `pnpm exec vitest run src/app/api/problem-report/route.test.ts src/lib/problem-report/notification.test.ts` — 10 tests passed across 2 files.
+- Coverage includes a configured destination, no header recipient injection, bounded subject text, HTML escaping, sanitized page URL, no identity/private object key in email, and notification failure not failing a stored report.
+- Live Resend delivery and PostgreSQL/admin browser workflow were not run. No migration was authored or applied.
+- Verification update: Expanded route/helper coverage now passes 12/12 across 2 files. Scoped Biome passes. Full typecheck currently fails only at `src/components/payments/dodo/dodo-upgrade-card.tsx(129,18)` (union `.error` property narrowing); no C22 diagnostics were reported. This unrelated diagnostic was sent to the parent for coordination.
+### B06 project-brain run status/recovery - 2026-11-08
+
+- `pnpm exec vitest run src/lib/projects/brain-run-state.test.ts src/lib/projects/brain-schema.test.ts 'src/app/api/projects/[id]/brain/route.test.ts'` — 21 passed across 3 files. Covers 5-minute stale detection for serialized dates, editor-only recoverability, worker claim behavior, source retry policy, and no-visible-source API regression.
+- Scoped Biome and changed-path `git diff --check` passed. Full TypeScript check pending at the time of this entry. No database-backed scheduler run or browser workflow.
+- Verification update: Integrated 6 GB full TypeScript check passed (`node --max-old-space-size=6144 ./node_modules/typescript/bin/tsc --noEmit`). No production build or live PostgreSQL/scheduler/browser journey was run for this batch.
+### C03 agent gallery clone-to-owned-copy - 2026-11-08
+
+- `pnpm exec vitest run 'src/app/api/agent/[id]/clone/route.test.ts' src/lib/db/pg/repositories/agent-clone-repository.pg.test.ts 'src/app/api/agent/[id]/install/route.test.ts' src/app/api/agent/installed/route.test.ts src/app/api/agent/published/route.test.ts src/lib/db/pg/repositories/agent-install-publication.pg.test.ts` — 33 passed across 6 files.
+- Tests cover authentication, create permission, same-origin, UUID, rate limit, idempotent existing copy, unpublished source rejection, locked publication predicates, private owner-scoped copy, and stripping model/MCP/file config. Existing Install/installed/publication tests passed unchanged.
+- Scoped Biome and changed-path `git diff --check` passed. Full TypeScript pending at the time of this entry; no live DB/browser workflow.
+- Verification update: Integrated 6 GB TypeScript completed successfully after the transient missing A22 file was restored; no clone/install/gallery type diagnostics. No production build or live DB/browser workflow was run.
+### B17 voice-device credential rotation â€” 2026-11-08
+- `pnpm exec vitest run 'src/app/api/voice/devices/[id]/rotate-credential/route.test.ts' src/lib/db/pg/repositories/voice-device-credential-rotation.pg.test.ts src/components/voice-devices-dashboard.test.tsx` â€” 8 tests passed across 3 files.
+- Repository coverage checks hashed-only persistence and device+owner+active predicates, with no bearer returned for missing/foreign/revoked rows. API coverage checks authentication, same-origin, UUID, rate limit, non-disclosing 404 and generic failure handling. UI coverage checks confirmation, rotation, one-time token display and hide behavior.
+- Scoped Biome passed on 6 changed source/test files. Scoped `git diff --check` passed with only standard LF/CRLF notices. Integrated 6 GB TypeScript check passed.
+- Live PostgreSQL, physical device reconfiguration, browser end-to-end and production build were not run; B17 remains PARTIAL.
+### B18 paginated voice-device session history â€” 2026-11-08
+- `pnpm exec vitest run 'src/app/api/voice/devices/[id]/sessions/route.test.ts' 'src/app/api/voice/devices/[id]/sessions/[sessionId]/segments/route.test.ts' src/lib/db/pg/repositories/voice-device-session-pagination.pg.test.ts src/components/voice-devices-dashboard.test.tsx` â€” 15 tests passed across 4 files.
+- Coverage: authenticated owner-scoped requests, malformed cursor rejection, stable next-page cursor, precision-preserving query predicate and device/user ownership join, 51-row repository bound, ordered segment detail, and dashboard appending of older sessions.
+- Scoped Biome and changed-path `git diff --check` passed. Whole-project TypeScript not yet verified for this batch: duplicate run was stopped after parent requested avoiding overlap with A06; it surfaced one concurrent unrelated diagnostic at `src/app/api/workflow/executions/[executionId]/route.ts(81,9)`. Await aggregate typecheck.
+- No live PostgreSQL/device/browser flow or production build. No migration applied.
+### B07 ready-source retrieval and untrusted citation boundary â€” 2026-11-08
+- `pnpm exec vitest run src/lib/rag/retrieve.test.ts src/lib/rag/format.test.ts src/lib/projects/project-brain-context.test.ts` â€” 37 tests passed across 3 files.
+- Coverage includes ready-state SQL condition alongside owner/team/collection scope, numbered citations, bounded excerpt formatting, escaping prompt-like `</source>`/`</retrieved_context>` payloads and hostile source labels, and existing active-revision/project-brain ACL checks.
+- Scoped Biome and changed-path `git diff --check` pending. No live PostgreSQL/provider/browser search workflow or production build; no migration applied.
+#### B07 verification update â€” 2026-11-08
+- Focused retrieval/formatter/project-brain suites passed 37/37 across 3 files. Scoped Biome and changed-path `git diff --check` passed.
+- Full 6 GB `tsc --noEmit` completed with a single unrelated A07 error: `src/lib/db/pg/repositories/chat-export-repository.pg.ts(37,14)` does not implement `selectByShareTokenHash`, `selectLegacyByIdWithUser`, `createShareToken`, or `revokeShareToken`. No B07 diagnostics.
+- No live PostgreSQL/provider/browser search test or production build.
+### B08 project graph neighbor navigation â€” 2026-11-08
+- `pnpm exec vitest run src/components/project-brain-node-neighbors.test.tsx 'src/app/api/projects/[id]/brain/graph/nodes/[nodeId]/route.test.ts' 'src/app/api/projects/[id]/brain/graph/route.test.ts'` â€” 14 tests passed across 3 files.
+- New UI tests verify a related node button invokes selection with the canonical node ID and empty neighbor sets render no section. Node detail route SQL test verifies project ID, collection allowlist, collection owner allowlist, `ready` status and active-source-state predicate. Existing graph authorization/traversal tests pass.
+- Scoped Biome/diff and aggregate TypeScript pending. No live PostgreSQL/browser flow or schema apply.
+### B09 timeline exact source revision preview â€” 2026-11-08
+- `pnpm exec vitest run src/components/project-brain-timeline.test.tsx 'src/app/api/projects/[id]/brain/timeline/route.test.ts' 'src/app/api/projects/[id]/brain/versions/[versionId]/route.test.ts'` â€” 8 tests passed across 3 files.
+- Coverage includes source version ID surfaced from the current timeline run, preview/hide user journey, version URL/no-store request, project/collection/owner/ready predicates, active source-state/run predicate, and existing fingerprint/length/authorization rejection paths.
+- Scoped Biome and changed-path `git diff --check` passed. Full TypeScript deferred to aggregate root run. No live DB/browser or production build.
+### B09 contradiction source provenance review - 2026-11-08
+- `pnpm exec vitest run 'src/app/api/projects/[id]/brain/graph/route.test.ts' src/components/project-brain-claim-evidence.test.tsx` - 12 tests passed across 2 files.
+- Coverage asserts current contradiction pairs carry source filename, observation timestamp, and evidence; existing graph filters still reject facts outside current project/source scope. UI tests verify source label, timestamp semantics, evidence text, and invalid-date handling.
+- Scoped Biome check and changed-path `git diff --check` passed. No full TypeScript/build, live PostgreSQL/browser review, or migration application in this slice; no push/deploy.
+
+### 2026-11-08 06:52 IST - Integrated checks after direct upstream ports
+- `pnpm check-types` completed successfully on the shared worktree after the project chat history, share-link, thread-fork, timeline-source preview, contradiction provenance, and password ownership changes were present.
+- `pnpm db:check` completed successfully (`Everything's fine`). This validates migration metadata only; no PostgreSQL connection or migration apply was performed.
+- Root independently ran the project-thread API/UI tests: 6/6 passed. Scoped Biome and changed-path `git diff --check` passed.
+- No production build, browser journey, live PostgreSQL, push, deployment, or production DB operation was run in this check batch.
+
+### 2026-11-08 final local verification batch
+- `pnpm test` passed: 491 test files / 2,615 tests. The first full run had 490 passing suites and one server-only import test setup failure; adding the missing helper mock made that suite pass 4/4, and the full rerun passed.
+- `pnpm lint` passed; only existing `@next/next/no-img-element` warnings were emitted.
+- `pnpm check-types` with `NODE_OPTIONS=--max-old-space-size=6144` passed. The default 2 GB invocation OOMed; use the 6 GB setting for this repo.
+- `pnpm db:check` passed; migration metadata is consistent, and no migration was applied.
+- Production build initially caught Next's native-canvas bundle problem; `@napi-rs/canvas` is now an external server package. It next found a non-handler helper exported by the voice web-search route; that helper has been moved to `src/lib/voice/public-web-url.ts`, and its focused route tests pass. The final production build is being rerun after both fixes; do not record it as passing until it exits successfully.
+
+### Final local verification â€” 2026-11-08
+- Final `pnpm test`: PASS, 491 test files / 2,617 tests, including the updated project-assignment, MCP resource-link, share/fork, and config coverage.
+- Final `pnpm build`: PASS; 205/205 static pages generated and route table completed. Build emitted existing dependency/lint/performance warnings and attempted read-only page-data queries against the configured database, where `agent.preset_id` was absent because migration 0076 has not been applied. No migration or database write was performed.
+- `pnpm lint`: PASS with existing `<img>` warnings. `pnpm check-types` with `NODE_OPTIONS=--max-old-space-size=6144`: PASS. `pnpm db:check`: PASS. `git diff --check`: PASS (only CRLF normalization notices).
+- The default 2 GB `pnpm check-types` invocation OOMed once; the 6 GB invocation passed. The current environment has no Redis/Upstash URL/token, so build-time rate limits use the existing memory fallback and emit the expected warning.
+- No commit or push occurred; branch remains `main` with 334 changed paths in the local worktree. Migrations 0074â€“0077 are still unapplied. Reference checkout was not modified.
+
+
+## 2026-11-08 â€” C05 MCP customization trace and C06 audio result support
+- C05 source trace: authenticated customization UI routes persist server/tool prompts through per-user repositories; writes/deletes invalidate the user cache; chat and voice load stored prompts; chat filters tool prompts to tools currently bound to that request and injects guidance into the system prompt passed to `streamText`. Upstream Better Chatbot 2.0 follows the same workflow. No implementation change was needed. Live DB/browser MCP workflow remains unverified.
+- C06: added inline audio result previews for base64 `audio/aac`, `audio/flac`, `audio/mp4`, `audio/mpeg`, `audio/ogg`, `audio/wav`, `audio/webm`, and `audio/x-wav`; bounded to 2 clips of 2 MiB each. Invalid/oversized/unsupported audio is omitted and transcript JSON redacts bytes. The UI uses native playback controls with `preload="none"`.
+- Focused verification: `pnpm exec vitest run src/lib/ai/mcp/mcp-result-media.test.ts src/components/tool-invocation/mcp-tool-result.test.tsx` â€” 12/12 tests passed. Scoped Biome check passed for all four changed source/test files; `git diff --check` passed.
+- No PostgreSQL-backed run, browser, live MCP server, migration apply, push, or deployment was performed.
+## A15 stable-ID dynamic provider edit and saved-key discovery (2026-11-08)
+- Added admin UI editing for an existing OpenAI-compatible provider. The update reuses its existing ID, default/fallback model selection, enabled state, and creation timestamp; a blank API-key field preserves the encrypted key and a typed key rotates it.
+- Discovery accepts the existing provider ID and obtains its key from encrypted server configuration only if the requested base URL equals the saved endpoint after URL normalization. Changed endpoints require a new key. API responses remain key-free; SSRF validation, DNS pinning, redirect denial, timeout and response caps remain unchanged.
+- Verification: `pnpm exec vitest run src/app/api/admin/providers/discover/route.test.ts src/lib/admin/provider-discovery.test.ts src/app/api/user/providers/route.test.ts src/lib/ai/models.test.ts` passed 28/28 across 4 files. Scoped Biome passed all 5 touched source/test files.
+- `pnpm check-types` reports one unrelated/concurrent error in `src/lib/ai/tools/project-document.ts:47` (`filename: string | null` not assignable to `string`); no provider-path diagnostic was reported. No live PostgreSQL/provider/browser run or migration apply.
+
+### A15 test-count update - 2026-11-08 10:17 IST
+- Added two direct admin-provider save API tests for stable ID, encrypted key retention/rotation, and response redaction. Updated focused verification total: 30/30 across 5 files.
+
+### 2026-11-08 10:33 IST — Provider, MCP media, and project-document ports; aggregate verification
+- Added stable-ID editing for admin-configured OpenAI-compatible providers. Existing default/fallback selections, enabled state, timestamp, and encrypted key are retained; key rotation requires a new value. Server-side discovery reuses the saved key only for the same normalized endpoint. Focused provider suite: 30/30.
+- Extended MCP result rendering with bounded allowlisted inline audio playback and redaction; verified existing server/tool customization behavior rather than adding a duplicate. Focused media/UI suite: 12/12.
+- Ported Better Chatbot's model-invokable project document analysis into the existing project chat. Inventory is metadata-only; each selected document is re-authorized against live project membership, collection scope, owner and ready status; SQL bounds the read to 30,000 characters and marks it untrusted. Focused suite: 4/4.
+- Aggregate verification on the combined worktree: `pnpm test` passed 493 files / 2,629 tests; `pnpm lint` passed with existing `no-img-element` warnings; 6 GB heap `pnpm check-types` passed; `pnpm build` passed and generated 205/205 pages. Build emitted existing dependency, workspace-root, dynamic-page-data/session, and absent Redis/Upstash configuration warnings. No migrations or production data were changed.
+- Reference checkout was not edited; nothing was committed or pushed, and nothing was deployed. Existing unapplied migrations remain unapplied. Next code batch: adapt upstream onboarding to Void-Agent's current owner-scoped Composio and preferences APIs.
+
+### A15 legacy fallback credential status - 2026-11-08 10:40 IST
+- `GET /api/admin/providers` now reads the tools config only to determine whether `apiKeysSecrets[dyn_${id}]` is a non-empty string. `apiKeyConfigured` is true for either a direct stored provider key or this legacy fallback. No key is decrypted, serialized, or returned; failure to read the optional tools config does not hide providers whose direct key is configured.
+- Regression coverage: GET returns `apiKeyConfigured: true` for a fallback-only provider while the encrypted sentinel remains absent from JSON; direct-key listings still succeed if the tools config read fails. Focused route suite: 4/4; scoped Biome and `git diff --check` pass.
+- No migration, DB write, provider request, push, deployment, or reference checkout operation. A15 remains PARTIAL pending live database/provider/admin-browser verification.
+
+### E01 onboarding verification â€” 2026-11-08
+- `pnpm exec vitest run src/app/api/user/onboarding/route.test.ts src/app/api/onboarding/complete/route.test.ts src/components/onboarding/onboarding-wizard.test.tsx src/app/onboarding/page.test.ts src/lib/onboarding/gate.test.ts src/lib/db/pg/repositories/user-onboarding-preference.pg.test.ts src/types/user.onboarding.test.ts`: **23/23 tests passed across 7 files**.
+- Coverage includes auth/same-origin checks, state validation, server-generated completion time, atomic JSONB patch, new/legacy-step resume, completion-cookie verification/flags, gate decisions, Composio configured/unconfigured flows, mocked connect/disconnect, skip and finish.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: passed with no diagnostics.
+- Scoped Biome passed for 16 onboarding/type/test/layout files. The large existing `user-repository.pg.ts` was checked with formatting/import sorting disabled to avoid unrelated full-file reformat; no remaining lint diagnostics. `git diff --check` passed (repository emitted normal LF/CRLF warnings).
+- No production build rerun after onboarding changes; no live PostgreSQL or Composio credentials/browser OAuth journey. No migration, push, or deployment.
+### 2026-11-08 11:27 IST — Onboarding batch and final aggregate verification
+- E01 now adapts Better Chatbot's first-run onboarding as a resumable two-step Void-Agent wizard with agent/workflow entry points and optional Composio connections. It uses existing authenticated, owner-scoped Composio routes; onboarding preferences are atomically merged so notes/skills/settings are preserved. Completion state is checked server-side before an HttpOnly device cookie is set, and the gate is confined to authenticated chat pages. No schema migration.
+- Onboarding focused suite: 23/23 across 7 files. Independent security review found no concrete redirect, cookie, CSRF, ownership or preference-loss defect. Provider edit/fallback status and project-document ACL suites also have focused regressions (provider GET 4/4; project document 6/6).
+- Final aggregate verification after all current code: `pnpm test` passed 500 files / 2,656 tests; `pnpm lint` passed with existing `no-img-element` warnings; 6 GB `pnpm check-types` passed; `pnpm db:check` passed; `pnpm build` passed with `/onboarding` included and 205/205 static pages generated; `git diff --check` passed.
+- Build retains environment/dependency warnings: parent npm lockfile workspace-root selection, E2B/unpdf dynamic dependency notices, session-dependent pages logging during static collection, and absent Redis/Upstash fallback. No migration was applied and no production data was written.
+- `Void-Agent` remains on `main` at `23a0177397232874689d67100d2e6730b23e6c75`, equal to `origin/main`, with 351 local status paths and no commit/push/deploy. `Void-Agent-V2` status remains 3,072 staged paths; this turn performed no reference checkout writes. Preserve that unknown-origin staged state.
+- E01 remains PARTIAL pending live PostgreSQL, browser, and Composio OAuth verification. Continue upstream integration; do not report full parity or an overall completion percentage from the scoped 75 workflow rows.
+
+### E02 project onboarding verification â€” 2026-11-08
+- Focused suite: pnpm exec vitest run 'src/app/api/projects/[id]/agents/route.test.ts' 'src/app/api/projects/[id]/onboard/route.test.ts' src/components/project-setup-wizard.test.tsx â€” 10/10 tests passed across 3 files.
+- Coverage includes caller-owned/public-only agent assignment, cross-user private attach/delete rejection, editor-only writes, safe metadata with private no-store, valid/invalid progress updates, cross-origin denial, goal save-before-advance, skip/resume behavior, and visible save errors.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types: passed with no diagnostics. A default 2 GB attempt OOMed; 6 GB heap was required.
+- pnpm db:check passed. Scoped Biome passed 9 changed TS/TSX files; schema passed with formatter/import sorting disabled to avoid unrelated full-file formatting.
+- No migration was applied, and no production DB/browser/provider service was exercised. No production build rerun for E02; migration 0078 remains unapplied. E02 remains PARTIAL pending live DB/browser verification.
+
+#### E02 review correction â€” 2026-11-08
+- Focused suite was expanded to **16/16 tests across 3 files**. New cases cover team-private attach and delete denial, personal owner-private attach, duplicate retry at capacity, and serialized full-cap refusal.
+- 6 GB `pnpm check-types` completed successfully after the route changes. `pnpm db:check` passed. Scoped Biome passed after formatting the new routes/components; schema was checked without formatter/import sorting to avoid unrelated schema-wide changes.
+- No migration apply, PostgreSQL runtime, browser E2E, or production build was performed for this batch. Code deployment requires migration 0078 plus any preceding pending migrations.
+
+### 2026-11-08 - Final verification after upstream batches
+- pnpm test: 506 test files, 2,682 tests passed. This full run preceded the final stale-agent-assignment cleanup; the current project setup route/UI suite was rerun after that change and passed 16/16 across 3 files.
+- pnpm lint passed after fixing the project wizard apostrophe; existing img performance, Next workspace-root, and deprecation warnings remain.
+- 6 GB TypeScript check passed. The final pnpm build also passed its integrated type/lint stage after moving the SQL helper out of the App Router module.
+- pnpm db:check passed; migration 0078 is metadata-checked but unapplied. git diff --check passed (Git reports existing LF-to-CRLF normalization notices).
+- pnpm build passed with static generation 205/205. Existing/environment warnings include E2B/unpdf dynamic dependencies, missing Upstash/Redis fallback, dynamic server access during static collection, parent lockfile root selection, and a build-time read logging missing agent.preset_id because migration 0076 is unapplied. No migrations or production data were written.
+- Focused batches: project setup 16/16 after final cleanup; OpenAI Realtime settings 3/3; table-review cancellation 3/3; structured request input 16/16; desktop MCP tests 23/23. These are unit/mocked or local bridge checks, not live DB/provider/browser end-to-end tests.
+- No push, commit, deployment, migration apply, or reference-checkout write.
+## 2026-11-08 12:23 IST - Focused verification addendum
+- Root combined Vitest run: 10 files, 46 tests passed (B10 project-brain todo transitions, B07 retrieval, C09 scheduler resume, C10 diagnostics, C11 run history, B15 voice session thread). The count overlaps previous focused runs and must not be summed.
+- C09 agent run: 30 tests passed across four scheduler files; scoped Biome and diff check passed.
+- B15 comparison run: 9/9 existing route/contract tests passed.
+- `pnpm db:check` and `git diff --check` passed earlier in this continuation. Full suite, final typecheck/lint/production build remain pending after parallel work stabilizes. No live PostgreSQL or provider/browser workflows were exercised.
+## 2026-11-08 12:27 IST - MCP and prompt verification
+- MCP registration route: 4/4 focused tests pass; scoped Biome and diff check pass.
+- MCP prompt customization / tool approval: 19/19 focused tests pass; no parity code change was necessary.
+- B24 lifecycle test work currently causes TypeScript failures in the new test files only; agent is correcting it. Do not treat the latest aggregate typecheck as passing.
+## 2026-11-08 12:31 IST - B24 verification
+- `project-chat-brain-source.lifecycle.test.ts` plus `brain-queue.chat-source.test.ts`: 6/6 focused tests passed.
+- 6 GB TypeScript check passed after correcting mock typing. Scoped Biome and targeted `git diff --check` passed.
+- These tests use mocks; no live PostgreSQL/chat provider was tested. Aggregate full test/build remain pending after C12.
+## 2026-11-08 12:34 IST - C12 verification
+- Composio helper + integration API + UI: 10/10 focused tests across 3 files passed. Scoped Biome on 6 files and targeted `git diff --check` passed.
+- Shared account deletion rejection is mocked; no live Composio calls were made.
+## 2026-11-08 12:38 IST - Voice handoff and workflow parity
+- B16 focused suite: 40 tests across 10 files passed; scoped Biome and `git diff --check` passed.
+- C08 focused suite: 32 tests across 7 files passed. Existing durable workflow and effect-approval behavior is retained.
+- No live provider/DB/browser integration was exercised.
+## 2026-11-08 12:42 IST - A14 provider fallback verification
+- Focused `models.test.ts`: 10/10 passed, including disabled static/dynamic providers, legacy-enabled statics, and config-read failure without fallback.
+- Scoped Biome, 6 GB `pnpm check-types`, and targeted diff check passed.
+## 2026-11-08 12:45 IST - B17 voice-device verification
+- Enrollment/rotation/dashboard/revoke: 18/18 tests across 7 files passed, including cross-origin rejection before repository access. Scoped Biome and diff-check passed.
+- No live hardware/device or production API test.
+## 2026-11-08 12:49 IST - B22 voice matching verification
+- Focused voice agent matching/route: 12/12 passed across 2 files; scoped Biome and TypeScript passed.
+- No live provider execution tested; no delegated external tools were enabled.
+## 2026-11-08 13:04 IST - Aggregate verification results
+- `pnpm test`: 513 files / 2,724 tests passed.
+- `pnpm lint`: passed; existing `<img>`, Next lint deprecation, and inferred workspace-root warnings.
+- 6 GB `pnpm check-types`: passed.
+- `pnpm db:check`: passed; no migrations applied.
+- `pnpm build`: passed, 205/205 pages; E2B/unpdf dependency warnings, Redis fallback notices, missing `agent.preset_id` from unapplied migration, and dynamic-session prerender messages were logged.
+- `git diff --check`: passed with line-ending normalization notices.
+## 2026-11-08 13:12 IST - B05 project document pagination
+- Focused document list/page/UI/download/unlink/edit suite: 31/31 across 6 files passed; scoped Biome and diff check passed.
+- No live PostgreSQL/object storage/browser run.
+## 2026-11-08 13:18 IST - B08/C01 focused checks
+- B08 graph search: 15/15 tests; scoped Biome and diff check passed.
+- C01 preset seeding: 9/9 tests; scoped Biome, 6 GB typecheck, and diff check passed.
+- Project documents older-page client response typing corrected. Aggregate suite/build must rerun after these latest changes.
+## 2026-11-08 13:29 IST - Current aggregate verification
+- `pnpm test`: 514 files / 2,731 tests passed.
+- `pnpm check-types` with 6 GB heap: passed.
+- `pnpm lint`: passed with existing `<img>`, Next lint deprecation, and workspace-root warnings.
+- `pnpm db:check`: passed; metadata check only, no migration applied.
+- Fresh `pnpm build`: passed, 205/205 pages. Existing E2B/unpdf bundler warnings, Redis fallback notices, missing `agent.preset_id` from unapplied migrations, and dynamic session/header prerender messages remain.
+- `git diff --check`: passed.
+## 2026-11-08 13:35 IST - B09 verification
+- Fact/source-version/contradiction/timeline review focused tests: 5 files / 22 tests passed.
+- No live DB/browser review journey; no code changed.
+## 2026-11-08 13:42 IST - A13/C02 focused verification
+- A13 picker/catalog suite: 20/20 across four files; 6 GB typecheck, scoped Biome, diff-check passed.
+- C02 app-aware generation: 25/25 across three files; scoped Biome on six files and diff-check passed. Unconnected apps are prompt-only; no tool schema widening.
+- Full test suite/build predate this latest code.
+## 2026-11-08 13:48 IST - Current aggregate result
+- `pnpm test`: 515 files / 2,737 tests passed.
+- 6 GB typecheck, full lint, `pnpm db:check`, fresh 205/205 production build, and `git diff --check`: passed.
+- Existing build warnings are documented in the migration handoff. Migrations were not applied; live provider/DB/browser flows are not implied by mock tests.
+## 2026-11-08 14:03 IST - C03 verification
+- Five agent route suites: 31/31 pass.
+- No upstream publishing/gallery feature gap; no code changed. No live database/browser workflow.
+## 2026-11-08 14:10 IST - C07 verification
+- Saved workflow editor/route/validation suite passed: 5 files / 26 tests.
+- No live DB/browser checks and no code change.
+## 2026-11-08 14:18 IST - B04/B06 focused verification
+- B04 XLSX/PPTX parsing, OOXML security, upload/UI, and RAG rollback: 62/62 across 6 files; typecheck passed within agent scoped run, Biome/diff-check passed.
+- B06 stale queue helper/route/UI: 12/12; Biome/diff-check passed.
+- Root aggregate run still required after these changes.
+## 2026-11-08 14:26 IST - Current aggregate status
+- `pnpm test`: 516 files / 2,746 tests passed.
+- 6 GB typecheck, full lint, `pnpm db:check`, production build (205/205 pages), and `git diff --check` passed.
+- Existing build warnings and the unapplied migration condition are documented in migration handoff. No live DB/provider/browser workflow implied.
+## 2026-11-08 15:12 IST - B11 focused verification
+- Project Composio shared account listing/attach/sync: 15/15 tests across 3 files; scoped Biome on 4 changed files passed.
+- No live Composio API/OAuth verification. Aggregate suite/typecheck/build pending after B12/D01.
+### 2026-11-08 14:37 IST - A25/A26 and aggregate verification checkpoint
+- A25 image generation/edit parity: previous generated images can be reused; edit sources are limited to validated raster data or the authenticated owner's managed storage keys (15 MiB max), with byte-signature checks. Arbitrary server-side image URL fetching was removed. Focused image tests: 15/15; typecheck, scoped Biome/diff pass. Masked inpainting/multi-reference remain unsupported because Flare's contract is unverified.
+- A26 artifact export: sandbox tool can upload an allowlisted workspace file (15 MiB max) through existing owner-scoped storage for private preview/download. Traversal, active content, unsafe types, symlink parents, over-limit and inconsistent reads are rejected. Focused tests 17/17; live E2B/storage/browser remains unverified. Void-Agent Canvas remains primary-only; upstream has no standalone Canvas editor.
+- A24 video output now plays HLS via lazy hls.js with native-HLS fallback and bounded playback; focused 7/7. Live browser/CDN remains unverified.
+- A22 spreadsheet preview/model ingestion audit found parity already exists; primary has stronger OOXML/owner checks. Focused 32/32.
+- C21 Vercel plus website/SEO/Revolut/Superlog workflows already existed; added private no-store response protections and route regressions. Vercel focused 16/16; non-Vercel focused 5/5. No live provider calls.
+- C26, project conversation search, and standalone Canvas audits found no upstream feature gap; documented. C26 tests 16/16.
+- Workflow register reconciled to 80 candidates: 79 reference workflows + one Void-Agent-only feature; 0 COMPLETE, 70 PARTIAL, 1 MISSING (unsafe browser automation), 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM. This is still a scoped register, not the full 206-surface denominator or a completion percentage.
+- Aggregate checks: `pnpm test` 525 files / 2,799 tests passed; 6 GB typecheck passed; lint passed with existing `<img>`, Next lint deprecation and workspace-root warnings; `pnpm db:check` passed; `pnpm build` passed with 205/205 pages; `git diff --check` passed.
+- Build diagnostics: E2B/unpdf critical dependency warnings, SSL-mode forward-compat warning, missing `agent.preset_id` because additive migrations remain unapplied, expected dynamic-session/header prerender diagnostics, and memory cache/rate-limit fallback without Redis/Upstash.
+- Repository state: primary HEAD `23a0177` equals `origin/main`, 442 local status paths; read-only V2 HEAD `8671f31`, latest `better-chatbot/main` ref `6f41835`, 3,072 pre-existing status paths unchanged. No commit, push, deploy, migration application, or production write.
+### 2026-11-08 15:49 IST - A25 image composition, mask editing, and provider hardening
+- Preserved Flare as the default generation/single-image edit provider. Added optional AI Gateway multi-reference composition (`bfl/flux-2-pro`) only on explicit composition mode/intent; multiple attachments alone do not trigger composition.
+- Added an accessible bounded brush editor. It uploads a PNG mask through authenticated owner storage and persists a `data-image-mask` part that pairs exact source/mask file IDs and URLs.
+- Masked edits require both managed owner keys, validate raster signatures, cap combined input at 15 MiB and image edges/pixels, normalize the source and mask to identical dimensions, and convert painted pixels to opaque white (regenerate) with unpainted pixels opaque black (preserve). The Gateway `bfl/flux-pro-1.0-fill` call receives abort; capability discovery is authenticated/private/no-store and the provider call is owner-limited to 20/hour. Existing free-tier edit quotas remain.
+- Exact upstream SDK versions are isolated aliases: `ai-image-v7` -> `ai@7.0.18`; `@ai-sdk/gateway-image-v4` -> `@ai-sdk/gateway@4.0.0-canary.107`. The primary app remains on `ai@5`. `.env.example` documents optional `AI_GATEWAY_API_KEY`.
+- Flare provider output/poll paths were hardened: strict provider origin HTTPS URLs, no redirects, response caps/timeouts/MIME/signature checks; polling ignores provider-supplied URLs and constructs task endpoints only from validated task IDs.
+- Validation: focused image/API tests 46/46 across 9 files; scoped Biome passed; 6 GiB TypeScript check passed. Live Gateway credentials/provider/browser flow unavailable. A25 remains PARTIAL. No migration, production write, V2 edit, push, or deploy.
+
+### 2026-11-08 15:52 IST - A25 final verification update
+- Added the owner-keyed masked-image rate-limit check after URL ownership validation but before either storage download; route regression confirms rate-limited requests do no storage reads.
+- Verification count supersedes the earlier 46-test checkpoint: 47 focused tests across 9 files pass. Scoped Biome and 6 GiB typecheck pass after all A25 changes. The 2 GiB default typecheck OOMs in this workspace.
+- Live Gateway calls remain unverified; no production build specifically for this batch. A25 remains PARTIAL until live credential/provider/browser verification.
+
+### 2026-11-08 16:07 IST - Aggregate verification checkpoint
+- Full suite: 536 files / 2,862 tests passed; stream-context suite rerun after lint correction: 9/9.
+- 6 GiB typecheck, lint, DB metadata check, production build (exit 0, 205/205 page slots), and diff-check passed. Build logs still show missing `agent.preset_id in configured DB probes; no migration was applied and live Postgres parity is not verified.
+- A24 focused test count corrected from 6/6 to 7/7.
+- Implementation continues in parallel on table review, desktop MCP, and project-brain parity. Scoped register: 80 workflows; no overall completion percentage is claimed.
+
+### 2026-11-08 16:10 IST - B07 bounded project-knowledge retrieval
+- Fixed the newest-500 blind spot by applying bounded lexical search/ranking in SQL before a 300-row cap, while retaining project/source-owner/collection/ready/review/current-revision checks and alias expansion.
+- Focused query tool tests: 4/4; scoped Biome and diff-check passed. Live Postgres plan/provider/browser verification remains pending; no schema migration.
+
+### 2026-11-08 16:16 IST - C15 Cockpit Updates surface
+- Added the missing Cockpit feed for agent-posted info/warning/alert notifications, with latest-eight display, severity/read state, five-second refresh, safe links and mark-read using existing owner-scoped APIs.
+- Focused UI/route/type tests: 20/20 combined; scoped Biome and diff-check passed. No DB migration; live browser/PostgreSQL verification remains.
+
+### 2026-11-08 16:17 IST - Root focused rerun
+- Cockpit Updates UI/type/overview and project-knowledge retrieval: 4 files / 11 tests passed. Scoped Biome passed across seven changed files; diff-check passed.
+- Notification route/contract suite remains worker-verified at 13/13. No live PostgreSQL/browser check.
+
+### 2026-11-08 16:25 IST - C09 schedule agent selection parity
+- Better Chatbot's schedule authoring supports selecting an agent; Void-Agent's backend already enforced owner-only `agentId`, but the dashboard could create only assistant schedules and did not project the selected identity.
+- The dashboard now fetches only the owner's agents, offers one during create, sends its ID through the existing owner-checked scheduler API, exposes that ID in the public job projection, and locks agent selection when editing an existing schedule. Existing durable run/cancel/history behavior remains.
+- Focused scheduler dashboard/helper/route tests pass 26/26 across three files; scoped Biome and diff-check pass. No migration/schema change. Live PostgreSQL, worker, and browser verification remain, so C09 stays PARTIAL.
+
+### 2026-11-08 16:26 IST - 6 GiB aggregate typecheck
+- `pnpm check-types` passed with a 6 GiB Node heap after filling the scheduler projection test fixture with required schema fields. No Personal Auto, scheduler UI, team route, or existing-project type diagnostics remain.
+
+### 2026-11-08 16:35 IST - Add A27 Personal Auto and C27 team-member workflows
+- A27: Personal chat Auto now uses explicit administrator task scores and priority. It filters to enabled/keyed deployment providers, excludes personal endpoints, validates capabilities/context, accepts provider-verified context sizes for otherwise unknown models, and pins an eligible prior thread model. Focused tests 32/32 across six files; 6 GiB typecheck passes; live provider/browser remains unverified.
+- C27: Added an owner/admin-only team member screen and endpoint for existing accounts, with member/viewer role, rate limit, no-store, bounded validation, and atomic membership/default-budget-policy creation. The reference invitation-email/acceptance path is still missing; this workflow remains PARTIAL. Focused team/scheduler tests 38/38 across five files; 6 GiB typecheck passes.
+- Review also closed a scheduler ACL mismatch: shared schedule creation now rejects public/read-only agents before persistence, matching the direct API rule.
+- Updated scoped register: 82 candidates = 72 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 end-to-end COMPLETE. This is still not the full 206-surface denominator and is not a completion percentage.
+- No migration, production write, V2 edit, push, or deployment.
+
+### 2026-11-08 16:44 IST - Full aggregate verification for current migration batches
+- `pnpm test`: 542 files / 2,899 tests passed.
+- `pnpm lint`: passed. Existing warnings: deprecated `next lint`, workspace-root/multiple-lockfile inference, and `<img>` LCP hints.
+- 6 GiB `pnpm check-types`: passed.
+- `pnpm db:check`: passed; this validates migration metadata only and did not apply migrations or verify live PostgreSQL behavior.
+- Production `pnpm build`: exit 0, static generation completed 205/205 pages. Existing bundler E2B/unpdf warnings, optional Redis/Upstash/E2B notices, PostgreSQL SSL-mode notice, and dynamic session/header prerender logs remain. No build error.
+- `git diff --check`: passed (line-ending normalization notices only).
+- Scoped feature ledger: 82 workflows (72 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict end-to-end COMPLETE). This is not the full denominator: the 206 census items are route/page/tool surfaces. No overall completion percentage is claimed.
+- No V2 edits, database migration/application, production data writes, push, or deployment.
+
+### 2026-11-08 17:23 IST - Aggregate validation checkpoint
+- pnpm test: PASS, 555 files / 2,957 tests.
+- TypeScript check: PASS with 6 GiB Node heap.
+- pnpm lint: PASS with existing warnings.
+- pnpm db:check: PASS (migration metadata only; migrations not applied).
+- git diff --check: PASS (line-ending normalization warnings only).
+- Production pnpm build: RUNNING at 17:23 IST, session 44879; do not report as passed until exit is observed.
+- Live PostgreSQL, email, provider, remote MCP, packaged desktop, and browser end-to-end journeys were not run.
+
+### 2026-11-08 17:30 IST - Production build result
+- `pnpm build`: PASS (exit 0; 205/205 page slots generated). Warnings: third-party webpack dependency analysis, existing `<img>` optimization warnings, authenticated dynamic-session prerender probes, and missing local Redis/E2B configuration.
+
+### 2026-11-08 17:43 IST - A16 focused verification
+- Six focused files passed: 36 tests covering capability parsing/defaults, ID and schema validation, endpoint-reset behavior, repository persistence shape, provider API, model catalog, runtime owner/model enforcement, and UI opt-in.
+- Scoped Biome passed for 13 source/test files. `/api/chat/route.ts` passed Biome with formatter disabled because it contains unrelated formatting differences in concurrently edited tool construction code; no lint diagnostics were found in that route. `pnpm db:check` passed, and `git diff --check` passed with line-ending notices.
+- Full TypeScript check was canceled at the parent agent's request to avoid simultaneous high-memory checks. It is not reported as passed; parent will run one aggregate check.
+
+### 2026-11-08 17:47 IST - A32 follow-up validation and legal notice
+- Focused registry/API/prompt tests now pass 17/17 across five files. Scoped Biome check passes on new/updated skill helper, routes, tests, component, types; lint passes for chat-preferences-content; diff-check passes. The previous full 6 GiB typecheck passed before the final bounded-body/same-origin and notice preservation edits; aggregate typecheck remains required.
+
+### 2026-11-08 17:49 IST - C30 focused verification
+- Vitest: **6 files / 11 tests passed** for plan tool selection/isolation, unsupported-model capability, plan schema bounds, request schema, localStorage rehydration, composer toggle, and artifact rendering.
+- Scoped Biome: PASS for 16 changed source/test files.
+- Scoped `git diff --check`: PASS; only existing LF/CRLF normalization notices.
+- Full repository TypeScript check is intentionally deferred to the root aggregate run; no full suite, production build, live provider, or browser workflow was run for this batch.
+
+### 2026-11-08 17:58 IST - Combined implementation verification
+- `pnpm test`: PASS, 567 files / 2,995 tests.
+- `pnpm check-types` with 6 GiB Node heap: PASS.
+- `pnpm lint`: PASS; existing Next deprecation, parent workspace-root, and `<img>` warnings remain.
+- `pnpm db:check`: PASS (Drizzle metadata only; migrations were not applied).
+- `git diff --check`: PASS (line ending normalization warnings only).
+- `pnpm build`: PASS, exit 0, 205/205 pages. Warnings: third-party webpack dependency analysis, expected dynamic-session route prerender probes, local missing Redis/Upstash and E2B configuration, plus workspace-root warning.
+- Live database, email, registry, model-provider, voice, MCP/Electron, and browser E2E tests were not run. No test result claims those workflows are live-verified.
+### 2026-11-08 - C32 scheduled chat stream outcome
+- `pnpm exec vitest run src/lib/scheduler/chat-response.test.ts`: PASS, 1 file / 15 tests.
+- `pnpm exec biome check` on `src/lib/scheduler/chat-response.ts`, its test, and `src/lib/scheduler/worker.ts`: PASS after import ordering and formatting fixes.
+- `git diff --check`: PASS; existing line-ending normalization notices only.
+- Coverage includes successful terminal stop; redirect/non-2xx/auth HTML and invalid content type; missing body; malformed or absent terminal frame; blocked, error, length, tool-call and non-allowlisted finish reasons; stream byte limit; and stream timeout/cancellation.
+- No full suite, repository typecheck, build, real worker, PostgreSQL, provider, or browser workflow was run specifically for C32. Root aggregate verification remains pending.
+
+## 2026-11-08 18:12 IST - A33 safe title generation
+- Focused command: `pnpm exec vitest run src/lib/chat/thread-title.test.ts src/app/api/chat/title/route.test.ts src/lib/db/pg/repositories/chat-title-repository.pg.test.ts`
+- Result: 3 files, 16 tests passed.
+- Scoped formatting: Biome check/write passed for the seven changed TypeScript files.
+- Full typecheck: initial default-heap attempt ended with Node out-of-memory and no TypeScript diagnostics. A 6 GiB rerun was stopped immediately at root's request so root can run one aggregate check after concurrent work settles. Type status pending.
+- Follow-up security coverage: added same-origin enforcement before auth/provider processing and an origin-less/cross-origin regression test. Latest focused result is 17/17 across the same three files; Biome check/write reports no remaining issues.
+
+### 2026-11-08 18:14 IST - C31 Composio read-only chat actions
+- Focused validation: pnpm exec vitest run src/lib/ai/composio-chat-tools.test.ts src/lib/ai/composio.test.ts passed 2 files / 12 tests. Scoped Biome check passed on composio-chat-tools.ts, its test, composio.ts, its test, and src/app/api/chat/route.ts.
+- Coverage includes two same-toolkit account aliases, private-owner active account recheck, foreign raw ID rejection, unlisted write-ish slug rejection, malformed argument rejection, catalog/search rate limits, per-chat catalog caps, unavailable Composio configuration, credential-field redaction, and bounded execution results.
+- pnpm check-types was attempted with the default heap and ended in Node heap OOM (~2 GiB), without TS diagnostics. Root will run the aggregate typecheck after concurrent feature edits settle. Diff-check remains pending for the shared working tree.
+- C31 remains PARTIAL pending the root aggregate typecheck and live Composio/provider/browser journey; mutating actions remain unavailable until the server-bound approval-token path is implemented.
+
+### 2026-11-08 18:24 IST - C31 AI SDK type correction
+- The first 6 GiB typecheck exposed schema inference errors in the new chat tools. Both tool input types and JSON schemas now have explicit AI SDK types (	ool<Input, Record<string, unknown>>, jsonSchema<Input>, JSONSchema7), with a mutable equired string list.
+- Final focused run: 2 files / 12 tests passed; scoped Biome passed on five TypeScript files; scoped git diff --check passed with line-ending normalization notices.
+- Full pnpm check-types with NODE_OPTIONS=--max-old-space-size=6144: PASS after the correction. This supersedes the earlier default-heap OOM/pending note for C31.
+### 2026-11-08 18:34 IST - C33 notification policy focused verification
+- `pnpm exec vitest run src/lib/agent-alerts/chat-background-alerts.test.ts src/hooks/use-chat-background-alerts.test.ts`: PASS, 2 files / 17 tests.
+- Scoped `pnpm exec biome check` across the helper, hook, settings component, user preference schema and tests: PASS.
+- Scoped `git diff --check`: PASS; only expected LF/CRLF normalization notices.
+- Coverage includes preference defaults/merge, visible-current-thread suppression, hidden and unfocused state, opt-in only-when-away suppression/dispatch, existing generic foreground behavior, privacy of alert text, and deduplication.
+- Live settings persistence and actual browser/Electron notification delivery remain unverified; no migration was needed.
+
+## Aggregate verification - 2026-11-08 19:00 IST
+
+After C33-C35 and the voice route test typing correction:
+
+- pnpm test - PASS, 576 test files / 3,058 tests.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types - PASS.
+- pnpm lint - PASS; existing Next lint deprecation, inferred workspace-root, and <img> warnings remain.
+- pnpm db:check - PASS; this checks Drizzle migration metadata and did not apply migrations.
+- git diff --check - PASS; Git printed existing LF-to-CRLF normalization notices.
+- pnpm build - PASS, exit 0; 205/205 static page slots generated.
+
+Build warnings: third-party webpack dependency analysis (e2b/unpdf dependency traces), authenticated dynamic-session prerender diagnostics, missing local Redis/Upstash and E2B configuration, and the PostgreSQL SSL-mode forward-compatibility notice. Without local Redis/Upstash, build-time runtime warnings note per-instance memory rate-limit fallback. Do not treat build success as a production configuration check.
+
+C33-C35 focused evidence: alert policy 2 files/17 tests; Agentset adapter/source authorization/route 3 files/11 tests; Composio voice route/helper/C31 helper 22 tests across 3 files (and 12 tests across the two voice-specific files after test-only type narrowing). These are mocked/unit tests. Live browser preferences/OS notifications, Agentset namespace/PostgreSQL, and Composio realtime-provider workflows remain unverified.
+
+### Current aggregate checkpoint - 2026-11-08 22:27 IST
+- Current scoped ledger: 99 candidates (98 reference + 1 primary custom): 0 COMPLETE, 89 PARTIAL, 1 MISSING (B20), 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM. C38 is PARTIAL; no overall parity percentage is supported by the incomplete semantic inventory.
+- `pnpm test`: PASS, 588 files / 3,131 tests. C38 focused route/helper/chat/UI suite: PASS, 4 files / 21 tests.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS.
+- `pnpm lint`: PASS with Next lint deprecation/workspace-root and existing `<img>` warnings; Biome checked 2,285 files.
+- `pnpm db:check`: PASS (Drizzle metadata only; no live DB or migration apply).
+- Corrected 6 GiB `pnpm build`: PASS, exit 0, 205/205 pages generated. Initial build found an invalid route-exported test handler factory; moved it to `src/lib/ai/tools/hitl/composio-write-approval-route.ts` and kept the App Router file to supported exports. Build logs retain dependency-analysis, dynamic-session prerender, missing Redis/Upstash/E2B configuration, and PostgreSQL SSL warnings. Local build does not verify production database state.
+- Three independent subagent reviews confirmed B20 is fail-closed across the primary app paths and there is no provider/VM egress guarantee; B20 stays MISSING. C31/C38 review confirms approval gating and replay protection in tests; live Composio/PostgreSQL/browser behavior is unverified.
+- Primary status: branch `main`, HEAD `23a0177`, 315 tracked modified paths, 285 untracked paths, no staged files. Reference status remains 3,072 pre-existing staged entries; no reference writes were made. No commit, push, deployment, or migration apply.
+- Next: work on P0 A01 chat creation/send/persistence using an isolated PostgreSQL test environment; preserve B20 default-deny until a verified network-isolated browser runtime exists.
+
+### 2026-11-08 22:30 IST - Final documentation and whitespace check
+- Final `git diff --check` after updating the register, testing report, migration status report, integration progress, handoff, and security review exited 0; only LF/CRLF normalization notices were emitted.
+- Corrected report snapshot: 315 tracked modified paths, 285 untracked paths, 0 staged; 600 default `git status --short` entries. No commit, push, merge, deployment, migration apply, or reference write.
+- Final verified aggregate remains: full tests 588/3,131, 6 GiB typecheck PASS, lint PASS with warnings, Drizzle metadata check PASS, production build PASS with 205/205 pages. B20 remains MISSING and disabled; C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.

@@ -74,7 +74,7 @@ incremental. Existing Flare technical identifiers remain to preserve integration
 No quantitative full-parity percentage can be honestly calculated yet. Preserve
 LICENSE and reference attribution. See testing-report.md for check results.
 
-## Checkpoint 2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â bounded history (2026-11-05)
+## Checkpoint 2 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â bounded history (2026-11-05)
 
 - Added 1 feature behavior: bounded newest-message load and on-demand older-message paging, adapted to original Void-Agent contracts.
 - `chat-repository.pagination.test.ts`: 2/2 pass. Type check and targeted Biome pass.
@@ -169,14 +169,14 @@ Reference HITL tools: `proposeEmail`, `askForPlanApproval`, `requestInput`, and 
 - Focused token/schema/notification tests passed 11/11; full suite passed 1,035 tests across 121 files. Type check, targeted Biome and Drizzle check passed. Production build passed and generated 192/192 static pages, including `/voice-devices`; existing upstream dynamic-dependency/session-probe/config/img warnings remain.
 - Migration 0039 is local and unapplied; no PostgreSQL-backed concurrency, hardware, gateway or deployment was tested.
 
-## Checkpoint 15 — enrolled voice-device transcript delivery
+## Checkpoint 15 â€” enrolled voice-device transcript delivery
 - Added authenticated `POST /api/voice/transcript`; active device token ownership determines the user, request bodies are bounded to 16 KiB, transcript contract fields are strict and capped, and calls are throttled per device.
 - Transcript events are stored in the owner's normal chat history using deterministic namespaced thread/message IDs, so retries are idempotent. Existing thread ownership is rechecked; untrusted `deviceId` cannot be supplied. No tools or commands execute from device input.
 - F027 remains PARTIAL: no audio-command/STT endpoint, registration bootstrap, device session/history API, websocket gateway, or physical device test. The inspected reference checkout also lacks its bridge script.
 - Validation: focused device transcript schema/route tests passed 6/6. Type check result and focused formatter/lint validation are pending the current validation process; DB-backed behavior and build are not yet verified.
 - Verification update: focused device transcript schema/route tests passed 6/6; TypeScript and targeted formatter-disabled Biome passed; production build passed and emitted `/api/voice/transcript`. Build logs pre-existing dependency-analysis/image warnings and dynamic-session probes. DB-backed behavior and hardware remain unverified.
 
-## Checkpoint 16 — bounded voice device WAV transcription
+## Checkpoint 16 â€” bounded voice device WAV transcription
 - Added a raw WAV audio-command endpoint for active paired devices. It rate-limits per device, requires strict session/event headers, streams the request with a 1 MB cap before concatenation, verifies WAV framing, sends it to the existing Sarvam STT proxy, and persists returned text with the device transcript idempotency helper.
 - No audio is stored and no spoken command runs automatically; output goes to owner chat as saved_for_review. F027 remains PARTIAL because reference hardware WebSocket bridge is absent and no local firmware, gateway or action-approval roundtrip is implemented.
 - Focused transcript/audio tests 13/13, TypeScript, targeted Biome, and git diff --check passed. Production build after the endpoint addition remains pending; no provider, PostgreSQL, or hardware workflow was tested.
@@ -386,20 +386,20 @@ Typed project-brain page IDs now back graph node IDs wherever an accepted/source
 - Verification: 24/24 graph/detail/merge tests; focused Biome; pnpm build passed production compilation/type/lint checking and generated 192/192 pages. Build retains existing workspace-root, dynamic-rendering, dependency-analysis, optional Redis/E2B, SSL and image warnings.
 - Limits: no live PostgreSQL or browser workflow; migration 0042 remains unapplied. Existing graph methods still use the bounded in-memory fact window; source-version snapshots, merged-from detail, consolidated truth/status/todo, and reference background dedupe remain incomplete. F010/F011/F013 remain PARTIAL.
 ## F027 owner-scoped voice device transcript history (2026-11-06 07:02:15 +05:30)
-Added a bounded recent-history endpoint at /api/voice/devices/[id]/history and a per-device history view. It reads only user-role transcript messages explicitly tagged source=voice_device and the exact device ID, joins through both the owning device and owning chat thread, validates a 1â€“50 limit, applies per-user rate limiting, returns no-store responses, and exposes only text/language/timestamp/thread link. This reuses Void-Agent's existing transcript-as-reviewable-chat workflow rather than creating a competing transcript/action database.
+Added a bounded recent-history endpoint at /api/voice/devices/[id]/history and a per-device history view. It reads only user-role transcript messages explicitly tagged source=voice_device and the exact device ID, joins through both the owning device and owning chat thread, validates a 1Ã¢â‚¬â€œ50 limit, applies per-user rate limiting, returns no-store responses, and exposes only text/language/timestamp/thread link. This reuses Void-Agent's existing transcript-as-reviewable-chat workflow rather than creating a competing transcript/action database.
 - Evidence: src/lib/db/pg/repositories/voice-device-repository.pg.ts, new history route/tests, src/components/voice-devices-dashboard.tsx.
 - Verification: focused history/device audio/transcript tests 7/7; focused Biome passed; root typecheck passed with NODE_OPTIONS=--max-old-space-size=4096 (default 2 GB process OOMed); fresh pnpm build passed and generated 192/192 pages. Existing nonfatal build warnings remain.
 - Limits: no PostgreSQL-backed query, browser or hardware test; migration 0039 is unapplied. Firmware registration bootstrap and session/segment database, gateway/WebSocket transport and approved-action protocol are still absent. The reference checkout itself has no bridge script and its websocket route requires an external gateway. F027 remains PARTIAL.
 ## F027 device transcript history parity update (2026-11-06 07:02:36 +05:30)
 The earlier F027 row listed device history as missing. The new authenticated history API and device-specific dashboard now cover recent transcript browsing from messages saved by the enrolled-device flow. This is not a dedicated event/action history: device audio sessions, registration bootstrap, firmware setup status and live WebSocket bridge are still incomplete. Treat the old row as superseded only for history browsing; F027 remains PARTIAL.
-## F019 â€” Redis-backed resumable chat (2026-11-06)
+## F019 Ã¢â‚¬â€ Redis-backed resumable chat (2026-11-06)
 - Implemented: resumable stream buffering and active thread pointers; owner/session-checked HEAD/GET reconnect; rate-limited same-origin POST cancellation; client resume/stop integration; truthful 503 on stop-signal failure; TCP Redis configuration documentation.
 - Verification: 10 focused tests passed across context/resume/stop; targeted Biome passed; `pnpm check-types` passed with 4 GB heap; `git diff --check` passed. Fresh build passed before the final stop failure display refinement (192/192 pages).
 - Remaining: live Redis outage/reconnect behavior, browser UX, multi-instance execution, and DB-backed owner path. F019 PARTIAL; no external service or production data accessed.
 ## Voice session and command audit (2026-11-06)
 - Verified current end-to-end device audio behavior: pair/authorize device, bounded WAV validation, transcribe, persist message in device owner's chat, return `saved_for_review`, expose recent history; normal approval pathways remain the route to side effects.
 - Reference voice session/segment persistence and finalization/command classifier dispatch are not equivalent. Automatic unreviewed action dispatch remains excluded as a security redesign. Persistent session lifecycle is the next implementation target. F026/F027 PARTIAL.
-## F026/F027 â€” Persistent device voice sessions (2026-11-06)
+## F026/F027 Ã¢â‚¬â€ Persistent device voice sessions (2026-11-06)
 - Implemented session start/replay, authenticated device-owned segment append with deterministic idempotency/conflict handling, serialized finalize, and final transcript persistence into owner chat for review. Added per-device route rate limits, strict bounded schemas, no-store replies, and additive migration 0043.
 - Verification: new API/schema focused tests 9/9; existing audio/transcript/history tests 10/10; `pnpm check-types` passed (4 GB heap); `pnpm db:check` passed; final targeted Biome check passed; `pnpm build` passed with 192/192 pages. Formatter-only normalization followed the build and passed Biome; type/build semantics were unchanged by formatting.
 - Limitations: no live PostgreSQL transactions/locks, firmware, gateway, hardware or provider test. No audio bytes stored; voice actions remain review-only. Migration unapplied. Families remain PARTIAL.
@@ -450,7 +450,7 @@ A closer read of the reference tabular review schema and routes confirms that re
 
 
 ## F010 project connector source-sync audit (2026-11-06 09:23 IST)
-- Traced the reference attach â†’ manual sync â†’ read-only gather â†’ bounded persisted source â†’ brain analysis path and the detach/todo cleanup behavior. Compared it with primary's per-user chat connectors and existing document-backed queue.
+- Traced the reference attach Ã¢â€ â€™ manual sync Ã¢â€ â€™ read-only gather Ã¢â€ â€™ bounded persisted source Ã¢â€ â€™ brain analysis path and the detach/todo cleanup behavior. Compared it with primary's per-user chat connectors and existing document-backed queue.
 - Confirmed project-scoped external source sync is still MISSING; ordinary connectors available to chat are not equivalent. Integration needs a new project/source lineage design and current credential-owner membership checks; MCP sync must require explicit read-only hints, while Composio actions need stored/revalidated read allowlists.
 - No code was changed in this audit. Next implementation target: design the additive project connector/source model and implement one end-to-end MCP read-only attach/sync path with owner/member revocation, bounded output persistence, and task/fact analysis; then adapt Composio.
 
@@ -597,18 +597,18 @@ Implemented optional private Vercel Blob and private S3 URL behavior. S3 owner u
 - Fresh `pnpm build` after both Vercel Blob and S3 changes exited 0 and generated all 192/192 pages. Existing warnings remain for workspace-root inference, dependency analysis, `<img>`, optional Redis/E2B configuration, PostgreSQL SSL mode, and dynamic authenticated routes.
 - Private storage remains locally code-verified only. Existing deployments/stores are not migrated. F018 remains PARTIAL until real private Vercel/S3 store, browser, and provider attachment workflows are exercised.
 
-## 2026-11-06 14:42 IST â€” Generic HTTP action review
+## 2026-11-06 14:42 IST Ã¢â‚¬â€ Generic HTTP action review
 - Implemented user-visible exact request review, authenticated same-origin rate-limited approval issuance, user-bound one-time exact-payload token persistence, and fail-closed HTTP execution.
 - Added HTTPS/public-host validation, redirect rejection, restricted headers, 30-second maximum timeout, 64 KB response cap, and no-user-context static tool refusal.
 - Verification: five focused test files, 22/22 passed; whole-project TypeScript passed; focused Biome passed after import ordering correction; scoped diff whitespace check passed.
 - Open: DNS connection pinning; actual browser and live provider/PostgreSQL execution. No live outbound call, deployment, push, reference edit, or production data operation was performed.
 
-### 2026-11-06 15:02 IST â€” DNS-pinned HTTP transport verification
+### 2026-11-06 15:02 IST Ã¢â‚¬â€ DNS-pinned HTTP transport verification
 - The generic HTTP tool now pins its HTTPS socket to a validated DNS address and applies a five-second DNS lookup timeout; redirect responses are returned without following the Location.
 - Focused tests: 24/24; TypeScript no-emit: passed; full production build: passed (192/192 static pages). Existing dependency-analysis, image, dynamic-route, optional-service and PostgreSQL SSL warnings remain.
 - Still required for F025: browser user journey, disposable PostgreSQL issue/consume/replay verification, and safe provider check. No live outbound request performed.
 
-### 2026-11-06 15:03 IST â€” Project-brain immutable fact provenance
+### 2026-11-06 15:03 IST Ã¢â‚¬â€ Project-brain immutable fact provenance
 - Added a direct source-version identity to extracted facts and binds it to the exact project/source item with a composite FK; extraction records the run's source version, and migration 0051 backfills existing rows.
 - Focused tests: 38/38 across six suites; pnpm db:check and full TypeScript pass.
 - Migration 0051 remains local and unapplied; production build is running. F010/F012 remain PARTIAL pending disposable PostgreSQL, source re-ingestion/history browser journey and contradiction lifecycle verification.
@@ -622,7 +622,7 @@ The post-change production build exited 0 and generated 192/192 static pages. Ex
 - Focused project-brain API/helper suite: 23/23 passed across four files. Root TypeScript no-emit passed after the final route-contract change. Previous project-brain source-lineage DB journal check passed; no schema changed in this batch.
 - A fresh production build reached static generation 192/192 and final tracing, but its process handle expired before an exit code was captured. Treat this build as UNVERIFIED; rerun a fresh build before reporting it as passing. No PostgreSQL/browser workflow or migration 0051 application was performed. F010/F012 remain PARTIAL.
 
-### Current migration focus â€” project-brain dream cycle audit (2026-11-06)
+### Current migration focus Ã¢â‚¬â€ project-brain dream cycle audit (2026-11-06)
 - The reference's manual/nightly dream cycle consists of model-judged page deduplication, cross-source contradiction detection, salience recomputation, and stale-page archival; it records stage metrics and warnings and is separate from source extraction/consolidation.
 - Void-Agent has source-version-aware facts, conflict review/history, graph reads, and an audited editor-driven same-type page merge. It does not yet have an equivalent project-wide dedupe/salience/archive scheduler or a verified end-to-end dream cycle. No work on this feature should overwrite user-reviewed fact decisions or auto-merge identities without evidence and review.
 - Next action: implement compatible salience refresh and safe stale-page handling in Void-Agent's existing typed-page/fact schema, with project/source visibility checks, role/rate limiting, tests, and explicit UI trigger; then assess whether model-judged automatic dedupe is safe given its user-approved identity merge contract.
@@ -632,7 +632,7 @@ The post-change production build exited 0 and generated 192/192 static pages. Ex
 - Verification: 28/28 focused project-brain tests; typecheck passed with 6 GB heap; Drizzle journal check passed; scoped Biome and diff checks passed; fresh production build exited 0 (192/192 static pages).
 - Migrations 0051 and 0052 remain unapplied. No disposable PostgreSQL or browser workflow. Dream-cycle scheduling, dedupe, archival remain incomplete. F010/F012 remain PARTIAL.
 
-### 2026-11-06 15:53:03 +05:30 â€” final exact-source verification update
+### 2026-11-06 15:53:03 +05:30 Ã¢â‚¬â€ final exact-source verification update
 The accepted project-brain entity page list now sorts by salience so the refreshed score affects the visible ranking. After that final UI/API source change, the focused pages/salience suites passed 10/10 and a fresh pnpm build exited 0 with all 192 static pages generated. Build still emits existing workspace-root, dependency-analysis, <img>, optional Redis/E2B, SSL-mode and authenticated dynamic-route diagnostics. Migration 0052 remains unapplied; no live PostgreSQL/browser run was done.
 
 ### F010 page-identity candidate and durable rejection checkpoint (2026-11-06)
@@ -727,7 +727,7 @@ The accepted project-brain entity page list now sorts by salience so the refresh
 - Focused scheduler/API suites passed 51 tests across 7 files; TypeScript, `pnpm db:check`, and scoped Biome passed. PostgreSQL-backed concurrency and worker crash tests remain unavailable; migrations 0055/0056 are authored but unapplied. The system remains at-least-once if the process dies after causing the chat side effect but before persisting completion. Manual run remains unimplemented.
 
 ## F019/F025 status correction and n8n review gate (2026-11-06)
-- Corrected stale base classifications: F004, F010â€“F013, F019 and F021 were marked MISSING despite later implementation evidence in this matrix. They are now PARTIAL; later implementation notes remain authoritative.
+- Corrected stale base classifications: F004, F010Ã¢â‚¬â€œF013, F019 and F021 were marked MISSING despite later implementation evidence in this matrix. They are now PARTIAL; later implementation notes remain authoritative.
 - F019 evidence: `src/lib/ai/chat-stream-context.ts`, `src/app/api/chat/[id]/stream/route.ts`, `src/app/api/chat/route.ts`, and `src/components/chat-bot.tsx` implement Redis-buffered stream resumption, owner-scoped HEAD/GET, stop signaling, and client resume. Redis is optional and no live Redis/browser journey was performed; status PARTIAL.
 - F025: Void-Agent Run controls for n8n now fetch a bounded effect manifest and executable-definition hash, show an explicit review, issue a user-scoped one-use token bound to platform/workflow/revision/input, re-fetch and revalidate immediately before execution, and consume before calling n8n. Manual-trigger JSON is passed through `triggerToStartFrom`; output is reduced to a bounded acknowledgement so execution data is not returned.
 - F025 evidence: `src/lib/n8n/workflow-review.ts`, `browser-approval.ts`, `client.ts`, workflow approval API, execute API, `workflow-list-page.tsx`, `n8n-workflow-embed.tsx`, and `node-config/execute-tab.tsx`. Payloads have a 24-level JSON nesting cap, a 20 KB request bound, owner session, same-origin validation and rate limits. No database schema change; approvals reuse atomic one-use verification deletion.
@@ -735,12 +735,12 @@ The accepted project-brain entity page list now sorts by salience so the refresh
 - Verification: 20 focused approval tests across 6 files passed; 6 GB TypeScript check, scoped Biome, and Drizzle journal check passed. Production build completed with 192/192 static pages after fixing JSX lint; existing E2B/unpdf critical-dependency, `<img>`, dynamic-server, optional Redis/E2B, workspace-root and PostgreSQL SSL warnings remain. No live n8n/browser/PostgreSQL test, no push/deploy.
 
 ## F026 reviewed voice transcript handoff (2026-11-06)
-- Added a user-selected handoff from enrolled-device transcript history into the saved conversation. The chat page loads the transcript from the database through an owner/thread/message/source-checked server action, then displays the exact transcript in a review card. Only a second explicit â€œSend to assistantâ€ click creates a normal user chat message.
+- Added a user-selected handoff from enrolled-device transcript history into the saved conversation. The chat page loads the transcript from the database through an owner/thread/message/source-checked server action, then displays the exact transcript in a review card. Only a second explicit Ã¢â‚¬Å“Send to assistantÃ¢â‚¬Â click creates a normal user chat message.
 - Device audio/transcript routes remain side-effect-free. Any subsequent model tool call goes through normal chat authorization and the existing exact-payload approvals; no voice-triggered tool, agent, schedule, or workflow is executed directly.
 - The transcript handoff accepts only `source: voice_device`, matching owner/thread/message, plain text only, capped at 24,000 characters. A forged URL query can only open the review card; it cannot submit the transcript automatically. The query is removed before loading.
 - Evidence: `src/lib/voice/handoff.ts` and tests, `loadVoiceTranscriptForHandoffAction` in `src/app/api/chat/actions.ts`, the device dashboard handoff affordance, and the `processVoice` review flow in `src/components/chat-bot.tsx`.
 - Verification: voice/chat regression set 23/23 across 8 files; handoff/audio/finalize subset 7/7; TypeScript passed with 6 GB heap; scoped Biome passed; production build passed and generated 192/192 static pages. Existing warnings remain for optional Redis/E2B configuration, multi-instance memory rate limiting, PostgreSQL SSL mode, dynamic session routes, E2B/unpdf dependencies, `<img>` use and workspace-root inference.
-- F026 remains PARTIAL: no live device/audio provider, browser journey, or PostgreSQL test; the referenceâ€™s automated voice intent classifier and draft workflows are not yet replicated. Direct side-effect dispatch was intentionally not adopted because the reference invokes tools before history dedupe, allowing retries to repeat side effects. No schema migration, push, deploy or reference change.
+- F026 remains PARTIAL: no live device/audio provider, browser journey, or PostgreSQL test; the referenceÃ¢â‚¬â„¢s automated voice intent classifier and draft workflows are not yet replicated. Direct side-effect dispatch was intentionally not adopted because the reference invokes tools before history dedupe, allowing retries to repeat side effects. No schema migration, push, deploy or reference change.
 
 ### Final F026 interstitial build verification (2026-11-06)
 - Final voice handoff behavior is review-only on page load: the `processVoice` URL marker retrieves an owner-checked transcript and renders an exact-text review card; a separate Send to assistant button submits it. This was added after the earlier voice validation run.
@@ -823,10 +823,10 @@ Verified migration snapshot pushed to private ibrahimkhan008/Void-Agent as commi
 
 ## F008 team-member monthly AI budget implementation (2026-11-07)
 - Added explicit admin-managed provider/model input and output rates in the `models.modelPricing` config section, stored as EUR micros per million tokens. No model prices are guessed. A capped member selecting a missing or wrong-currency rate fails closed before chat generation; uncapped users retain current model behavior.
-  - Added default €15 monthly hard-stop policies for non-owner team memberships, with owners/personal teams uncapped, plus persistent UTC monthly usage periods and per-run idempotent reservations. Enforcement is opt-in through admin model config `teamMemberBudgetsEnabled` (default false), preserving existing chat behavior until enabled. Configure trusted model rates before enabling. The main chat path derives scope from the authenticated thread/project, verifies team membership, reserves before model execution, finalizes from provider token usage, releases on abort/error, and expires orphan reservations after 15 minutes.
+  - Added default â‚¬15 monthly hard-stop policies for non-owner team memberships, with owners/personal teams uncapped, plus persistent UTC monthly usage periods and per-run idempotent reservations. Enforcement is opt-in through admin model config `teamMemberBudgetsEnabled` (default false), preserving existing chat behavior until enabled. Configure trusted model rates before enabling. The main chat path derives scope from the authenticated thread/project, verifies team membership, reserves before model execution, finalizes from provider token usage, releases on abort/error, and expires orphan reservations after 15 minutes.
 - Files: `src/lib/ai/model-pricing.ts`, `model-pricing.server.ts`, `team-member-ai-budget.ts`, `team-member-ai-budget-core.ts`, `src/app/api/admin/config/route.ts`, `src/app/api/chat/route.ts`, `src/lib/db/pg/schema.pg.ts`, `src/lib/db/pg/repositories/team-repository.pg.ts`, `src/lib/db/pg/repositories/chat-repository.pg.ts`, `src/types/chat.ts`, migration `0062_team_member_ai_budget.sql`, and the two focused test files.
 - Verification: focused pricing/budget tests 8/8; scoped Biome passed; `pnpm check-types` passed with a 6 GB Node heap. No PostgreSQL test URL was configured, so migration execution, advisory-lock concurrency, and DB-backed authorization were not exercised. Migration 0062 remains unapplied.
-- F008 remains PARTIAL. The admin Models page now includes explicit opt-in and trusted per-model EUR rate controls. No per-member cap editor exists in the reference; it seeds the fixed €15 monthly cap for members and leaves owners uncapped. Current cost enforcement covers main `/api/chat` team-scoped threads/projects only; temporary chat, titles, agent generation, embeds, skills, canvas/artifacts/browser helper calls, tabular review calls and direct image generation remain outside this ledger. Their actual route/model pricing and team scope need separate adaptations before whole-product cost parity can be claimed.
+- F008 remains PARTIAL. The admin Models page now includes explicit opt-in and trusted per-model EUR rate controls. No per-member cap editor exists in the reference; it seeds the fixed â‚¬15 monthly cap for members and leaves owners uncapped. Current cost enforcement covers main `/api/chat` team-scoped threads/projects only; temporary chat, titles, agent generation, embeds, skills, canvas/artifacts/browser helper calls, tabular review calls and direct image generation remain outside this ledger. Their actual route/model pricing and team scope need separate adaptations before whole-product cost parity can be claimed.
 
 ### F008 final rollout-gate build verification (2026-11-07)
 - Post-gate focused checks: rollout/pricing/budget tests passed 13/13; scoped Biome passed; 6 GB `pnpm check-types` exited 0.
@@ -867,7 +867,7 @@ Finalized nonempty device sessions now expose the deterministic saved transcript
 
 ## F030 Stripe Cockpit slice (2026-11-07)
 - Implemented an end-to-end Stripe-only connection and finance overview in `src/lib/cockpit/stripe.ts`, the `/api/cockpit/stripe/*` routes, and `/cockpit` UI. Personal connections belong to the signed-in user; team connections are readable by current members and manageable/testable/removable only by owner/editor roles.
-- Added AES-256-GCM secret storage and migration 0063 with separate partial unique keys for personal and team scope. Secrets are not returned. Stripe egress is fixed-host HTTPS GET, request-rate-limited, timeout-bounded, limited to 10 pages × 100 list records, and response-body capped at 2 MiB.
+- Added AES-256-GCM secret storage and migration 0063 with separate partial unique keys for personal and team scope. Secrets are not returned. Stripe egress is fixed-host HTTPS GET, request-rate-limited, timeout-bounded, limited to 10 pages Ã— 100 list records, and response-body capped at 2 MiB.
 - Focused tests pass 17/17, scoped Biome lint passes, `pnpm db:check` passes, and the 6 GB project typecheck passes after fixing the status type. No PostgreSQL migration was applied; no authenticated browser journey or live Stripe call was run.
 - Scope is one of six discovered Cockpit providers. Website, Vercel, Revolut, Superlog, SEO, unified finance composition and reference console controls remain; F030 stays PARTIAL pending remaining provider work and DB/browser verification.
 
@@ -904,7 +904,7 @@ Agent file bindings are now validated server-side using the authenticated user's
 - Egress is fixed-host HTTPS GET-only with redirect rejection, bounded response/time/team/project/deployment limits, rate/origin/body guards, and role-scoped team access. Focused Vercel tests passed 28/28 with scoped Biome and db journal checks.
 - Website, Revolut, Superlog, SEO, unified multi-provider finance controls, live database, live provider, and browser workflows remain. F030 remains PARTIAL.
 
-## Checkpoint 17 � verified cross-family implementation batch (2026-11-07)
+## Checkpoint 17 ï¿½ verified cross-family implementation batch (2026-11-07)
 
 - Completed local implementation slices for F008, F010/F011, F014, F020/F021, F022, F026, F028, F029, F030, and F031; see the per-family addenda in the feature matrix and security review. They remain PARTIAL where full provider/Postgres/browser verification or additional reference behavior is absent.
 - F008 agent-generation route remains unbilled because it has no persisted server-side team scope. Do not trust a client team ID to fill this gap.
@@ -928,7 +928,7 @@ Agent file bindings are now validated server-side using the authenticated user's
 ### F030 SEO rate-limit regression verification (2026-11-07)
 - Added coverage for GET, POST, and DELETE returning 503 when rate-limit storage fails, with no save/remove action. Final SEO + Superlog focused suite passed 16/16 across 4 files; scoped Biome and diff check passed. F030 remains PARTIAL.
 
-## F025 verification batch — n8n approval (2026-11-07)
+## F025 verification batch â€” n8n approval (2026-11-07)
 - Completed and locally verified the n8n blind-approval fix: only understood logic and literal HTTP effects are reviewable; exact bounded method/URL/parameters appear in the effect preview; credential references are type-only; unsafe dynamic, unknown, secret-bearing, oversized, and complex effects cannot receive approval tokens.
 - Focused tests 13/13; scoped Biome and git diff --check passed. No live n8n or credentialed execution. F025 remains PARTIAL for unsupported integration adapters and broader agent/tool parity.
 ## F008 project-brain status budget slice (2026-11-07)
@@ -1257,3 +1257,477 @@ The reference system prompt distinguishes harmless read-only chains, a single ac
 - Exact full page-set pinning is implemented for new reviews; generation uses only pinned pages and rechecks current access/readiness. Deletion or access loss fails closed. Review detail and XLSX export disclose the pinned set.
 - Migration 0073 backfills all extant pages for legacy review items in deterministic order without changing saved cell values. It is journaled, not applied. Historical output provenance remains unknown.
 - Focused tests: 27/27 across 6 files. Scoped Biome, integrated typecheck, pnpm db:check, diff check, and fresh production build (206/206) passed. No live Postgres/browser verification. F014 remains PARTIAL.
+
+## 2026-11-08 04:52 IST â€” Upstream capability ports in progress
+- Ported the reference notification type filters and explicit mark-all payload through the existing secured APIs; also rejected empty mark-all input. Focused route/contracts: 13/13 tests.
+- Completed browser push enrollment UX by reusing the existing API/service worker, adding a browser client for permission/retry/key rotation/server-first unsubscribe and UI recovery guidance. Focused push/notification suite: 26/26 locally; no live VAPID delivery.
+- Added upstream-style voice `runAgent` delegation with same-origin authenticated route, owner-accessible agent resolution, budget enforcement, no tools, bounded single-turn output, and hooks in OpenAI Realtime, Konvo and ElevenLabs. Focused suite 11/11. ElevenLabs requires one blocking client-tool declaration in its dashboard; setup documented. Live provider flow unverified.
+- Started upstream six-preset agent creation integration: reference route/catalog/UI are executable; Void-Agent is missing all three. Additive per-owner preset idempotency schema and route/UI work underway; no migration applied.
+- Project-brain chat learning/upstream #425 remains incomplete. Its last typecheck had 11 project-brain errors, which the implementation agent is resolving. No complete parity claim.
+## 2026-11-08 05:05 IST â€” Upstream #425 project chat learning
+- Added project-chat source snapshots and revisions, extraction queue lifecycle, stale worker checks, reviewable fact proposals, active accepted-fact context, source labels/status, and edit/delete/truncate/detach revocation. Only visible user/assistant text enters snapshots; no tool-call or attachment metadata.
+- Focused verification: 32/32 across 6 files; full typecheck, migration journal check, scoped Biome, and diff check pass. Migration 0075 remains unapplied; live DB/browser verification pending.
+- Current scoped ledger: 74 workflow candidates with 64 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, and 1 primary-only custom item. Full upstream surface mapping is incomplete; this is not an overall completion percentage.
+## 2026-11-08 05:11 IST â€” Account settings and desktop MCP consent
+- C17 now loads the safe account/provider summary only when the settings drawer opens, through an authenticated, owner-scoped, no-store route; profile/password/recovery protections remain unchanged. Focused account suite passed per agent (18/18); no live auth/email/browser journey.
+- C20 remote MCP consent now names the HTTPS destination, discloses argument/result transfer and treats returned content as untrusted, while preserving credential secrecy. Focused local desktop MCP suite 22/22; desktop typecheck/build passed. No live Electron/server verification.
+- A23 multimodal audio and B20 isolated browser runtime are the active implementation investigations; B20 remains unimplemented unless an isolated upstream-compatible boundary can be proven.
+## B20 Kernel browser isolation boundary audit (2026-11-08)
+- Re-read the upstream `apps/web/src/lib/voice/browser-run.ts`, `/api/voice/browser-run` route, browser automation tool, Kernel session helper, Playwright executor and credential-vault path. The upstream run delegates model-generated Playwright code to `client.browsers.playwright.execute` in the same VM as Chrome, loads org-vault credentials/profiles, streams progress/live view, and relies on `finally` to delete and bill the browser.
+- Current official `@onkernel/sdk` types expose `network.allowed_hosts`, introduced in SDK 0.122 and available in current 0.143. The documented allowlist is enforced at Kernel-managed browser egress for destinations (including fetch/WebSockets), but explicitly does not filter VM processes that bypass the browser proxy, private-host exceptions, or Kernel control traffic; it requires proxy v3 and an org feature flag. SDK 0.97 pinned in upstream lacks the type.
+- Therefore this is not sufficient to safely port the upstream execution model: the upstream model can supply arbitrary Playwright JavaScript running in the VM, and no documented all-process egress boundary or hostname-to-IP pinning/private-address rejection guarantee was verified. URL validation alone is not enough. B20 remains MISSING; do not expose existing Steel/Crawl/Cloak arbitrary navigation as voice.
+- Kernel's official Nov 4, 2026 incident notice reports compromised API-key use, logging-provider data download containing a small number of Kernel API keys and app deployment secrets, and access to four GPU servers (three ran browser sessions). This increases the third-party trust/review requirement; no Kernel integration or credential was added.
+
+## 2026-11-08 06:50 IST â€” Upstream project-thread history adapted to Void-Agent privacy
+- Adapted the reference project thread-list behavior with authenticated `GET /api/projects/[id]/threads` and an in-project history panel on the Projects dashboard.
+- Added current project membership checks, a hard 50-thread limit, `private, no-store`, and an additional `thread.user_id = session.user.id` SQL predicate. Project access does not expose another collaborator's private conversation history.
+- Focused route/UI tests passed 6/6. Scoped Biome and changed-path `git diff --check` passed. No database change or migration.
+- B03 remains PARTIAL: project thread assignment parity and live PostgreSQL/browser verification remain. No push/deploy/reference edit.
+
+### C06 bounded MCP resource-link rendering â€” 2026-11-08
+- Adapted the upstream MCP `resource_link` response behavior without automatically embedding/loading provider URLs. The result adapter exposes only up to 10 links with HTTPS URL, 2,048-character URI cap, no embedded credentials/control characters, and bounded title/description. The destination host is visible, the URI is redacted from raw JSON, and links use `noopener noreferrer`.
+- Existing three-image/512 KiB inline raster preview cap, URL omission, image-byte redaction, and error rendering remain unchanged. Focused helper/component tests pass 9/9; scoped Biome and `git diff --check` pass.
+- C06 remains PARTIAL pending remaining MCP resource/MIME behaviors and live authenticated MCP execution/browser verification. No API, schema, migration, push, or deploy change.
+
+### B03/B24 existing-chat project assignment now feeds project brain â€” 2026-11-08
+- Better Chatbot's project thread assignment path enqueues existing chat content for project-brain extraction. Void-Agent already had a project selector and secure owner/project checks, but changing an existing thread's project did not refresh the target brain.
+- `updateThreadProjectAction` now, after a successful owner-scoped thread update, snapshots and force-enqueues the bounded existing user/assistant transcript for the newly assigned project. Moving between projects still revokes the previous project's chat source first; detaching still revokes and never snapshots into a project. Queue failure is logged without turning a persisted project change into a misleading client failure.
+- Focused project-chat lifecycle suite passed 7/7. 6 GB TypeScript check passed. Final production build is running; no live PostgreSQL, migration apply, push or deploy.
+
+### A15 custom provider configuration edit workflow - 2026-11-08 10:14 IST
+- Better Chatbot's compatible provider configuration flow supports saved configuration updates; Void-Agent already supported dynamic-provider discovery, encrypted storage, and runtime hydration but had no edit action in the admin UI.
+- Added stable-ID editing for provider name/base URL/model catalog and key rotation. The saved key remains server-only and is reused for discovery only at the saved endpoint; a changed endpoint requires a fresh key. Default/fallback model IDs and enabled state are preserved.
+- Focused provider tests passed 30/30 across 5 files; scoped Biome passed. Full TypeScript check was attempted and reports one unrelated/concurrent error in `src/lib/ai/tools/project-document.ts:47` (`filename` nullable). No provider-path TypeScript errors were reported. A15 remains PARTIAL pending live PostgreSQL/provider/admin-browser verification.
+
+## 2026-11-08 10:21 IST — Upstream project-document chat analysis
+- Added upstream-style model access to a specific project-linked document through a read-only `readProjectDocument` chat tool. The prompt lists only metadata for ready files in the current attached-collection scope; tool execution rechecks live project access and source ownership, fetches one requested source under the same predicates, and bounds the database result to 30,000 characters.
+- File labels and content are escaped and marked untrusted. No nested provider call is made, so this remains within the existing chat budget reservation. No schema, migration, push, deploy, or reference-repository change.
+- Focused tests passed 4/4; scoped Biome and `git diff --check` pass. Full typecheck was canceled before completion; live DB/provider/browser journey remains unverified. B07 remains PARTIAL.
+
+### 2026-11-08 10:33 IST — Provider, MCP media, and project-document ports; aggregate verification
+- Added stable-ID editing for admin-configured OpenAI-compatible providers. Existing default/fallback selections, enabled state, timestamp, and encrypted key are retained; key rotation requires a new value. Server-side discovery reuses the saved key only for the same normalized endpoint. Focused provider suite: 30/30.
+- Extended MCP result rendering with bounded allowlisted inline audio playback and redaction; verified existing server/tool customization behavior rather than adding a duplicate. Focused media/UI suite: 12/12.
+- Ported Better Chatbot's model-invokable project document analysis into the existing project chat. Inventory is metadata-only; each selected document is re-authorized against live project membership, collection scope, owner and ready status; SQL bounds the read to 30,000 characters and marks it untrusted. Focused suite: 4/4.
+- Aggregate verification on the combined worktree: `pnpm test` passed 493 files / 2,629 tests; `pnpm lint` passed with existing `no-img-element` warnings; 6 GB heap `pnpm check-types` passed; `pnpm build` passed and generated 205/205 pages. Build emitted existing dependency, workspace-root, dynamic-page-data/session, and absent Redis/Upstash configuration warnings. No migrations or production data were changed.
+- Reference checkout was not edited; nothing was committed or pushed, and nothing was deployed. Existing unapplied migrations remain unapplied. Next code batch: adapt upstream onboarding to Void-Agent's current owner-scoped Composio and preferences APIs.
+
+### A15 legacy fallback credential status - 2026-11-08 10:40 IST
+- `GET /api/admin/providers` now reads the tools config only to determine whether `apiKeysSecrets[dyn_${id}]` is a non-empty string. `apiKeyConfigured` is true for either a direct stored provider key or this legacy fallback. No key is decrypted, serialized, or returned; failure to read the optional tools config does not hide providers whose direct key is configured.
+- Regression coverage: GET returns `apiKeyConfigured: true` for a fallback-only provider while the encrypted sentinel remains absent from JSON; direct-key listings still succeed if the tools config read fails. Focused route suite: 4/4; scoped Biome and `git diff --check` pass.
+- No migration, DB write, provider request, push, deployment, or reference checkout operation. A15 remains PARTIAL pending live database/provider/admin-browser verification.
+
+### E01 â€” First-run onboarding (2026-11-08)
+- Added a resumable overview/connect-apps setup flow, owner-scoped Composio interactions, direct skip/agent/workflow choices, and a server-verified completion cookie.
+- Layout gate applies only inside the authenticated chat group; database state remains authoritative when the device cookie is absent. Sign-in, OAuth callback handlers, and public pages are outside this layout gate.
+- Atomic JSONB update writes only `preferences.onboarding`, preserving notes, skills, and notification settings without a read/replace race.
+- Focused tests pass 23/23 across 7 files; 6 GB typecheck and scoped Biome pass. E01 remains PARTIAL until PostgreSQL/browser and live OAuth round trips are verified.
+### 2026-11-08 11:27 IST — Onboarding batch and final aggregate verification
+- E01 now adapts Better Chatbot's first-run onboarding as a resumable two-step Void-Agent wizard with agent/workflow entry points and optional Composio connections. It uses existing authenticated, owner-scoped Composio routes; onboarding preferences are atomically merged so notes/skills/settings are preserved. Completion state is checked server-side before an HttpOnly device cookie is set, and the gate is confined to authenticated chat pages. No schema migration.
+- Onboarding focused suite: 23/23 across 7 files. Independent security review found no concrete redirect, cookie, CSRF, ownership or preference-loss defect. Provider edit/fallback status and project-document ACL suites also have focused regressions (provider GET 4/4; project document 6/6).
+- Final aggregate verification after all current code: `pnpm test` passed 500 files / 2,656 tests; `pnpm lint` passed with existing `no-img-element` warnings; 6 GB `pnpm check-types` passed; `pnpm db:check` passed; `pnpm build` passed with `/onboarding` included and 205/205 static pages generated; `git diff --check` passed.
+- Build retains environment/dependency warnings: parent npm lockfile workspace-root selection, E2B/unpdf dynamic dependency notices, session-dependent pages logging during static collection, and absent Redis/Upstash fallback. No migration was applied and no production data was written.
+- `Void-Agent` remains on `main` at `23a0177397232874689d67100d2e6730b23e6c75`, equal to `origin/main`, with 351 local status paths and no commit/push/deploy. `Void-Agent-V2` status remains 3,072 staged paths; this turn performed no reference checkout writes. Preserve that unknown-origin staged state.
+- E01 remains PARTIAL pending live PostgreSQL, browser, and Composio OAuth verification. Continue upstream integration; do not report full parity or an overall completion percentage from the scoped 75 workflow rows.
+
+### 2026-11-08 11:16 IST â€” E02 project setup wizard and assignments
+- Confirmed Better Chatbot 2.0 project setup is a drawer with Goal, Documents, Tools, People (cloud only), and Agents. Goal and same-organization collaborators persist at finish and project-brain ingestion is queued. Void-Agent already has compatible goal/knowledge, private document upload, brain connector, and same-team collaborator APIs; it lacked a resumable guided workflow and project-agent assignment storage.
+- Added a dashboard wizard with goal, knowledge collections, documents, tools, collaborators, and agents. New projects open it automatically; current step persists server-side so close/reload resumes; skipping a step advances without claiming that optional data was saved; Skip for now retains the current step; Finish records completion and Review can reopen it.
+- Added additive migration 0078 for project onboarding step/completion and project_agent. It is journaled and unapplied.
+- New agent API requires authenticated project access; writes require editor role and same-origin requests; assignment targets are limited to agents owned by the current caller or marked public. Reads apply the same caller/public predicate, return bounded safe metadata with Cache-Control: private, no-store, and never select prompts/secrets. Assignment count is capped at 100; DELETE applies the same ownership/public predicate atomically.
+- Focused tests pass 10/10 across 3 files; 6 GB typecheck passes; pnpm db:check passes; scoped Biome passes. No migration was applied. Live browser/PostgreSQL verification remains pending; E02 stays PARTIAL.
+
+#### E02 review correction â€” 2026-11-08 11:24 IST
+- Independent review refined assignment visibility: for team projects, only explicitly public agents are eligible or visible, so a teammate's private assignment cannot be hidden from other project members. For personal projects, the caller may use their own private agents plus public agents. GET/POST/DELETE use matching scopes; the UI explains the team restriction.
+- Added a per-project PostgreSQL advisory transaction lock around agent add, accessibility recheck, duplicate lookup, capacity count, and insert. Duplicate retries return the existing assignment before the 100-row capacity check; concurrent additions cannot race past the cap.
+- Assignment records are configuration only today; project chat does not execute attached agents. E02 remains PARTIAL and does not claim agent runtime parity. Focused suite now passes 13/13; 6 GB typecheck and Drizzle journal check pass.
+- Migration 0078 must be applied with all earlier pending migrations before deploying source that references its fields/table. It was not applied locally.
+
+### 2026-11-08 - Additional upstream workflow batch
+- Added structured agent follow-up input: bounded descriptive choices, multi-select, placeholders, and text/number/email/URL fields; password collection remains prohibited. Focused schema/UI tests passed 16/16.
+- Added cancellation checks to AI-created table-review transactions. Focused abort tests passed 3/3; live DB rollback remains unverified.
+- Added persisted OpenAI Realtime sensitivity, pause, and noise-reduction controls, normalized and projected to supported provider fields. Focused tests passed 3/3; live provider workflow remains unverified.
+- Added SHA-256 result hashes to successful desktop MCP audit records without recording tool output. Focused MCP tests passed 23/23; existing consent and transport guards remain.
+- The scoped workflow ledger is now 78 candidates: 68 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, and 1 PRIMARY CUSTOM. This is not an overall parity percentage; 206 route/page/tool surfaces still require mapping and deduplication.
+- Full unit suite passed 506 files / 2,682 tests before the final project-agent stale-assignment cleanup; the updated project setup suite then passed 16/16. Full lint passed; 6 GB typecheck passed; pnpm db:check passed; final production build passed with 205/205 pages; git diff --check passed.
+- Project setup remains PARTIAL: migration 0078 is unapplied and assigned agents are not consumed by project chat. No live PostgreSQL/browser/provider journey was run. No push, deploy, commit, migration apply, or reference checkout write.
+#### E02 reference-runtime correction (2026-11-08)
+- Source trace confirmed Better Chatbot 2.0's onboarding stores project-agent assignments but its project-chat wrapper/runtime does not read or execute `ProjectAgentTable`; project chat only passes project ID/name. Void-Agent matches this assignment-only behavior with stricter project-owner/public visibility and capacity checks.
+- Therefore project-agent runtime consumption is NOT an upstream parity gap and will not be added as custom complexity. E02 remains PARTIAL only for live PostgreSQL/browser verification and unapplied migration rollout.
+### 2026-11-08 12:23 IST - Verified feature batch addendum
+- C09 scheduler resume now recomputes the next future cron occurrence for paused recurring jobs; one-time jobs retain their original run instant. Malformed cron fails closed. Owner/origin authorization unchanged. Focused scheduler coverage 30/30 across 4 files.
+- B15 voice thread persistence was traced against upstream and is already implemented in primary with bounded completed turns, debounced idempotent persistence, owner/same-origin controls, and Open in chat. No change needed; focused route/contract suite 9/9.
+- B10 correction: accepting permits current proposed or completed status in the same atomic source-scoped UPDATE; stale writes return 409. Focused tests cover generated SQL parameters and stale update. B07 alias retrieval and C10 schedule diagnostics were also verified in the previous root focused batch.
+- B20 voice browser remains unavailable: existing primary browser tools have no verified enforced private-network egress boundary. Do not expose arbitrary browser navigation to voice; upstream arbitrary Playwright execution is not safely adaptable under current runtime.
+- Aggregate app verification still pending after all parallel batches stabilize; live DB/browser/provider workflows remain unverified.
+### 2026-11-08 12:27 IST - Additional parity/security batch
+- C04: Strict bounded MCP registration API (64 KiB JSON, schema-validated server name/config/visibility, unknown fields rejected, authenticated user ID assigned server-side). Existing connector/OAuth action retained. Tests 4/4; scoped Biome/diff-check passed.
+- C05: Inspection found equivalent per-server/per-tool prompt customization and approval behavior already in Void-Agent. Prompt/approval tests 19/19; no change.
+- B24: Lifecycle regression coverage is being added, but its current TypeScript test-mock diagnostics remain unresolved; not counted complete until typecheck passes.
+### 2026-11-08 12:31 IST - B24 source lifecycle verification
+- Added focused tests for authorized completed-chat source capture, owner-bound/redacted transcript snapshot, queued brain run, proposed fact persistence, and rejection of revoked/stale/foreign-owner sources before extraction.
+- Tests 6/6, 6 GB typecheck passed, scoped Biome and targeted diff-check passed. Mock-backed; no live PostgreSQL. No production semantics changed.
+### 2026-11-08 12:34 IST - C12 shared account parity
+- Composio account listing now opts into accessible shared accounts; UI labels them and omits Disconnect. Disconnect remains owner/private-only, with shared-ID rejection tested before provider deletion.
+- Focused API/library/UI suite: 10/10 across 3 files. Scoped Biome and diff check passed. Live OAuth/provider/browser remains unverified.
+### 2026-11-08 12:38 IST - B16 and C08 update
+- B16: Owned browser voice (`voice_realtime`) transcripts can now use existing preview and handoff APIs. Owner/message/thread/role/size checks are unchanged; external actions remain explicitly reviewed and approved. 40 focused tests across 10 files pass.
+- C08: Existing Void-Agent saved-workflow execution already exceeds upstream on durable history, resumable checkpoints, access/revision checks, and effect approval. 32 focused tests across 7 files pass; no port needed.
+### 2026-11-08 12:42 IST - A14 fallback routing security
+- Fallback candidates are filtered through current admin provider enablement. When config lookup fails, primary selection remains but no fallback receives the prompt. Personal user providers remain owner-bound and use the existing pinned transport.
+- Focused tests 10/10; Biome, 6 GB typecheck, and diff check passed.
+### 2026-11-08 12:45 IST - B17 device revocation origin hardening
+- Added same-origin check to authenticated voice-device DELETE before rate/repository mutation; preserves owner-scoped deletion. Pairing/rotation already equivalent or stronger than upstream.
+- Focused 18/18 across 7 voice/device files; scoped Biome and diff-check passed.
+### 2026-11-08 12:49 IST - B22 safe voice delegation
+- Added unique partial speech-reference matching using the user's already access-filtered agent list; ambiguous matches are rejected.
+- Delegated external MCP/Composio execution remains explicitly excluded pending per-action approval parity; upstream has no such boundary. Focused 12/12 across helper/route tests; scoped Biome and TypeScript passed.
+## 2026-11-08 13:04 IST - Aggregate verification
+- Unit suite: PASS, 513 files / 2,724 tests.
+- Lint: PASS with existing image/deprecation/workspace-root warnings.
+- 6 GB typecheck: PASS. `pnpm db:check`: PASS; no migrations applied.
+- Production build: PASS, 205/205 pages. Existing E2B/unpdf bundler warnings, Redis/in-memory fallback notices, unapplied migration missing-column report (`agent.preset_id`), and expected dynamic-session prerender notices remain.
+- `git diff --check`: PASS with line-ending notices.
+- Migration remains incomplete; continue source-grounded implementation after this checkpoint.
+### 2026-11-08 13:12 IST - B05 document paging
+- Added owner/project/source-scoped cursor paging for project documents and a Load older documents UI; older documents beyond the previous 100-item cap are now reachable.
+- Focused API/UI/download/unlink/edit tests 31/31 across 6 files; scoped Biome/diff-check pass. Live DB/browser remains unverified.
+### 2026-11-08 13:18 IST - B08/C01 update
+- B08: Bounded graph label search added over authorized graph data (max 8 hits); current-source and project ACL API behavior unchanged. Tests 15/15.
+- C01: New user accounts receive three private starter agent presets using idempotent insert; signup is not blocked on seeding failure and existing presets/customizations are not overwritten. Tests 9/9; typecheck passed.
+- Fixed the B05 older-page client result type after typecheck caught missing writableCollectionIds.
+- Full suite/build need rerun after these latest batches.
+## 2026-11-08 13:29 IST - B05/B08/C01 batch aggregate verification
+- 514 test files / 2,731 tests passed; 6 GB typecheck and full lint passed; DB metadata check passed; production build passed (205/205 pages); diff check passed.
+- Existing build warnings are documented in `docs/testing-report.md`. Live DB/provider/browser verification remains outstanding; migration incomplete.
+### 2026-11-08 13:35 IST - B09 no-gap trace
+Primary exceeds upstream for fact/source-version/contradiction/timeline review; 22 focused tests pass across 5 files. No port needed. Live DB/browser verification remains.
+### 2026-11-08 13:42 IST - A13/C02 batch
+- A13: Mobile model selection now opens accessible drawer; desktop popover unchanged. Shared catalog and filtering. 20/20 focused tests, typecheck, Biome, diff check pass.
+- C02: Agent-generation prompt includes bounded safe unconnected app suggestions; executable tool enum remains connected-only. 25/25 tests and scoped Biome/diff pass. Live provider/database/browser unverified.
+- Aggregate full suite/build need rerun for latest code.
+## 2026-11-08 13:48 IST - A13/C02 aggregate verification
+- Full tests: 515 files / 2,737 passed; full lint and 6 GB typecheck passed; DB metadata check passed; fresh production build passed with 205/205 pages; diff check passed.
+- Existing build warnings remain: E2B/unpdf bundling, no Redis/Upstash local fallback, unapplied migration missing-column probe, and dynamic-session prerender notices.
+- Migration remains incomplete; continue source-grounded audit and implementation.
+### 2026-11-08 14:03 IST - C03 no-gap audit
+V2 has no publish/gallery/install/uninstall workflow; Void-Agent already implements these with owner/public ACLs. Five route suites pass 31/31. No code change. Primary publication uses live rows (not immutable snapshots); left as separate custom product behavior requiring schema work if changed.
+### 2026-11-08 14:10 IST - C07 workflow graph parity
+No gap found: primary graph save already has owner ACL, bounded strict validation, cycle checks, transactional persistence, published-write rejection, and revision guards. Five focused test files / 26 tests passed.
+### 2026-11-08 14:18 IST - B04/B06 code update
+- B04 project knowledge accepts bounded XLSX/PPTX through existing hardened OOXML parsers; 62 focused tests pass across 6 files.
+- B06 stale queued runs are editor-retryable using the same fingerprint row; fresh queued/running work is blocked; 12 focused tests pass.
+- Full suite/typecheck/lint/build pending after this batch.
+## 2026-11-08 14:26 IST - B04/B06 aggregate verification
+- 516 files / 2,746 tests; 6 GB typecheck, lint, schema check, and diff check passed.
+- Fresh production build passed with 205/205 pages; existing dependency, cache, missing-unapplied-column, and dynamic prerender warnings remain.
+- Continue migration; this is a checkpoint only.
+### 2026-11-08 15:12 IST - B11 shared connector parity
+Project-brain connectors can now attach/list/sync accessible shared Composio accounts while preserving acting-user credential ownership and read-only/editor sync restrictions. Focused 15/15; scoped Biome passed. Aggregate validation pending.
+### 2026-11-08 13:59 IST - C26 no-gap parity result
+C26 was traced from upstream schema through the rendered input card and addToolResult submission. Void-Agent already implements all compatible non-secret fields, with stronger schema bounds and duplicate-option rejection; upstream's password input is intentionally excluded because submitted answers become conversation context. Focused tests: 16/16. No source change; end-to-end live provider/browser validation remains.
+
+### 2026-11-08 14:02 IST - Verify B12/B14/D01 and assess B20/C26
+- B12 project workflow association is added as configuration-only parity with an unapplied additive migration and bounded project/editor CRUD. Focused 14/14; `db:check`, journal parse, scoped Biome/diff and typecheck pass per agent.
+- B14 voice status can resolve an accessible project by ID or unique exact name, with fresh access check and current-source filtering. Focused 19/19; typecheck/Biome/diff pass.
+- D01 chat-created tabular review pins extracted source revisions transactionally. Focused 20/20 across six test files.
+- C26 already supports compatible non-secret structured inputs (16/16); password remains rejected.
+- B20 remains missing for security: neither VM runtime proves public-only egress; documented instead of exposing arbitrary browser execution.
+- No full regression/build yet after active edits. Migration remains unapplied; no push/deploy/production write/reference edit.
+### 2026-11-08 14:02 IST - Conversation search no-gap audit
+V2 has no thread search UI/API, debounced query, or search pagination in this checkout. Both projects list authenticated threads grouped by date with a 40-row initial display and show-all expansion; Void-Agent has additional title reconciliation and live running state. No new search feature was added because that would not be upstream parity. Source paths and trace are in the feature register; no code/test changes.
+### 2026-11-08 14:04 IST - A22 chat spreadsheet parity audit
+- Existing upload/parser/model-ingestion/preview workflow in Void-Agent is already equivalent to Better Chatbot V2 and has stronger ZIP/DOCTYPE, ownership, rate-limit and caching controls.
+- Focused route/parser/office-ingestion suite: 32/32 across 4 files.
+- No code changes; A22 remains PARTIAL pending real storage/model/browser verification. Previous note saying full spreadsheet preview was outside scope is superseded.
+### Image generation/editing source parity audit - 2026-11-08 14:18 IST
+Better Chatbot V2 image flow uses an AI Gateway capability catalog for Gemini/OpenAI/Black Forest Labs models; chooses model by create/edit/composite mode and reference count; extracts bounded image context including a previous generated output; supports a brush-mask inpainting UI for FLUX Fill; and accepts image/mask bytes or storage URLs for image APIs. Void-Agent has its own Flare image generation/edit endpoints, curated model/size selectors, prompt optimization, free-tier quotas, abort-aware polling, direct generation bypass and owner-scoped generated image storage. It lacked previous generated-output reuse and fetched model-selected image URLs directly from the server. Added `findLatestImageReference` so edit mode can use the latest image-tool output or uploaded image, and restricted server image loading to bounded inline raster data or a same-user managed storage key (15 MiB max with signature validation); arbitrary URLs are never fetched. Focused image source/edit/Flare tests pass 15/15, scoped Biome/diff-check pass, and 6 GB typecheck passes. V2's AI Gateway capability-based model selection, mask editor/inpainting, and multi-reference inputs are still absent: the product's Flare endpoint has no proven contract for them, and no Gateway provider configuration exists in Void-Agent. Do not label the entire image workflow complete; live provider/browser and model-specific mask/multi-reference parity remain.
+### 2026-11-08 14:21 IST - A26 sandbox artifact export and Canvas scope
+- Request: Trace V2 artifact preview/download against Void-Agent's sandbox and preserve Void-Agent's Canvas without creating a competing editor. Implement the secure adjacent capability only.
+- Audit: Better Chatbot V2 has an executable E2B ArtifactPanel for sandbox output; no standalone Canvas/document-editor route or tool was found. Void-Agent `/ecanvas`, Canvas PPT maker/history, and project document editing/reviews are Void-Agent-specific and are preserved. The existing E2B sandbox is already thread/user-owned; storage download, document preview, and spreadsheet preview routes already authenticate, enforce the storage owner's key, rate limit, and send private/no-store responses.
+- Change: Added sandbox `export` action for relative workspace files in an allowlist, max 15 MiB. It rejects traversal/absolute/control paths, non-file/symlink entries, over-limit and size-changing reads, and active/unknown formats (HTML/SVG/JS excluded). Bytes stream under a second size bound into the existing storage service with caller ownership. Sandbox tool results now reuse authenticated owner-scoped download and preview UI; raster images and WEBM video render only through the private download route, while documents/spreadsheets use existing bounded preview endpoints.
+- Files: `src/lib/sandbox/artifact-export.ts` and focused tests; `src/lib/ai/tools/sandbox/sandbox-tool.ts` and focused tests; `src/components/message-parts.tsx`; `docs/feature-work-register.md` A26 and Canvas scope finding; `docs/integration-progress.md`; `docs/migration-handoff.md`.
+- Verification: 17/17 focused Vitest tests passed (resolver and sandbox-export suites); scoped Biome check passed for all 5 source/test files; scoped `git diff --check` passed. E2B plus configured storage and browser journey is not available, so A26 remains PARTIAL. Root requested that aggregate typecheck be run after other active branches settle; no whole-project typecheck was run for this change.
+- Limits/security: No standalone HTML preview or second sandbox was added. A26 is separate from concurrent image workflow A25; root owns reconciliation of top-level counts. No migration apply, production write, reference write, push, or deploy.
+### 2026-11-08 14:22 IST - A26 video/audio preview separation
+- Review found the shared `.webm` suffix could show the audio-transcription control for video/webm artifacts. Source URL rendering now prefers the server-declared media type when present, so video/webm renders video only; extension fallback remains for legacy items without MIME metadata.
+- Validation: scoped Biome and `git diff --check` passed. The export suites remain 17/17 from 14:21; no whole-project typecheck per root's aggregation request. No other project or environment changed.
+### 2026-11-08 14:24 IST - Audit and harden non-Vercel Cockpit providers
+- Request: Compare Better Chatbot V2's Website, SEO, Revolut and Superlog Cockpit workflows with Void-Agent; implement concrete safe gaps only.
+- Actions: Read context/guidance; traced reference provider registry/modules and primary settings, encrypted persistence, provider fetch/MCP execution, summary dashboards, and connection test/save/delete routes. Confirmed all four provider workflows already exist in primary with user/team scope, encrypted credentials, owner/editor write policy, fixed/validated endpoints, redirect rejection, bounded responses/deadlines, and safe summaries. Added a shared response wrapper and applied it to all four private summary routes so every returned status has `Cache-Control: private, no-store`.
+- Files Changed: New `src/lib/http/with-private-no-store.ts` and test; new `src/app/api/cockpit/summary-cache.test.ts`; four Cockpit summary routes for Website/SEO/Revolut/Superlog; append-only feature register, context, integration progress and migration handoff.
+- Diff Summary: Existing provider feature parity is already present; summary data and all auth/rate/validation/ACL/not-connected/provider-error results now consistently receive private no-store headers. No credential values or provider response details are exposed.
+- Validation: Focused wrapper + four-route tests passed (2 files / 5 tests); scoped Biome passed (7 files); `git diff --check` passed (only existing LF/CRLF notices). No live provider request or database call.
+- Risks/Notes: C21 remains OPTIONAL as a secondary business dashboard, but its compatible provider workflows are implemented. No schema migration, external writes, V2 changes, production data, push, or deploy.
+- Next Steps: Root will include these routes in the aggregate type/test/build verification after parallel source edits settle.
+### 2026-11-08 14:37 IST - A25/A26 and aggregate verification checkpoint
+- A25 image generation/edit parity: previous generated images can be reused; edit sources are limited to validated raster data or the authenticated owner's managed storage keys (15 MiB max), with byte-signature checks. Arbitrary server-side image URL fetching was removed. Focused image tests: 15/15; typecheck, scoped Biome/diff pass. Masked inpainting/multi-reference remain unsupported because Flare's contract is unverified.
+- A26 artifact export: sandbox tool can upload an allowlisted workspace file (15 MiB max) through existing owner-scoped storage for private preview/download. Traversal, active content, unsafe types, symlink parents, over-limit and inconsistent reads are rejected. Focused tests 17/17; live E2B/storage/browser remains unverified. Void-Agent Canvas remains primary-only; upstream has no standalone Canvas editor.
+- A24 video output now plays HLS via lazy hls.js with native-HLS fallback and bounded playback; focused 7/7. Live browser/CDN remains unverified.
+- A22 spreadsheet preview/model ingestion audit found parity already exists; primary has stronger OOXML/owner checks. Focused 32/32.
+- C21 Vercel plus website/SEO/Revolut/Superlog workflows already existed; added private no-store response protections and route regressions. Vercel focused 16/16; non-Vercel focused 5/5. No live provider calls.
+- C26, project conversation search, and standalone Canvas audits found no upstream feature gap; documented. C26 tests 16/16.
+- Workflow register reconciled to 80 candidates: 79 reference workflows + one Void-Agent-only feature; 0 COMPLETE, 70 PARTIAL, 1 MISSING (unsafe browser automation), 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM. This is still a scoped register, not the full 206-surface denominator or a completion percentage.
+- Aggregate checks: `pnpm test` 525 files / 2,799 tests passed; 6 GB typecheck passed; lint passed with existing `<img>`, Next lint deprecation and workspace-root warnings; `pnpm db:check` passed; `pnpm build` passed with 205/205 pages; `git diff --check` passed.
+- Build diagnostics: E2B/unpdf critical dependency warnings, SSL-mode forward-compat warning, missing `agent.preset_id` because additive migrations remain unapplied, expected dynamic-session/header prerender diagnostics, and memory cache/rate-limit fallback without Redis/Upstash.
+- Repository state: primary HEAD `23a0177` equals `origin/main`, 442 local status paths; read-only V2 HEAD `8671f31`, latest `better-chatbot/main` ref `6f41835`, 3,072 pre-existing status paths unchanged. No commit, push, deploy, migration application, or production write.
+### 2026-11-08 14:46 IST â€” A10â€“A12 stream reliability
+- Compared upstream and primary abort, Redis buffer creation, active-pointer publication, reconnect, persisted-tail recovery and conversation message loading.
+- Fixed the primary pointer/buffer initialization race by publishing the pointer after the resumable buffer is ready; added a terminal-sentinel check with compare-and-delete to avoid stale pointers on a fast completion.
+- Focused validation: 47 tests across 6 files; scoped Biome and 6 GB typecheck passed.
+- A10â€“A12 remain PARTIAL: live Redis, provider, PostgreSQL, browser and multi-instance workflows were not run. No migration or external system was written.
+### 2026-11-08 14:48 IST - A26 isolated HTML artifact preview
+- Request: Compare Better Chatbot V2's ArtifactPanel with Void-Agent's HTML artifact renderer and enable preview/export of generated HTML only if it can be rendered read-only without escaping the private preview boundary.
+- Comparison: V2 `apps/web/src/components/artifact-panel/artifact-panel.tsx` previews code running in an E2B server iframe with `allow-forms allow-scripts allow-same-origin allow-popups`. Void-Agent's existing AI `artifact-creator.tsx` and Canvas renderers also permit selected scripts in `srcDoc`, appropriate to their distinct interactive artifact workflows but not appropriate for sandbox file export. A26 now has a separate private, read-only route and does not weaken either renderer or make raw stored HTML inline-downloadable.
+- Change: Added exact runtime dependency `parse5@7.3.0` and a server sanitizer that allowlists static presentation tags/attributes, removes script/noscript/template/frame/object/form/media/link/meta/base/SVG/MathML subtrees, removes event/srcdoc/URL attributes, unwraps links, and retains only bounded PNG/JPEG/GIF/WebP base64 image sources. The authenticated `/api/storage/html-preview` route verifies the session, same-user storage key, `.html` extension, metadata and actual size (max 15 MiB), valid UTF-8, rate limit, and private/no-store response. It returns sanitized content under CSP sandbox, default-deny network, no external frames/forms/navigation, no-referrer, nosniff, and restricted permissions. The chat HTML preview uses an iframe with an empty sandbox attribute and unmounts when hidden. Normal downloads remain attachments through the existing private download route.
+- Files: `package.json`, `pnpm-lock.yaml`; new `src/lib/file-ingest/sandbox-html-preview.ts` and tests; new `src/app/api/storage/html-preview/route.ts` and tests; `src/lib/sandbox/artifact-export.ts` and tests; `src/lib/ai/tools/sandbox/sandbox-tool.ts` and tests; `src/components/message-parts.tsx`; A26 row in `docs/feature-work-register.md`.
+- Verification: 24/24 focused tests passed across four files (sandbox path policy, sandbox export, sanitizer, and private route); scoped Biome check passed for 9 files; scoped diff-check passed. Tests include hostile script, event handler, remote resource, SVG, link, form, iframe, top-navigation and size/ownership cases. No whole-project typecheck was run; root owns aggregate validation once active branches settle.
+- Limits: The HTML preview intentionally strips executable code, links, forms, remote assets, embedded media/frames, and SVG. No live E2B, object-storage, or browser automation journey was available; A26 remains PARTIAL. No V2 write, database migration, production call/write, push, or deployment.
+### 2026-11-08 14:50 IST - A26 HTML preview security and test update
+- Follow-up verification after adding HTML artifacts: route tests now additionally cover unauthenticated access, per-user rate limiting, wrong extension, owner isolation, oversized metadata, and metadata/body size mismatch. Added explicit `script-src 'none'` to the private preview CSP; parent iframe keeps `sandbox=""` with no capabilities.
+- Final focused result: 26/26 across four suites (sandbox artifact resolver, sandbox export, HTML sanitizer, private HTML preview route); scoped Biome passed for 9 files; scoped diff-check passed. The 14:48 entry's 24/24 result is an earlier pre-follow-up checkpoint and is superseded by this 26/26 result.
+- Files include exact `parse5@7.3.0` runtime dependency, new sanitizer and private route/tests, sandbox HTML export allowlist/tests, and owner-only chat HTML preview. No aggregate typecheck, browser/E2B live run, DB operation, V2 edit, production call, push, or deploy.
+### 2026-11-08 14:53 IST - A23 uploaded-audio transcription parity audit
+- Compared Better Chatbot V2's media renderer and voice-input path with Void-Agent's attachment transcription path.
+- Reference behavior: `apps/web/src/components/media/media-preview.tsx` renders audio media supplied by tools with native `<audio controls>` and `preload="metadata"`. V2 also configures `gpt-4o-transcribe` for OpenAI Realtime voice sessions (`apps/web/src/lib/ai/speech/open-ai/realtime-session-config.ts`), but this is live voice input, not a stored chat-upload transcription endpoint. No long-recording or batch upload transcription path was found in the V2 source census.
+- Primary behavior is already stronger for chat uploads: private owner-key checks, stored/requested MIME match, container-signature validation, bounded download at 15 MiB, duration parsing and <=30-second synchronous Sarvam submission; longer or unverifiable files remain playable and are not transcribed. Transcripts are length-bounded and explicitly marked untrusted before model context. The stand-alone preview route repeats owner, origin, rate, byte, MIME, signature, duration and abort checks.
+- Decision: No compatible upstream transcription gap or reference long/batch workflow to port was found. Do not weaken the 30-second synchronous-provider bound or introduce a speculative batch provider/API. Existing A23 implementation exceeds the inspected reference's upload-transcription behavior; keep A23 PARTIAL only for live provider/storage/browser verification and document supported-format exclusions.
+- Evidence: primary `src/lib/ai/ingest/audio-attachment.ts`, `audio-format.ts`, `audio-metadata.ts`, `uploaded-audio.ts`, `src/app/api/storage/audio/transcribe/route.ts`; reference media renderer and realtime session config above.
+- Validation: no code changed. Root will include the existing audio route/ingestion suites in aggregate checks; no provider credentials, live storage call, V2 edit, DB write/migration, push, or deployment.
+
+### 2026-11-08 14:53 IST - A23 focused regression result
+- `pnpm exec vitest run src/lib/ai/ingest/audio-format.test.ts src/lib/ai/ingest/audio-metadata.test.ts src/lib/ai/ingest/audio-attachment.test.ts src/lib/ai/ingest/uploaded-audio.test.ts 'src/app/api/storage/audio/transcribe/route.test.ts'` passed: 5 files / 23 tests.
+- This is mock/unit verification only; it does not verify configured Sarvam, private object storage, or browser playback.
+### 2026-11-08 14:54 IST - E02 project-agent execution parity audit
+- Traced V2's `ProjectAgentTable`, project agent GET/POST/DELETE routes, onboarding picker, and collaborator dialog; searched all `ProjectAgentTable` references in V2. The assignment records are not read by project chat or agent execution.
+- Primary has the same configuration-only behavior: project setup and API store/list/remove attached agents, but no chat execution path consumes the assignments. Existing primary visibility checks are retained; no automatic agent execution or prompt injection was introduced.
+- This is not an upstream execution-parity gap. E02 remains PARTIAL for live database/browser and unapplied migration validation. Existing focused project-agent API tests: 8/8 (from the previous E02 batch); this audit changed no runtime code.
+- No V2 edits, migration application, production write, push, or deployment.
+### 2026-11-08 14:57 IST - B22 delegated voice-action approval audit
+- Compared Better Chatbot V2's `apps/web/src/lib/voice/run-transcript-command.ts` with Void-Agent's voice agent route and MCP approval path.
+- V2 runs up to 10 model steps with all available MCP and Composio tools directly; the inspected route does not insert a per-action approval boundary.
+- Void-Agent delegates only a bounded, single-turn no-tools answer. The existing chat approval flow cannot be attached by merely adding tools: proposal cards require a persisted chat tool-call part, explicit approval submission, a one-use token bound to exact arguments and current MCP config fingerprint, and server dispatch through `executeApprovedMcpTool`. Voice handlers currently call `/api/voice/run-agent` and return provider results without that persisted lifecycle or `addToolResult` dispatch.
+- Decision: retain no-tools voice delegation; do not reuse upstream's unapproved effectful execution or bypass chat's approval checks. A safe parity implementation needs a persisted review handoff into chat or an equivalent owner-bound voice approval/dispatch flow. B22 remains PARTIAL; the explicit blocker is missing review/dispatch lifecycle, not merely a missing model tool list.
+- Existing focused primary route/provider and unique-agent matching tests: 12/12 reported for the latest B22 implementation; no code changed in this audit. Live voice-provider/browser path remains unverified.
+- No V2 edits, migrations, production writes, push, or deployment.
+### 2026-11-08 15:02 IST - C13 approval dispatch hardening
+- Source audit: the inspected Better Chatbot 2.0 tree has general plan/email approval UI but no MCP server tool-call approval flow. Void-Agent's exact-action MCP approval is an additional security control and remains required.
+- Concrete bypass found: generic definitions returned by `MCPClientsManager.tools()` contained an executor that called `toolCall()` directly without the one-use approval wrapper. Current chat already replaces this executor, but the generic builder was an avoidable alternate dispatch path.
+- Change: generic MCP definitions now return `ApprovalRequired` without dispatch. Approved tool calls pass the reviewed server name with the configuration fingerprint; the manager rejects disabled/renamed/missing targets and rechecks stored and active configuration immediately before dispatch. Chat wrapper and explicit MCP action entrypoints were updated to pass the expected name. Workflow execution and project-brain sync paths were left unchanged; they use their own durable effect approval or validated read-only allowlist.
+- Verification: focused manager/approval API suites passed 43/43 tests across 3 files; scoped Biome and `git diff --check` passed. No live MCP server or PostgreSQL-backed browser journey was run. C13 remains PARTIAL for other connector mutation coverage and configured end-to-end verification.
+- No V2 writes, migration application, production writes, push, or deployment.
+### 2026-11-08 15:15 IST - B22 safe delegated MCP proposal and approval flow
+- `/api/voice/run-agent` now loads only MCP tools currently configured on the selected accessible agent. It passes cloned AI SDK tool schemas without any `execute` function and returns at most three schema-validated, bounded proposals. No network tool call is made during model proposal generation.
+- The client presents each proposal separately through the existing voice approval prompt, including exact server/tool/arguments. Secret-like keys are redacted in the first review and require a second confirmation showing the exact values before a token is requested. Rejection, approval issuance errors, and expiry do not dispatch.
+- The existing MCP approval token remains persisted in the verification table (10-minute expiry); its payload hash now optionally includes the delegated `agentId`. The approval route checks current agent access and the exact MCP mention before issuance. `callApprovedVoiceMcpToolAction` repeats agent access/mention checks before token consumption; existing MCP dispatch checks revalidate server access/config and consume the exact one-use token before execution. Composio is not exposed to delegated voice runs.
+- Focused test result: 47/47 across eight suites covering schema-only proposals/no execution, mention and ACL scope, exact one-use dispatch, rejection/expiry, sensitive argument review, approval issuance, and existing token/config checks. Scoped Biome passes.
+- No database migration was needed because the existing verification table already stores expiring hashed MCP approval tokens. Full 6 GB typecheck is deferred to root's stable aggregate run: a concurrent image-source edit caused a transient unused-constant diagnostic while that path was changing. Live provider/PostgreSQL/browser voice workflow remains unverified; B22 stays PARTIAL.
+- No migration application, production write, V2 edit, push, or deployment.
+
+### 2026-11-08 15:47 IST - Correct B22 MCP result and proposal narration
+- MCP dispatch now reports an action as `approved` only when the returned MCP result is not `{isError:true}`. Expired/replayed/rejected or provider-reported tool errors return `failed` with a bounded error message; the model cannot turn a fulfilled error object into a success claim.
+- When the proposal model emits any tool call, `/api/voice/run-agent` ignores its authored answer and returns a deterministic status: either the number of actions awaiting review, or that no valid action was prepared and none ran. This prevents unapproved proposal text from claiming completion.
+- Regression coverage: route test verifies a model-authored “prepared update” is replaced by neutral review text; client test verifies `{isError:true}` is marked failed. Focused suites: 30/30 tests across five files; scoped Biome and `git diff --check` pass.
+- No schema migration, V2 change, production write, push or deployment. B22 remains PARTIAL pending live verification.
+
+### 2026-11-08 15:49 IST - A25 image composition, mask editing, and provider hardening
+- Preserved Flare as the default generation/single-image edit provider. Added optional AI Gateway multi-reference composition (`bfl/flux-2-pro`) only on explicit composition mode/intent; multiple attachments alone do not trigger composition.
+- Added an accessible bounded brush editor. It uploads a PNG mask through authenticated owner storage and persists a `data-image-mask` part that pairs exact source/mask file IDs and URLs.
+- Masked edits require both managed owner keys, validate raster signatures, cap combined input at 15 MiB and image edges/pixels, normalize the source and mask to identical dimensions, and convert painted pixels to opaque white (regenerate) with unpainted pixels opaque black (preserve). The Gateway `bfl/flux-pro-1.0-fill` call receives abort; capability discovery is authenticated/private/no-store and the provider call is owner-limited to 20/hour. Existing free-tier edit quotas remain.
+- Exact upstream SDK versions are isolated aliases: `ai-image-v7` -> `ai@7.0.18`; `@ai-sdk/gateway-image-v4` -> `@ai-sdk/gateway@4.0.0-canary.107`. The primary app remains on `ai@5`. `.env.example` documents optional `AI_GATEWAY_API_KEY`.
+- Flare provider output/poll paths were hardened: strict provider origin HTTPS URLs, no redirects, response caps/timeouts/MIME/signature checks; polling ignores provider-supplied URLs and constructs task endpoints only from validated task IDs.
+- Validation: focused image/API tests 46/46 across 9 files; scoped Biome passed; 6 GiB TypeScript check passed. Live Gateway credentials/provider/browser flow unavailable. A25 remains PARTIAL. No migration, production write, V2 edit, push, or deploy.
+
+### 2026-11-08 15:52 IST - A25 final verification update
+- Added the owner-keyed masked-image rate-limit check after URL ownership validation but before either storage download; route regression confirms rate-limited requests do no storage reads.
+- Verification count supersedes the earlier 46-test checkpoint: 47 focused tests across 9 files pass. Scoped Biome and 6 GiB typecheck pass after all A25 changes. The 2 GiB default typecheck OOMs in this workspace.
+- Live Gateway calls remain unverified; no production build specifically for this batch. A25 remains PARTIAL until live credential/provider/browser verification.
+
+### 2026-11-08 16:07 IST - Aggregate verification checkpoint
+- Full suite: 536 files / 2,862 tests passed; stream-context suite rerun after lint correction: 9/9.
+- 6 GiB typecheck, lint, DB metadata check, production build (exit 0, 205/205 page slots), and diff-check passed. Build logs still show missing `agent.preset_id in configured DB probes; no migration was applied and live Postgres parity is not verified.
+- A24 focused test count corrected from 6/6 to 7/7.
+- Implementation continues in parallel on table review, desktop MCP, and project-brain parity. Scoped register: 80 workflows; no overall completion percentage is claimed.
+
+### 2026-11-08 16:10 IST - B07 bounded project-knowledge retrieval
+- Fixed the newest-500 blind spot by applying bounded lexical search/ranking in SQL before a 300-row cap, while retaining project/source-owner/collection/ready/review/current-revision checks and alias expansion.
+- Focused query tool tests: 4/4; scoped Biome and diff-check passed. Live Postgres plan/provider/browser verification remains pending; no schema migration.
+
+### 2026-11-08 16:16 IST - C15 Cockpit Updates surface
+- Added the missing Cockpit feed for agent-posted info/warning/alert notifications, with latest-eight display, severity/read state, five-second refresh, safe links and mark-read using existing owner-scoped APIs.
+- Focused UI/route/type tests: 20/20 combined; scoped Biome and diff-check passed. No DB migration; live browser/PostgreSQL verification remains.
+
+### 2026-11-08 16:25 IST - C09 schedule agent selection parity
+- Better Chatbot's schedule authoring supports selecting an agent; Void-Agent's backend already enforced owner-only `agentId`, but the dashboard could create only assistant schedules and did not project the selected identity.
+- The dashboard now fetches only the owner's agents, offers one during create, sends its ID through the existing owner-checked scheduler API, exposes that ID in the public job projection, and locks agent selection when editing an existing schedule. Existing durable run/cancel/history behavior remains.
+- Focused scheduler dashboard/helper/route tests pass 26/26 across three files; scoped Biome and diff-check pass. No migration/schema change. Live PostgreSQL, worker, and browser verification remain, so C09 stays PARTIAL.
+
+### 2026-11-08 16:35 IST - Add A27 Personal Auto and C27 team-member workflows
+- A27: Personal chat Auto now uses explicit administrator task scores and priority. It filters to enabled/keyed deployment providers, excludes personal endpoints, validates capabilities/context, accepts provider-verified context sizes for otherwise unknown models, and pins an eligible prior thread model. Focused tests 32/32 across six files; 6 GiB typecheck passes; live provider/browser remains unverified.
+- C27: Added an owner/admin-only team member screen and endpoint for existing accounts, with member/viewer role, rate limit, no-store, bounded validation, and atomic membership/default-budget-policy creation. The reference invitation-email/acceptance path is still missing; this workflow remains PARTIAL. Focused team/scheduler tests 38/38 across five files; 6 GiB typecheck passes.
+- Review also closed a scheduler ACL mismatch: shared schedule creation now rejects public/read-only agents before persistence, matching the direct API rule.
+- Updated scoped register: 82 candidates = 72 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 end-to-end COMPLETE. This is still not the full 206-surface denominator and is not a completion percentage.
+- No migration, production write, V2 edit, push, or deployment.
+
+### 2026-11-08 16:44 IST - Full aggregate verification for current migration batches
+- `pnpm test`: 542 files / 2,899 tests passed.
+- `pnpm lint`: passed. Existing warnings: deprecated `next lint`, workspace-root/multiple-lockfile inference, and `<img>` LCP hints.
+- 6 GiB `pnpm check-types`: passed.
+- `pnpm db:check`: passed; this validates migration metadata only and did not apply migrations or verify live PostgreSQL behavior.
+- Production `pnpm build`: exit 0, static generation completed 205/205 pages. Existing bundler E2B/unpdf warnings, optional Redis/Upstash/E2B notices, PostgreSQL SSL-mode notice, and dynamic session/header prerender logs remain. No build error.
+- `git diff --check`: passed (line-ending normalization notices only).
+- Scoped feature ledger: 82 workflows (72 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict end-to-end COMPLETE). This is not the full denominator: the 206 census items are route/page/tool surfaces. No overall completion percentage is claimed.
+- No V2 edits, database migration/application, production data writes, push, or deployment.
+
+### 2026-11-08 17:23 IST - Aggregate verified implementation checkpoint
+- Added team invite/accept, active-team metering selection, aggregate attachment context limits, chat history slimming/tool-loop compaction/bound-tool alias repair, and bounded desktop MCP response/result serialization.
+- Validation: 555 test files / 2,957 tests passed; 6 GiB TypeScript check passed; lint passed with existing warnings; migration metadata check and diff-check passed. Production build remains running at session 44879; result pending.
+- Scoped ledger is 88 candidates: 78 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict E2E COMPLETE. The 206 reference entries are surfaces, not a verified workflow denominator; no overall parity percentage is claimed.
+- Remaining: map and implement additional reference workflows; live PostgreSQL/email/provider/MCP/desktop/browser E2E; additive migrations are not applied. No V2 write, production write, push, commit, or deployment.
+
+### 2026-11-08 17:30 IST - Production build result
+- Production build completed successfully: exit 0; 205/205 page slots generated. Warnings include third-party webpack dependency analysis, existing `<img>` lint warnings, authenticated dynamic-session prerender probes, and missing local Redis/E2B configuration. Live service workflows remain unverified.
+
+### 2026-11-08 17:31 IST - Provider/model scope clarification
+- A16 covers public user-owned OpenAI-compatible endpoints, including a local Ollama/LM Studio service exposed through a public HTTPS tunnel. It is already implemented with user-owned encrypted credentials, exact owner model lookup, pinned public DNS, redirect rejection, and response/time bounds; only live endpoint/browser proof is pending.
+- A17 remains EXCLUDED only for direct localhost/LAN reachability from the hosted service. V2 `discover/route.ts` fetches an arbitrary supplied URL without a public-address boundary; copying it would create SSRF/private-network exposure. Primary intentionally does not do that. Personal model capability metadata is text-only/tool-disabled pending verified per-model support.
+- This supersedes the earlier wording that user-scoped credential/runtime support was absent; F007 implemented that boundary.
+
+### 2026-11-08 17:37 IST - B23 duplicate-gap claim corrected by source trace
+- Independent source recheck confirms the query-only web search tool is already registered in the ElevenLabs client, default voice tool definitions, and session route; its exact blocking dashboard schema is documented. The earlier note implying that the dashboard tool schema still needed implementation is superseded.
+- No code change. B23 remains PARTIAL for external dashboard configuration/live voice-provider verification, not for a missing repository feature. No provider account changes were made.
+
+### 2026-11-08 17:31 IST - B23 independent wiring verification
+- Corrected B23 evidence: default search tool is returned by the ElevenLabs session route and bound by its SDK client callback to the authenticated bounded web-search route. The previous note claiming missing ElevenLabs client wiring was inaccurate; no new implementation was needed.
+- Three focused suites pass (3 files / 9 tests). B23 stays PARTIAL pending external dashboard schema configuration and live ElevenLabs/provider/browser journey. B20 remains excluded from implementation pending safe browser egress isolation.
+
+### 2026-11-08 17:43 IST - A32 registry-backed skills
+- Better Chatbot V2 includes skills.sh catalog/search and SKILL.md import (`apps/web/src/app/api/skills/search/route.ts`, `apps/web/src/app/api/skills/route.ts`, `apps/web/src/lib/skills/fetch-skill-content.ts`, `apps/web/src/components/skills/skills-search-dialog.tsx`). Void-Agent previously supported manual/AI-generated personal skills but not registry search/import.
+- Added `/api/skills/search` and `/api/skills/import` with auth, user rate limits, no-store responses, bounded requests, fixed HTTPS provider hosts, redirect rejection, timeouts, response byte caps, strict repo/slug validation, and SPDX allowlist. Import is preview-only; no persistence until user review, rights confirmation, and save. Source repository and license attribution are stored and shown. Imported markdown is untrusted and cannot expand tool permissions.
+- Focused tests: 15/15 across 5 files. Scoped Biome passed. Full typecheck is running; result pending. Live registry/GitHub/browser requests remain unverified.
+- Count: 89 candidate workflows = 79 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict E2E COMPLETE. 206 surfaces are still not fully mapped; no overall percentage.
+
+### 2026-11-08 17:43 IST - A16 personal provider capabilities
+- V2 enables tools for dynamically resolved local/provider SDK model instances but marks local models vision-unsupported. Void-Agent had a catalog/runtime mismatch: catalog disabled tools while runtime inferred support from absence in the static unsupported set.
+- Added owner-scoped explicit per-model tool opt-in to personal providers; unknown or legacy model rows default disabled, capabilities must map to rediscovered model IDs, and endpoint changes clear all flags. The chat catalog and chat runtime now share this capability source. Existing approval/authorization gates still protect tools. Vision remains disabled.
+- Focused tests: 36/36 across six files; migration metadata check, Biome, and diff-check pass. Full typecheck was canceled at parent request to avoid concurrent high-memory checks and awaits aggregate validation. A16 remains PARTIAL for real endpoint/browser validation.
+
+### 2026-11-08 17:47 IST - A32 security and license-notice correction
+- Existing personal skill mutations now require a same-origin Origin check, return private/no-store responses, and read POST/PUT JSON through the streaming bounded parser (512 KB) before parsing; oversized chunked bodies cancel before JSON.parse. DELETE has the same-origin check.
+- Registry import now retains the decoded repository license notice from GitHub alongside the SPDX identifier and source repository; the user sees the full notice during review, confirms rights before saving, and the notice persists with the skill. Unknown SPDX or missing/oversize notice fails closed. This provides the repository's stated license notice; the source link remains so users can inspect path-specific licensing.
+- Focused suites now pass 17/17 across five files, including cross-origin POST/PUT/DELETE rejection and an oversized body without Content-Length. Scoped Biome passes on skill files; Biome lint passes on the existing preferences UI component. `git diff --check` passes. The earlier full TypeScript run exited 0 before these final boundary and notice adjustments; root aggregate typecheck should verify the latest source.
+
+### 2026-11-08 17:49 IST - C30 chat Plan Mode
+- Reference trace: Better Chatbot V2 implements a user-selected `planMode` in chat state and request transport, restricts the route to read-only research plus `createPlan`, and renders a plan artifact in its artifact panel (`apps/web/src/app/api/chat/route.ts`, `apps/web/src/lib/ai/tools/planning/create-plan-tool.ts`, `apps/web/src/components/tool-mode-dropdown.tsx`, `apps/web/src/components/artifact-panel/artifact-panel.tsx`).
+- Void-Agent had a distinct `askForPlanApproval` confirmation workflow but no plan-only artifact mode. Added a separate persisted Plan toggle, optional guarded request field, server-side mode gate, read-only web/project tool allowlist, bounded `createPlan` schema/tool, and inline artifact rendering. The mode ignores client mentions/settings and skips slash-schedule dispatch; models without tool calling receive an explicit 409 error. Existing askForPlanApproval is unchanged and distinct.
+- Focused verification: 6 files / 11 tests passed (tool allowlist, unsupported model rejection, request schema, persisted rehydration, composer toggle, plan schema and artifact rendering); scoped Biome and diff-check passed. Root aggregate typecheck pending; no live provider/browser journey.
+- Candidate C30 remains PARTIAL. The scoped register now has 90 candidates: 80 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict E2E COMPLETE. A32 skills import is separately tracked.
+- Files changed for this capability: `src/types/chat.ts`, `src/types/chat.test.ts`, `src/app/store/index.ts`, `src/app/store/plan-mode-persistence.test.ts`, `src/components/chat-bot.tsx`, `src/components/tool-mode-dropdown.tsx` and test, `src/components/message-parts.tsx`, `src/components/tool-invocation/plan-artifact-card.tsx` and test, `src/lib/ai/tools/index.ts`, `src/lib/ai/planning/plan-mode.ts` and test, `src/lib/ai/planning/create-plan-tool.ts` and test, `src/app/api/chat/route.ts`.
+- No V2 edit, schema migration, push, commit, deployment, production write, or live provider call.
+
+### 2026-11-08 17:58 IST - Combined A32/C30/provider capability validation
+- Implemented and tracked A32 (skills registry search/import preview with supported SPDX checks, retained notice/source, user review and prompt-boundary limits) and C30 (user-selected Plan Mode, server-side read-only tool allowlist, one bounded plan artifact, unsupported-model rejection). Corrected A16 provider capability inconsistency with owner-scoped, default-deny per-model tool support; vision remains unsupported per upstream behavior.
+- Aggregate validation passed: 567 test files / 2,995 tests; 6 GiB typecheck; lint (existing warnings); `db:check`; `git diff --check`; production build exit 0 (205/205 pages).
+- Scoped ledger is 90 candidates = 80 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict E2E COMPLETE. The 206 discovered route/page/tool surfaces remain unmapped to a complete individual workflow denominator; no overall percentage is claimed.
+- Live services, database migrations, and browser/desktop/provider end-to-end remain unverified. Additive migrations are not applied. The primary worktree remains local; no push/commit/deploy. V2 was read-only in this turn; its current Git status is already dirty and was left as observed.
+## 2026-11-08 - C32 scheduled-run terminal outcome verification
+- Independent V2 trace: `apps/web/src/lib/scheduled-tasks/runner.ts` drains the `/api/chat` event stream and inspects terminal finish/blocked metadata; it rejects redirect/auth bounce, invalid response content, blocked runs, and no-answer finish reasons.
+- Primary gap: `src/lib/scheduler/worker.ts` treated any HTTP 2xx as completed, without consuming the chat stream. It could therefore send success notifications for an auth HTML response or a run that ended blocked, errored, incomplete, or without a model answer.
+- Added bounded stream outcome inspection and connected it to scheduler persistence/notification outcomes. The fetch plus stream has a five-minute deadline; the body is capped at 2 MiB and only a 64 KiB SSE tail is retained. Only a parseable terminal `finish` event with `finishReason: "stop"` and no blocked reason is considered successful. Failure categories omit provider response bodies and untrusted blocked text.
+- Focused validation: 15/15 Vitest tests; scoped Biome and `git diff --check` pass. Includes HTTP redirect/non-2xx, auth HTML/content type, bodyless, malformed/truncated, blocked, error/other finish reasons, size cap and timeout cases.
+- C32 remains PARTIAL pending actual worker, PostgreSQL, provider and browser journey. No schema/migration, V2 changes, push, commit, deployment or production write.
+### 2026-11-08 18:10 IST - A33 safe chat title parity
+- V2 reference: `apps/web/src/lib/chat/thread-title.ts`, `apps/web/src/lib/chat/generate-thread-title.ts`, `apps/web/src/app/api/chat/title/route.ts`, and chat route title persistence normalize model output, fall back to user text, and write only if the owner’s title is still empty.
+- Primary integration: retained Void-Agent's current model selection and billing/security gates. Added bounded title normalization for persisted and client-projected output, first-user-text fallback, and atomic owner-scoped insert-or-fill-empty persistence. This prevents model quote/newline/length artifacts and title races without replacing an existing title.
+- Focused verification: title helper, title route, and PG repository tests: 17/17 pass, including same-origin rejection before authentication/provider work. Full typecheck hit Node's default 2 GiB heap limit during concurrent aggregate work; rerun with `NODE_OPTIONS=--max-old-space-size=6144` after concurrent typechecks settle.
+- A33 remains PARTIAL until live model/PostgreSQL/browser title refresh is verified. No reference checkout edit, migration application, push, commit, deployment, or production write.
+
+### 2026-11-08 18:14 IST - C31 Composio actions in chat
+- Added scoped read-only discovery/execution for active private Composio accounts to authenticated tool-enabled non-embed chats. Models receive request-local aliases only; server resolves owner accounts, validates exact action schema, rate limits discovery/execution, caps catalogs/actions/results, and rechecks connection state immediately before execution.
+- Mutating actions are intentionally not exposed pending the existing server-bound approval-token workflow. Focused tests pass (12/12 across two files); root aggregate typecheck and live provider/browser verification remain pending.
+
+### 2026-11-08 18:24 IST - C31 type validation follow-up
+- Explicit AI SDK tool input/output generics and mutable JSONSchema7 constants resolved aggregate type errors. Full 6 GiB pnpm check-types passes; C31 remains PARTIAL for live provider/browser verification only.
+
+### 2026-11-08 18:34 IST — OpenAI Realtime connected-app read actions
+- Added a safe primary-only subset of the V2 voice integration: OpenAI Realtime can search and invoke connected-app read-only actions. The meta-tool wiring and owner-bound execution endpoint reuse C31's action filtering, schema validation, redaction, and result handling. Account references are encrypted, expire after 20 minutes, and are checked against the authenticated user's current active connection before execution. The endpoint enforces same-origin, authentication, a streamed 32 KB body cap, private/no-store caching, and per-user search/execution rate limits; result text is capped at 8 KB and marked untrusted.
+- V2 evidence: `apps/web/src/lib/voice/voice-session.ts`, `openai-tools.ts`, `execute-voice-tool.ts`, `execute-composio-tool.ts`. Primary evidence: `src/lib/ai/composio-voice-tools.ts`, `src/app/api/voice/composio-tool/route.ts`, `src/app/api/chat/openai-realtime/route.ts`, and `src/lib/ai/speech/open-ai/use-voice-chat.openai.ts`.
+- Verification: focused tests passed 17/17 across C31/voice helper suites; scoped Biome and diff-check passed. Full typecheck was canceled per root's request to avoid competing with the aggregate run. Live provider/browser and Composio account workflow remain unverified; status remains PARTIAL. Mutating actions are not exposed.
+- No database migration/application, reference edit, push, commit, deployment, production write, or global feature-count update.
+
+### 2026-11-08 18:34 IST - C33 agent alert delivery policy
+- Source comparison found a separate alert-policy difference from C15's feed and C16's web-push workflow: V2 suppresses notices while the same chat is visibly open and supports an only-when-away preference. Primary showed foreground notices on the active chat and had only a global toggle.
+- Added `chatAlertsOnlyWhenAway` to the existing preferences schema and settings UI; legacy users default false to preserve current behavior. The hook now suppresses alerts for the visible current thread and, when enabled, sends only if the tab is hidden or lacks focus. Existing generic, transcript-free copy and desktop/browser channels remain.
+- Focused tests: 2 files / 17 tests passed; scoped Biome passed; scoped `git diff --check` passed with line-ending notices. No schema migration.
+- C33 is a newly identified candidate and was documented outside the current status totals per root's instruction. Browser persistence and actual native/browser notification delivery remain unverified.
+
+Correction to the 18:34 voice progress note: the implemented action response cap is 8 (not 12), with 4 KB max schema/action, up to 8 toolkits and 100 candidate actions/toolkit, 20 accounts, per-user rate limits of 6 searches and 8 executions/minute, and 8 KB max sanitized result. Focused tests pass after the tighter bounds.
+
+### Route-boundary test follow-up — 2026-11-08 18:41 IST
+Added POST route regressions for foreign-origin rejection before auth/service calls, unauthenticated requests, malformed JSON, streamed bodies over 32 KB, and authenticated search/execute dispatch. Route/helper/C31 suites passed 22/22 across three files; scoped Biome and diff-check passed. No route change was required. Full typecheck remains with root aggregate validation; global feature counts unchanged.
+
+### 2026-11-08 19:00 IST - C33-C35 audited implementation and aggregate validation
+- Added three individually scoped workflows after fresh V2 source inspection: C33 thread-aware chat-alert delivery, C34 optional Agentset project search, and C35 read-only Composio voice actions. Their exact evidence and remaining gaps are in docs/feature-work-register.md and docs/migration-handoff.md.
+- Aggregate validation after the implementations: pnpm test PASS (576 files / 3,058 tests); NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types PASS; pnpm lint PASS with existing Next lint deprecation/workspace-root and <img> warnings; pnpm db:check PASS (metadata only); git diff --check PASS (line-ending normalization notices); pnpm build PASS (exit 0, 205/205 pages).
+- Build warnings include existing third-party webpack dependency analysis, authenticated dynamic-session prerender diagnostics, local missing Redis/Upstash and E2B settings, and PostgreSQL SSL-mode compatibility notice. The local no-Redis build also warns that rate counters fall back to per-instance memory; this does not validate production configuration.
+- Current scoped register: 96 candidates = 86 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM, 0 strict end-to-end COMPLETE. This is 95 reference candidates plus one primary-only custom feature, not a complete denominator for all 206 discovered surfaces. No overall parity percentage is supportable.
+- No database migration applied, no live PostgreSQL/provider/browser/Electron E2E, no push, commit, deployment, or production write. Reference checkout was not written by this batch.
+
+### [2026-11-08 19:05 IST] - Re-verify approval workflows against upstream
+- Request: Independently compare upstream and primary approval/cancellation execution paths, excluding already tracked voice/chat connector workflows.
+- Findings: V2 voice dispatch directly executes MCP and Composio actions; the readOnly marker is not a server-side authorization boundary, and transcript execution can dispatch create/schedule actions without a one-use approval token. Primary MCP voice uses schema-only proposals plus persisted one-use approval, and rechecks current access/config fingerprint; schedule creation uses exact-payload one-use approval; saved workflow decisions are owner-scoped, effect-hash-bound, and revalidate revisions before resume.
+- Decision: No new capability row is warranted for unchecked V2 side effects. Existing primary approval controls are stronger and remain intact; direct device-command execution remains excluded in B19. Evidence paths and tests were reviewed in the approval agent report; no source code changed.
+- Validation: Read-only code/test trace; no new tests were needed. No V2 write, migration, push, commit, deploy, or production change.
+
+
+## Migration status report — 2026-11-08 20:34 +05:30
+
+Fresh status audit is recorded in [MIGRATION-STATUS-REPORT.md](MIGRATION-STATUS-REPORT.md). Current scoped ledger: 96 unique candidates (86 partial, 1 missing, 5 excluded, 2 optional, 1 deprecated, 1 primary custom, 0 complete); two new unregistered candidates are also present. Current pnpm test, 6 GiB typecheck, and production build fail on DOCX/MCP changes; lint and pnpm db:check pass. No feature implementation, migration apply, commit, push, or deploy was performed in this status run. Next task: repair the DOCX tool-map/type/test errors and MCP result wrapper test, then rerun full validation.
+
+### 2026-11-08 21:03 IST - DOCX/Morphik blocker fixes and verified aggregate checks
+- Fixed the chat tool map so it contains no undefined entries; extracted DOCX tool gating and verified project ownership, owner/editor permissions, available DOCX filtering, and viewer read-only behavior. The generated edit remains a pending review copy; no automatic application path was added.
+- Fixed DOCX test JSX runtime and matcher typing. The proposal component remains review-only and has no apply control.
+- Fixed Morphik wrapper identity behavior: unchanged non-Morphik results preserve reference identity, while Morphik bearer URLs remain protected/redacted before model, transcript, or persistence paths.
+- Focused DOCX/Morphik suites passed: 9 files / 50 tests. Full pnpm test: 581 files / 3,082 tests passed. NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types, pnpm lint, pnpm db:check, 6 GiB pnpm build (205/205 pages), and git diff --check passed. Lint/build retain documented environment/dependency warnings; the local build observed missing gent.preset_id, and no DB migration was applied.
+- Reconciled the feature ledger to 98 unique workflows: 0 complete, 88 partial, 1 missing, 5 excluded, 2 optional, 1 deprecated, 1 primary custom. C33 now occurs once; C36 DOCX and C37 Morphik are registered as PARTIAL. No overall parity percentage is claimed because the 206 surfaces are not a semantic denominator.
+- Updated the status report and refreshed its current changed-path snapshot. Reference V2 remained inspection-only; no commit, push, deployment, database migration, or production write occurred.
+- Next task: investigate B20 browser-execution egress isolation, then continue other PARTIAL workflows in dependency order.
+
+### 2026-11-08 21:11 IST - B20 browser security trace and Cloak credential hardening
+- Independent source traces found V2 Kernel and primary Steel/Crawl/Cloak browser paths permit direct browser/network egress without an enforceable private-network boundary. V2's browser proxy allowlist does not prove VM-process isolation; Steel/Cloak can follow arbitrary page/navigation/subresource traffic. B20 remains MISSING; no unsafe voice route was added.
+- Removed the hardcoded Cloak bridge token fallback. Missing CLOAK_BRIDGE_TOKEN now rejects execution before cache/network activity. Added focused mocked tests: 1 file / 2 tests pass; configured token is used on session and navigation requests.
+- Full validation for the added security fix is running; previous blocker-batch aggregate checks remain passing. No live browser provider was contacted. Next: only implement B20 through a network-isolated runtime with private/metadata/redirect/subresource deny tests, authorization, cancellation and guaranteed teardown.
+
+### 2026-11-08 21:18 IST - B20 security fix validation complete
+- Focused Cloak credential regression: 1 file / 2 tests PASS. Full pnpm test: 582 files / 3,084 tests PASS. 6 GiB pnpm check-types PASS, pnpm lint PASS with existing warnings, pnpm db:check PASS (metadata only), and 6 GiB pnpm build PASS with 205/205 pages. git diff --check PASS after the prior documentation update; rerun after this final note.
+- The production build retained known warnings: E2B/unpdf dependency-analysis, dynamic-session prerender diagnostics, local Redis/Upstash/E2B configuration absent, PostgreSQL SSL semantics, and local DB schema missing gent.preset_id. No migration was applied.
+- Current scope counts remain 98 unique workflows (0 complete, 88 partial, 1 missing, 5 excluded, 2 optional, 1 deprecated, 1 primary custom); B20 remains MISSING due absent network-layer browser+VM egress enforcement. No push/deploy/commit.
+
+### 2026-11-08 21:38 IST - B20 fail-closed execution boundary
+- Primary chat/agent registry exposure remains empty, Browser Agent was removed from the selectable toolkit catalog/dropdown, and direct Steel/Crawl/Cloak tool factory calls now return a disabled error before cache, browser allocation, or network activity.
+- Added adversarial fail-closed tests covering loopback/private IPv4, IPv6 loopback, link-local metadata, rebinding hostname, redirects, page subresources, WebSockets, proxy bypass, and `file:` URLs. These prove app-level non-execution only; they do not establish provider/network-level deny behavior.
+- B20 remains MISSING pending a runtime that can enforce browser+VM egress restrictions and live deny/teardown tests. Next implementation: C31 Composio write proposals and one-use exact-payload approval, keeping the generic read executor read-only.
+- Focused Vitest: 3 files / 21 tests passed. Full suite and aggregate checks will be rerun after the next implementation batch. No reference changes, commit, push, or deployment.
+
+### 2026-11-08 22:20 IST - B20 fail-closed decision and C38 Composio approval flow
+- B20 remains MISSING. Three independent read-only audits found no primary bypass through chat, voice, direct browser factories, or the tool registry, but Steel/Crawl/Cloak and V2 Kernel do not establish browser/VM network-layer egress enforcement. Browser automation remains unavailable; adversarial tests prove only that the app declines to start it.
+- C38 adds a separate Composio write workflow: owner-connected account/action discovery, review-only proposals, same-origin authenticated approval issuance, encrypted account refs, current owner/action/version/schema/argument revalidation, expiring persisted one-use tokens, atomic consume before provider execution, and reject-without-request UI. Read-only actions remain separate. Focused 4-file suite: 21/21 passed. Live Composio/PostgreSQL/browser journey remains unverified; approval UI presents the action slug and exact JSON, while action-description display could improve review clarity.
+- C38 is PARTIAL. Register now contains 99 candidates: 0 COMPLETE, 89 PARTIAL, 1 MISSING, 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, and 1 PRIMARY CUSTOM (98 reference plus one primary custom).
+- The first production build failed because Next.js route modules cannot export the injectable handler factory. Moved the factory to `src/lib/ai/tools/hitl/composio-write-approval-route.ts`; the App Router module now exports only `dynamic` and `POST`. Rebuild is running after this fix.
+- Latest checks: focused Composio approval suite 21/21 PASS; full `pnpm test` 588 files / 3,131 tests PASS; 6 GiB typecheck PASS; `pnpm lint` PASS with existing warnings; `pnpm db:check` PASS (metadata only); initial `git diff --check` PASS with line-ending notices. Rebuild and final post-documentation diff-check pending.
+- No commit, push, deployment, database migration, production write, or V2 edit. Next: finish production build, reconcile report/progress/handoff/security/context with actual final result, then continue the next dependency-ordered PARTIAL workflow.
+
+### Current aggregate checkpoint - 2026-11-08 22:27 IST
+- Current scoped ledger: 99 candidates (98 reference + 1 primary custom): 0 COMPLETE, 89 PARTIAL, 1 MISSING (B20), 5 EXCLUDED, 2 OPTIONAL, 1 DEPRECATED, 1 PRIMARY CUSTOM. C38 is PARTIAL; no overall parity percentage is supported by the incomplete semantic inventory.
+- `pnpm test`: PASS, 588 files / 3,131 tests. C38 focused route/helper/chat/UI suite: PASS, 4 files / 21 tests.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS.
+- `pnpm lint`: PASS with Next lint deprecation/workspace-root and existing `<img>` warnings; Biome checked 2,285 files.
+- `pnpm db:check`: PASS (Drizzle metadata only; no live DB or migration apply).
+- Corrected 6 GiB `pnpm build`: PASS, exit 0, 205/205 pages generated. Initial build found an invalid route-exported test handler factory; moved it to `src/lib/ai/tools/hitl/composio-write-approval-route.ts` and kept the App Router file to supported exports. Build logs retain dependency-analysis, dynamic-session prerender, missing Redis/Upstash/E2B configuration, and PostgreSQL SSL warnings. Local build does not verify production database state.
+- Three independent subagent reviews confirmed B20 is fail-closed across the primary app paths and there is no provider/VM egress guarantee; B20 stays MISSING. C31/C38 review confirms approval gating and replay protection in tests; live Composio/PostgreSQL/browser behavior is unverified.
+- Primary status: branch `main`, HEAD `23a0177`, 315 tracked modified paths, 285 untracked paths, no staged files. Reference status remains 3,072 pre-existing staged entries; no reference writes were made. No commit, push, deployment, or migration apply.
+- Next: work on P0 A01 chat creation/send/persistence using an isolated PostgreSQL test environment; preserve B20 default-deny until a verified network-isolated browser runtime exists.
+
+### 2026-11-08 22:30 IST - Final documentation and whitespace check
+- Final `git diff --check` after updating the register, testing report, migration status report, integration progress, handoff, and security review exited 0; only LF/CRLF normalization notices were emitted.
+- Corrected report snapshot: 315 tracked modified paths, 285 untracked paths, 0 staged; 600 default `git status --short` entries. No commit, push, merge, deployment, migration apply, or reference write.
+- Final verified aggregate remains: full tests 588/3,131, 6 GiB typecheck PASS, lint PASS with warnings, Drizzle metadata check PASS, production build PASS with 205/205 pages. B20 remains MISSING and disabled; C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.

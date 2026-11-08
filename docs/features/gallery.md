@@ -25,21 +25,18 @@ authoritative count lives in the analytics table.
 
 ## How to publish an agent
 
-Publishing is a single write: set `agent.published_at` and
-(optionally) `agent.gallery_metadata` / `cover_image_url`. There is no
-publisher UI in Phase 4 — the canonical paths are:
+The owner publishes from the agent editor after setting its visibility
+to `public` or `readonly`. The editor calls the authenticated,
+same-origin `POST /api/agent/[id]/publish` endpoint. Publication is
+owner-scoped, rate-limited, and only updates rows whose visibility is
+still shared when the database write runs. The endpoint preserves the
+original publication timestamp on repeated publish requests.
 
-- A direct SQL update: `UPDATE agent SET published_at = now(),
-  gallery_metadata = '{"tagline": "..."}'::jsonb WHERE id = '<id>'
-  AND user_id = '<owner>';`
-- A future "Publish" button on the agent editor that wraps the same
-  call. The hook on the `webhook_event_outbox` for `agent.published`
-  (from Phase 3) is already wired and will fire from the future
-  button.
-
-Un-publishing is the same update with `published_at = NULL` — the
-row drops out of every gallery query because the
-`agent_published_idx` partial index only covers non-null values.
+The owner can remove the agent from the gallery with
+`DELETE /api/agent/[id]/publish`. This clears `published_at`; gallery,
+install, and embed lookups only return currently published agents with
+`public` or `readonly` visibility. Switching an agent to private hides
+it from those public reads even if its publication timestamp remains.
 
 ## How to discover
 
@@ -155,9 +152,10 @@ detail page in a future iteration.
   `ON DELETE SET NULL`. Anonymous browsing is a feature: the
   analytics still tell the owner "how many humans saw this
   card", without forcing a sign-in.
-- **No publisher UI yet.** Publishing is a direct DB write. A
-  future "Publish" button on the agent editor is on the
-  follow-up list.
+- **Gallery metadata editing is not yet in the editor.** Publication
+  currently uses the agent's existing name, description, and icon;
+  optional `gallery_metadata` and cover image fields still need an
+  owner-facing editor.
 - **No moderation tools yet.** Anything an owner publishes
   appears immediately on the next ISR revalidation. A
   take-down / report flow is a Phase 5 hardening item.
@@ -172,6 +170,7 @@ detail page in a future iteration.
 - `src/app/api/agent/published/route.ts` — the public list
   endpoint
 - `src/app/api/agent/[id]/install/route.ts` — the install route
+- `src/app/api/agent/[id]/publish/route.ts` — owner publication lifecycle
 - `src/app/gallery/agents/page.tsx` — the public gallery page
 - `src/components/agent-gallery.tsx` — the card grid/card component
 - `src/components/gallery/my-installed-agents.tsx` — the installed
@@ -180,3 +179,11 @@ detail page in a future iteration.
   schema migration that adds `published_at`, `install_count`,
   `gallery_metadata`, `cover_image_url`, the `agent_install`
   table, and the `agent_view` analytics table
+
+## Copy a published agent into your account
+
+The gallery now offers a separate **Copy to my agents** action in addition to the existing install-record flow. It creates a new first-class agent owned by the signed-in user, private by default, and opens that user's copy in the editor. The existing Install action continues to create/refresh only the `agent_install` row and update the gallery install count; copying does not alter that behavior.
+
+`POST /api/agent/[id]/clone` requires authentication, agent-create permission, same-origin request, rate capacity, and a currently published `public` or `readonly` source. The repository holds a shared row lock and rechecks publication/visibility in the same transaction before copying. A deterministic user-scoped `preset_id` makes repeat requests return the same copy. The new row has no publication timestamp, gallery metadata, cover, or install count. Only the published name/description/icon plus role/system prompt are copied; model pins, MCP/agent mentions, and publisher file bindings are intentionally dropped to avoid inheriting integrations or private storage references.
+
+Verification: clone route/repository tests and existing install/gallery regression tests passed 33/33. Live PostgreSQL/browser confirmation remains pending; no migration was required.
