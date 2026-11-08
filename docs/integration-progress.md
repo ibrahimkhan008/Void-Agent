@@ -1731,3 +1731,8 @@ Fresh status audit is recorded in [MIGRATION-STATUS-REPORT.md](MIGRATION-STATUS-
 - Final `git diff --check` after updating the register, testing report, migration status report, integration progress, handoff, and security review exited 0; only LF/CRLF normalization notices were emitted.
 - Corrected report snapshot: 315 tracked modified paths, 285 untracked paths, 0 staged; 600 default `git status --short` entries. No commit, push, merge, deployment, migration apply, or reference write.
 - Final verified aggregate remains: full tests 588/3,131, 6 GiB typecheck PASS, lint PASS with warnings, Drizzle metadata check PASS, production build PASS with 205/205 pages. B20 remains MISSING and disabled; C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
+
+### Publish-time validation checkpoint — 2026-11-08 23:02 IST
+- Revalidated the committed source tree after commit hooks: 588/588 test files and 3,131/3,131 tests passed; 6 GiB typecheck passed; lint passed with warnings; Drizzle metadata check passed; build passed with 205/205 pages generated; diff checks passed.
+- Build page-data collection logged read-only PostgreSQL error column "preset_id" does not exist for the published-agents endpoint. No database writes or migrations occurred; PostgreSQL/runtime readiness remains unverified.
+- B20 remains MISSING and disabled. C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification. No parity completion claim is made.

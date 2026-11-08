@@ -906,3 +906,7 @@ Current snapshot after this batch: 643 changed or untracked paths (context.md is
 - `src/lib/voice/public-web-url.ts`
 - `src/types/chat.test.ts`
 - `src/types/user.onboarding.test.ts`
+
+## Publish-time validation checkpoint — 2026-11-08 23:02 IST
+
+The committed implementation tree was revalidated before publication: 588 test files / 3,131 tests passed; 6 GiB typecheck passed; lint passed with warnings; pnpm db:check passed as metadata-only; production build exited 0 with 205/205 pages generated; diff checks passed. The build's page-data phase logged a read-only PostgreSQL query error (column "preset_id" does not exist) for the published-agents endpoint. No migration or database write was performed; treat the DB schema/runtime as unverified. Focused DOCX/Morphik/C38/B20 tests passed 112/112 across 18 files. Keep B20 MISSING/disabled and C38 PARTIAL pending live integration verification. See docs/testing-report.md for commands and verification limits.

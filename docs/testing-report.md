@@ -1729,3 +1729,17 @@ C33-C35 focused evidence: alert policy 2 files/17 tests; Agentset adapter/source
 - Final `git diff --check` after updating the register, testing report, migration status report, integration progress, handoff, and security review exited 0; only LF/CRLF normalization notices were emitted.
 - Corrected report snapshot: 315 tracked modified paths, 285 untracked paths, 0 staged; 600 default `git status --short` entries. No commit, push, merge, deployment, migration apply, or reference write.
 - Final verified aggregate remains: full tests 588/3,131, 6 GiB typecheck PASS, lint PASS with warnings, Drizzle metadata check PASS, production build PASS with 205/205 pages. B20 remains MISSING and disabled; C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
+
+### Publish-time verification — 2026-11-08 23:02 IST
+
+Validation was rerun after the implementation commit hook formatted the staged source files:
+
+- pnpm exec vitest run <DOCX/Morphik/C38/B20 focused paths> — PASS, 18 files / 112 tests (before commit hook).
+- pnpm test — PASS on the committed source tree, 588 files / 3,131 tests.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types — PASS.
+- pnpm lint — PASS; Next.js lint deprecation/workspace-root and existing <img> warnings remain; Biome checked 2,285 files.
+- pnpm db:check — PASS; Drizzle metadata only, no database migration applied.
+- pnpm build — PASS, 205/205 static pages generated. Build logs include existing dependency-analysis, dynamic-route/session and missing Redis/Upstash/E2B configuration warnings. During page-data collection, a read-only query to the configured PostgreSQL endpoint failed for /api/agent/published with column "preset_id" does not exist. No database writes or migrations were performed. This build is not evidence of PostgreSQL migration readiness or production health.
+- git diff --check and git diff --cached --check — PASS.
+
+Verification scope: unit/mocked behavior only for the workflow tests; no live Composio, browser/VM egress-isolation, or dedicated PostgreSQL integration verification. B20 remains MISSING with browser execution disabled. C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
