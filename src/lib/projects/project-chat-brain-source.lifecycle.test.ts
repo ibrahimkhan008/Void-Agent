@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getProjectAccess: vi.fn(),
   mayEditProject: vi.fn(),
   rateLimit: vi.fn(),
+  scheduleQueueTick: vi.fn(),
   sourceValues: null as null | Record<string, unknown>,
   versionValues: null as null | Record<string, unknown>,
   runValues: null as null | Record<string, unknown>,
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("./brain-queue", () => ({
+  scheduleProjectBrainQueueTick: mocks.scheduleQueueTick,
+}));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, transaction: mocks.transaction },
 }));
@@ -151,6 +155,7 @@ describe("completed project chat source lifecycle", () => {
     );
 
     expect(result).toEqual({ queued: true, reason: "queued" });
+    expect(mocks.scheduleQueueTick).toHaveBeenCalledWith(runId);
     expect(mocks.sourceValues).toMatchObject({
       projectId,
       threadId,
@@ -194,5 +199,6 @@ describe("completed project chat source lifecycle", () => {
     expect(mocks.selectedTables).toContain(ChatThreadTable);
     expect(mocks.selectedTables).not.toContain(ChatMessageTable);
     expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.scheduleQueueTick).not.toHaveBeenCalled();
   });
 });

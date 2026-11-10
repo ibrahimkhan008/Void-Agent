@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getProjectAccess: vi.fn(),
   getProjectCollectionSourceOwnerIds: vi.fn(),
   checkApiRateLimit: vi.fn(),
+  scheduleQueueTick: vi.fn(),
   select: vi.fn(),
   transaction: vi.fn(),
 }));
@@ -18,6 +19,9 @@ vi.mock("lib/projects/access", () => ({
 }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
+}));
+vi.mock("lib/projects/brain-queue", () => ({
+  scheduleProjectBrainQueueTick: mocks.scheduleQueueTick,
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: { select: mocks.select, transaction: mocks.transaction },
@@ -144,16 +148,22 @@ describe("POST /api/projects/[id]/brain", () => {
       returning: vi.fn().mockResolvedValue([createdRun]),
     };
     let insertCount = 0;
-    mocks.transaction.mockImplementation(async (callback) =>
-      callback({
+    let transactionCommitted = false;
+    mocks.scheduleQueueTick.mockImplementation(async () => {
+      expect(transactionCommitted).toBe(true);
+    });
+    mocks.transaction.mockImplementation(async (callback) => {
+      const result = await callback({
         insert: () => {
           const current = insertCount++;
           if (current === 0) return versionInsert;
           if (current === 1) return activeSourceInsert;
           return runInsert;
         },
-      }),
-    );
+      });
+      transactionCommitted = true;
+      return result;
+    });
 
     const response = await POST(
       new Request("http://localhost/api/projects/x/brain", {
@@ -165,6 +175,7 @@ describe("POST /api/projects/[id]/brain", () => {
     );
 
     expect(response.status).toBe(202);
+    expect(mocks.scheduleQueueTick).toHaveBeenCalledWith(createdRun.id);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({
       runId: createdRun.id,
@@ -295,6 +306,7 @@ describe("POST /api/projects/[id]/brain", () => {
     expect(conflictingRunInsert.onConflictDoNothing).toHaveBeenCalledWith({
       target: expect.arrayContaining([expect.anything(), expect.anything()]),
     });
+    expect(mocks.scheduleQueueTick).toHaveBeenCalledWith(runId);
     expect(tx.insert).toHaveBeenCalledTimes(3);
   });
 
@@ -366,6 +378,7 @@ describe("POST /api/projects/[id]/brain", () => {
       });
       expect(lockedRunQuery.for).toHaveBeenCalledWith("update");
       expect(tx.update).not.toHaveBeenCalled();
+      expect(mocks.scheduleQueueTick).not.toHaveBeenCalled();
     },
   );
 });

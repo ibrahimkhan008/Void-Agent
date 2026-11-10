@@ -18,6 +18,7 @@ import {
   getProjectCollectionSourceOwnerIds,
   mayEditProject,
 } from "lib/projects/access";
+import { scheduleProjectBrainQueueTick } from "lib/projects/brain-queue";
 import { isProjectBrainRunRecoverable } from "lib/projects/brain-schema";
 import { projectBrainRunIsActiveSourceRevision } from "lib/projects/brain-source-state";
 import { consolidateProjectBrainTodos } from "lib/projects/consolidate-brain-todos";
@@ -600,6 +601,7 @@ export async function POST(
       },
     );
   }
+  await scheduleProjectBrainQueueTick(runState.run.id);
   return Response.json(
     { runId: runState.run.id, status: "queued", reused: false },
     { status: 202, headers: { "Cache-Control": "no-store" } },

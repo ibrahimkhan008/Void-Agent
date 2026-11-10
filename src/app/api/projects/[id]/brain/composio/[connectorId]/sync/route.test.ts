@@ -8,9 +8,11 @@ const mocks = vi.hoisted(() => ({
   checkApiRateLimit: vi.fn(),
   select: vi.fn(),
   insert: vi.fn(),
+  transaction: vi.fn(),
   listAccounts: vi.fn(),
   listReadActions: vi.fn(),
   gatherSource: vi.fn(),
+  scheduleQueueTick: vi.fn(),
   createdRuns: [] as Array<unknown[]>,
   update: vi.fn(),
   execute: vi.fn(),
@@ -19,6 +21,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("server-only", () => ({}));
+vi.mock("lib/projects/brain-queue", () => ({
+  scheduleProjectBrainQueueTick: mocks.scheduleQueueTick,
+}));
 vi.mock("lib/projects/access", () => ({
   getProjectAccess: mocks.getProjectAccess,
   getProjectCollectionOwnerIds: mocks.getProjectCollectionOwnerIds,
@@ -28,7 +33,12 @@ vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: mocks.checkApiRateLimit,
 }));
 vi.mock("lib/db/pg/db.pg", () => ({
-  pgDb: { select: mocks.select, insert: mocks.insert, update: mocks.update },
+  pgDb: {
+    select: mocks.select,
+    insert: mocks.insert,
+    update: mocks.update,
+    transaction: mocks.transaction,
+  },
 }));
 vi.mock("lib/projects/composio-gather", () => ({
   gatherComposioProjectSource: mocks.gatherSource,
@@ -344,5 +354,60 @@ describe("project brain Composio sync authorization and idempotency", () => {
       includeShared: true,
     });
     expect(mocks.gatherSource).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a new brain run only after its source transaction commits", async () => {
+    mocks.createdRuns.push([{ id: "sync-run", status: "running" }]);
+    selectRows([connector(userId)], [{ id: collectionId }], []);
+    mocks.execute.mockResolvedValue({
+      successful: true,
+      data: { repos: ["void"] },
+    });
+    mocks.listReadActions.mockResolvedValue([
+      {
+        slug: "GITHUB_GET_REPOS",
+        inputParameters: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    ]);
+    let commit!: (value: {
+      sourceItemId: string;
+      reused: boolean;
+      brainRunId: string;
+    }) => void;
+    mocks.transaction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          commit = resolve;
+        }),
+    );
+
+    const pending = POST(makeRequest({ idempotencyKey: "new-source" }), {
+      params: Promise.resolve({ id: projectId, connectorId }),
+    });
+    await vi.waitFor(() => expect(mocks.transaction).toHaveBeenCalledOnce());
+    expect(mocks.scheduleQueueTick).not.toHaveBeenCalled();
+    commit({
+      sourceItemId: "source-new",
+      reused: false,
+      brainRunId: "brain-run",
+    });
+    const response = await pending;
+
+    expect(response.status).toBe(201);
+    expect(mocks.scheduleQueueTick).toHaveBeenCalledExactlyOnceWith(
+      "brain-run",
+    );
+    expect(await response.json()).toEqual({
+      run: {
+        id: "sync-run",
+        status: "completed",
+        sourceItemId: "source-new",
+        reused: false,
+      },
+    });
   });
 });

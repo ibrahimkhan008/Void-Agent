@@ -73,11 +73,42 @@ import {
   resolveProjectBrainSourceSnapshot,
 } from "lib/projects/source-versions";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
+import { after } from "next/server";
 
 const STALE_RUN_MS = 5 * 60_000;
 const MAX_SOURCE_CHARS = 60_000;
 const MAX_RUNS_PER_TICK = 1;
 const MAX_AUTO_ENQUEUES_PER_USER_PER_HOUR = 30;
+
+/**
+ * Kick a newly queued run without requiring a separately deployed scheduler.
+ * The durable queue and its database claim remain the authority, so a cron or
+ * worker racing this callback cannot execute the same run twice.
+ */
+export async function scheduleProjectBrainQueueTick(
+  runId: string,
+  run: (
+    now: Date,
+    runId: string,
+  ) => Promise<unknown> = processProjectBrainQueue,
+) {
+  const execute = async () => {
+    try {
+      await run(new Date(), runId);
+    } catch (error) {
+      // The run stays durable and can be reclaimed by the normal worker.
+      console.error("[project-brain] inline queue tick failed", error);
+    }
+  };
+
+  try {
+    after(execute);
+  } catch {
+    // Scripts and tests have no Next.js request context. Run the same
+    // database-claimed path before returning instead of leaving work queued.
+    await execute();
+  }
+}
 
 export async function enqueueProjectBrainForIngest(input: {
   userId: string;
@@ -171,13 +202,19 @@ export async function enqueueProjectBrainForIngest(input: {
         ],
       })
       .returning({ id: ProjectBrainRunTable.id });
-    if (created) queued += 1;
+    if (created) {
+      queued += 1;
+      await scheduleProjectBrainQueueTick(created.id);
+    }
   }
 
   return { queued, capped: projects.length === 20 };
 }
 
-export async function processProjectBrainQueue(now = new Date()) {
+export async function processProjectBrainQueue(
+  now = new Date(),
+  targetRunId?: string,
+) {
   let claimed = 0;
   let completed = 0;
   let failed = 0;
@@ -194,13 +231,16 @@ export async function processProjectBrainQueue(now = new Date()) {
         .select()
         .from(ProjectBrainRunTable)
         .where(
-          or(
-            eq(ProjectBrainRunTable.status, "queued"),
-            and(
-              eq(ProjectBrainRunTable.status, "running"),
-              lt(
-                ProjectBrainRunTable.updatedAt,
-                new Date(now.getTime() - STALE_RUN_MS),
+          and(
+            targetRunId ? eq(ProjectBrainRunTable.id, targetRunId) : undefined,
+            or(
+              eq(ProjectBrainRunTable.status, "queued"),
+              and(
+                eq(ProjectBrainRunTable.status, "running"),
+                lt(
+                  ProjectBrainRunTable.updatedAt,
+                  new Date(now.getTime() - STALE_RUN_MS),
+                ),
               ),
             ),
           ),

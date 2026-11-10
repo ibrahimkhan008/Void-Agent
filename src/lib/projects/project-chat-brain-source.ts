@@ -181,7 +181,8 @@ export async function refreshProjectBrainChatSource(input: {
   const now = new Date();
   let shouldQueue = input.forceEnqueue === true;
 
-  return pgDb.transaction(async (tx) => {
+  let queuedRunId: string | undefined;
+  const result = await pgDb.transaction(async (tx) => {
     const [existing] = await tx
       .select()
       .from(ProjectBrainChatSourceTable)
@@ -322,11 +323,19 @@ export async function refreshProjectBrainChatSource(input: {
         ],
       })
       .returning({ id: ProjectBrainRunTable.id });
+    queuedRunId = createdRun?.id;
     return {
       queued: Boolean(createdRun),
       reason: createdRun ? "queued" : "duplicate",
     };
   });
+  if (queuedRunId) {
+    // Import after the transaction commits; the queue processor also reads
+    // this module, and dispatching before commit would not see the new run.
+    const { scheduleProjectBrainQueueTick } = await import("./brain-queue");
+    await scheduleProjectBrainQueueTick(queuedRunId);
+  }
+  return result;
 }
 
 /** Remove all chat-derived proposals and snapshots when a thread leaves a project. */

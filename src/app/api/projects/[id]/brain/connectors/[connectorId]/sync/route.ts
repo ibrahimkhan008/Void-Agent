@@ -18,6 +18,7 @@ import {
   getProjectCollectionOwnerIds,
   mayEditProject,
 } from "lib/projects/access";
+import { scheduleProjectBrainQueueTick } from "lib/projects/brain-queue";
 import { projectBrainSourceFingerprint } from "lib/projects/brain-schema";
 import {
   boundedMcpTextResult,
@@ -348,7 +349,7 @@ export async function POST(
         sourceFingerprint: fingerprint,
         contentSnapshot: sourceText,
       });
-      await tx
+      const [brainRun] = await tx
         .insert(ProjectBrainRunTable)
         .values({
           projectId,
@@ -363,7 +364,8 @@ export async function POST(
             ProjectBrainRunTable.projectId,
             ProjectBrainRunTable.sourceFingerprint,
           ],
-        });
+        })
+        .returning({ id: ProjectBrainRunTable.id });
       await tx
         .update(ProjectBrainMcpSyncRunTable)
         .set({ status: "completed", sourceItemId, updatedAt: new Date() })
@@ -372,8 +374,11 @@ export async function POST(
         .update(ProjectBrainMcpConnectorTable)
         .set({ lastSyncAt: new Date(), lastError: null, updatedAt: new Date() })
         .where(eq(ProjectBrainMcpConnectorTable.id, connectorId));
-      return { sourceItemId, reused: false };
+      return { sourceItemId, reused: false, brainRunId: brainRun?.id };
     });
+    if (persisted.brainRunId) {
+      await scheduleProjectBrainQueueTick(persisted.brainRunId);
+    }
     return Response.json(
       {
         run: {

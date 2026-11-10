@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   runInference: vi.fn(),
   generateObject: vi.fn(),
   notify: vi.fn(),
+  after: vi.fn(),
   maintenance: vi.fn(),
   rateLimit: vi.fn(),
   insertedFacts: [] as Array<Record<string, unknown>>,
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("ai", () => ({ generateObject: mocks.generateObject }));
 vi.mock("lib/db/pg/db.pg", () => ({
   pgDb: {
@@ -76,7 +78,10 @@ import {
   ProjectBrainSourceVersionTable,
 } from "lib/db/pg/schema.pg";
 import { projectBrainSourceFingerprint } from "lib/projects/brain-schema";
-import { processProjectBrainQueue } from "./brain-queue";
+import {
+  processProjectBrainQueue,
+  scheduleProjectBrainQueueTick,
+} from "./brain-queue";
 
 type TestBuilder = Record<string, (...args: never[]) => unknown>;
 
@@ -319,6 +324,40 @@ beforeEach(() => {
       return callback(mocks.tx);
     },
   );
+});
+
+describe("project brain request-bound dispatch", () => {
+  it("schedules only the newly queued run after the response", async () => {
+    const run = vi.fn().mockResolvedValue({ completed: 1 });
+    await scheduleProjectBrainQueueTick(runId, run);
+
+    expect(mocks.after).toHaveBeenCalledOnce();
+    expect(run).not.toHaveBeenCalled();
+    await mocks.after.mock.calls[0][0]();
+    expect(run).toHaveBeenCalledWith(expect.any(Date), runId);
+  });
+
+  it("executes through the claimed queue when no request context exists", async () => {
+    mocks.after.mockImplementation(() => {
+      throw new Error("no request context");
+    });
+    const run = vi.fn().mockResolvedValue({ completed: 1 });
+    await scheduleProjectBrainQueueTick(runId, run);
+    expect(run).toHaveBeenCalledWith(expect.any(Date), runId);
+  });
+
+  it("keeps a failed queue tick recoverable without failing the upload", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.after.mockImplementation(() => {
+      throw new Error("no request context");
+    });
+    const run = vi.fn().mockRejectedValue(new Error("database unavailable"));
+    await expect(
+      scheduleProjectBrainQueueTick(runId, run),
+    ).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
+  });
 });
 
 describe("completed project chat brain lifecycle", () => {

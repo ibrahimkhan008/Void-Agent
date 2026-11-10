@@ -27,6 +27,7 @@ import {
   getProjectCollectionOwnerIds,
   mayEditProject,
 } from "lib/projects/access";
+import { scheduleProjectBrainQueueTick } from "lib/projects/brain-queue";
 import { projectBrainSourceFingerprint } from "lib/projects/brain-schema";
 import { gatherComposioProjectSource } from "lib/projects/composio-gather";
 import {
@@ -386,7 +387,7 @@ export async function POST(
         sourceFingerprint: fingerprint,
         contentSnapshot: sourceText,
       });
-      await tx
+      const [brainRun] = await tx
         .insert(ProjectBrainRunTable)
         .values({
           projectId,
@@ -401,7 +402,8 @@ export async function POST(
             ProjectBrainRunTable.projectId,
             ProjectBrainRunTable.sourceFingerprint,
           ],
-        });
+        })
+        .returning({ id: ProjectBrainRunTable.id });
       await tx
         .update(ProjectBrainComposioSyncRunTable)
         .set({ status: "completed", sourceItemId, updatedAt: new Date() })
@@ -410,10 +412,20 @@ export async function POST(
         .update(ProjectBrainComposioConnectorTable)
         .set({ lastSyncAt: new Date(), lastError: null, updatedAt: new Date() })
         .where(eq(ProjectBrainComposioConnectorTable.id, connectorId));
-      return { sourceItemId, reused: false };
+      return { sourceItemId, reused: false, brainRunId: brainRun?.id };
     });
+    if (persisted.brainRunId) {
+      await scheduleProjectBrainQueueTick(persisted.brainRunId);
+    }
     return Response.json(
-      { run: { id: createdRun.id, status: "completed", ...persisted } },
+      {
+        run: {
+          id: createdRun.id,
+          status: "completed",
+          sourceItemId: persisted.sourceItemId,
+          reused: persisted.reused,
+        },
+      },
       { status: persisted.reused ? 200 : 201 },
     );
   } catch (error) {
