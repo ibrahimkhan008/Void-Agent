@@ -1,32 +1,65 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  downloadDefaultPath,
-  safeDownloadUrlLabel,
+  defaultSavePath,
+  describeDownloadUrl,
+  downloadNotificationText,
   sanitizeDownloadFilename,
 } from "./download-paths.js";
 
-describe("desktop download paths", () => {
-  it("normalizes unsafe filenames to a single safe basename", () => {
-    expect(sanitizeDownloadFilename("../../report.xlsx")).toBe("report.xlsx");
-    expect(sanitizeDownloadFilename("C:\\private\\<report>.xlsx")).toBe(
-      "_report_.xlsx",
+describe("sanitizeDownloadFilename", () => {
+  it("keeps an ordinary name", () => {
+    expect(sanitizeDownloadFilename("Angebot_2026-09.xlsx")).toBe(
+      "Angebot_2026-09.xlsx",
     );
-    expect(sanitizeDownloadFilename("...   ")).toBe("download");
   });
 
-  it("keeps the save path inside the downloads directory", () => {
-    expect(
-      downloadDefaultPath("/home/user/Downloads", "../../report.xlsx"),
-    ).toBe(path.join("/home/user/Downloads", "report.xlsx"));
+  it("drops directories and characters the OS refuses", () => {
+    expect(sanitizeDownloadFilename("../../etc/passwd")).toBe("passwd");
+    expect(sanitizeDownloadFilename('re:po"rt?.pdf')).toBe("re_po_rt_.pdf");
+    expect(sanitizeDownloadFilename(".hidden.csv")).toBe("hidden.csv");
   });
 
-  it("omits credentials, query strings, and fragments from download logs", () => {
+  it("falls back when nothing usable is left", () => {
+    expect(sanitizeDownloadFilename("")).toBe("download");
+    expect(sanitizeDownloadFilename("...")).toBe("download");
+  });
+});
+
+describe("defaultSavePath", () => {
+  it("starts the dialog in the downloads folder with the file's own name", () => {
+    expect(defaultSavePath("/Users/me/Downloads", "report.xlsx")).toBe(
+      path.join("/Users/me/Downloads", "report.xlsx"),
+    );
+  });
+});
+
+describe("describeDownloadUrl", () => {
+  it("never includes the query string", () => {
     expect(
-      safeDownloadUrlLabel(
-        "https://user:password@example.test/export?token=secret#private",
+      describeDownloadUrl(
+        "https://app.keinsaas.com/api/storage/download?key=u%2Fsecret.xlsx",
       ),
-    ).toBe("https://example.test/export");
-    expect(safeDownloadUrlLabel("invalid")).toBe("(invalid URL)");
+    ).toBe("https://app.keinsaas.com/api/storage/download");
+  });
+
+  it("tolerates garbage", () => {
+    expect(describeDownloadUrl("not a url")).toBe("(invalid url)");
+  });
+});
+
+describe("downloadNotificationText", () => {
+  it("picks the language from a full locale tag", () => {
+    expect(downloadNotificationText("de-DE", "a.xlsx", "completed")).toEqual({
+      title: "Download abgeschlossen",
+      body: "a.xlsx wurde gespeichert.",
+    });
+  });
+
+  it("falls back to English for an unknown locale", () => {
+    expect(downloadNotificationText("xx", "a.xlsx", "failed")).toEqual({
+      title: "Download failed",
+      body: "a.xlsx could not be downloaded.",
+    });
   });
 });

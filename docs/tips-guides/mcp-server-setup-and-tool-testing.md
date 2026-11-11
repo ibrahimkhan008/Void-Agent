@@ -59,24 +59,12 @@ FILE_BASED_MCP_CONFIG=true
 
 Then, create a `.mcp-config.json` file in the project root and define your servers there. Example:
 
-```json
+```jsonc
+// .mcp-config.json
 {
   "playwright": {
     "command": "npx",
     "args": ["@playwright/mcp@latest"]
-  }
-}
-```
-
-You can also use the common wrapper format below, and Flare will read it:
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
-    }
   }
 }
 ```

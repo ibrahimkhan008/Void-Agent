@@ -1,88 +1,66 @@
 import { describe, expect, it } from "vitest";
 import {
   isCompatibleServerHealthResponse,
-  isTrustedServerPickerCall,
+  isSameOriginServerResponse,
+  isTrustedServerPickerUrl,
+  readBoundedServerCheckBody,
 } from "./server-picker-policy.js";
 
-describe("Void-Agent desktop server health identity", () => {
-  it("accepts the exact healthy Void-Agent health contract", () => {
+describe("desktop server picker network policy", () => {
+  it("accepts only a bounded JSON response from the expected origin", () => {
     expect(
       isCompatibleServerHealthResponse({
         status: 200,
         contentType: "application/json; charset=utf-8",
-        body: JSON.stringify({ service: "flare-ai", status: "ok" }),
+        body: JSON.stringify({ ok: true }),
       }),
     ).toBe(true);
-  });
-
-  it("accepts recognized degraded health when an optional dependency is down", () => {
-    expect(
-      isCompatibleServerHealthResponse({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({ service: "flare-ai", status: "degraded" }),
-      }),
-    ).toBe(true);
-  });
-
-  it("rejects unrelated services, unknown states, redirects, and oversized bodies", () => {
-    const contentType = "application/json";
-    expect(
-      isCompatibleServerHealthResponse({
-        status: 200,
-        contentType,
-        body: JSON.stringify({ service: "other", status: "ok" }),
-      }),
-    ).toBe(false);
-    expect(
-      isCompatibleServerHealthResponse({
-        status: 503,
-        contentType,
-        body: JSON.stringify({ service: "flare-ai", status: "error" }),
-      }),
-    ).toBe(false);
     expect(
       isCompatibleServerHealthResponse({
         status: 302,
-        contentType,
-        body: JSON.stringify({ service: "flare-ai", status: "ok" }),
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
       }),
     ).toBe(false);
     expect(
       isCompatibleServerHealthResponse({
         status: 200,
-        contentType,
-        body: "x".repeat(8_193),
+        contentType: "text/html",
+        body: JSON.stringify({ ok: true }),
       }),
     ).toBe(false);
+    expect(
+      isCompatibleServerHealthResponse({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false }),
+      }),
+    ).toBe(false);
+    expect(isSameOriginServerResponse("https://app.example", "not a url")).toBe(
+      false,
+    );
+    expect(
+      isSameOriginServerResponse(
+        "https://app.example",
+        "https://attacker.example/api/auth/ok",
+      ),
+    ).toBe(false);
+    expect(
+      isTrustedServerPickerUrl("data:text/html;charset=utf-8,%3Chtml%3E"),
+    ).toBe(true);
+    expect(isTrustedServerPickerUrl("https://app.example/")).toBe(false);
   });
-});
 
-describe("desktop server-picker IPC trust boundary", () => {
-  const trusted = {
-    hasPicker: true,
-    pickerDestroyed: false,
-    senderMatches: true,
-    mainFrameMatches: true,
-    frameUrl: "data:text/html;charset=utf-8,%3Chtml%3E",
-  };
-
-  it("accepts only the live dedicated picker main frame", () => {
-    expect(isTrustedServerPickerCall(trusted)).toBe(true);
-    expect(
-      isTrustedServerPickerCall({ ...trusted, senderMatches: false }),
-    ).toBe(false);
-    expect(
-      isTrustedServerPickerCall({ ...trusted, mainFrameMatches: false }),
-    ).toBe(false);
-    expect(
-      isTrustedServerPickerCall({ ...trusted, pickerDestroyed: true }),
-    ).toBe(false);
-    expect(
-      isTrustedServerPickerCall({
-        ...trusted,
-        frameUrl: "https://void-agent.example/",
+  it("limits a streaming health response even without a content-length", async () => {
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(4_096));
+          controller.enqueue(new Uint8Array(4_097));
+          controller.close();
+        },
       }),
-    ).toBe(false);
+    );
+    await expect(readBoundedServerCheckBody(response)).resolves.toBeNull();
   });
 });

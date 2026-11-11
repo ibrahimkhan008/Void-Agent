@@ -3,17 +3,18 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const logs = vi.hoisted(() => ({ directory: "" }));
+
 vi.mock("electron", () => ({
   app: {
-    getPath: (name: string) => path.join(os.tmpdir(), "void-agent-" + name),
+    getPath: () => logs.directory,
   },
 }));
 
+import { UPDATER_LOG_MAX_BYTES } from "./update-policy.js";
 import {
-  UPDATER_LOG_MAX_BYTES,
   createUpdaterLogger,
   sanitizeUpdaterLogMessage,
-  trimUpdaterLog,
 } from "./updater-log.js";
 
 const tempDirectories: string[] = [];
@@ -39,31 +40,25 @@ describe("updater diagnostics", () => {
     expect(message).not.toContain("session-secret");
   });
 
-  it("caps a message and trims old log data at a line boundary", () => {
-    expect(sanitizeUpdaterLogMessage("x".repeat(5_000))).toHaveLength(4_000);
-    expect(trimUpdaterLog("old line\nnew line\n", 10)).toBe("new line\n");
-    expect(
-      Buffer.byteLength(trimUpdaterLog("éé\nx\n", 4), "utf8"),
-    ).toBeLessThanOrEqual(4);
-  });
-
-  it("writes local updater events and rotates to a bounded log file", () => {
+  it("caps messages and rotates a bounded log", () => {
     const directory = mkdtempSync(
-      path.join(os.tmpdir(), "void-agent-updater-"),
+      path.join(os.tmpdir(), "desktop-updater-log-"),
     );
     tempDirectories.push(directory);
+    logs.directory = directory;
     const file = path.join(directory, "updater.log");
-    const logger = createUpdaterLogger(file);
+    const logger = createUpdaterLogger();
 
+    expect(sanitizeUpdaterLogMessage("x".repeat(5_000))).toHaveLength(4_000);
     logger.info("checking update feed");
     logger.error("failed https://updates.example/private?token=do-not-log");
     expect(readFileSync(file, "utf8")).toContain("checking update feed");
     expect(readFileSync(file, "utf8")).not.toContain("do-not-log");
 
-    logger.debug("x".repeat(4_000));
-    for (let i = 0; i < 140; i += 1) logger.info("event " + i);
-
+    for (let index = 0; index < 160; index += 1) {
+      logger.info(`event ${index} ${"x".repeat(4_000)}`);
+    }
     expect(statSync(file).size).toBeLessThanOrEqual(UPDATER_LOG_MAX_BYTES);
-    expect(readFileSync(file, "utf8")).toContain("event 139");
+    expect(readFileSync(file, "utf8")).toContain("event 159");
   });
 });

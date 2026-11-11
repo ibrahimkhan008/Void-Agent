@@ -1,71 +1,110 @@
-import { appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { MCPServerConfig } from "@keinsaas/mcp-types";
 import {
   BrowserWindow,
   type IpcMainInvokeEvent,
-  app,
   dialog,
   ipcMain,
 } from "electron";
-import { readRecentDesktopMcpAuditEvents } from "./mcp-audit-log.js";
-import { desktopMcpConfigSchema, desktopToolCallSchema } from "./mcp-policy.js";
+import { parseAuditEvent, writeAuditEvent } from "./audit-sink.js";
+import { hashPayload } from "./audit-sink.js";
+import { stringifyBoundedJson } from "./bounded-json.js";
 import {
-  callDesktopMcpTool,
-  getMcpConfigFingerprint,
-  hashMcpAuditValue,
-  listDesktopMcpTools,
-} from "./mcp-spawner.js";
+  fingerprintDesktopMcpConfig,
+  formatLocalMcpCommandForReview,
+  isTrustedMcpPage,
+  parseDesktopMcpConfig,
+  parseDesktopToolCall,
+  redactDesktopMcpReviewValue,
+} from "./mcp-policy.js";
+import { callDesktopMcpTool, listDesktopMcpTools } from "./mcp-spawner.js";
 
+const MAX_CONFIG_CONSENTS = 256;
+const consentedConfigHashes = new Set<string>();
 let trustedWindow: BrowserWindow | null = null;
 let trustedOrigin = "";
-const consentedConfigs = new Set<string>();
 
-export function configureMcpIpc(window: BrowserWindow, appOrigin: string) {
+export function configureMcpIpc(
+  window: BrowserWindow | null,
+  appOrigin: string,
+): void {
   trustedWindow = window;
   trustedOrigin = appOrigin;
 }
 
-function assertTrustedMcpPage(event: IpcMainInvokeEvent) {
+function assertTrustedMcpPage(event: IpcMainInvokeEvent): void {
+  const window = trustedWindow;
   if (
-    !trustedWindow ||
-    trustedWindow.isDestroyed() ||
-    event.sender !== trustedWindow.webContents ||
-    event.senderFrame !== trustedWindow.webContents.mainFrame
+    !isTrustedMcpPage({
+      hasWindow: Boolean(window),
+      windowDestroyed: !window || window.isDestroyed(),
+      senderMatches: Boolean(window) && event.sender === window?.webContents,
+      mainFrameMatches:
+        Boolean(window) && event.senderFrame === window?.webContents.mainFrame,
+      frameUrl: event.senderFrame?.url ?? "",
+      appOrigin: trustedOrigin,
+    })
   ) {
-    throw new Error("Untrusted desktop IPC sender");
-  }
-  let url: URL;
-  try {
-    url = new URL(event.senderFrame.url);
-  } catch {
-    throw new Error("Invalid desktop IPC origin");
-  }
-  if (
-    url.origin !== trustedOrigin ||
-    !/^\/mcp\/test\/[^/]+\/?$/.test(url.pathname)
-  )
     throw new Error(
-      "Desktop MCP is available only from the Void-Agent MCP test screen",
+      "Desktop MCP is available only from the trusted MCP test page",
     );
+  }
 }
 
-async function confirmConfig(event: IpcMainInvokeEvent, configInput: unknown) {
+function rememberConsent(fingerprint: string): void {
+  consentedConfigHashes.add(fingerprint);
+  while (consentedConfigHashes.size > MAX_CONFIG_CONSENTS) {
+    const oldest = consentedConfigHashes.values().next().value as
+      | string
+      | undefined;
+    if (!oldest) break;
+    consentedConfigHashes.delete(oldest);
+  }
+}
+
+async function auditMcp(input: {
+  action: "mcp.desktop.list-tools" | "mcp.desktop.tool-call";
+  configHash?: string;
+  toolName?: string;
+  argsHash?: string;
+  resultHash?: string;
+  outcome: "success" | "denied" | "failure";
+}): Promise<void> {
+  try {
+    writeAuditEvent({
+      action: input.action,
+      resourceType: "mcp_server",
+      ...(input.configHash ? { resourceId: input.configHash } : {}),
+      ...(input.toolName ? { toolName: input.toolName } : {}),
+      ...(input.argsHash ? { argsHash: input.argsHash } : {}),
+      ...(input.resultHash ? { resultHash: input.resultHash } : {}),
+      outcome: input.outcome,
+    });
+  } catch {
+    // Audit failure must not turn a denied action into an allowed one or expose data.
+  }
+}
+
+async function confirmConfig(
+  event: IpcMainInvokeEvent,
+  configInput: unknown,
+): Promise<MCPServerConfig> {
   assertTrustedMcpPage(event);
-  const config = desktopMcpConfigSchema.parse(configInput);
-  const fingerprint = getMcpConfigFingerprint(config);
-  if (consentedConfigs.has(fingerprint)) return config;
+  const config = parseDesktopMcpConfig(configInput);
+  const fingerprint = fingerprintDesktopMcpConfig(config);
+  if (consentedConfigHashes.has(fingerprint)) return config;
+
   const isRemote = "url" in config;
-  const commandLabel = isRemote
+  const target = isRemote
     ? new URL(config.url).origin
-    : [config.command, ...(config.args ?? [])].join(" ").slice(0, 700);
-  const envNames = isRemote
+    : formatLocalMcpCommandForReview(config);
+  const credentialNames = isRemote
     ? Object.keys(config.headers ?? {})
         .sort()
         .join(", ") || "none"
     : Object.keys(config.env ?? {})
         .sort()
         .join(", ") || "none";
-  const result = await dialog.showMessageBox(trustedWindow!, {
+  const response = await dialog.showMessageBox(trustedWindow!, {
     type: "warning",
     title: isRemote
       ? "Allow a remote MCP server?"
@@ -74,148 +113,126 @@ async function confirmConfig(event: IpcMainInvokeEvent, configInput: unknown) {
       ? "Void-Agent wants to connect to a remote MCP service from this computer."
       : "Void-Agent wants to start a program on this computer.",
     detail: isRemote
-      ? `HTTPS origin: ${commandLabel}\nCredential header names: ${envNames}\n\nThe remote service receives the displayed tool arguments and returns untrusted content. DNS addresses are checked and pinned for each connection; redirects are blocked. Only approved read-style tools are available. Continue only if you trust this origin and credentials.`
-      : `Program: ${commandLabel}\nEnvironment variable names: ${envNames}\n\nThe process can access files and services available to your account. Tool names do not prove that a server is safe. Continue only if you trust this program and its configuration.`,
+      ? `HTTPS origin: ${target}\nCredential header names: ${credentialNames}\n\nThe server receives approved read-style tool arguments and returns untrusted content. DNS addresses are checked and pinned for every request, redirects are blocked, and each invocation needs separate approval.`
+      : `Program and arguments: ${target}\nEnvironment variable names: ${credentialNames}\n\nThe process can access files and services available to your account. Tool names do not prove that a server is safe. Each invocation needs separate approval.`,
     buttons: ["Allow for this app session", "Cancel"],
     defaultId: 1,
     cancelId: 1,
     noLink: true,
   });
-  if (result.response !== 0)
-    throw new Error("Local MCP process was not approved");
-  consentedConfigs.add(fingerprint);
+  if (response.response !== 0) {
+    await auditMcp({
+      action: "mcp.desktop.list-tools",
+      configHash: fingerprint,
+      outcome: "denied",
+    });
+    throw new Error("MCP server was not approved");
+  }
+  rememberConsent(fingerprint);
   return config;
 }
 
-async function writeAudit(input: {
-  action: string;
-  config: unknown;
-  toolName?: string;
-  args?: unknown;
-  resultHash?: string;
-  outcome: "success" | "denied" | "failure";
-}) {
-  const event = {
-    timestamp: new Date().toISOString(),
-    surface: "desktop",
-    action: input.action,
-    configHash: hashMcpAuditValue(input.config),
-    ...(input.toolName ? { toolName: input.toolName } : {}),
-    ...(input.args !== undefined
-      ? { argsHash: hashMcpAuditValue(input.args) }
-      : {}),
-    ...(input.resultHash ? { resultHash: input.resultHash } : {}),
-    outcome: input.outcome,
-  };
-  try {
-    await appendFile(
-      join(app.getPath("userData"), "mcp-audit.ndjson"),
-      `${JSON.stringify(event)}\n`,
-      { encoding: "utf8", mode: 0o600 },
-    );
-  } catch {
-    /* auditing failure must not leak raw payloads or change the result */
-  }
-}
-
-export function registerMcpIpcHandlers() {
-  ipcMain.handle("mcp:get-audit-history", async (event) => {
-    assertTrustedMcpPage(event);
-    return readRecentDesktopMcpAuditEvents(app.getPath("userData"));
-  });
-
+export function registerMcpIpcHandlers(): void {
   ipcMain.handle("mcp:list-tools", async (event, payload: unknown) => {
-    const configInput = (payload as { config?: unknown } | null)?.config;
+    assertTrustedMcpPage(event);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Invalid MCP request");
+    }
+    const config = await confirmConfig(
+      event,
+      (payload as { config?: unknown }).config,
+    );
+    const fingerprint = fingerprintDesktopMcpConfig(config);
     try {
-      const config = await confirmConfig(event, configInput);
       const tools = await listDesktopMcpTools(config);
-      await writeAudit({
-        action: "mcp.list-tools",
-        config,
+      await auditMcp({
+        action: "mcp.desktop.list-tools",
+        configHash: fingerprint,
         outcome: "success",
       });
       return tools;
     } catch {
-      await writeAudit({
-        action: "mcp.list-tools",
-        config: configInput,
-        outcome: "denied",
+      await auditMcp({
+        action: "mcp.desktop.list-tools",
+        configHash: fingerprint,
+        outcome: "failure",
       });
-      throw new Error("Could not list tools for this local MCP server");
+      throw new Error("Could not list tools for this MCP server");
     }
   });
 
   ipcMain.handle("mcp:tool-call", async (event, payload: unknown) => {
     assertTrustedMcpPage(event);
-    const input = payload as {
-      config?: unknown;
-      toolName?: unknown;
-      params?: unknown;
-    } | null;
-    const rawConfig = desktopMcpConfigSchema.parse(input?.config);
-    const call = desktopToolCallSchema.parse({
-      toolName: input?.toolName,
-      params: input?.params ?? {},
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("Invalid MCP request");
+    }
+    const input = payload as Record<string, unknown>;
+    const config = await confirmConfig(event, input.config);
+    const call = parseDesktopToolCall({
+      toolName: input.toolName,
+      params: input.params ?? {},
     });
-    // A tool invocation may arrive without a prior list-tools IPC call, or
-    // with a changed executable/environment. Confirm and execute the exact
-    // parsed config before showing the separate per-call consent dialog.
-    const config = await confirmConfig(event, rawConfig);
-    const isRemote = "url" in config;
-    const destination = isRemote ? new URL(config.url).origin : undefined;
-    const result = await dialog.showMessageBox(trustedWindow!, {
+    const fingerprint = fingerprintDesktopMcpConfig(config);
+    const argsHash = await hashPayload(call.params);
+    const target =
+      "url" in config
+        ? new URL(config.url).origin
+        : "the approved local MCP process";
+    const safeParams = stringifyBoundedJson(
+      redactDesktopMcpReviewValue(call.params),
+      32_768,
+    );
+    const response = await dialog.showMessageBox(trustedWindow!, {
       type: "warning",
-      title: isRemote
-        ? "Send a remote MCP tool request?"
-        : "Run a local MCP tool?",
-      message: isRemote
-        ? `Send “${call.toolName}” to ${destination}?`
-        : `Ask the local MCP server to run “${call.toolName}”?`,
-      detail: isRemote
-        ? `The request sends these exact arguments to ${destination}; the server's response will be returned to ${trustedOrigin} as untrusted content. DNS addresses are checked and pinned, and redirects are blocked. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nReview the destination and arguments before continuing.`
-        : `This program can perform actions beyond what its tool name suggests. Exact arguments (full JSON):\n${JSON.stringify(call.params, null, 2)}\n\nIts result will be returned to ${trustedOrigin}. Review the command, server settings, and complete arguments in Void-Agent before continuing.`,
-      buttons: [isRemote ? "Send request" : "Run tool", "Cancel"],
+      title: "Approve MCP tool request?",
+      message: `Send “${call.toolName}” to ${target}?`,
+      detail: `Review the arguments before continuing. Secrets in credential-shaped fields are hidden.\n\nArguments:\n${safeParams}`,
+      buttons: ["Approve this request", "Cancel"],
       defaultId: 1,
       cancelId: 1,
       noLink: true,
     });
-    if (result.response !== 0) {
-      await writeAudit({
-        action: "mcp.tool-call",
-        config,
+    if (response.response !== 0) {
+      await auditMcp({
+        action: "mcp.desktop.tool-call",
+        configHash: fingerprint,
         toolName: call.toolName,
-        args: call.params,
+        argsHash,
         outcome: "denied",
       });
-      throw new Error(
-        isRemote
-          ? "Remote MCP tool request was not approved"
-          : "Local MCP tool call was not approved",
-      );
+      throw new Error("MCP tool call was not approved");
     }
     try {
-      const value = await callDesktopMcpTool(config, call);
-      const resultHash = hashMcpAuditValue(value);
-      await writeAudit({
-        action: "mcp.tool-call",
+      const result = await callDesktopMcpTool(
         config,
+        call.toolName,
+        call.params,
+      );
+      const resultHash = await hashPayload(result);
+      await auditMcp({
+        action: "mcp.desktop.tool-call",
+        configHash: fingerprint,
         toolName: call.toolName,
-        args: call.params,
+        argsHash,
         resultHash,
         outcome: "success",
       });
-      return value;
+      return result;
     } catch {
-      await writeAudit({
-        action: "mcp.tool-call",
-        config,
+      await auditMcp({
+        action: "mcp.desktop.tool-call",
+        configHash: fingerprint,
         toolName: call.toolName,
-        args: call.params,
+        argsHash,
         outcome: "failure",
       });
-      throw new Error(
-        isRemote ? "Remote MCP tool call failed" : "Local MCP tool call failed",
-      );
+      throw new Error("MCP tool call failed");
     }
+  });
+
+  ipcMain.handle("audit:log", async (_event, payload: unknown) => {
+    const event = parseAuditEvent(payload);
+    writeAuditEvent(event);
+    return { ok: true };
   });
 }

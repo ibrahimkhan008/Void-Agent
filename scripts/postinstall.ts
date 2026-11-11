@@ -27,20 +27,15 @@ async function runCommand(command: string, description: string) {
 }
 
 async function main() {
-  // Self-host Excalidraw fonts (see scripts/sync-excalidraw-assets.ts).
-  // Runs in every environment — the canvas must not depend on a CDN.
-  await runCommand(
-    "tsx scripts/sync-excalidraw-assets.ts",
-    "Excalidraw asset sync",
-  );
-
   if (IS_VERCEL_ENV) {
     if (FILE_BASED_MCP_CONFIG) {
       console.error("File based MCP config is not supported on Vercel.");
       process.exit(1);
     }
-    console.log("Running on Vercel, performing database migration.");
-    await runCommand("pnpm db:migrate", "Database migration");
+    console.log(
+      "Running on Vercel, skipping database migration in postinstall.",
+    );
+    // await runCommand("pnpm db:migrate", "Database migration"); // DISABLED: Causes 45min timeout
   } else if (IS_DOCKER_ENV) {
     if (FILE_BASED_MCP_CONFIG) {
       console.error("File based MCP config is not supported in Docker.");

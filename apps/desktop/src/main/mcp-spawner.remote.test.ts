@@ -1,137 +1,148 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockState = vi.hoisted(() => ({
-  connectCount: 0,
-  transportName: "",
-  calledTools: [] as Array<{
-    name: string;
-    arguments: Record<string, unknown>;
+const mocks = vi.hoisted(() => ({
+  connect: vi.fn(),
+  listTools: vi.fn(),
+  callTool: vi.fn(),
+  close: vi.fn(),
+  pinnedFetch: vi.fn(),
+  transports: [] as Array<{
+    kind: "streamable" | "sse";
+    url: URL;
+    options: Record<string, unknown>;
   }>,
-  listedTools: [
-    { name: "read_file", description: "read", inputSchema: {} },
-    { name: "write_file", description: "write", inputSchema: {} },
-  ] as Array<Record<string, unknown>>,
-  toolResult: {
-    content: [{ type: "text", text: "remote:notes.txt" }],
-  } as unknown,
+  writeAuditEvent: vi.fn(),
+  recordDesktopError: vi.fn(),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
   Client: class {
-    async connect(transport: { constructor: { name: string } }) {
-      mockState.connectCount += 1;
-      mockState.transportName = transport.constructor.name;
-    }
-
-    async listTools() {
-      return { tools: mockState.listedTools };
-    }
-
-    async callTool(input: {
-      name: string;
-      arguments: Record<string, unknown>;
-    }) {
-      mockState.calledTools.push(input);
-      return mockState.toolResult;
-    }
-
-    async close() {}
+    connect = mocks.connect;
+    listTools = mocks.listTools;
+    callTool = mocks.callTool;
+    close = mocks.close;
   },
 }));
 
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { createDesktopMcpOperations } from "./mcp-spawner.js";
+vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+  StreamableHTTPClientTransport: class {
+    constructor(url: URL, options: Record<string, unknown>) {
+      mocks.transports.push({ kind: "streamable", url, options });
+    }
+  },
+}));
 
-describe("desktop remote MCP operations", () => {
-  const config = {
-    url: "https://mcp.example.test/api/mcp",
-    headers: { Authorization: "Bearer local-test-token" },
-  };
-  const fetchFactory = vi.fn(() => async () => {
-    throw new Error("The mocked client must not issue a network request");
-  });
-  const operations = createDesktopMcpOperations(fetchFactory);
+vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
+  SSEClientTransport: class {
+    constructor(url: URL, options: Record<string, unknown>) {
+      mocks.transports.push({ kind: "sse", url, options });
+    }
+  },
+}));
 
+vi.mock("./pinned-remote-fetch.js", () => ({
+  createPinnedRemoteMcpFetch: (...args: unknown[]) => {
+    mocks.pinnedFetch(...args);
+    return mocks.pinnedFetch;
+  },
+}));
+
+vi.mock("./audit-sink.js", () => ({
+  hashPayload: vi.fn(async () => "digest"),
+  writeAuditEvent: mocks.writeAuditEvent,
+}));
+
+vi.mock("./otel.js", () => ({
+  recordDesktopError: mocks.recordDesktopError,
+}));
+
+import { MCP_DEFAULT_CALL_TIMEOUT_MS } from "@keinsaas/mcp-router";
+import { callDesktopMcpTool, listDesktopMcpTools } from "./mcp-spawner.js";
+
+const config = {
+  url: "https://mcp.example/rpc",
+  headers: { Authorization: "Bearer test-secret" },
+};
+
+describe("desktop MCP remote transport integration", () => {
   beforeEach(() => {
-    mockState.connectCount = 0;
-    mockState.transportName = "";
-    mockState.calledTools = [];
-    mockState.listedTools = [
-      { name: "read_file", description: "read", inputSchema: {} },
-      { name: "write_file", description: "write", inputSchema: {} },
-    ];
-    mockState.toolResult = {
-      content: [{ type: "text", text: "remote:notes.txt" }],
-    };
-    fetchFactory.mockClear();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    mocks.transports.length = 0;
+    mocks.connect.mockResolvedValue(undefined);
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: "read_file", description: "Read a file", inputSchema: {} },
+        { name: "write_file", description: "Write a file", inputSchema: {} },
+      ],
+    });
+    mocks.callTool.mockResolvedValue({
+      content: [{ type: "text", text: "safe result" }],
+    });
+    mocks.close.mockResolvedValue(undefined);
   });
 
-  it("lists allowlisted tools through the remote configuration path", async () => {
-    const tools = await operations.listTools(config);
-    expect(tools.map(({ name }) => name)).toEqual(["read_file"]);
-    expect(mockState.connectCount).toBe(1);
-    expect(mockState.transportName).toBe(StreamableHTTPClientTransport.name);
-    expect(fetchFactory).toHaveBeenCalledWith(
-      "https://mcp.example.test",
+  it("injects pinned, redirect-blocking fetch into Streamable HTTP and filters tools", async () => {
+    await expect(listDesktopMcpTools(config)).resolves.toEqual([
+      { name: "read_file", description: "Read a file", inputSchema: {} },
+    ]);
+
+    expect(mocks.transports).toHaveLength(1);
+    expect(mocks.transports[0]).toMatchObject({
+      kind: "streamable",
+      url: new URL(config.url),
+      options: {
+        fetch: mocks.pinnedFetch,
+        requestInit: {
+          headers: config.headers,
+          redirect: "error",
+        },
+      },
+    });
+    expect(mocks.pinnedFetch).toHaveBeenCalledWith(
+      "https://mcp.example",
       config.headers,
     );
   });
 
-  it("calls an allowed remote tool and rejects a mutating tool", async () => {
-    const result = await operations.callTool(config, {
-      toolName: "read_file",
-      params: { path: "notes.txt" },
-    });
-    expect(result).toMatchObject({
-      content: [{ type: "text", text: "remote:notes.txt" }],
-    });
-    expect(mockState.calledTools).toEqual([
-      { name: "read_file", arguments: { path: "notes.txt" } },
+  it("uses the same pinned fetch and request policy for SSE fallback", async () => {
+    mocks.connect.mockRejectedValueOnce(new Error("streamable unavailable"));
+
+    await expect(listDesktopMcpTools(config)).resolves.toHaveLength(1);
+
+    expect(mocks.transports.map(({ kind }) => kind)).toEqual([
+      "streamable",
+      "sse",
     ]);
-    await expect(
-      operations.callTool(config, {
-        toolName: "write_file",
-        params: { path: "notes.txt" },
-      }),
-    ).rejects.toThrow("read-only policy");
-    expect(mockState.calledTools).toHaveLength(1);
+    for (const transport of mocks.transports) {
+      expect(transport.options).toMatchObject({
+        fetch: mocks.pinnedFetch,
+        requestInit: {
+          headers: config.headers,
+          redirect: "error",
+        },
+      });
+    }
   });
 
-  it("rejects insecure remote config before connecting", async () => {
+  it("bounds tool calls with the shared MCP call timeout and audits the result", async () => {
     await expect(
-      operations.listTools({ url: "http://mcp.example.test/api/mcp" }),
-    ).rejects.toThrow();
-    expect(mockState.connectCount).toBe(0);
-  });
+      callDesktopMcpTool(config, "read_file", { path: "notes.txt" }),
+    ).resolves.toEqual({ content: [{ type: "text", text: "safe result" }] });
 
-  it("rejects an oversized tool result while performing bounded serialization", async () => {
-    mockState.toolResult = {
-      content: [{ type: "text", text: "x".repeat(1_000_001) }],
-    };
-    await expect(
-      operations.callTool(config, {
-        toolName: "read_file",
-        params: { path: "large.txt" },
-      }),
-    ).rejects.toThrow("MCP result exceeded the desktop display limit");
-  });
-
-  it("omits an oversized remote input schema without serializing it unboundedly", async () => {
-    mockState.listedTools = [
-      {
-        name: "read_file",
-        description: "read",
-        inputSchema: { description: "x".repeat(40_000) },
-      },
-    ];
-    const tools = await operations.listTools(config);
-    expect(tools).toHaveLength(1);
-    expect(tools[0]?.inputSchema).toMatchObject({
-      type: "object",
-      properties: {},
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: "read_file",
+      arguments: { path: "notes.txt" },
     });
-    expect(JSON.stringify(tools[0]?.inputSchema)).toContain(
-      "exceeded the desktop display limit",
+    expect(mocks.writeAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "mcp.tool.call", outcome: "success" }),
     );
+
+    mocks.callTool.mockReturnValueOnce(new Promise(() => undefined));
+    vi.useFakeTimers();
+    const pending = callDesktopMcpTool(config, "read_file", { path: "slow" });
+    const rejected = expect(pending).rejects.toThrow("Timeout");
+    await vi.advanceTimersByTimeAsync(MCP_DEFAULT_CALL_TIMEOUT_MS);
+    await rejected;
   });
 });

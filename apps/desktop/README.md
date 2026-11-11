@@ -1,23 +1,103 @@
-﻿# Void-Agent Desktop Companion
+# Keinsaas Navigator desktop
 
-This Electron companion loads a configured Void-Agent HTTPS deployment (or a localhost development server) and enables local stdio MCP testing from `/mcp/test/[id]`.
+Electron shell that loads the deployed web app and adds what a browser cannot:
+local stdio MCP servers, native notifications, auto-updates, and a Stripe
+checkout window.
 
-## Development
+## Which server it loads
 
-From the repository root, run `pnpm desktop:dev`. It starts the Next.js app at `http://localhost:3000` and opens the desktop window. Social sign-in is completed in the system browser and returned using a short-lived, single-use Better Auth token.
+One build serves both editions. On a first run the app asks where to connect:
+keinsaas Navigator in the cloud (`https://app.keinsaas.com`, baked in by
+`scripts/build-main.mjs` from `KEINSAAS_WEB_URL`), or a self-hosted
+better-chatbot (beta). The choice is stored in `<userData>/server.json`;
+**Change Server…** in the app menu clears it and shows the picker again.
+Installs from before the picker had cloud browser data and are kept on the
+cloud without asking. A custom server is accepted only over https (or
+`http://localhost`) and only if `/api/auth/ok` answers `{ ok: true }`. Only the
+picker window may change the server, never a loaded page
+(`src/main/server-picker.ts`). In development it is always
+`http://localhost:3000`.
 
-## Build
+```sh
+pnpm --filter desktop dev        # web (SKIP_DB_MIGRATE=1) + electron
+pnpm --filter desktop test       # vitest, pure modules only
+pnpm --filter desktop build      # esbuild main + tsc preload → dist/
+pnpm --filter desktop dist:win   # or dist:mac / dist:linux
+```
 
-Set `VOID_AGENT_WEB_URL` to the HTTPS Void-Agent deployment, then run `pnpm desktop:build`. The URL is embedded in the desktop main process at build time. The app refuses insecure non-local HTTP URLs.
+## Sign-in runs in the system browser
 
-## Local MCP security boundary
+Identity providers refuse OAuth inside embedded web views: Google answers with
+`disallowed_useragent` ("This browser or app may not be secure") because the
+Electron user agent identifies itself. So the app never loads a provider's
+consent screen. Instead:
 
-- Local stdio is available only in the MCP test page; cloud chat and agent execution do not run on the desktop bridge.
-- The main process validates the calling frame origin and path, MCP config size and environment, allowed read-style tool names, and argument/result size.
-- Starting a configured local MCP process requires native OS consent. Each tool call requires a separate native consent and warns that output returns to the configured Void-Agent origin.
-- Child processes inherit a small OS environment allowlist plus explicitly configured MCP variables. Tool results and environment values are not written to audit logs; audit records contain hashes.
-- Auto-updates and local release packaging are configured; signed artifacts and a staging-feed update journey remain unverified.
+1. `sign-in` / `sign-up` in the renderer call `window.desktop.auth.startBrowserSignIn`.
+2. `src/main/desktop-auth.ts` issues a random `state`, writes it to
+   `<userData>/pending-sign-in.json` (10-minute TTL) and opens the web app's
+   sign-in page in the default browser with
+   `callbackUrl=/desktop/auth/complete?state=…`.
+3. The browser finishes sign-in normally. `/desktop/auth/complete` mints a
+   Better Auth one-time token and opens `keinsaas://auth/callback?token=…&state=…`.
+4. The OS hands the URL to the app: `open-url` on macOS, `argv` through
+   `second-instance` (or on cold start) on Windows and Linux. `state` is
+   compared against the pending file, then the main process POSTs the token to
+   `/api/auth/one-time-token/verify` from the default session so the session
+   cookie lands in the app's own cookie jar, and loads the app.
 
-## Signed packaging and update feeds
+The `keinsaas://` scheme is registered by `protocols` in `electron-builder.yml`
+(CFBundleURLTypes on macOS, `HKCU\Software\Classes\keinsaas` from the NSIS
+installer on Windows, `x-scheme-handler` on Linux). The app also holds the
+single-instance lock: a protocol launch on Windows/Linux starts a second
+process that forwards its argv to the running one and exits.
 
-Development builds do not run the updater. For release packaging, configure `DESKTOP_UPDATE_FEED_URL` to an HTTPS directory containing the platform-specific electron-builder update metadata and artifacts, then use `pnpm --dir apps/desktop dist:win`, `dist:mac`, or `dist:linux`. Windows packages require a code-signing subject in `VOID_AGENT_WINDOWS_PUBLISHER_NAME`; macOS packages require `CSC_NAME` or `CSC_LINK`. Keep signing credentials outside the repository. The packaging scripts validate these settings and never publish; auto-update is enabled only for packaged builds with a valid HTTPS feed. The first signed package and an actual feed installation/update still need platform-specific release verification.
+### Testing the handoff in development
+
+- Windows: `electron .` registers the scheme with the script path, so the
+  running dev instance receives the link through `second-instance`.
+- macOS: `electron .` has no `Info.plist`, so `open-url` never fires. Use a
+  packaged build (`pnpm --filter desktop dist:mac`), or simulate a cold-start
+  launch on any platform by passing the link as an argument:
+
+  ```sh
+  pnpm --filter desktop build
+  npx electron apps/desktop "keinsaas://auth/callback?token=<token>&state=<state>"
+  ```
+
+  The `state` must match the one written to `pending-sign-in.json` by the
+  previous run.
+- The web app has to run with `NO_HTTPS=1` so the localhost verify response
+  can set a non-secure cookie.
+
+Deploy order matters: ship the web change (the `/desktop/auth/complete` route
+and the one-time-token plugin) before a desktop release that uses it.
+
+## Auto-update
+
+`src/main/auto-updater.ts` wraps electron-updater against the generic feed in
+`electron-builder.yml` (DigitalOcean Spaces, `latest.yml` / `latest-mac.yml`).
+
+- Checks for a new version at startup, whenever the window regains focus (at
+  most every 30 minutes) and every hour while the app stays open.
+  **Help > Check for Updates…** runs a check immediately and reports the result
+  in a dialog.
+- A new version downloads in the background. The web UI shows a toast with
+  **Restart now**; if the user ignores it, the update installs on the next quit
+  (`autoInstallOnAppQuit`).
+- Every updater event is appended to `updater.log` in the app's log directory
+  (`%LOCALAPPDATA%\Keinsaas Navigator\logs` on Windows,
+  `~/Library/Logs/Keinsaas Navigator` on macOS), capped at 512 KB. Updater
+  errors also go to desktop telemetry when `KEINSAAS_DESKTOP_TELEMETRY=1`.
+- Builds packaged without `DESKTOP_UPDATE_FEED_URL` have no feed and the
+  updater stays off; the log says so on startup.
+- electron-updater is external and CommonJS while the main bundle is ESM, so
+  `autoUpdater` is reached through `resolveAutoUpdater` (`updater-interop.ts`)
+  rather than destructured off the namespace — see the comment there. The
+  updater only runs in packaged builds, so nothing in `dev` or the smoke test
+  exercises this path.
+
+`release.yml` calls `desktop-release.yml` directly once release-please has
+tagged, so a release ships the desktop app without anyone dispatching it. The
+tag push cannot do that on its own: GitHub does not start workflows from events
+made with `GITHUB_TOKEN`, which is what release-please tags with. `workflow_dispatch`
+remains for rebuilding a version by hand, with `dry_run` to skip publishing.

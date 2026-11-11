@@ -2,15 +2,32 @@ import type { MenuItemConstructorOptions } from "electron";
 
 export type DesktopApplicationMenuOptions = {
   platform: NodeJS.Platform;
+  /** Name shown as the top-level app menu and in the non-mac About item. */
+  appName: string;
   connectedHost: string;
   canOpenDevTools: boolean;
   onChangeServer: () => void;
   onCheckForUpdates: () => void;
   onOpenUpdaterLogs: () => void;
   onAbout: () => void;
+  /**
+   * Extra items spliced into the app menu right before the quit role (the
+   * macOS services/hide block). Their own separators are their business.
+   */
+  extraAppMenuItems?: MenuItemConstructorOptions[];
+  /** Extra items placed at the top of the Help menu (Documentation). */
+  extraHelpItems?: MenuItemConstructorOptions[];
 };
 
-/** Native cross-platform menus for the Void-Agent desktop companion. */
+/**
+ * Pure, cross-platform application menu template for the desktop shell.
+ *
+ * Ported from the Void-Agent destination desktop (its application-menu.ts):
+ * unlike the imperative menu it replaces, this returns a plain template so
+ * the whole menu — server switching, editing, viewing and updates — is
+ * unit-testable without Electron. The app menu exists on every platform, so
+ * Windows users also get About / Change Server / Quit at the top level.
+ */
 export function buildDesktopApplicationMenu(
   options: DesktopApplicationMenuOptions,
 ): MenuItemConstructorOptions[] {
@@ -24,12 +41,13 @@ export function buildDesktopApplicationMenu(
 
   return [
     {
-      label: "Void-Agent",
+      label: options.appName,
       submenu: [
         { role: "about" },
         { type: "separator" },
         ...serverItems,
         { type: "separator" },
+        ...(options.extraAppMenuItems ?? []),
         { role: "quit" },
       ],
     },
@@ -67,9 +85,13 @@ export function buildDesktopApplicationMenu(
         ...(mac
           ? []
           : [
-              { label: "About Void-Agent", click: options.onAbout },
+              {
+                label: `About ${options.appName}`,
+                click: options.onAbout,
+              },
               { type: "separator" as const },
             ]),
+        ...(options.extraHelpItems ?? []),
         {
           label: "Check for Updates…",
           click: options.onCheckForUpdates,

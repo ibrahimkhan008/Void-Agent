@@ -1,107 +1,120 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildMcpConfigFingerprint,
-  desktopMcpConfigSchema,
-  desktopRemoteMcpConfigSchema,
-  desktopStdioConfigSchema,
-  isDesktopMcpToolAllowed,
+  fingerprintDesktopMcpConfig,
+  formatLocalMcpCommandForReview,
+  isTrustedMcpPage,
+  parseDesktopMcpConfig,
+  parseDesktopToolCall,
+  redactDesktopMcpReviewValue,
 } from "./mcp-policy.js";
 
-describe("desktop MCP policy", () => {
-  it("accepts bounded stdio configurations but rejects unknown and reserved fields", () => {
+describe("desktop MCP IPC policy", () => {
+  it("accepts bounded stdio and credential-free HTTPS remote configs", () => {
     expect(
-      desktopStdioConfigSchema.safeParse({
-        command: "npx",
-        args: ["-y", "@example/mcp"],
-        env: { API_TOKEN: "secret" },
-      }).success,
-    ).toBe(true);
-    expect(
-      desktopStdioConfigSchema.safeParse({ command: "node", cwd: "C:/" })
-        .success,
-    ).toBe(false);
-    expect(
-      desktopStdioConfigSchema.safeParse({
-        command: "node",
-        env: { PATH: "evil" },
-      }).success,
-    ).toBe(false);
-    expect(
-      desktopStdioConfigSchema.safeParse({
-        command: "node",
-        args: Array(33).fill("x"),
-      }).success,
-    ).toBe(false);
-  });
-
-  it("uses default-deny tool names and stable config fingerprints", () => {
-    expect(isDesktopMcpToolAllowed("read_file")).toBe(true);
-    expect(isDesktopMcpToolAllowed("list_tools")).toBe(true);
-    expect(isDesktopMcpToolAllowed("write_file")).toBe(false);
-    const first = desktopStdioConfigSchema.parse({
+      parseDesktopMcpConfig({ command: "node", args: ["server.js"] }),
+    ).toEqual({
       command: "node",
-      env: { ZED: "z", API_KEY: "a" },
+      args: ["server.js"],
     });
-    const second = desktopStdioConfigSchema.parse({
-      command: "node",
-      env: { API_KEY: "a", ZED: "z" },
-    });
-    expect(buildMcpConfigFingerprint(first)).toBe(
-      buildMcpConfigFingerprint(second),
-    );
-    expect(buildMcpConfigFingerprint(first)).toMatch(/^[a-f0-9]{64}$/u);
-    expect(buildMcpConfigFingerprint(first)).not.toContain("API_KEY");
-    const secretConfig = desktopStdioConfigSchema.parse({
-      command: "node",
-      env: { API_SECRET: "super-secret-env-credential" },
-    });
-    const secretFingerprint = buildMcpConfigFingerprint(secretConfig);
-    expect(secretFingerprint).not.toContain("API_SECRET");
-    expect(secretFingerprint).not.toContain("super-secret-env-credential");
-  });
-
-  it("does not retain remote credentials in config consent fingerprints", () => {
-    const remote = desktopRemoteMcpConfigSchema.parse({
-      url: "https://mcp.example.test/rpc",
-      headers: { Authorization: "Bearer very-secret-value" },
-    });
-    const fingerprint = buildMcpConfigFingerprint(remote);
-    expect(fingerprint).toMatch(/^[a-f0-9]{64}$/u);
-    expect(fingerprint).not.toContain("Authorization");
-    expect(fingerprint).not.toContain("very-secret-value");
-  });
-
-  it("accepts only bounded HTTPS remote configs with safe transport headers", () => {
     expect(
-      desktopMcpConfigSchema.safeParse({
-        url: "https://mcp.example.test/rpc",
-        headers: { Authorization: "Bearer secret" },
-      }).success,
-    ).toBe(true);
-    for (const config of [
-      { url: "http://mcp.example.test/rpc" },
-      { url: "https://user:pass@mcp.example.test/rpc" },
-      { url: "https://mcp.example.test/rpc#fragment" },
-      { url: "https://mcp.example.test/rpc", headers: { Host: "evil.test" } },
-      { url: "https://mcp.example.test/rpc", extra: "not permitted" },
-      { url: `https://mcp.example.test/${"x".repeat(2_100)}` },
-    ]) {
-      expect(desktopRemoteMcpConfigSchema.safeParse(config).success).toBe(
-        false,
-      );
-    }
+      parseDesktopMcpConfig({
+        url: "https://mcp.example/rpc",
+        headers: { Authorization: "Bearer x" },
+      }),
+    ).toMatchObject({ url: "https://mcp.example/rpc" });
   });
 
-  it("rejects invalid stdio configuration and argument shapes before process execution", () => {
+  it.each([
+    { url: "http://127.0.0.1/rpc" },
+    { url: "https://user:pass@mcp.example/rpc" },
+    { url: "https://mcp.example/rpc#fragment" },
+    { url: "https://mcp.example/rpc", extra: true },
+    { url: "https://mcp.example/rpc", headers: { Host: "internal" } },
+    { command: "node", env: { PATH: "attacker" } },
+    { command: "node", args: Array.from({ length: 33 }, () => "x") },
+  ])("rejects unsafe or unexpected config %#", (config) => {
+    expect(() => parseDesktopMcpConfig(config)).toThrow();
+  });
+
+  it("rejects oversized, malformed, and non-read MCP tool calls", () => {
+    expect(() => parseDesktopToolCall(null)).toThrow();
+    expect(() =>
+      parseDesktopToolCall({ toolName: "write_file", params: {} }),
+    ).toThrow("not allowed");
+    expect(() =>
+      parseDesktopToolCall({
+        toolName: "read_file",
+        params: { data: "x".repeat(33_000) },
+      }),
+    ).toThrow("size limit");
     expect(
-      desktopMcpConfigSchema.safeParse({ command: "node", env: { PATH: "x" } })
-        .success,
+      parseDesktopToolCall({
+        toolName: "read_file",
+        params: { path: "notes.txt" },
+      }),
+    ).toEqual({
+      toolName: "read_file",
+      params: { path: "notes.txt" },
+    });
+  });
+
+  it("fingerprints credentials without exposing them and sorts config keys", () => {
+    const first = fingerprintDesktopMcpConfig({
+      url: "https://mcp.example/rpc",
+      headers: { Authorization: "secret", "X-Client": "x" },
+    });
+    const same = fingerprintDesktopMcpConfig({
+      url: "https://mcp.example/rpc",
+      headers: { "X-Client": "x", Authorization: "secret" },
+    });
+    const changed = fingerprintDesktopMcpConfig({
+      url: "https://mcp.example/rpc",
+      headers: { "X-Client": "x", Authorization: "other" },
+    });
+    expect(first).toMatch(/^[a-f0-9]{64}$/u);
+    expect(same).toBe(first);
+    expect(changed).not.toBe(first);
+  });
+
+  it("trusts only the top-level MCP test page on the configured app origin", () => {
+    const base = {
+      hasWindow: true,
+      windowDestroyed: false,
+      senderMatches: true,
+      mainFrameMatches: true,
+      frameUrl: "https://app.example/mcp/test/abc",
+      appOrigin: "https://app.example",
+    };
+    expect(isTrustedMcpPage(base)).toBe(true);
+    expect(
+      isTrustedMcpPage({
+        ...base,
+        frameUrl: "https://evil.example/mcp/test/abc",
+      }),
     ).toBe(false);
     expect(
-      desktopMcpConfigSchema.safeParse({
+      isTrustedMcpPage({ ...base, frameUrl: "https://app.example/chat" }),
+    ).toBe(false);
+    expect(isTrustedMcpPage({ ...base, mainFrameMatches: false })).toBe(false);
+  });
+
+  it("redacts credential fields and common CLI secrets in review dialogs", () => {
+    expect(
+      redactDesktopMcpReviewValue({
+        path: "notes.txt",
+        apiKey: "secret",
+        nested: { password: "p" },
+      }),
+    ).toEqual({
+      path: "notes.txt",
+      apiKey: "[redacted]",
+      nested: { password: "[redacted]" },
+    });
+    expect(
+      formatLocalMcpCommandForReview({
         command: "node",
-        args: ["x".repeat(2_049)],
-      }).success,
-    ).toBe(false);
+        args: ["server.js", "--api-key", "secret"],
+      }),
+    ).toBe("node server.js --api-key [redacted]");
   });
 });

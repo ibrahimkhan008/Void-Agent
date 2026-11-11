@@ -1,8 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/apps/desktop/node_modules/
+# dependencies (any workspace)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -18,9 +17,9 @@ test-results/
 playwright-report/
 .env.test
 
-# next.js
-/.next/
-/out/
+# next.js (any workspace)
+.next/
+out/
 
 # production
 /build
@@ -35,6 +34,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.pnpm-store/
 
 # env files (can opt-in for committing if needed)
 .env
@@ -54,59 +54,60 @@ next-env.d.ts
 
 local-data
 
-.cursorrules
-.cursor
-*.ignore
-.mcp-config.json
-openai-compatible.config.ts
-certificates
-public/uploads
-# Sentry Config File
+# Void-Agent local-only files, development artifacts, and database data
 .env.sentry-build-plugin
-
-tsx-0/
-v8-compile-cache-0/
-
-# package-manager and tool caches
-.pnpm-store/
-.turbo/
-.eslintcache
-.cache/
-/apps/desktop/dist/
-/apps/desktop/out/
-
-# local agent sessions, worktrees, and browser captures
-/.claude/
+context.md
 /.audit/
-/.gemini/
 /.zcode/
 /.dodo-bootstrap/
-/codex.txt
-/context.md
-
-# temporary files, logs, and backup archives
 *.log
 *.tmp
 *.bak
 *.bak.*
-*.zip
-/tmp-*
-/.tmp-*/
-/scripts/tmp-test/
-
-# local databases and credentials
 *.sqlite
 *.sqlite3
 *.db
+/tmp-*
+/.tmp-*/
+/scripts/tmp-test/
+apps/desktop/out/
+apps/void-agent-desktop/out/
+apps/desktop/node_modules/
+apps/void-agent-desktop/node_modules/
+/.claude/
+/.gemini/
+/codex.txt
+*.zip
 *.key
 *.p12
 *.pfx
 credentials*.json
 service-account*.json
-
-# operating-system files
+client_secret_*.json
 Thumbs.db
 Desktop.ini
 
-# Downloaded OAuth client credentials
-client_secret_*.json
+.cursorrules
+.cursor
+*.ignore
+.mcp-config.json
+.mcp.json
+openai-compatible.config.ts
+certificates
+**/public/uploads
+# Build / runtime caches
+node-compile-cache/
+tsx-0/
+
+# turborepo
+.turbo/
+
+# electron desktop build output
+apps/desktop/dist/
+apps/desktop/build/
+apps/void-agent-desktop/dist/
+apps/void-agent-desktop/build/
+apps/void-agent-desktop/out/
+
+# gateway compile output
+apps/gateway/dist/

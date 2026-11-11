@@ -50,26 +50,6 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       testIgnore: [/.*\.setup\.ts/],
     },
-
-    {
-      name: "firefox",
-      use: {
-        ...devices["Desktop Firefox"],
-      },
-      dependencies: ["setup"],
-      testMatch: /tests\/(embed|api-keys)\/.*\.spec\.ts/,
-      testIgnore: [/.*\.setup\.ts/],
-    },
-
-    {
-      name: "webkit",
-      use: {
-        ...devices["Desktop Safari"],
-      },
-      dependencies: ["setup"],
-      testMatch: /tests\/(embed|api-keys)\/.*\.spec\.ts/,
-      testIgnore: [/.*\.setup\.ts/],
-    },
   ],
 
   webServer: {

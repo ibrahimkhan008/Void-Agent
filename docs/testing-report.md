@@ -1743,3 +1743,155 @@ Validation was rerun after the implementation commit hook formatted the staged s
 - git diff --check and git diff --cached --check — PASS.
 
 Verification scope: unit/mocked behavior only for the workflow tests; no live Composio, browser/VM egress-isolation, or dedicated PostgreSQL integration verification. B20 remains MISSING with browser execution disabled. C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
+
+### A01 lifecycle verification - 2026-11-09 00:08 IST
+- `pnpm exec vitest run src/lib/db/pg/repositories/chat-lifecycle.pg.integration.test.ts` with `A01_TEST_DATABASE_URL=postgresql://...@127.0.0.1:55432/void_agent_a01_fresh_test?sslmode=disable`: PASS, 1 file / 10 tests. The suite applies the complete Drizzle migration chain on a fresh isolated PostgreSQL 17.11 database (pgvector 0.8.7 installed from the official source tag), verifies the connected DB/address before tests, and cleans fixtures. No configured/production DB URL was used.
+- Focused A01 unit + PostgreSQL run: PASS, 5 files / 26 tests. Full suite with PostgreSQL URLs overridden to the isolated local test database: PASS, 593 files / 3,157 tests.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS. `pnpm lint`: PASS (Next lint deprecation/workspace-root and existing `<img>` warnings; Biome checked 2,292 files). `pnpm db:check`: PASS (Drizzle metadata consistency). `pnpm build` with isolated DB URL and 6 GiB heap: PASS, 205/205 static pages; dynamic-session diagnostics remain framework warnings. `git diff --check`: rerun after this docs batch.
+- Boundary: real repository operations/schema were verified against PostgreSQL, but the Next chat route was not exercised through authenticated HTTP with a provider mock or real provider credentials; no browser-driven send/retry/cancel flow was run. A01 therefore remains PARTIAL.
+
+### A01 final validation - 2026-11-09 00:26 IST
+- Full suite: `pnpm test` PASS, 595 files / 3,172 tests, with `POSTGRES_URL` and `A01_TEST_DATABASE_URL` restricted to the isolated local PostgreSQL database.
+- A01 focused suite: 7 files / 41 tests PASS: PostgreSQL lifecycle, repository claim/upsert, failure helper, navigation helper, transport wrapper, and mocked `POST /api/chat` guard/wiring tests. Real fresh PostgreSQL integration file: 12/12 PASS. Route test file: 4/4 PASS. Transport wrapper tests: 9/9 PASS.
+- `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types`: PASS. `pnpm lint`: PASS; Next lint deprecation/workspace-root and existing `<img>` warnings; Biome checked 2,295 files. `pnpm db:check`: PASS. 6 GiB `pnpm build`: PASS, 205/205 pages. `git diff --check`: PASS before this append; rerun after final documentation updates.
+- The route test's atomic insert case stops at an intentionally mocked model-resolution failure; route streaming/tool continuation, timeout/cancel callbacks, and browser send/retry/history remain unverified. No external provider credentials were used.
+
+## A01 run-claim collision fix and callback verification — 2026-11-09 00:44 IST
+
+- Independent concurrency review found and fixed a repository conflict predicate gap: claimMessageRun now requires an existing row to match both the requested thread and role=user before retryable upsert. This prevents a retryable assistant row from being overwritten by a client-submitted user turn using the same message ID.
+- Added real PostgreSQL regression coverage asserting the claim is rejected and assistant role/content/metadata remain unchanged. The unit SQL assertion now verifies the role predicate as well.
+- Added mocked route callback coverage for successful terminal finalization, sanitized retryable provider failure state, and aborted partial-response persistence. These invoke route callbacks directly; they do not verify AI SDK callback scheduling, provider stream bytes, real provider calls, or browser E2E.
+- Isolated PostgreSQL lifecycle suite: PASS, 13/13. Focused A01 suite: PASS, 7 files / 45 tests. Full suite: PASS, 595 files / 3,176 tests using only the local A01 test database URL override.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types: PASS (also included in the successful production build after test updates). pnpm lint: PASS with existing Next deprecation/workspace-root and img warnings. pnpm db:check: PASS (metadata only). 6 GiB pnpm build: PASS, exit 0, generated 205/205 pages; existing dependency-analysis and dynamic-session warnings remain. git diff --check is to be rerun after this documentation append.
+- A01 remains PARTIAL. Real provider streaming, SDK callback execution order, actual timeout/cancellation over HTTP, and browser send/retry/history remain unverified. The route has a Next maxDuration=300 setting, but this is not proof that timeout state is persisted on every deployment runtime.
+- No commit, push, deployment, production database access, or reference-repository edit. Original untracked user-owned files remain untouched.
+
+---
+
+## A01 final validation � 2026-11-09 01:24 IST
+
+| Check | Command | Result | Boundary |
+|---|---|---|---|
+| A01 focused | `pnpm exec vitest run` with 9 named A01 files | PASS, 9 files / 55 tests | Includes 13 real isolated PostgreSQL lifecycle tests and mocked route/UI transport tests. |
+| Full suite | `pnpm test` with `POSTGRES_URL` and `A01_TEST_DATABASE_URL` set to `127.0.0.1:55432/void_agent_a01_fresh_test` | PASS, 597 files / 3,186 tests | Local isolated PostgreSQL only; no production database. |
+| AI SDK route stream | `pnpm exec vitest run src/app/api/chat/route.stream.integration.test.ts` | PASS, 1 file / 2 tests | Real AI SDK 5 stream/SSE serializer, controlled LanguageModelV2; auth, repository, RAG, and provider selection mocked; no live provider. |
+| TypeScript | `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types` | PASS | Includes current tests. |
+| Lint | `pnpm lint` | PASS | Existing Next deprecation/workspace-root and `<img>` warnings; Biome checked 2,298 files. |
+| DB metadata | `pnpm db:check` | PASS | Drizzle metadata check only; not a database migration/apply test. |
+| Production build | `pnpm build` (6 GiB configured) | PASS, 205/205 pages | Existing dependency-analysis and dynamic-session diagnostics; build is not live runtime verification. |
+| Diff whitespace | `git diff --check` | PASS before this report append | Must rerun after final documentation update. |
+
+Earlier full-suite run while production build ran concurrently had one voice-panel UI test fail (3,183 passed, 1 failed); the affected test passed four isolated runs. The final full suite ran alone and passed 597/3,186.
+
+**Not run / not verified:** Playwright chat journey; authenticated HTTP route backed by real PostgreSQL persistence; deployment runtime timeout/cancellation; real provider credentials. A01 remains PARTIAL.
+
+## A01 final verification — 2026-11-09 02:30 IST
+
+| Check | Command / environment | Result | Scope |
+|---|---|---|---|
+| A01 focused | `pnpm exec vitest run` across 11 named A01 route/helper/PostgreSQL test files; `POSTGRES_URL` and `A01_TEST_DATABASE_URL` set to loopback `127.0.0.1:55432/void_agent_a01_fresh_test` | PASS, 11 files / 66 tests | Includes real PostgreSQL repository and route persistence, controlled AI SDK streams, timeout/abort/finalization recovery, auth/ownership and helper tests. |
+| PostgreSQL retry guard | `pnpm exec vitest run src/lib/db/pg/repositories/chat-message-run-claim.test.ts src/lib/db/pg/repositories/chat-lifecycle.pg.integration.test.ts` with isolated DB URL | PASS, 2 files / 17 tests | `retryable:false` is not reclaimed; explicit true and absent legacy flag remain reclaimable. Fresh local migration chain was applied by the harness. |
+| Browser | `pnpm exec playwright test --config playwright.a01.config.ts` with isolated A01 DB URL | PASS, 3 tests | Auth setup; mocked chat 503/retry/SSE render; direct PG fixture SSR/history reload. Not a real browser POST-to-DB flow. |
+| Full tests | `pnpm test` with `POSTGRES_URL` overridden to isolated local A01 DB | PASS, 599 files / 3,197 tests | First run had one onboarding timing race. Added `waitFor` around the effect-driven second fetch; isolated test then passed 5/5 and full rerun passed. |
+| TypeScript | `NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types` | PASS | Next production build also completed final type validation. |
+| Lint | `pnpm lint` | PASS | Existing Next lint deprecation/workspace-root and `<img>` warnings; Biome reported no remaining lint errors. |
+| DB metadata | `pnpm db:check` | PASS | Drizzle metadata consistency only, not production migration verification. |
+| Production build | `pnpm build` with 6 GiB heap and `POSTGRES_URL` pointed to isolated A01 DB | PASS, 205/205 pages | Existing dynamic-session/dependency warnings and absent optional Redis/E2B env diagnostics. |
+| Whitespace | `git diff --check` | PASS | Run again after this documentation update. |
+
+No live AI provider credentials, deployment-runtime timeout, production PostgreSQL, or end-to-end browser POST-to-persisted-history run was verified. A01 therefore remains PARTIAL.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Current staging-only validation update — 2026-11-11 00:12 IST
+
+| Workstream | Commands / results | Verification boundary |
+|---|---|---|
+| Dodo repository fix | focused Vitest: 1 file / 3 tests PASS | mock/unit only |
+| Notes + Collections | selected Vitest: 8 files / 27 tests PASS; prior scoped Biome/typecheck passed | route/service mocks, not live DB/storage/browser |
+| eCanvas | focused Vitest: 9 files / 26 tests PASS | local tests only |
+| Community | focused Vitest: 5 files / 13 tests; 6 GiB `pnpm typecheck`; `pnpm db:check`; scoped Biome all PASS | no live PostgreSQL, storage provider or browser E2E |
+| Archive | focused API suite: 4 files / 11 tests; 6 GiB typecheck; db metadata; scoped Biome PASS | no PostgreSQL migration apply/browser E2E |
+| Thread Insights | focused Vitest: 4 files / 11 tests; 6 GiB typecheck; `db:check`; scoped Biome PASS | mocked model/API; no live DB/provider/browser |
+| A01 staging | route+controlled-stream+transport: 3 files / 15 tests; recovery/persistence: 4 files / 16 tests; 6 GiB typecheck; scoped Biome PASS | mocked persistence/controlled model; no real PostgreSQL/browser E2E |
+| Connectors | latest focused provider/tool/approval suite: 9 files / 44 tests; 6 GiB typecheck and lint PASS | mocked OAuth/provider; Gmail, Drive, Teams write approvals covered; other original writes remain |
+| Desktop | 20 files / 124 tests; typecheck, build, scoped Biome PASS (desktop batch) | local desktop build; no signing/installed update verification |
+| Aggregate | full current monorepo suite/build/security suite not yet run; production web build pending after current staged additions | do not reuse historical full-suite/build numbers |
+| PostgreSQL | `db:check` passes through migration 0079 (journal metadata only). Windows host has no local service/binaries/listener; Docker prohibited. | no current-session DB apply or real PG integration |
+| Primary whitespace | `git diff --check` exits 0; only LF/CRLF notices | primary worktree not promoted from staging |
+
+Do not sum overlapping focused tests as a full-suite count. No staging changes have been promoted, committed, pushed or deployed.
+
+## Connector and security comparison follow-up — 2026-11-11 00:17 IST
+
+- Connector focused suite after Asana/ClickUp/Linear implementation: 6 files / 39 tests PASS. It includes Gmail send/reply, Drive create, Teams send, Asana `create_task`, ClickUp `create_task`, and Linear `create_issue` approval/no-approval paths. This is mocked provider and token/repository evidence only.
+- Jira/Zendesk write edits landed after that run and are unverified. Current pending source writes: Productboard `create_feature`; Freshdesk `create_ticket` and `add_reply`; Discord `send_message`; Zulip `send_message` (plus re-run coverage for Jira/Zendesk). No live provider or PostgreSQL verification.
+- C45 chat challenge port has not yet run. The source has a cryptographic request challenge (session/user/client binding, one-use token, request MAC/hash, ECDSA, PoW, expiry/replay/origin/rate controls, adaptive captcha); current staging has no equivalent. Cache semantics and route integration need focused adversarial tests.
+- AI app-builder work is in design/implementation startup; no test/build result yet.
+- Full monorepo test suite, typecheck/lint after all in-progress changes, production web build and desktop regression pass remain unrun on the combined current staging tree.
+
+### Connector update — 2026-11-11 00:20 IST
+
+`pnpm --filter web exec vitest run` focused connector/provider/approval set: **7 files / 44 tests PASS** after Jira/Zendesk additions. Covered mock writes: Gmail send/reply, Google Drive create, Teams send, Asana task, ClickUp task, Linear issue, Jira comment, Zendesk comment. Covers approval denial/exact payload/owner/expiry/provider errors as applicable. Live provider/PostgreSQL not tested. Latest shared typecheck is currently blocked by C45's missing `ChatRequestSecuritySchema` export; rerun after C45 changes. Productboard, Freshdesk two writes, Discord and Zulip remain pending. No full current monorepo suite/build has run.
+
+### Validation snapshot correction — 2026-11-11 00:22 IST
+A 6 GiB `pnpm --filter web typecheck` passed after the C45 chat security schema export landed. The guard/client/API implementation continued changing afterward, so this is an intermediate result only. Re-run typecheck and focused challenge tests after C45 integration settles. Connector suite remains 7 files / 44 tests PASS; no current full-suite/build result.
+
+### Migration 0080 status — 2026-11-11 00:28 IST
+`pnpm --filter web db:check` PASS after adding `0080_void_agent_app_builder.sql`/journal idx81. This is metadata validation only. The app-builder API/UI and focused tests are not yet complete, and no actual PostgreSQL migration was applied. Do not report the migration as live-tested.
+
+### Connector checkpoint — 2026-11-11 00:32 IST
+
+Freshdesk focused tests pass 9 files / 51 tests, covering per-user credential binding and approval-gated ticket create/reply alongside the previously covered providers. No live provider/PostgreSQL. Current shared typecheck is blocked by missing `afterAll` in `apps/web/src/app/api/build/route.test.ts`; C45 schema errors cleared. Productboard/Discord/Zulip remain incomplete; aggregate suite/build not run.
+
+### App-builder focused validation — 2026-11-11 00:37 IST
+
+`app-builder.test.ts` and `api/build/route.test.ts`: 2 files / 11 tests PASS. Typecheck (6 GiB) and `db:check` are currently running after the latest route/UI additions; no result recorded yet. Scoped Biome and full suite/build pending. No live PostgreSQL/E2B/browser verification.
+
+
+## Latest verification boundary — 2026-11-11 01:05 IST
+
+The read-only audit did not rerun tests, typecheck, lint, production build, db:check or migrations. Prior agent-reported focused results: App Builder 5 files/25 tests plus 6 GiB typecheck, db:check and scoped Biome; C45 6 files/35 tests plus 6 GiB typecheck; connectors 12 files/60 tests plus scoped Biome; desktop 20 files/124 tests plus desktop typecheck/build; Community 5 files/13 tests; Archive 4 files/11 tests; Insights 4 files/11 tests; Collections 7 files/34 tests; eCanvas 9 files/26 tests.
+
+These are not full combined checks. db:check is metadata-only. No current live PostgreSQL, provider, E2B, storage or browser E2E is established. See docs/MIGRATION-STATUS-REPORT.md.
+
+## Controller session — 2026-11-11 06:20 IST — WP7/WP8 validation and promotion evidence
+
+All numbers below were produced by the controller or rerun-verified from agent batches on this host. No PostgreSQL/Docker available: `db:check` is Drizzle metadata only; nothing was applied to any database. Mocked vs live evidence is distinguished per item.
+
+### Staging (pre-promotion)
+
+| Check | Result |
+|---|---|
+| Full web suite (vitest, apps/web) | **498 files / 3,361 tests, all passed** after repairs: 42 typecheck errors fixed (AI SDK 5 `tool()` inference collapses on unannotated destructured `execute` params; `NextRequest` test fixtures; upsert casts; unused imports), i18n key-parity restored (all 8 locales = en.json's 1,937-leaf universe; parity suite 41/41), and a real C45 test flake root-caused (base64url last-char low-bit discard can leave a tampered signature byte-identical; fixed by first-char tamper — 25/25 deterministic reruns) |
+| `pnpm --filter web typecheck` (6 GiB heap) | exit 0, 0 errors |
+| `pnpm --filter web lint` | No ESLint warnings or errors (existing lockfile-inference + sentry-import warnings only) |
+| `pnpm --filter web db:check` | "Everything's fine" (metadata only, migrations 0000–0081) |
+| `NODE_OPTIONS=6144 pnpm --filter web build` | exit 0, full route table generated |
+| Desktop `apps/desktop` (canonical) | 22 files / 132 tests PASS; typecheck PASS; main build PASS |
+
+Focused suites verified during the session (controller reruns): C45 security+challenge+lifecycle+stream 12 files/70; Bug Bounty 6/56; connectors 25/112; app-builder 8/67; admin console 12/88; desktop gap port 22/132; triage ports 48+22+64; locale parity 41/41; post-repair web smoke 121.
+
+### Destination (post-promotion) — C:\Users\Ikra\Desktop\Void-Agent
+
+| Check | Result |
+|---|---|
+| `pnpm install --frozen-lockfile` | OK, 10 workspace projects (after fixing a pre-existing staging drift: apps/desktop undici spec vs lockfile — re-locked at source, lockfile synced) |
+| Full web suite | **498 files / 3,361 tests, all passed** |
+| Typecheck (6 GiB) | exit 0 |
+| Lint | No ESLint warnings or errors |
+| db:check | "Everything's fine" (metadata only) |
+| Production build (6 GiB) | exit 0 |
+| Desktop | Initially failed: startup error from the stale flat-app root `vitest.config.ts` + 2 destination-only leftover old-desktop test files testing against the new implementations. Root cause is not promoted code. After relocating the superseded old tree (below): **22 files / 132 tests PASS, typecheck PASS, build PASS** |
+| Web smoke after relocation | 121 tests PASS (security + bug-bounty + admin) |
+
+### Promotion integrity
+
+- Overlay excluded staging `.env`, `docker/.env`, `apps/web/.env`, node_modules, build outputs, `apps/void-agent-desktop`, uppercase `AGENTS.md`, `agents.md`, cognixai specs, `tsconfig.tsbuildinfo`.
+- Pre-promotion hashes: destination `.env`, `.env.local`, `AGENTS.md`, `agents.md`, `cognixai-app-spec.md`, `cognixai-rebuild-spec.md`, `context.md` — all byte-identical after overlay (verified).
+- Git intact: HEAD `8b7b128` (matches `origin/main`), worktree link to `Void-Agent-V2` preserved. No commit, push, deploy, or migration applied.
+- Superseded old tree (38 root items incl. `src/`, old configs, npm lockfile, old branding/marketing/legal root files + 8 desktop leftovers) moved — not deleted — to `C:\Users\Ikra\Desktop\void-agent-backup-20261111\superseded-old-tree\`, alongside `working-tree.tar.gz` (restorability previously verified 58/58 entries byte-identical) and `git-tracked-diff.patch`. Git status shows the relocations as uncommitted deletions, fully recoverable from git history + backup.

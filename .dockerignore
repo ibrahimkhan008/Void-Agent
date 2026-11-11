@@ -6,8 +6,11 @@ compose.yml
 /node_modules
 /.pnp
 .pnp.*
-# Ignore yarn files (not used in this project)
-.yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
 
 # testing
@@ -51,7 +54,3 @@ local-data
 .mcp-config.json
 .next
 .changeset
-# secrets / env — never bake into images
-.env
-.env.*
-context.md

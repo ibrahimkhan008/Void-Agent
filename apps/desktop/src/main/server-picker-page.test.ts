@@ -1,30 +1,56 @@
 import { describe, expect, it } from "vitest";
 import { buildServerPickerHtml } from "./server-picker-page.js";
 
-describe("desktop server picker page", () => {
-  it("uses the isolated picker bridge and displays escaped server values", () => {
-    const html = buildServerPickerHtml({
-      defaultUrl: 'https://void.example</script><script>alert("x")</script>',
-      previousUrl: 'https://own.example" autofocus onfocus="alert(1)',
-      allowLocalHttp: false,
-    });
-    expect(html).toContain("default-src 'none'");
-    expect(html).toContain("window.serverPicker.choose(choice)");
-    expect(html).not.toContain("window.desktop.");
-    expect(html).toContain("\\u003c/script\\u003e");
-    expect(html).toContain("&quot; autofocus onfocus=&quot;");
-    expect(html).toContain("const allowLocalHttp=false");
+const CLOUD = "https://app.keinsaas.com";
+
+describe("buildServerPickerHtml", () => {
+  it("speaks German on a German system and English otherwise", () => {
+    expect(
+      buildServerPickerHtml({
+        locale: "de-DE",
+        cloudUrl: CLOUD,
+        allowLocalHttp: false,
+      }),
+    ).toContain("Womit möchtest du dich verbinden?");
+    expect(
+      buildServerPickerHtml({
+        locale: "fr-FR",
+        cloudUrl: CLOUD,
+        allowLocalHttp: false,
+      }),
+    ).toContain("Where do you want to connect?");
   });
 
-  it("offers custom server selection while defaulting to the configured target", () => {
+  it("pre-selects the previous own server, escaped", () => {
     const html = buildServerPickerHtml({
-      defaultUrl: "https://void.example",
-      previousUrl: "https://self-hosted.example",
-      allowLocalHttp: true,
+      locale: "en",
+      cloudUrl: CLOUD,
+      previous: 'https://x.dev/"><script>alert(1)</script>',
+      allowLocalHttp: false,
     });
-    expect(html).toContain('value="default" checked');
-    expect(html).toContain('value="custom"');
-    expect(html).toContain('value="https://self-hosted.example"');
-    expect(html).toContain('mode:"custom",url:url.value,allowLocalHttp');
+    expect(html).toContain('value="own" checked');
+    expect(html).not.toContain("<script>alert(1)");
+    expect(html).toContain("&quot;&gt;&lt;script&gt;");
+  });
+
+  it("pre-selects the cloud when that was the last choice", () => {
+    const html = buildServerPickerHtml({
+      locale: "en",
+      cloudUrl: CLOUD,
+      previous: CLOUD,
+      allowLocalHttp: false,
+    });
+    expect(html).toContain('value="cloud" checked');
+    expect(html).not.toContain(`value="${CLOUD}"`);
+  });
+
+  it("lets the browser accept a bare hostname", () => {
+    expect(
+      buildServerPickerHtml({
+        locale: "en",
+        cloudUrl: CLOUD,
+        allowLocalHttp: false,
+      }),
+    ).toContain('<form id="form" novalidate>');
   });
 });

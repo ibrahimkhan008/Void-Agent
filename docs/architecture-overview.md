@@ -1,24 +1,12 @@
 # Void-Agent architecture and baseline
 
-Primary: `C:/Users/Ikra/Desktop/Void-Agent`; reference: sibling `Void-Agent-V2`.
-The primary remains a single Next.js 15.5.19 / React 19 application on TypeScript,
-AI SDK 5, pnpm 10, Tailwind/Radix, Zustand/SWR, Better Auth, Drizzle with node-postgres
-and PostgreSQL/pgvector. Node engine currently declares >=18; actual compatibility
-must be checked against dependencies. Runtime deployment remains systemd on port
-4000; local development is port 3000. Do not introduce Docker deployment.
+> **Repository roles corrected 2026-11-09:** Canonical upstream is [`keinsaasforever/better-chatbot`](https://github.com/keinsaasforever/better-chatbot) `main`; customized destination is [`ibrahimkhan008/Void-Agent`](https://github.com/ibrahimkhan008/Void-Agent). Earlier `Void-Agent-V2` references below describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare the live upstream branch with the destination and preserve Void-Agent customizations. The current instruction is to keep changes local: no commit, push, or deployment.
 
-Reference: upstream 2.0 monorepo, Next.js 15.4.11, AI SDK 7, postgres.js,
-workspace MCP packages and Electron. Its schema and message parts are not drop-in
-replacements. V2 stays stopped and unchanged by this initiative.
+Current destination: `C:/Users/Ikra/Desktop/Void-Agent`; canonical upstream: `keinsaasforever/better-chatbot` at `6f4183566bc48616303cb84055f11f79578c82fe`. The sibling `Void-Agent-V2` paths and architecture notes below are historical evidence from the earlier audit, not the current source of truth.
 
-Primary subsystem evidence: `src/app/api/chat`, `src/lib/ai/models.ts`,
-`src/lib/ai/mcp`, `src/lib/ai/workflow`, `src/lib/ai/memory`, `src/lib/scheduler`,
-`src/lib/db/pg/schema.pg.ts`, `src/lib/security`, `src/lib/auth`,
-`src/components/canvas`, and `src/components/admin`.
-Existing integrations include encrypted dynamic providers, local/RAG documents,
-connectors, scheduler/outbox, teams, Dodo billing and sandbox/build jobs. Their
-presence is source evidence; external credentials and every journey are not yet
-validated in this audit. Keep the existing saved display-name provider contract.
+**Promoted state (2026-11-11):** the destination is the integrated monorepo — `apps/web` (Next.js / React 19 / AI SDK 7, TypeScript, pnpm, Tailwind/Radix, Zustand/SWR, Better Auth, Drizzle with node-postgres and PostgreSQL/pgvector), `apps/desktop` (Electron shell carrying the merged destination security modules: MCP consent/IPC, pinned remote transport, secure updater, notification IPC, server-picker, application menu, desktop handoff), `packages/*` (audit, auth-contracts, channel-contracts, mcp-core, mcp-router, mcp-types), `servers/mcp-stdio`, root `e2b/` template infrastructure, Turbo orchestration, and an Inngest-powered scheduler with a webhook outbox delivery driver. Local development remains port 3000; do not introduce Docker deployment. The pre-promotion single-app description in the historical sections below is retained as evidence only.
+
+Primary subsystem evidence (all under `apps/web/src` unless noted): `app/api/chat` (+ `app/api/chat/chat/tool-loading.ts` request-scoped tool loaders binding Build and Memory toolkits), `lib/ai/models.ts`, `lib/ai/mcp`, `lib/ai/workflow`, `lib/ai/memory`, `lib/inngest` (+ `functions/webhook-outbox.ts`), `lib/db/pg/schema.pg.ts` + `lib/db/pg/repositories/*`, `lib/security` (chat-request-guard.{shared,client,server}, chat-payload-obfuscation, encryption), `lib/auth`, `lib/ai/tools/connectors` + HITL approval modules, `app/api/admin` (config, tools, providers, api-keys, security-settings, payments/dodo), `lib/bug-bounty.ts` + `app/api/bug-bounty/*`, `components/admin`, `lib/sandbox`/`lib/ai/app-builder*` (app builder), `apps/desktop/src/main/*` (desktop security). Existing integrations include encrypted dynamic providers, local/RAG documents, connectors, scheduler/outbox, teams, Dodo billing and sandbox/build jobs. External credentials and every live journey remain unverified; keep the existing saved display-name provider contract.
 
 Baseline working-copy changes predate this directive: OAuth cookie-prefix fixes,
 middleware regression tests, credential ignore rule and legacy lockfile repair.
@@ -63,3 +51,38 @@ The chat route conditionally provides no-execute tools for plan approval, bounde
 - **Tests:** Full pnpm test passed: 1,598 tests across 268 files. Focused tests for this work passed (48 tests across 13 files). pnpm check-types passed with a 6 GB Node heap; pnpm db:check, scoped Biome lint/import check, formatting checks for new files, and git diff --check passed.
 - **Build:** The latest production build after these parallel slices is pending. A preceding build passed 192/192 pages before the provider/notification/voice changes; do not use that earlier build as current verification.
 - **Known gaps:** No live PostgreSQL/migration application or browser/device/provider service journey was run. Migration 0058 remains unapplied. Overall migration, F037 document workflows, CreateAgent feature parity, project-specific collaboration, per-user local models, and other remaining matrix entries are still incomplete.
+
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Staged architecture additions — 2026-11-11
+
+The separate integration workspace adds destination-specific modules under `apps/web` while retaining the Better Chatbot monorepo baseline: community repository/media validation (migration 0077), namespaced archive persistence/APIs (0078), and thread-insights generation/repository (0079). Direct provider OAuth/tools are implemented as owner-bound services and approval-gated write actions; the desktop changes remain within upstream `apps/desktop`. A01 chat run guards and recovery remain in the upstream app's chat route/repository, with a success-gated transport wrapper in the staged ChatBot. These are staging changes only; they have not been copied into the primary repository. Current database metadata checks do not apply these migrations to PostgreSQL.
+
+## 2026-11-11 connector/security/app-builder integration strategy
+
+- For direct OAuth connector tools, preserve owner-bound encrypted credentials and fixed-origin bounded transports. Every mutation consumes a short-lived one-use approval bound to the exact canonical payload immediately before the provider call. Do not substitute an upstream generic write tool or treat a provider catalog entry as a workflow.
+- For C45, port the request challenge only if its replay/rate controls work across the actual deployment cache topology. Authenticate first, verify before persistence/provider/tool effects, and preserve a narrow scheduler skip.
+- For the original prompt-to-app builder, reuse the secure staged E2B lifecycle instead of the source's unconstrained shell assumptions. Use allowlisted image/template, fixed setup/start commands, owner-scoped persistent job state, strict path/file validation, resource/time caps and guaranteed cleanup. Keep generic code execution separate.
+- Bug bounty uses a later additive migration only after AI builder migration 0080 is released.
+
+### Connector scope correction — 2026-11-11
+Require exact one-use approval for every provider write. Mock-tested writes now cover Gmail, Drive, Teams, Asana, ClickUp, Linear, Jira, Zendesk. Productboard needs workspace-derived schema/relationship; Freshdesk needs encrypted per-user API-key/subdomain setup; Discord requires a Bot token (not the current user OAuth model); Zulip requires per-user realm/token and pinned-host controls. Do not enable any of these until the credential boundary and approval path are implemented and tested.
+
+### C45 intermediate implementation note — 2026-11-11
+The cryptographic challenge port is in progress. Initial shared/client/server modules and a bounded authenticated challenge route are being added. Replay consumption uses atomic `setNX`; the implementation checks for process-local cache and fails closed rather than claim cross-instance safety. The allowed origin derives from configured deployment origins instead of copying old Flare hard-coded domains. Route/client integration and adversarial tests are not yet complete; current typecheck pass predates these latest edits.
+
+### AI app builder in-progress — 2026-11-11
+An additive `app_build` table/migration 0080 and initial repository/runner are underway. Maintain one owner-scoped lifecycle per build, owner/thread integrity in PostgreSQL, allowlisted templates and fixed commands, no arbitrary shell input, bounded file path/content/output, and cleanup on failure/cancel. `db:check` passed but no actual DB application, API/UI, or end-to-end verification is complete.
+
+### Provider contract integration update — 2026-11-11
+Freshdesk uses owner-bound encrypted API-key credentials, a server-configured validated tenant subdomain, fixed API host construction and exact-payload approval for both supported writes. Productboard v2 requires runtime configuration and a Component parent; adapt the workflow to discover components/config and bind the chosen component/fields into approval. Do not reuse the source's productId as a component. Discord and Zulip require separate credential/host models and remain disabled until safely supported.
+
+## 2026-11-11 00:37 IST — app builder implementation progress
+
+The staging app now has a standalone build create/detail UI and APIs, owner-scoped persistence (migration 0080), bounded plan generation and E2B runner, cancellation/cleanup path, and tests (2 files / 11 tests passed). Database schema enforces owner/thread relation, active-build cap and sandbox uniqueness. The build tool is currently not registered in chat; route integration is being coordinated with the C45 owner. Resume/cleanup edge tests and combined typecheck/db:check/Biome are still pending. No real PostgreSQL, E2B credentials, or browser E2E.
+
+
+## Current integration boundary — 2026-11-11 01:05 IST
+
+The upstream-based application remains in C:/Users/Ikra/Desktop/Void-Agent-integration-staging, without Git metadata and not promoted. Destination remains at 589fa48f3c323d049e51d566f3b8ddff95d59bc5 with 61 dirty/untracked entries and no apps/web directory. Staging has 159 upstream content differences and unresolved custom equivalence. Current overall/implementation/verified estimates: 44% / 58% / 31%. Do not treat staging as deployed or fully validated.

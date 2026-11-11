@@ -1,6 +1,6 @@
 # 🧪 End-to-End Testing Guide
 
-Comprehensive guide for running and developing end-to-end tests for Flare AI using Playwright.
+Comprehensive guide for running and developing end-to-end tests for better-chatbot using Playwright.
 
 ## Quick Start
 
@@ -67,14 +67,14 @@ POSTGRES_URL=postgres://user:password@localhost:5432/database
 BETTER_AUTH_SECRET=your-secret-here
 
 # At least one LLM provider (required)
+OPENAI_API_KEY=your-openai-key
+# OR
+ANTHROPIC_API_KEY=your-anthropic-key
+# OR
 GOOGLE_GENERATIVE_AI_API_KEY=your-google-key
-# OR
-GROQ_API_KEY=your-groq-key
-# OR
-OPENROUTER_API_KEY=your-openrouter-key
 
 # Optional: Set default model for tests - will need to be corelated with API keys
-E2E_DEFAULT_MODEL=google/gemini-2.5-flash
+E2E_DEFAULT_MODEL=openai/gpt-4o-mini
 ```
 
 ### VSCode Extension

@@ -2,16 +2,20 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type BrowserWindow, app, dialog, ipcMain } from "electron";
 import type { AppUpdater, ProgressInfo, UpdateInfo } from "electron-updater";
-import { parseSecureUpdateFeed } from "../../../../src/lib/desktop/update-feed.js";
+import { recordDesktopError } from "./otel.js";
+import {
+  parseSecureUpdateFeed,
+  parseSecureUpdateFeedUrl,
+} from "./secure-update-feed.js";
 import {
   AUTO_CHECK_INTERVAL_MS,
   FOCUS_CHECK_MIN_GAP_MS,
   type UpdateCheckSource,
-  isForcedUpdateCheck,
-  shouldRunUpdateCheck,
+  isForcedCheck,
+  shouldRunAutoCheck,
 } from "./update-policy.js";
 import { resolveAutoUpdater } from "./updater-interop.js";
-import { createUpdaterLogger } from "./updater-log.js";
+import { type UpdaterLogger, createUpdaterLogger } from "./updater-log.js";
 
 export type DesktopUpdateState =
   | { status: "idle" }
@@ -23,144 +27,246 @@ export type DesktopUpdateState =
   | { status: "error"; message: string };
 
 const UPDATE_STATE_CHANGED_CHANNEL = "updates:state-changed";
-const GENERIC_ERROR =
-  "The update service could not be reached. Try again later.";
+const OPERATION = "desktop.updater";
 
 let updateState: DesktopUpdateState = { status: "idle" };
 let mainWindow: BrowserWindow | null = null;
-let trustedOrigin = "";
 let autoUpdaterRef: AppUpdater | null = null;
+let logger: UpdaterLogger | null = null;
 let lastCheckAt: number | null = null;
 let checkInFlight = false;
-let disabledReason = "The updater has not finished starting.";
-let updaterInitialized = false;
-let handlersRegistered = false;
+let disabledReason: string | null = null;
 
-function setState(next: DesktopUpdateState) {
+function log(): UpdaterLogger {
+  if (!logger) logger = createUpdaterLogger();
+  return logger;
+}
+
+function setState(next: DesktopUpdateState): void {
   updateState = next;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(UPDATE_STATE_CHANGED_CHANNEL, updateState);
   }
 }
 
-export function setUpdateMainWindow(window: BrowserWindow | null, origin = "") {
+export function setUpdateMainWindow(window: BrowserWindow | null): void {
   mainWindow = window;
-  trustedOrigin = origin;
 }
 
-function readPackagedFeed(): string | null {
+/**
+ * Resolves the update feed, or null when this build has none.
+ *
+ * `DESKTOP_UPDATE_FEED_URL` wins at runtime; otherwise the feed baked in by
+ * electron-builder at package time is used. Builds packaged without the env
+ * var carry an empty publish URL, which is how community builds ship with
+ * auto-update switched off.
+ */
+function resolveUpdateFeedUrl(): string | null {
+  const fromEnv = process.env.DESKTOP_UPDATE_FEED_URL?.trim();
+  if (fromEnv) return parseSecureUpdateFeedUrl(fromEnv);
+
   try {
-    const configPath = join(process.resourcesPath, "app-update.yml");
-    if (!existsSync(configPath)) return null;
-    return parseSecureUpdateFeed(readFileSync(configPath, "utf8"));
+    const packagedConfig = join(process.resourcesPath, "app-update.yml");
+    if (!existsSync(packagedConfig)) return null;
+    return parseSecureUpdateFeed(readFileSync(packagedConfig, "utf8"));
   } catch {
     return null;
   }
 }
 
-export function initAutoUpdater() {
-  if (updaterInitialized) return;
-  updaterInitialized = true;
+/**
+ * Auto-update wiring.
+ *
+ * Behaves like most desktop apps: checks at startup, on window focus
+ * (throttled) and hourly; downloads a new version in the background; asks the
+ * user to restart via the web UI toast; installs on quit if they never do.
+ * Everything is written to the updater log and errors go to desktop
+ * telemetry, because a silent updater is what left 1.25.0 clients stranded.
+ */
+export function initAutoUpdater(): void {
+  const l = log();
+  l.info(
+    `app ${app.getVersion()} electron ${process.versions.electron} platform ${process.platform}`,
+  );
 
   if (!app.isPackaged) {
-    disabledReason = "Automatic updates are disabled in development builds.";
+    disabledReason = "development build";
+    l.info("updater disabled: development build");
     return;
   }
-  const feed = readPackagedFeed();
-  if (!feed) {
-    disabledReason = "This build has no valid HTTPS update feed.";
+
+  const feedUrl = resolveUpdateFeedUrl();
+  if (!feedUrl) {
+    disabledReason = "this build has no update feed";
+    l.warn("updater disabled: no update feed configured in this build");
     return;
   }
+  l.info(`update feed ${feedUrl}`);
 
   void import("electron-updater")
-    .then((module) => {
-      const updater = resolveAutoUpdater<AppUpdater>(module);
-      autoUpdaterRef = updater;
-      updater.logger = createUpdaterLogger();
-      updater.autoDownload = true;
-      updater.autoInstallOnAppQuit = true;
-      updater.allowDowngrade = false;
+    .then((updaterModule) => {
+      const autoUpdater = resolveAutoUpdater<AppUpdater>(updaterModule);
+      autoUpdaterRef = autoUpdater;
+      autoUpdater.logger = l;
+      autoUpdater.setFeedURL({ provider: "generic", url: feedUrl });
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.allowDowngrade = false;
 
-      updater.on("checking-for-update", () => setState({ status: "checking" }));
-      updater.on("update-available", (info: UpdateInfo) =>
-        setState({ status: "available", version: info.version }),
-      );
-      updater.on("update-not-available", () =>
-        setState({ status: "not-available" }),
-      );
-      updater.on("download-progress", (progress: ProgressInfo) => {
+      autoUpdater.on("checking-for-update", () => {
+        setState({ status: "checking" });
+      });
+
+      autoUpdater.on("update-available", (info: UpdateInfo) => {
+        setState({ status: "available", version: info.version });
+      });
+
+      autoUpdater.on("update-not-available", () => {
+        setState({ status: "not-available" });
+      });
+
+      autoUpdater.on("download-progress", (progress: ProgressInfo) => {
         const version =
-          updateState.status === "available" ||
-          updateState.status === "downloading"
+          updateState.status === "downloading" ||
+          updateState.status === "available"
             ? updateState.version
             : "";
         setState({ status: "downloading", version, percent: progress.percent });
       });
-      updater.on("update-downloaded", (info: UpdateInfo) =>
-        setState({ status: "downloaded", version: info.version }),
-      );
-      updater.on("error", () =>
-        setState({ status: "error", message: GENERIC_ERROR }),
-      );
+
+      // Do not quit here: the toast offers "Restart now", and
+      // autoInstallOnAppQuit covers everyone who ignores it.
+      autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
+        setState({ status: "downloaded", version: info.version });
+      });
+
+      autoUpdater.on("error", (_error: Error) => {
+        recordDesktopError(OPERATION, new Error("Update request failed"), {
+          phase: updateState.status,
+        });
+        setState({
+          status: "error",
+          message: "The update service could not be reached. Try again later.",
+        });
+      });
 
       void checkForUpdatesNow("startup");
-      setInterval(
-        () => void checkForUpdatesNow("interval"),
-        AUTO_CHECK_INTERVAL_MS,
-      );
-      app.on("browser-window-focus", () => void checkForUpdatesNow("focus"));
+      setInterval(() => {
+        void checkForUpdatesNow("interval");
+      }, AUTO_CHECK_INTERVAL_MS);
+      app.on("browser-window-focus", () => {
+        void checkForUpdatesNow("focus");
+      });
     })
     .catch(() => {
-      disabledReason = "The updater could not be initialized.";
-      setState({ status: "error", message: GENERIC_ERROR });
+      // Keep internal errors out of renderer state and user-visible dialogs.
+      disabledReason = "the updater failed to start";
+      l.error("updater initialization failed");
+      recordDesktopError(
+        OPERATION,
+        new Error("Updater initialization failed"),
+        {
+          phase: "load",
+        },
+      );
+      setState({ status: "error", message: "Updater unavailable" });
     });
 }
 
-export async function checkForUpdatesNow(source: UpdateCheckSource) {
+/**
+ * Runs an update check. Automatic sources are throttled; a check the user
+ * asked for always runs and reports its outcome in a dialog.
+ */
+export async function checkForUpdatesNow(
+  source: UpdateCheckSource,
+): Promise<void> {
+  const l = log();
+  const manual = source === "manual";
+
   if (!autoUpdaterRef) {
-    if (source === "manual") {
-      await showDialog("Updates are unavailable", disabledReason);
+    l.info(`check skipped (${source}): ${disabledReason ?? "not initialised"}`);
+    if (manual) {
+      await showDialog(
+        "Updates are not available",
+        disabledReason
+          ? `Automatic updates are off: ${disabledReason}.`
+          : "The updater has not finished starting. Try again in a moment.",
+      );
     }
     return;
   }
-  if (checkInFlight) return;
+
+  if (checkInFlight) {
+    l.info(`check skipped (${source}): another check is in flight`);
+    return;
+  }
+
   const now = Date.now();
   if (
-    !isForcedUpdateCheck(source) &&
-    !shouldRunUpdateCheck({
-      lastCheckAt,
-      now,
-      minGapMs: FOCUS_CHECK_MIN_GAP_MS,
-    })
+    !isForcedCheck(source) &&
+    !shouldRunAutoCheck({ lastCheckAt, now, minGapMs: FOCUS_CHECK_MIN_GAP_MS })
   ) {
     return;
   }
 
   checkInFlight = true;
   lastCheckAt = now;
+  l.info(`checking for updates (${source})`);
   try {
-    const result = await autoUpdaterRef.checkForUpdates();
-    if (source === "manual" && result) {
+    await autoUpdaterRef.checkForUpdates();
+    if (manual) await showManualCheckResult();
+  } catch {
+    // The "error" event already recorded telemetry and updated the state.
+    l.error(`update check failed (${source})`);
+    recordDesktopError(OPERATION, new Error("Update check failed"), {
+      phase: source,
+    });
+    if (manual) {
       await showDialog(
-        result.isUpdateAvailable
-          ? `Void-Agent ${result.updateInfo.version} is downloading`
-          : "Void-Agent is up to date",
-        result.isUpdateAvailable
-          ? "The update will download in the background. You can keep working."
-          : `You are running Void-Agent ${app.getVersion()}.`,
+        "Update check failed",
+        "The update service could not be reached. Try again later.",
       );
     }
-  } catch {
-    setState({ status: "error", message: GENERIC_ERROR });
   } finally {
     checkInFlight = false;
   }
 }
 
-async function showDialog(message: string, detail: string) {
+/**
+ * Feedback for Help > Check for Updates. Main-process dialogs have no locale
+ * plumbing, so these strings are English; the in-app toast is translated.
+ */
+async function showManualCheckResult(): Promise<void> {
+  const current = app.getVersion();
+  switch (updateState.status) {
+    case "available":
+    case "downloading":
+      await showDialog(
+        `Version ${updateState.version} is on its way`,
+        "It is downloading in the background. You will be asked to restart once it is ready.",
+      );
+      return;
+    case "downloaded":
+      await showDialog(
+        `Version ${updateState.version} is ready`,
+        "Restart Keinsaas Navigator to finish the update.",
+      );
+      return;
+    case "error":
+      await showDialog("Update check failed", updateState.message);
+      return;
+    default:
+      await showDialog(
+        "You're up to date",
+        `Keinsaas Navigator ${current} is the latest version.`,
+      );
+  }
+}
+
+async function showDialog(message: string, detail: string): Promise<void> {
   const options = {
     type: "info" as const,
-    title: "Void-Agent",
+    title: "Keinsaas Navigator",
     message,
     detail,
   };
@@ -171,50 +277,32 @@ async function showDialog(message: string, detail: string) {
   }
 }
 
-function assertTrustedSender(event: Electron.IpcMainInvokeEvent) {
-  if (
-    !mainWindow ||
-    mainWindow.isDestroyed() ||
-    event.sender !== mainWindow.webContents ||
-    event.senderFrame !== mainWindow.webContents.mainFrame
-  ) {
-    throw new Error("Untrusted desktop IPC sender");
-  }
-  try {
-    if (new URL(event.senderFrame.url).origin !== trustedOrigin) {
-      throw new Error("Untrusted desktop IPC origin");
-    }
-  } catch {
-    throw new Error("Untrusted desktop IPC origin");
-  }
-}
+export function registerUpdateIpcHandlers(): void {
+  ipcMain.handle("updates:get-state", () => updateState);
 
-export function registerUpdateIpcHandlers() {
-  if (handlersRegistered) return;
-  handlersRegistered = true;
-
-  ipcMain.handle("updates:get-state", (event) => {
-    assertTrustedSender(event);
-    return updateState;
-  });
-  ipcMain.handle("updates:download-and-install", async (event) => {
-    assertTrustedSender(event);
+  // Kept for web bundles that predate auto-download: starts (or joins) the
+  // download of an available update.
+  ipcMain.handle("updates:download-and-install", async () => {
     if (!autoUpdaterRef || updateState.status !== "available") return;
     const version = updateState.version;
-    setState({ status: "downloading", version, percent: 0 });
     try {
+      setState({ status: "downloading", version, percent: 0 });
       await autoUpdaterRef.downloadUpdate();
     } catch {
-      setState({ status: "error", message: GENERIC_ERROR });
+      setState({
+        status: "error",
+        message: "The update service could not be reached. Try again later.",
+      });
     }
   });
-  ipcMain.handle("updates:check", async (event) => {
-    assertTrustedSender(event);
+
+  ipcMain.handle("updates:check", async () => {
     await checkForUpdatesNow("renderer");
   });
-  ipcMain.handle("updates:restart-and-install", (event) => {
-    assertTrustedSender(event);
+
+  ipcMain.handle("updates:restart-and-install", () => {
     if (!autoUpdaterRef || updateState.status !== "downloaded") return;
+    log().info(`restart to install ${updateState.version}`);
     autoUpdaterRef.quitAndInstall(false, true);
   });
 }

@@ -3,31 +3,41 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  clearServerUrl,
   normalizeServerUrl,
+  readPreviousServerUrl,
   readServerUrl,
   resolveStartupServer,
   writeServerUrl,
 } from "./server-config.js";
 
-let userDataDir: string;
+const CLOUD = "https://app.keinsaas.com";
+let dir: string;
 
 beforeEach(() => {
-  userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "void-agent-server-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "server-config-"));
 });
-
 afterEach(() => {
-  fs.rmSync(userDataDir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
-describe("desktop server configuration", () => {
-  it("normalizes custom HTTPS addresses to an origin", () => {
-    expect(normalizeServerUrl(" selfhost.example/chat?x=1 ", false)).toEqual({
+const startup = () =>
+  resolveStartupServer({
+    isDev: false,
+    devUrl: "http://localhost:3000",
+    cloudUrl: CLOUD,
+    userDataDir: dir,
+  });
+
+describe("normalizeServerUrl", () => {
+  it("adds https to a bare hostname and keeps only the origin", () => {
+    expect(normalizeServerUrl("  my-chat.vercel.app/chat?x=1 ")).toEqual({
       ok: true,
-      origin: "https://selfhost.example",
+      origin: "https://my-chat.vercel.app",
     });
   });
 
-  it("allows local HTTP only when the build is in development", () => {
+  it("allows plain HTTP to loopback only for development builds", () => {
     expect(normalizeServerUrl("http://localhost:3000", true)).toEqual({
       ok: true,
       origin: "http://localhost:3000",
@@ -36,94 +46,68 @@ describe("desktop server configuration", () => {
       ok: false,
       reason: "insecure",
     });
-    expect(normalizeServerUrl("http://example.com", true)).toEqual({
+    expect(normalizeServerUrl("http://example.com")).toEqual({
       ok: false,
       reason: "insecure",
     });
   });
 
-  it("rejects credentials and non-web protocols", () => {
-    expect(normalizeServerUrl("https://user:pass@example.com", false)).toEqual({
+  it("does not load persisted loopback HTTP in production mode", () => {
+    writeServerUrl(dir, "http://localhost:3000", true);
+    expect(readServerUrl(dir)).toBeNull();
+    expect(startup()).toEqual({ pick: true });
+  });
+
+  it("rejects empty input and other schemes", () => {
+    expect(normalizeServerUrl("   ")).toEqual({ ok: false, reason: "empty" });
+    expect(normalizeServerUrl("file:///etc/passwd")).toEqual({
       ok: false,
       reason: "invalid",
     });
-    expect(normalizeServerUrl("file:///tmp/app", false)).toEqual({
-      ok: false,
-      reason: "invalid",
-    });
+  });
+});
+
+describe("resolveStartupServer", () => {
+  it("asks on a fresh install", () => {
+    expect(startup()).toEqual({ pick: true });
   });
 
-  it("persists only a validated canonical HTTPS origin", () => {
-    writeServerUrl(userDataDir, "https://selfhost.example");
-    expect(readServerUrl(userDataDir)).toBe("https://selfhost.example");
-    expect(() =>
-      writeServerUrl(userDataDir, "https://selfhost.example/path"),
-    ).toThrow("Invalid desktop server origin");
+  it("keeps an install from before the picker on the cloud, once and silently", () => {
+    fs.mkdirSync(path.join(dir, "Local Storage"));
+    expect(startup()).toEqual({ url: CLOUD });
+    expect(readServerUrl(dir)).toBe(CLOUD);
   });
 
-  it("persists loopback HTTP only for a development installation", () => {
-    writeServerUrl(userDataDir, "http://localhost:3000", true);
-    expect(readServerUrl(userDataDir, true)).toBe("http://localhost:3000");
-    expect(readServerUrl(userDataDir, false)).toBeNull();
-    expect(() => writeServerUrl(userDataDir, "http://localhost:3000")).toThrow(
-      "Invalid desktop server origin",
-    );
+  it("uses the stored choice", () => {
+    writeServerUrl(dir, "https://my-chat.vercel.app");
+    expect(startup()).toEqual({ url: "https://my-chat.vercel.app" });
   });
 
-  it("ignores a hand-edited insecure server target", () => {
+  it("asks again after Change Server, even with cloud cookies around", () => {
+    fs.mkdirSync(path.join(dir, "Local Storage"));
+    writeServerUrl(dir, "https://my-chat.vercel.app");
+    clearServerUrl(dir);
+    expect(startup()).toEqual({ pick: true });
+    expect(readPreviousServerUrl(dir)).toBe("https://my-chat.vercel.app");
+  });
+
+  it("ignores a hand-edited file that points somewhere unsafe", () => {
     fs.writeFileSync(
-      path.join(userDataDir, "server.json"),
-      JSON.stringify({ url: "http://unsafe.example" }),
+      path.join(dir, "server.json"),
+      JSON.stringify({ url: "http://evil.example" }),
     );
-    expect(readServerUrl(userDataDir)).toBeNull();
+    expect(readServerUrl(dir)).toBeNull();
+    expect(startup()).toEqual({ pick: true });
   });
 
-  it("opens the picker for a fresh installation", () => {
-    expect(
-      resolveStartupServer({
-        isDev: false,
-        devUrl: "http://localhost:3000",
-        defaultUrl: "https://void.example",
-        userDataDir,
-      }),
-    ).toEqual({ pick: true });
-  });
-
-  it("preserves legacy cloud data and cookies without prompting", () => {
-    fs.mkdirSync(path.join(userDataDir, "Local Storage"));
-    expect(
-      resolveStartupServer({
-        isDev: false,
-        devUrl: "http://localhost:3000",
-        defaultUrl: "https://void.example",
-        userDataDir,
-      }),
-    ).toEqual({ url: "https://void.example" });
-    expect(readServerUrl(userDataDir)).toBe("https://void.example");
-  });
-
-  it("reuses an explicit server choice, including on legacy installs", () => {
-    fs.mkdirSync(path.join(userDataDir, "Network"), { recursive: true });
-    fs.writeFileSync(path.join(userDataDir, "Network", "Cookies"), "");
-    writeServerUrl(userDataDir, "https://self-hosted.example");
-    expect(
-      resolveStartupServer({
-        isDev: false,
-        devUrl: "http://localhost:3000",
-        defaultUrl: "https://void.example",
-        userDataDir,
-      }),
-    ).toEqual({ url: "https://self-hosted.example" });
-  });
-
-  it("always uses the configured local development server", () => {
-    writeServerUrl(userDataDir, "https://self-hosted.example");
+  it("always uses the dev server in development", () => {
+    writeServerUrl(dir, "https://my-chat.vercel.app");
     expect(
       resolveStartupServer({
         isDev: true,
         devUrl: "http://localhost:3000",
-        defaultUrl: "https://void.example",
-        userDataDir,
+        cloudUrl: CLOUD,
+        userDataDir: dir,
       }),
     ).toEqual({ url: "http://localhost:3000" });
   });

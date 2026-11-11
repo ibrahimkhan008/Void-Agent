@@ -967,3 +967,92 @@ The B20 execution gate is now enforced twice: the Browser toolkit is absent from
 - Final `git diff --check` after updating the register, testing report, migration status report, integration progress, handoff, and security review exited 0; only LF/CRLF normalization notices were emitted.
 - Corrected report snapshot: 315 tracked modified paths, 285 untracked paths, 0 staged; 600 default `git status --short` entries. No commit, push, merge, deployment, migration apply, or reference write.
 - Final verified aggregate remains: full tests 588/3,131, 6 GiB typecheck PASS, lint PASS with warnings, Drizzle metadata check PASS, production build PASS with 205/205 pages. B20 remains MISSING and disabled; C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
+
+### 2026-11-09 00:08 IST - A01 message ownership and run integrity
+- `upsertMessage` now constrains conflict updates by both thread ID and role, preventing client-supplied IDs from overwriting another thread's row or changing a user row into assistant content. New thread + initial message insertion is transactional; cross-thread message collisions and duplicate thread IDs map to generic 409 responses.
+- Run claims persist a server-generated `runAttemptId`. Finalize/fail writes compare message ID, thread ID, role, attempt token, and `runStatus='running'`; stale callbacks cannot mark a newer retry failed or completed. Assistant persistence is insert-only in the same transaction as user terminal status, so collisions roll back the user update. `/schedule` claims before its side effect to reject replay.
+- Real isolated PostgreSQL tests verify collision rollback, same-thread role collision preservation, one winner for concurrent claims, retry, stale callback rejection, transactionally paired assistant persistence, and user ownership predicate. Fresh migration chain applied on a separate A01 test database. This is repository-level evidence; live authenticated route authorization and provider/browser workflow remain unverified. B20 remains MISSING/disabled; unchanged by A01.
+
+### 2026-11-09 00:26 IST - A01 final security verification
+- Route-level mocked security coverage now verifies unauthenticated requests stop before user/persistence access, invalid assistant-role messages return 400 before persistence, and access to another user's thread returns 403 before insert/run claim. These tests do not replace real HTTP + PostgreSQL authorization verification.
+- PostgreSQL A01 integration suite now has 12 tests, including ownership predicate, cross-thread message ID isolation, same-thread role collision preservation, transaction rollback, stable timestamp tie-break pagination, concurrent duplicate thread creation, one-winner run claims, and stale-attempt CAS. Full suite 595/3,172 passes.
+- No new runtime/provider or browser execution security boundary was added. B20 remains MISSING/disabled; C38 remains PARTIAL. Authenticated provider streaming/cancellation and browser retry behavior remain unverified end to end.
+
+## A01 run-claim collision fix and callback verification — 2026-11-09 00:44 IST
+
+- Independent concurrency review found and fixed a repository conflict predicate gap: claimMessageRun now requires an existing row to match both the requested thread and role=user before retryable upsert. This prevents a retryable assistant row from being overwritten by a client-submitted user turn using the same message ID.
+- Added real PostgreSQL regression coverage asserting the claim is rejected and assistant role/content/metadata remain unchanged. The unit SQL assertion now verifies the role predicate as well.
+- Added mocked route callback coverage for successful terminal finalization, sanitized retryable provider failure state, and aborted partial-response persistence. These invoke route callbacks directly; they do not verify AI SDK callback scheduling, provider stream bytes, real provider calls, or browser E2E.
+- Isolated PostgreSQL lifecycle suite: PASS, 13/13. Focused A01 suite: PASS, 7 files / 45 tests. Full suite: PASS, 595 files / 3,176 tests using only the local A01 test database URL override.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types: PASS (also included in the successful production build after test updates). pnpm lint: PASS with existing Next deprecation/workspace-root and img warnings. pnpm db:check: PASS (metadata only). 6 GiB pnpm build: PASS, exit 0, generated 205/205 pages; existing dependency-analysis and dynamic-session warnings remain. git diff --check is to be rerun after this documentation append.
+- A01 remains PARTIAL. Real provider streaming, SDK callback execution order, actual timeout/cancellation over HTTP, and browser send/retry/history remain unverified. The route has a Next maxDuration=300 setting, but this is not proof that timeout state is persisted on every deployment runtime.
+- No commit, push, deployment, production database access, or reference-repository edit. Original untracked user-owned files remain untouched.
+
+---
+
+### 2026-11-09 01:24 IST � A01 security verification
+- PostgreSQL claim conflict now binds retries to `threadId` and `role='user'`, preventing a retryable assistant row from being changed by a colliding client ID. Regression verified against the isolated PostgreSQL database.
+- Chat run state remains protected by owner-scoped route checks and `runAttemptId` compare-and-swap. Failure writes are retryable/sanitized; stream finish waits for failure persistence before returning. Deadline abort maps to retryable timeout unless explicit user stop was requested, in which case cancellation takes precedence.
+- Controlled AI SDK stream tests verify stream errors do not expose provider error details in serialized output and persist a generic retryable failure. Auth/repository/provider-selection boundaries are mocked there; this does not verify live provider or DB-backed route behavior.
+- No security control was removed. Still unverified: browser journey, real authenticated route + PostgreSQL integration, and runtime deadline behavior in deployment. B20 stays MISSING/disabled; C38 stays PARTIAL.
+
+### A01 finalization recovery and retry gate — 2026-11-09 02:30 IST
+- Main chat, schedule, and unknown-skill finalization now retry the exact same transaction/output once. Model execution and tools are not rerun as part of persistence recovery.
+- If both exact writes fail, the same attempt is marked `failed` with `error.code=persistence_failed` and `retryable=false` when possible. The PostgreSQL run-claim conflict predicate only reclaims historical/failed rows whose retryability is not explicitly false. This prevents automatic replay of completed side effects after their assistant result could not be stored.
+- `failMessageRun` remains scoped by user message ID, thread ID, role, exact server-generated `runAttemptId`, and `runStatus=running`; stale attempts cannot change a newer retry.
+- Verification: controlled route test confirms same finalization transaction is attempted twice and fallback retains the claimed attempt ID; PostgreSQL tests cover true/false/missing retryable metadata; lifecycle stale-CAS tests pass. No security checks were weakened.
+- Remaining limitation: if the database is unavailable for both finalization attempts and the fallback failure write, the run can remain `running`; durable recovery then requires DB availability. Live production runtime/database behavior was not tested.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+Upstream sync security note (2026-11-09 06:13:05 +05:30): team member allowance now counts all monthly ledger periods under a member advisory lock. TTL-only reservation release is disabled because elapsed time does not prove provider execution ended. TensorX credentials remain server-side and missing/masked keys fail closed; direct provider routing is allowlisted. Project-brain dispatch uses the existing database run claim after commit; it does not bypass owner/source authorization.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Staging security review addendum — 2026-11-11
+
+- **Community uploads:** authenticated same-origin mutation, fail-closed rate-limit dependency, streamed body/file-size caps, MIME plus magic validation, sanitized names, private server-side storage keys, one-time owner-bound attachment, authenticated proxy with `nosniff`/no-store, and upload cleanup on metadata failure. Focused tests/mock paths pass; live storage and PostgreSQL behavior remain unverified.
+- **Archive isolation:** archive and item queries include session owner predicates; adding a thread checks both archive and thread ownership in a transaction and composite database FK; mutations are same-origin and bounded. Focused route tests pass; real migration and concurrency are not verified.
+- **Thread Insights:** owner-scoped transcript reads, bounded snapshot, repeatable-read load, strict schema validation, prompt treats transcript as untrusted data, per-user/thread rate limit, model timeout, transcript hash/count/latest-ID recheck under thread lock before save, and visible stale marker. Focused tests pass; live DB/provider/browser behavior remains unverified.
+- **Connectors:** OAuth state is HMAC-signed, DB-stored encrypted and consumed once with expiry; connector tokens are encrypted and owner/provider bound. Provider requests use fixed HTTPS origins, bounded response/timeouts and denied redirects. Gmail/Drive/Teams writes consume exact payload approval before provider calls. Nine additional original write actions remain unimplemented/test-pending. Mock tests are not live OAuth/provider evidence.
+- **A01:** run-claim/attempt fencing, deadline, failure persistence, route ownership guards and controlled stream tests are present; draft URL transition now requires a successful non-redirected streaming response. Real PostgreSQL and browser E2E remain unavailable.
+- **B20:** no provider/VM-level browser egress isolation; stays MISSING, browser execution disabled. No security boundary is inferred from URL filtering.
+
+## C45 chat request challenge review — 2026-11-11
+
+The original custom source implements a defense-in-depth chat-send challenge that staging lacks. Source controls: authenticated challenge issuance; binding to user/session with optional IP and user-agent; optional client key identity; short TTL and one-use replay marker; signed challenge token; request-body hash plus HMAC; ECDSA P-256 client proof; bounded proof-of-work; origin/fetch-site checks; per-IP/user challenge/request limits; adaptive Turnstile; and explicit skip for system-scheduled headless execution. Before porting, verify the active staging cache provides safe cross-instance replay/rate protection. If only local-memory behavior exists, keep the guard disabled/fail closed rather than claiming enforcement. Validate integration before any thread/message persistence or provider/tool execution; do not bypass existing auth, ownership, billing, or run-claim checks.
+
+Connector status correction: mock-approved writes are currently proven for Gmail, Drive, Teams, Asana, ClickUp and Linear; Jira/Zendesk edits are pending tests; Productboard, Freshdesk, Discord and Zulip remain unsupported/under review. Never claim all 45 source tools are fully ported.
+
+### Connector update — 2026-11-11 00:20
+Jira and Zendesk write approval paths now have focused mocked tests. Jira requests use PKCE OAuth 3LO, fixed HTTPS `api.atlassian.com`, validated cloudId and owner-scoped token resolution. Zendesk tenant hostname is sourced from server-side validated subdomain config, not a client-supplied URL; access tokens are encrypted/owner-bound. Exact one-use payload approval is required before writes. Live auth/provider/DB verification remains open. Productboard, Freshdesk, Discord and Zulip writes remain unsupported or under review; Discord's source Bot token cannot be mapped to ordinary user OAuth without redesign.
+
+The latest typecheck currently fails because the concurrent C45 security port has not yet exported `ChatRequestSecuritySchema`; this is an in-progress integration dependency, not a passing check.
+
+### C45 intermediate implementation note — 2026-11-11
+The cryptographic challenge port is in progress. Initial shared/client/server modules and a bounded authenticated challenge route are being added. Replay consumption uses atomic `setNX`; the implementation checks for process-local cache and fails closed rather than claim cross-instance safety. The allowed origin derives from configured deployment origins instead of copying old Flare hard-coded domains. Route/client integration and adversarial tests are not yet complete; current typecheck pass predates these latest edits.
+
+### App builder review — 2026-11-11
+The initial `app_build` persistence schema is present in staging. Require a composite DB owner/thread relationship (not only separate FKs), owner predicates on every read/update/cancel, fixed startup commands and allowlisted templates, normalized safe relative paths, output-size/time/resource limits, preview-origin validation, safe sanitized errors, and guaranteed sandbox teardown. Review sandbox ID uniqueness and stale job cleanup. No route/UI/runtime tests or PostgreSQL apply are complete yet.
+
+### Freshdesk connector security — 2026-11-11
+Freshdesk access is per-user, API keys are encrypted and owner-bound, tenant host is a validated server-configured subdomain, and requests use fixed official Basic `apikey:X` auth rather than a client-provided URL. `create_ticket`/`add_reply` require exact one-use approval. Focused tests pass; live provider/DB verification remains unavailable. Productboard v2 uses Component→Feature hierarchy; require explicit Component selection and server-fetched field validation before any approved create. Do not accept arbitrary host URLs or silently reinterpret product IDs.
+
+### AI app-builder review update — 2026-11-11
+The in-progress app builder now has owner-scoped build API access, DB composite thread/user integrity, per-user active-build admission, unique non-null sandbox IDs, bounded persisted fields, E2B runner and cancellation cleanup. Dashboard create path is user-accessible. Remaining security review: resume/terminal-state race behavior, sandbox teardown on all failures, preview URL origin validation, bounded generated files/runtime, API ownership regression tests, and route registration of `buildAppTool` under existing chat tool/permission gates. Only mocks have run; no live PostgreSQL/E2B/browser journey.
+
+
+## Current handoff security status — 2026-11-11 01:05 IST
+
+See docs/MIGRATION-STATUS-REPORT.md for the full audit. B20 is BLOCKED: browser/VM egress isolation is not enforceable; browser execution stays disabled. C45 is IMPLEMENTED BUT NOT FULLY VERIFIED: challenge issuance/client proof/chat-route guard and adversarial-focused tests are agent-reported; shared-cache/database behavior is not live-tested. C38 remains IMPLEMENTED BUT NOT FULLY VERIFIED pending live Composio/DB/browser evidence.
+
+Never read or copy staging .env. Review the 21 App Builder staging edits for ownership, job races, sandbox teardown, file bounds and preview policy. No live database/provider/browser verification was performed by the audit.
+
+## Session addendum — 2026-11-11 (post-promotion)
+
+- **C45 chat-request security completed.** Fixed a real fail-open: the verify path never compared the challenge-bound client-key hash (`pkh`), so a request swapping in a different client key verified successfully — now enforced before PoW/proof verification. Replay consumption uses shared-cache `setNX` with a post-call distributed-cache recheck; the guard fails closed (503) when only a process-local cache is available, when the production origin allowlist is empty, and on rate-limit store failures. 12 files / 70 tests incl. 13 adversarial cases (replay, expiry, tamper, wrong binding, cache outage, rate limits).
+- **AES envelope layer ported.** The destination's optional AES-256-GCM encrypted-request envelope (key derived from the challenge token) is now wired into `/api/chat` and `/api/chat/temporary` and both chat clients; malformed/tampered envelopes fail with stable 400 codes before auth; plaintext passthrough is preserved for headless/system tasks. Dev (`IS_DEV`) disables the guard by design.
+- **Admin console secrets hardening.** The ported `/api/admin/config` route guarantees `apiKeysSecrets` is never read from or written to a client — this improves on the original destination behavior, which round-tripped ciphertexts through the browser. Dynamic-provider keys remain AES-256-GCM encrypted with `ENCRYPTION_MASTER_KEY`; discovery reuses a saved key server-side only on endpoint match.
+- **Connector credential boundary.** Zulip uses per-user realm/API-token onboarding with strict host pinning at save and dispatch (HTTPS-only, no userinfo/port/path, IP-literal/localhost/single-label rejection, `redirect: "error"`, credentials only to the pinned origin); all provider writes remain exact-payload one-use approval-gated. Discord `send_message` is EXCLUDED (Bot-token model cannot be securely user-bound).
+- **Unchanged posture:** B20 browser execution remains MISSING and fail-closed/disabled — no provider/VM egress isolation exists; do not enable. Migration 0081 (bug bounty) is structurally inspected but unapplied; no database migration was applied anywhere. Production deployment requirements for C45: mandatory shared cache (REDIS_URL or Upstash REST) and a non-empty origin allowlist, otherwise every browser chat fails closed with 503 — see docs/chat-request-security.md.

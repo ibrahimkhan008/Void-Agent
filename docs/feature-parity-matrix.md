@@ -1830,3 +1830,20 @@ Focused route tests verify same-origin rejection before authentication/service w
 The feature-level register now tracks 96 scoped candidates (95 reference workflows plus one primary-only custom workflow). Three independently discovered workflows were added as C33-C35: chat-alert delivery policy; optional Agentset project search; and read-only Composio actions in OpenAI Realtime voice. All three are PARTIAL because their live provider/browser/database journeys or remaining lifecycle behavior are not verified. The existing broad-family table remains historical and is not a feature completion denominator. The 206 reference route/page/tool surfaces still need complete mapping; no overall parity percentage is claimed.
 
 Evidence and implementation paths are in docs/feature-work-register.md. C33 is distinct from C15 notification feed/read-state and C16 push subscription/delivery. C34 preserves local pgvector and project ACLs; it does not yet mirror documents or inject results into chat. C35 does not expose Composio mutations because upstream's direct voice executor bypasses the primary approval boundary.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+
+## Current migration audit — 2026-11-11 01:05 IST
+
+Current status of record is docs/MIGRATION-STATUS-REPORT.md. Weighted overall ~44% (38–50% range), implementation 58%, verified functionality 31%; prior 60% overall estimate is superseded as overstated. Original source zip-main@aa9fce0f545afb18b9a191724be092887f83630b, upstream better-chatbot@6f4183566bc48616303cb84055f11f79578c82fe, destination Void-Agent@589fa48f3c323d049e51d566f3b8ddff95d59bc5. Staging is C:/Users/Ikra/Desktop/Void-Agent-integration-staging, not promoted. It has 1,609/1,768 upstream contents identical, 159 different, zero missing. Original src path mapping is unresolved and is not a parity count. Bug Bounty is missing; original App Builder modes are omitted; B20 remains blocked/disabled.
+
+The audit did not rerun tests or builds. Existing focused results are agent-reported only. No live PostgreSQL/provider/browser E2E is established. Preserve 61 destination changes; do not copy staging .env; explicitly handle apps/void-agent-desktop. A helper modified 21 staging App Builder files during the read-only audit. Review them first. See docs/migration-handoff.md for ordered work.
+
+## Promotion correction — 2026-11-11 06:20 IST (supersedes the 2026-11-11 00:xx C42–C45 notes above for current state)
+
+The staged integration WAS promoted into the destination on 2026-11-11 and validated (web 498 files / 3,361 tests, typecheck/lint/db:check/build PASS; desktop 22 files / 132 tests — docs/testing-report.md). Current statuses per the register's 2026-11-11 rows: C42 PARTIAL (Productboard component-bound writes + Zulip host-pinned realm/token implemented; Discord excluded with justification; 25 files / 112 tests), C43 PARTIAL (static + agent modes, clarify, resume lifecycle; vibesdk = documented 503; 8 files / 67 tests), C44 PARTIAL (Bug Bounty ported, migration 0081 structurally inspected and unapplied; 6 files / 56 tests), C45 PARTIAL (pkh fail-open fixed, AES envelope layer ported; 12 files / 70 tests). B20 remains MISSING/disabled. All 159 upstream diffs classified with 0 unresolved; zip-main families fully dispositioned (docs/zip-main-parity-map.md + triage docs). Remaining work: docs/MIGRATION-STATUS-REPORT.md §16.

@@ -1,227 +1,304 @@
-import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, Menu, app, dialog, shell } from "electron";
-import { buildDesktopApplicationMenu } from "./application-menu.js";
+import { BrowserWindow, app, session, shell } from "electron";
 import {
-  checkForUpdatesNow,
   initAutoUpdater,
   registerUpdateIpcHandlers,
   setUpdateMainWindow,
 } from "./auto-updater.js";
+import { openCheckoutWindow } from "./checkout-window.js";
+import { DESKTOP_PROTOCOL, findDeepLinkArg } from "./deep-link.js";
 import {
-  configureDesktopAuth,
-  flushDesktopAuthDeepLinks,
-  handleDesktopAuthDeepLink,
+  flushQueuedDeepLinks,
+  focusMainWindow,
+  handleAuthDeepLink,
+  registerDesktopAuthIpcHandlers,
+  setDesktopAuthMainWindow,
 } from "./desktop-auth.js";
-import { registerDesktopDownloads } from "./downloads.js";
-import { classifyDesktopNavigation } from "./external-links.js";
+import { registerDownloadHandler } from "./downloads.js";
+import { classifyNavigation } from "./external-links.js";
+import { resolveAppIconPath } from "./icon.js";
+import { registerIpcHandlers } from "./ipc-handlers.js";
 import { configureMcpIpc, registerMcpIpcHandlers } from "./mcp-ipc.js";
+import { createApplicationMenu } from "./menu.js";
 import {
   configureDesktopNotifications,
-  registerDesktopNotificationHandlers,
-} from "./notifications.js";
+  registerNotificationHandlers,
+} from "./notification-ipc.js";
+import {
+  initDesktopTelemetry,
+  recordDesktopError,
+  shutdownDesktopTelemetry,
+} from "./otel.js";
 import { resolveStartupServer } from "./server-config.js";
 import {
+  changeServer,
   openServerPickerWindow,
   registerServerPickerIpc,
 } from "./server-picker.js";
-import { updaterLogDirectory } from "./updater-log.js";
 
-const targetValue =
-  process.env.VOID_AGENT_WEB_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "";
-let target: URL | null = null;
-let window: BrowserWindow | null = null;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appIconPath = resolveAppIconPath();
 
-function parseTarget(value: string) {
-  const url = new URL(value);
-  const local = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
-  if (
-    url.protocol !== "https:" &&
-    !(
-      process.env.NODE_ENV === "development" &&
-      local &&
-      url.protocol === "http:"
-    )
-  )
-    throw new Error(
-      "Void-Agent desktop requires HTTPS except for local development servers",
-    );
-  if (url.username || url.password)
-    throw new Error("Desktop server URL cannot include credentials");
-  return new URL(url.origin);
-}
+const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+const allowLocalHttp = isDev;
 
-function acceptDeepLink(raw: string) {
-  void handleDesktopAuthDeepLink(raw);
-}
+// The cloud address is baked in at build time (scripts/build-main.mjs). It is
+// what the first-run picker offers as "keinsaas Navigator (cloud)", not a
+// fixed destination: a self-hosted better-chatbot can be chosen instead.
+const cloudUrl = process.env.KEINSAAS_WEB_URL || "https://app.keinsaas.com";
+const userDataDir = app.getPath("userData");
+const startup = resolveStartupServer({
+  isDev,
+  devUrl: `http://localhost:${process.env.PORT || "3000"}`,
+  cloudUrl,
+  allowLocalHttp,
+  userDataDir,
+});
+/** Null on a first run, while the picker is open. */
+const webUrl = "url" in startup ? startup.url : null;
+const appOrigin = webUrl ? new URL(webUrl).origin : "";
 
-function installApplicationMenu(onChangeServer: () => void) {
-  app.setAboutPanelOptions({
-    applicationName: "Void-Agent",
-    applicationVersion: app.getVersion(),
-  });
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate(
-      buildDesktopApplicationMenu({
-        platform: process.platform,
-        connectedHost: target?.host.slice(0, 253) ?? "",
-        canOpenDevTools: process.env.NODE_ENV === "development",
-        onChangeServer,
-        onCheckForUpdates: () => void checkForUpdatesNow("manual"),
-        onOpenUpdaterLogs: () => {
-          void (async () => {
-            try {
-              const directory = updaterLogDirectory();
-              mkdirSync(directory, { recursive: true });
-              const error = await shell.openPath(directory);
-              if (error) {
-                dialog.showErrorBox(
-                  "Unable to open update logs",
-                  "The updater log folder could not be opened.",
-                );
-              }
-            } catch {
-              dialog.showErrorBox(
-                "Unable to open update logs",
-                "The updater log folder could not be opened.",
-              );
-            }
-          })();
-        },
-        onAbout: () => app.showAboutPanel(),
-      }),
-    ),
-  );
-}
-
-if (!app.requestSingleInstanceLock()) app.quit();
-else {
+// A `keinsaas://` launch on Windows and Linux starts a second copy of the app
+// whose only job is to forward its argv to the running one. Without the lock
+// the deep link would open a second window and the sign-in would be lost.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
   app.on("second-instance", (_event, argv) => {
-    const link = argv.find((arg) => arg.startsWith("voidagent://"));
-    if (link) acceptDeepLink(link);
-    if (window && !window.isDestroyed()) {
-      window.show();
-      window.focus();
+    const link = findDeepLinkArg(argv);
+    if (link) void handleAuthDeepLink(link);
+    focusMainWindow();
+  });
+}
+
+// macOS delivers protocol launches here, also on a cold start, so the listener
+// has to exist before `ready`. Links that arrive before the window is up are
+// queued and replayed by bootstrap.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  void handleAuthDeepLink(url);
+});
+
+registerProtocolClient();
+
+/**
+ * Packaged builds are registered by the installer (`protocols` in
+ * electron-builder.yml); the runtime call keeps that registration pointing at
+ * the current executable after an update. In development (`electron .`) the
+ * registration has to carry the script path or Windows launches a bare
+ * Electron with no app.
+ */
+function registerProtocolClient(): void {
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL, process.execPath, [
+        path.resolve(process.argv[1]),
+      ]);
+    }
+    return;
+  }
+  app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL);
+}
+
+async function createMainWindow(webUrl: string): Promise<BrowserWindow> {
+  const preloadPath = path.join(__dirname, "../preload/index.js");
+
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    minWidth: 960,
+    minHeight: 640,
+    show: false,
+    title: "Keinsaas Navigator",
+    ...(appIconPath ? { icon: appIconPath } : {}),
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  configureMcpIpc(window, appOrigin);
+
+  window.once("ready-to-show", () => {
+    window.show();
+  });
+
+  const openCheckout = (url: string) => {
+    openCheckoutWindow({
+      url,
+      parent: window,
+      appOrigin,
+      onReturn: () => {
+        if (window.isDestroyed()) return;
+        window.webContents.send("billing:checkout-closed");
+      },
+    });
+  };
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    switch (classifyNavigation(url, appOrigin)) {
+      case "app":
+        return { action: "allow" };
+      case "download":
+        // A file response has nothing to show; a window opened for it stayed
+        // blank. Hand it to the session's download pipeline (./downloads.ts).
+        window.webContents.downloadURL(url);
+        return { action: "deny" };
+      case "checkout":
+        openCheckout(url);
+        return { action: "deny" };
+      case "external":
+        void shell.openExternal(url);
+        return { action: "deny" };
+      default:
+        console.warn(`[desktop] blocked window.open to ${url}`);
+        return { action: "deny" };
     }
   });
-  app.on("open-url", (event, url) => {
+
+  window.webContents.on("will-navigate", (event, url) => {
+    const action = classifyNavigation(url, appOrigin);
+    // Same-origin routing navigates in place. Identity providers are *not*
+    // allowed in here: they reject OAuth in embedded web views, so sign-in
+    // runs in the system browser and returns via keinsaas:// (desktop-auth.ts).
+    if (action === "app") return;
+
     event.preventDefault();
-    acceptDeepLink(url);
+    if (action === "download") {
+      window.webContents.downloadURL(url);
+      return;
+    }
+    if (action === "checkout") {
+      openCheckout(url);
+      return;
+    }
+    if (action === "external") {
+      void shell.openExternal(url);
+      return;
+    }
+    console.warn(`[desktop] blocked navigation to ${url}`);
   });
-  app.setAsDefaultProtocolClient("voidagent");
 
-  app
-    .whenReady()
-    .then(async () => {
-      const userDataDir = app.getPath("userData");
-      const allowLocalHttp = process.env.NODE_ENV === "development";
-      const pickerPreloadPath = fileURLToPath(
-        new URL("../preload/server-picker.js", import.meta.url),
-      );
-      let startup: ReturnType<typeof resolveStartupServer>;
-      let defaultTarget: URL;
-      try {
-        defaultTarget = parseTarget(targetValue);
-        startup = resolveStartupServer({
-          isDev: allowLocalHttp,
-          devUrl: defaultTarget.origin,
-          defaultUrl: defaultTarget.origin,
-          userDataDir,
-        });
-      } catch {
-        dialog.showErrorBox(
-          "Void-Agent desktop is not configured",
-          "Build or launch the desktop app with VOID_AGENT_WEB_URL set to your Void-Agent HTTPS URL (or localhost in development).",
-        );
-        app.quit();
-        return;
-      }
-
-      registerServerPickerIpc({
-        defaultUrl: defaultTarget.origin,
-        userDataDir,
-        allowLocalHttp,
-      });
-      if ("pick" in startup) {
-        await openServerPickerWindow({
-          defaultUrl: defaultTarget.origin,
-          previousUrl: defaultTarget.origin,
-          allowLocalHttp,
-          preloadPath: pickerPreloadPath,
-        });
-        return;
-      }
-      target = parseTarget(startup.url);
-
-      const appTarget = target;
-      if (!appTarget) {
-        app.quit();
-        return;
-      }
-      window = new BrowserWindow({
-        width: 1280,
-        height: 860,
-        minWidth: 920,
-        minHeight: 620,
-        show: false,
-        title: "Void-Agent",
-        webPreferences: {
-          preload: fileURLToPath(
-            new URL("../preload/index.js", import.meta.url),
-          ),
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true,
-        },
-      });
-      window.once("ready-to-show", () => window?.show());
-      setUpdateMainWindow(window, appTarget.origin);
-      registerUpdateIpcHandlers();
-      initAutoUpdater();
-      installApplicationMenu(() => {
-        if (!window || window.isDestroyed()) return;
-        void openServerPickerWindow({
-          defaultUrl: defaultTarget.origin,
-          previousUrl: appTarget.origin,
-          allowLocalHttp,
-          preloadPath: pickerPreloadPath,
-          parent: window,
-        }).catch((error) => {
-          console.error("Could not open the server picker", error);
-        });
-      });
-      configureDesktopAuth(window, appTarget);
-      configureMcpIpc(window, appTarget.origin);
-      registerMcpIpcHandlers();
-      configureDesktopNotifications(window, appTarget.origin);
-      registerDesktopNotificationHandlers();
-      registerDesktopDownloads(window.webContents.session, appTarget.origin);
-      window.webContents.setWindowOpenHandler(({ url }) => {
-        const action = classifyDesktopNavigation(url, appTarget.origin);
-        if (action === "download") window?.webContents.downloadURL(url);
-        else if (action === "external") void shell.openExternal(url);
-        return { action: "deny" };
-      });
-      window.webContents.on("will-navigate", (event, url) => {
-        const action = classifyDesktopNavigation(url, appTarget.origin);
-        if (action === "app") return;
-        event.preventDefault();
-        if (action === "download") window?.webContents.downloadURL(url);
-        else if (action === "external") void shell.openExternal(url);
-      });
-      await window.loadURL(appTarget.origin);
-      flushDesktopAuthDeepLinks();
-      const coldStartLink = process.argv.find((arg) =>
-        arg.startsWith("voidagent://"),
-      );
-      if (coldStartLink) acceptDeepLink(coldStartLink);
-    })
-    .catch((error) => {
-      dialog.showErrorBox(
-        "Void-Agent desktop could not start",
-        error instanceof Error ? error.message : "Unexpected startup error",
-      );
-      app.quit();
+  if (isDev) {
+    window.webContents.on("console-message", (_event, _level, message) => {
+      console.log(`[renderer] ${message}`);
     });
-  app.on("window-all-closed", () => app.quit());
+  }
+
+  try {
+    await window.loadURL(webUrl);
+  } catch (error) {
+    console.error(`Failed to load ${webUrl}:`, error);
+    throw error;
+  }
+
+  if (isDev) {
+    const bridge = await window.webContents.executeJavaScript(
+      `window.desktop?.platform ?? "missing"`,
+      true,
+    );
+    console.log(`[desktop] preload bridge platform=${bridge}`);
+  }
+
+  return window;
 }
+
+/** Creates the window and points every main-window-aware module at it. */
+async function openMainWindow(): Promise<BrowserWindow> {
+  if (!webUrl) {
+    return openServerPickerWindow({
+      userDataDir,
+      cloudUrl,
+      allowLocalHttp,
+      preloadPath: path.join(__dirname, "../preload/index.js"),
+      iconPath: appIconPath,
+    });
+  }
+  const window = await createMainWindow(webUrl);
+  configureDesktopNotifications(window, appOrigin);
+  setUpdateMainWindow(window);
+  setDesktopAuthMainWindow(window);
+  window.on("closed", () => {
+    configureMcpIpc(null, "");
+    configureDesktopNotifications(null, "");
+    setUpdateMainWindow(null);
+    setDesktopAuthMainWindow(null);
+  });
+  return window;
+}
+
+async function bootstrap(): Promise<void> {
+  if (process.platform === "win32") {
+    app.setAppUserModelId("com.keinsaas.navigator");
+  }
+
+  registerIpcHandlers();
+  registerMcpIpcHandlers();
+  registerNotificationHandlers();
+  registerUpdateIpcHandlers();
+  createApplicationMenu({
+    host: webUrl ? new URL(webUrl).host : null,
+    onChange: () => changeServer(userDataDir),
+  });
+
+  // First run: nothing that depends on the server starts until one is chosen.
+  // The choice restarts the app (./server-picker.ts).
+  if (!webUrl) {
+    registerServerPickerIpc({ userDataDir, cloudUrl, allowLocalHttp });
+    try {
+      await openMainWindow();
+      initAutoUpdater();
+    } catch (error) {
+      console.error("Desktop startup failed:", error);
+      recordDesktopError("desktop.bootstrap", error);
+      void shutdownDesktopTelemetry().finally(() => app.exit(1));
+    }
+    return;
+  }
+
+  registerDesktopAuthIpcHandlers(webUrl);
+  registerDownloadHandler(session.defaultSession, appOrigin);
+  try {
+    await openMainWindow();
+    initAutoUpdater();
+
+    // Cold start through the protocol handler (Windows/Linux put the URL in
+    // argv); macOS links that arrived before the window existed were queued.
+    const initialLink = findDeepLinkArg(process.argv);
+    if (initialLink) void handleAuthDeepLink(initialLink);
+    flushQueuedDeepLinks();
+  } catch (error) {
+    console.error("Desktop startup failed:", error);
+    recordDesktopError("desktop.bootstrap", error);
+    // Flush before exiting, otherwise the batch containing the very error that
+    // killed startup is dropped.
+    void shutdownDesktopTelemetry().finally(() => app.exit(1));
+  }
+}
+
+if (hasSingleInstanceLock) {
+  app.whenReady().then(() => {
+    // Off unless KEINSAAS_DESKTOP_TELEMETRY=1 — see ./otel.ts.
+    initDesktopTelemetry(app.getVersion());
+    void bootstrap();
+  });
+}
+
+app.on("before-quit", () => {
+  void shutdownDesktopTelemetry();
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    void openMainWindow().then(() => flushQueuedDeepLinks());
+  }
+});

@@ -643,3 +643,54 @@ The latest batch added C33-C35 as PARTIAL workflows. Next work remains substanti
 6. Continue the advanced tool, collaboration, notification, desktop, and knowledge audits; document every exclusion and preserve all primary security controls.
 
 Do not derive a completion percentage from this scoped register. It currently counts 96 candidates but is not the full reference denominator.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Current staged roadmap — 2026-11-11
+
+1. Close the remaining direct connector tool operations from all 45 original `*-tool.ts` files. Every provider write must use fixed-origin transport and exact-payload one-use approval; test owner binding, replay, expiry, rejection, and successful approved call.
+2. Finish A01 route/stream/transport coverage. Keep its real-PostgreSQL claim PARTIAL in this environment; there is no PostgreSQL service/binary/listener and Docker is prohibited.
+3. Independently review the community, archive, and Insights code/tests/security; their focused/mock checks pass, but live DB/storage/provider/browser workflows remain unverified.
+4. Implement the original AI app builder in a secure E2B lifecycle or record a concrete technical blocker; do not equate generic code execution with app building.
+5. Implement bug bounty reporting or record explicit product/security/legal disposition. Recheck and port the original chat request challenge only if the current active chat path lacks equivalent protection.
+6. Re-scan all original custom source features and diff every staging content deviation against the exact Better Chatbot tree.
+7. Run the complete combined unit suite, 6 GiB typecheck, lint/format, migration metadata, production web build, focused security tests, desktop tests/build. Then promote with backup and non-destructive overlay, preserving all primary user changes, and repeat relevant checks in the actual destination.
+
+No promotion/commit/push/deploy until all staging code batches and validation are reviewed. B20 stays MISSING/disabled; C38 remains PARTIAL pending live verification.
+
+## Roadmap status correction — 2026-11-11 00:17 IST
+
+Active: connector source-tool parity (6 mocked writes verified, Jira/Zendesk tests pending, 5 action operations/provider contracts unresolved), C45 chat-request challenge port, and secure AI app-builder implementation. Next after C45: Bug Bounty (migration 0081/idx82 only after AI builder releases shared schema/journal). After these, close A01 with the best safe integration available; this machine has no PostgreSQL runtime and Docker is forbidden, so actual database evidence may remain externally blocked. Then perform full feature re-census, content delta comparison, aggregate tests/build and non-destructive promotion.
+
+## Connector checkpoint 2026-11-11 00:20
+
+Eight provider write workflow categories (nine operations counting Gmail send and reply) have mocked exact-payload approval tests. Four operation groups remain: Productboard (workspace config/relationship), Freshdesk (two API-key-auth actions), Discord (Bot-token contract), Zulip (realm/API-token contract). Jira/Zendesk are now focused-tested. Current typecheck is temporarily broken by C45's shared schema export in progress; aggregate validation waits. Continue safe credential onboarding and fixed-host controls, and document true incompatibilities rather than faking provider behavior.
+
+### Typecheck snapshot correction — 2026-11-11 00:22 IST
+Connector agent reports the missing C45 `ChatRequestSecuritySchema` export is now present and a 6 GiB web typecheck passed on that intermediate staging snapshot. C45 route/client edits continued after that run and are not covered by it; a fresh typecheck is pending after those edits. Connector-focused status remains 7 files / 44 tests PASS. Do not call the current combined tree typechecked until the final post-edit run completes.
+
+## App-builder in-progress checkpoint — 2026-11-11
+Migration 0080/idx81 and initial repository/runner have been added. Next close owner/thread DB integrity and lifecycle state transitions, then route create/list/detail/cancel, safe preview/files, UI and focused failure/cleanup tests. Verify DB metadata and 6 GiB typecheck after C45/shared changes settle. No promotion until this vertical slice is verified.
+
+### C43 next validation actions — 2026-11-11
+Close resumed-build state transitions, cancellation races and cleanup tests; add DELETE/owner/error route tests; validate preview URLs and generated paths; run 6 GiB typecheck, `db:check`, scoped Biome. Coordinate `buildAppTool` registration with C45 route owner, keeping tool access authenticated/billed/allowlisted. Then run complete full validation; no live DB/E2B evidence exists.
+
+
+## Current priority order — 2026-11-11 01:05 IST
+
+Latest estimate: 44% weighted overall (58% implementation, 31% verified; 38–50% range). This supersedes prior 60% overall language. Do not repeat the broad audit; continue from docs/MIGRATION-STATUS-REPORT.md.
+
+1. Validate the 21 App Builder staging changes, including original agent/VibeSDK mode parity.
+2. Reconcile all 159 upstream content differences.
+3. Complete semantic comparison against zip-main; port missing security/admin/provider/payment/API behavior.
+4. Implement Bug Bounty.
+5. Resolve Productboard/Zulip; disposition Discord safely.
+6. Keep B20 disabled until browser/VM egress isolation is proven.
+7. Run combined web and desktop tests, 6 GiB typecheck, lint/format, db:check, builds and security checks.
+8. Prepare recoverable backup/non-destructive promotion, preserve 61 destination changes and exclude .env/temporary duplicate desktop.
+9. Promote only after validation; validate the actual destination.
+No commit, push, deploy or production migration.

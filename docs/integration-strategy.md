@@ -669,3 +669,42 @@ Use a separate owner-scoped table rather than extending the admin-global `site_c
 - **C33 alerts:** adapt the client delivery policy while retaining primary preference storage, private notification text, and existing default behavior. Same-thread alerts are suppressed; the optional only-when-away preference is owner-scoped and boolean-validated.
 - **C34 Agentset:** add an optional provider adapter rather than replacing the primary local pgvector/RAG implementation. The feature is disabled by default, uses the fixed official HTTPS origin and bounded requests, and rechecks returned source metadata against current primary ACL/document state. Full remote ingestion/job lifecycle and chat integration remain future work because they need a persistent mapping/lifecycle design.
 - **C35 voice actions:** reuse the existing C31 read-only Composio boundary for OpenAI Realtime voice. Encrypted ephemeral owner-bound account refs, active-owner rechecks, schema validation, rate limits, redaction, result bounds, and untrusted-result framing are mandatory. Do not port upstream direct mutating execution; implement writes only after a server-bound approval workflow exists.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Staging preservation strategy update — 2026-11-11
+
+Staging remains a separate workspace, with Better Chatbot pinned at `6f4183566bc48616303cb84055f11f79578c82fe`; original custom behavior is traced from `Ayushprtp/zip-main@aa9fce0`. Current completed custom vertical slices are community (0077), archives (0078), and thread insights (0079), each implemented in `apps/web` with owner-scoped persistence and focused tests. Connector OAuth/tools are partial; writes require exact-payload, short-lived, one-use owner tokens. A01 runtime safeguards are present and the staging transport now delays draft URL changes until a successful non-redirected stream response. No destructive tree replacement or promotion has occurred.
+
+Preserve the primary local A01 changes, user specs, root context/docs, environment files, and existing dirty work when promotion is eventually authorized. Exclude staging secrets/generated artifacts and temporary duplicate `apps/void-agent-desktop`. Keep B20 default-deny. PostgreSQL migration application, provider calls, live storage and browser E2E are not currently verifiable on this Windows host.
+
+## 2026-11-11 connector/security/app-builder integration strategy
+
+- For direct OAuth connector tools, preserve owner-bound encrypted credentials and fixed-origin bounded transports. Every mutation consumes a short-lived one-use approval bound to the exact canonical payload immediately before the provider call. Do not substitute an upstream generic write tool or treat a provider catalog entry as a workflow.
+- For C45, port the request challenge only if its replay/rate controls work across the actual deployment cache topology. Authenticate first, verify before persistence/provider/tool effects, and preserve a narrow scheduler skip.
+- For the original prompt-to-app builder, reuse the secure staged E2B lifecycle instead of the source's unconstrained shell assumptions. Use allowlisted image/template, fixed setup/start commands, owner-scoped persistent job state, strict path/file validation, resource/time caps and guaranteed cleanup. Keep generic code execution separate.
+- Bug bounty uses a later additive migration only after AI builder migration 0080 is released.
+
+### Connector scope correction — 2026-11-11
+Require exact one-use approval for every provider write. Mock-tested writes now cover Gmail, Drive, Teams, Asana, ClickUp, Linear, Jira, Zendesk. Productboard needs workspace-derived schema/relationship; Freshdesk needs encrypted per-user API-key/subdomain setup; Discord requires a Bot token (not the current user OAuth model); Zulip requires per-user realm/token and pinned-host controls. Do not enable any of these until the credential boundary and approval path are implemented and tested.
+
+### AI app builder in-progress — 2026-11-11
+An additive `app_build` table/migration 0080 and initial repository/runner are underway. Maintain one owner-scoped lifecycle per build, owner/thread integrity in PostgreSQL, allowlisted templates and fixed commands, no arbitrary shell input, bounded file path/content/output, and cleanup on failure/cancel. `db:check` passed but no actual DB application, API/UI, or end-to-end verification is complete.
+
+### Provider contract integration update — 2026-11-11
+Freshdesk uses owner-bound encrypted API-key credentials, a server-configured validated tenant subdomain, fixed API host construction and exact-payload approval for both supported writes. Productboard v2 requires runtime configuration and a Component parent; adapt the workflow to discover components/config and bind the chosen component/fields into approval. Do not reuse the source's productId as a component. Discord and Zulip require separate credential/host models and remain disabled until safely supported.
+
+
+## Current migration audit — 2026-11-11 01:05 IST
+
+Current status of record is docs/MIGRATION-STATUS-REPORT.md. Weighted overall ~44% (38–50% range), implementation 58%, verified functionality 31%; prior 60% overall estimate is superseded as overstated. Original source zip-main@aa9fce0f545afb18b9a191724be092887f83630b, upstream better-chatbot@6f4183566bc48616303cb84055f11f79578c82fe, destination Void-Agent@589fa48f3c323d049e51d566f3b8ddff95d59bc5. Staging is C:/Users/Ikra/Desktop/Void-Agent-integration-staging, not promoted. It has 1,609/1,768 upstream contents identical, 159 different, zero missing. Original src path mapping is unresolved and is not a parity count. Bug Bounty is missing; original App Builder modes are omitted; B20 remains blocked/disabled.
+
+The audit did not rerun tests or builds. Existing focused results are agent-reported only. No live PostgreSQL/provider/browser E2E is established. Preserve 61 destination changes; do not copy staging .env; explicitly handle apps/void-agent-desktop. A helper modified 21 staging App Builder files during the read-only audit. Review them first. See docs/migration-handoff.md for ordered work.
+
+### Current guardrails
+
+Staging is not the destination and has no Git metadata. Preserve all dirty/untracked destination work. Review 21 App Builder edits and 159 upstream content deltas before promotion. Original source is accessible, but feature comparison remains incomplete. No source/destination changes are authorized by this handoff.

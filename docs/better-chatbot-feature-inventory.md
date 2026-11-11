@@ -1,6 +1,6 @@
 # Better Chatbot implementation-surface inventory
 
-Reference: local Void-Agent-V2 (upstream 2868c33 with the previously documented local branding/auth patches). Reference files are read-only in this initiative.
+Historical inventory source: local `Void-Agent-V2` at the earlier `2868c33` baseline with its documented branding/auth patches. The canonical source for the current full-tree integration is the read-only public repository `keinsaasforever/better-chatbot` at `6f4183566bc48616303cb84055f11f79578c82fe`; current destination is `ibrahimkhan008/Void-Agent`. Historical file paths and findings below are retained as evidence, not as the current upstream identity.
 
 This is a repository-wide source census, not a claim of exhaustive behavioral verification. Every route, page and AI-tool module below is a discovery candidate; a surface can expose multiple features. Same-path comparisons do not prove parity or absence. See the curated parity matrix for reviewed capabilities. Generated dependencies, build output, secrets and binaries are excluded.
 
@@ -965,3 +965,55 @@ Better Chatbot V2 uses AI Gateway image model selection, previous generated-outp
 - **Connected-app actions in voice:** V2 binds Composio actions into browser voice sessions, but its direct executor does not enforce a human approval boundary for side effects. Primary now exposes only read-only Composio search/actions to OpenAI Realtime; account refs are encrypted, short-lived, user-bound, rechecked against active owned accounts, schema-validated, rate-limited, bounded, redacted, and marked untrusted. Mutations remain unavailable. Primary evidence: src/lib/ai/composio-voice-tools.ts, src/app/api/voice/composio-tool/route.ts, src/app/api/chat/openai-realtime/route.ts, and src/lib/ai/speech/open-ai/use-voice-chat.openai.ts.
 - **Agentset managed project search:** V2 exposes Agentset namespace search with reranking and metadata. Primary already has local pgvector/RAG and stronger project-brain controls. Added an optional, disabled-by-default Agentset project search adapter and owner-authorized project route. Remote results are rechecked against current primary project ACL, attached collections, source owners, ready status, and local document IDs. Local ingestion and retrieval remain the default. Remote ingestion jobs, management UI, and chat/project-brain injection remain incomplete. Evidence and setup: src/lib/rag/agentset-provider.ts, src/lib/rag/agentset-source-access.ts, src/app/api/projects/[id]/search/route.ts, and docs/features/agentset-project-search.md.
 - **Agent alert delivery policy:** V2 suppresses duplicate alerts for the chat already visible and supports only-when-away. Primary now supports the same preference via existing owner-scoped user preferences, preserving its generic private alert copy and default foreground behavior. Evidence: src/lib/agent-alerts/chat-background-alerts.ts, src/hooks/use-chat-background-alerts.ts, and src/components/agent-alerts/background-chat-alert-settings.tsx.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Original custom source inventory — staging addendum (2026-11-11)
+
+The preservation source is `Ayushprtp/zip-main` at fetched `aa9fce0f545afb18b9a191724be092887f83630b`; this is distinct from Better Chatbot `6f4183566bc48616303cb84055f11f79578c82fe`. The following source feature families were independently traced and compared against the staging app; they are not Better Chatbot features and must not be counted as reference parity:
+
+- Community: `src/app/api/community/**`, `src/lib/community/**`, community pages/components. Staging now has feed/post/reaction/media/stream workflows and a bounded PostgreSQL-polling SSE adapter. Source comments are only an inert count and have no API workflow.
+- Archives: `src/app/api/archive/**`, `src/lib/db/pg/repositories/archive-repository.pg.ts`, archive pages/dialog/hooks. Staging has namespaced owner-scoped archive tables, API/service and UI.
+- Thread Insights: `src/app/api/thread/[id]/insights/route.ts`, `src/components/chat/thread-insights-panel.tsx`, `src/lib/ai/memory/insights.ts`. Staging now has validated structured summaries, owner-bound snapshot persistence and stale-result handling.
+- Direct connectors: `src/lib/ai/tools/connectors/*-tool.ts` (45 tool files; index describes 42 tools added), `src/lib/ai/tools/connectors/tool-kit.ts`, and OAuth/API configuration. The staging catalog/OAuth plus core tools are partial; nine extra mutating actions still need secure provider/API support.
+- AI app builder: `src/app/api/build/**`, `src/components/build/**`, `src/lib/ai/tools/build/build-tool.ts`, and its persistence. No equivalent prompt-to-app lifecycle was found in staging; `/api/code-execution/e2b` is not equivalent.
+- Bug bounty: `src/app/api/bug-bounty/**`, `src/app/bug-bounty/**`, `src/components/bug-bounty/**`, `src/lib/bug-bounty.ts`; absent in staging.
+- Chat request challenge: `src/app/api/chat/challenge/route.ts` and `src/lib/security/chat-request-guard.{server,client,shared}`; needs an active-runtime comparison before porting.
+
+This is an evidence-based partial inventory, not a claim that all 1,708 source paths have been semantically reviewed.
+
+### C42 connector parity update — 2026-11-11 00:17 IST
+- The latest focused run was executed after the Asana, ClickUp and Linear write implementations landed: 6 files / 39 tests passed. Verified mocked approved writes now include Gmail send/reply, Drive create, Teams send, Asana `create_task`, ClickUp `create_task`, and Linear `create_issue`; rejection without exact approval and provider schema/validation are covered.
+- Jira `add_comment` and Zendesk `add_comment` have newer unverified code edits; they are not counted as verified. Productboard `create_feature`, Freshdesk `create_ticket`/`add_reply`, Discord `send_message`, and Zulip `send_message` remain unsupported or under contract feasibility review. This is ten action operations across six named pending/in-progress providers because Freshdesk contributes two operations; correct the earlier shorthand “nine additional writes” when summarizing.
+- Read tools are covered for Gmail, Drive, Calendar, GitHub, Outlook, Slack, Notion, and Teams. Do not infer complete parity from OAuth catalog entries. No live provider or PostgreSQL verification.
+
+### C45 source security finding — 2026-11-11 00:17 IST
+Staging has no equivalent challenge endpoint/module or chat-route verification call. The original source binds short-lived one-use challenges to authenticated user/session, optional IP/user-agent and client ECDSA key; binds a proof-of-work, request-body hash/HMAC and client signature; enforces origin/fetch-site, expiry/replay checks and challenge/request rate limits, with adaptive Turnstile. A dedicated security port is now assigned. It must verify the actual shared cache's replay/rate semantics and only skip a cryptographic challenge for a validated headless system task. Until tests pass, C45 remains NEEDS SECURITY WORK.
+
+### C43 app-builder integration design — in progress
+The original app builder is not equivalent to generic E2B code execution. The implementation is assigned with a durable owner-scoped BuildJob model; use only preinstalled allowlisted templates, strict relative-file validation and fixed sandbox startup commands. Never expose a user-selected shell command. Migration 0080/idx81 is reserved for this implementation; C44/Bug Bounty must wait for the schema owner to release the journal before taking 0081.
+
+### Connector inventory correction — 2026-11-11
+The original zip-main connector area contains 45 `*-tool.ts` files. The latest staging work verifies writes for Gmail send/reply, Drive create, Teams send, Asana task creation, ClickUp task creation, Linear issue creation, Jira comments, and Zendesk comments (7 files / 44 focused tests). Five operations remain across Productboard, Freshdesk (two), Discord and Zulip. The latter require provider-specific credential/API contracts; OAuth catalog presence alone does not establish tool parity. See C42 in the feature register for evidence and current test limitations.
+
+### C43 app builder progress — 2026-11-11
+The original source's six build surfaces have no equivalent staged workflow. An owner-scoped `app_build` table and initial repository/runner now exist under staging with migration 0080/idx81. The route/UI lifecycle and tests are still in progress. Additional DB hardening is requested for a composite owner/thread relation and unique live sandbox ID. Existing generic E2B code execution is not counted as parity.
+
+### Direct connector source status correction — 2026-11-11
+The original tool source's mocked write operations now tested in staging total 11 actions across Gmail, Drive, Teams, Asana, ClickUp, Linear, Jira, Zendesk, Freshdesk. The focused suite is 9 files / 51 tests. Productboard v2 requires Component hierarchy and runtime field configuration; the original input shape needs safe adaptation. Discord Bot-token and Zulip realm-token operations are not currently implemented. These provider tests are mocked; no live accounts/credentials were used.
+
+
+## Latest custom-source reconciliation — 2026-11-11 01:05 IST
+
+Canonical repository identities and status are in docs/MIGRATION-STATUS-REPORT.md. Original source zip-main@aa9fce0f545afb18b9a191724be092887f83630b is locally accessible, but its semantic feature comparison is incomplete. Upstream is better-chatbot@6f4183566bc48616303cb84055f11f79578c82fe.
+
+Staging has 1,768/1,768 upstream paths: 1,609 exact content matches, 159 content differences, zero missing. The original source has 1,213 tracked src files; mechanical mapping found 28 identical, 622 different and 563 unmatched paths. Do not treat path mapping as feature parity. Bug Bounty is confirmed absent; original App Builder agent/VibeSDK modes are omitted. The weighted estimate is 44% overall, 58% implementation, 31% verified. Earlier C42-C45 notes below are historical if they conflict with the latest statuses.
+
+## Promotion correction — 2026-11-11 06:20 IST (supersedes the 01:05 section above for current state)
+
+The staging integration WAS promoted into the destination on 2026-11-11 and validated there (web 498 files / 3,361 tests, typecheck/lint/db:check/build PASS; desktop 22 files / 132 tests — docs/testing-report.md). The 01:05 section's "Bug Bounty is confirmed absent", "agent/VibeSDK modes are omitted", and 44%/58%/31% figures are historical to that pre-promotion audit checkpoint. Current statuses: C44 Bug Bounty ported (PARTIAL); C43 App Builder completed incl. agent mode (PARTIAL, vibesdk = documented 503); C45 implemented + adversarially verified (PARTIAL); C42 Productboard/Zulip implemented, Discord excluded (PARTIAL). Authoritative per-row statuses: docs/feature-work-register.md (2026-11-11 rows + count reconciliation). Remaining work: docs/MIGRATION-STATUS-REPORT.md §16.

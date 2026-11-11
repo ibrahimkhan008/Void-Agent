@@ -1,101 +1,310 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+/**
+ * Browser-based sign-in for the desktop shell.
+ *
+ * Identity providers refuse OAuth inside embedded web views (Google answers
+ * with `disallowed_useragent`, and the Superlog traces showed the app window
+ * requesting the Google authorize URL and never reaching the callback). So the
+ * app never loads a provider itself:
+ *
+ * 1. The renderer asks (`auth:start-browser-sign-in`) to sign in. We issue a
+ *    random `state`, remember it on disk, and open the web app's sign-in page
+ *    in the system browser with `callbackUrl=/desktop/auth/complete?state=…`.
+ * 2. The browser completes sign-in normally. The handoff page mints a Better
+ *    Auth one-time token and opens `keinsaas://auth/callback?token=…&state=…`.
+ * 3. The OS hands that URL to us (`open-url` on macOS, `argv` elsewhere). If
+ *    `state` matches what we issued, the main process exchanges the token via
+ *    `POST /api/auth/one-time-token/verify` from the default session, so the
+ *    `Set-Cookie` lands in the app's own cookie jar, then loads the app.
+ *
+ * The token never enters a renderer URL or the window history, and only the
+ * baked web origin is ever contacted.
+ */
+import fs from "node:fs/promises";
+import path from "node:path";
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
-import { buildDesktopHandoffPath, parseDesktopAuthDeepLink, sanitizeDesktopReturnTo } from "../../../../src/lib/auth/desktop-handoff.js";
+import { buildBrowserSignInUrl, isDesktopSignInPage } from "./deep-link.js";
+import {
+  isSupportedSignInProvider,
+  parseDesktopAuthDeepLink,
+  sanitizeDesktopReturnTo,
+} from "./desktop-handoff.js";
+import { recordDesktopError } from "./otel.js";
+import {
+  createPendingSignIn,
+  matchPendingSignIn,
+  parsePendingSignIn,
+  type PendingSignIn,
+} from "./pending-sign-in.js";
+import { parseSetCookie } from "./set-cookie.js";
 
-const PENDING_FILE = "pending-desktop-sign-in.json";
-const PENDING_TTL_MS = 5 * 60_000;
-const signInInputSchema = {
-  parse(value: unknown): { page: "sign-in" | "sign-up"; provider: "google" | "github" | "microsoft"; callbackUrl?: string } {
-    if (!value || typeof value !== "object") throw new Error("Invalid sign-in request");
-    const input = value as Record<string, unknown>;
-    if (input.page !== "sign-in" && input.page !== "sign-up") throw new Error("Invalid sign-in page");
-    if (typeof input.provider !== "string" || !socialProviders.has(input.provider)) throw new Error("Unsupported sign-in provider");
-    if (input.callbackUrl !== undefined && (typeof input.callbackUrl !== "string" || input.callbackUrl.length > 2_048)) throw new Error("Invalid sign-in destination");
-    return { page: input.page, provider: input.provider as "google" | "github" | "microsoft", ...(typeof input.callbackUrl === "string" ? { callbackUrl: input.callbackUrl } : {}) };
-  },
-};
+export type BrowserSignInFailureReason =
+  | "expired"
+  | "mismatch"
+  | "verify_failed"
+  | "network";
 
-type PendingSignIn = { state: string; createdAt: number; returnTo: string };
-const socialProviders = new Set(["google", "github", "microsoft"]);
+const PENDING_FILE_NAME = "pending-sign-in.json";
+const SESSION_COOKIE_SUFFIX = "better-auth.session_token";
+const OPERATION = "desktop.auth.handoff";
+
 let mainWindow: BrowserWindow | null = null;
-let appUrl: URL | null = null;
+let webUrl: string | null = null;
 let inFlight = false;
 const queuedDeepLinks: string[] = [];
 
-const pendingPath = () => join(app.getPath("userData"), PENDING_FILE);
-
-function isTrustedAppFrame(event: Electron.IpcMainInvokeEvent) {
-  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || !appUrl) return false;
-  try { return new URL(event.senderFrame.url).origin === appUrl.origin; } catch { return false; }
-}
-
-export function configureDesktopAuth(window: BrowserWindow, target: URL) {
+export function setDesktopAuthMainWindow(window: BrowserWindow | null): void {
   mainWindow = window;
-  appUrl = target;
-  ipcMain.handle("auth:start-browser-sign-in", async (event, rawInput: unknown) => {
-    if (!isTrustedAppFrame(event)) throw new Error("Untrusted sign-in request");
-    const input = signInInputSchema.parse(rawInput);
-    const pending: PendingSignIn = { state: randomBytes(24).toString("base64url"), createdAt: Date.now(), returnTo: sanitizeDesktopReturnTo(input.callbackUrl) };
-    await writeFile(pendingPath(), JSON.stringify(pending), { encoding: "utf8", mode: 0o600 });
-    const callbackUrl = buildDesktopHandoffPath(pending.state);
-    const browserUrl = new URL(`/${input.page}`, target.origin);
-    browserUrl.searchParams.set("callbackUrl", callbackUrl);
-    browserUrl.searchParams.set("desktopProvider", input.provider);
-    await shell.openExternal(browserUrl.toString());
-    return { ok: true };
-  });
 }
 
-async function loadPending(): Promise<PendingSignIn | null> {
+/**
+ * Only the app's own main window at the baked web origin may start a sign-in:
+ * any other frame (an iframe, a poisoned `window.open` target, devtools) is
+ * refused. Ported from the destination desktop's handoff IPC.
+ */
+function isTrustedAuthFrame(event: Electron.IpcMainInvokeEvent): boolean {
+  if (!mainWindow || mainWindow.isDestroyed() || !webUrl) return false;
+  if (event.sender !== mainWindow.webContents) return false;
+  const frame = event.senderFrame;
+  if (!frame || frame !== mainWindow.webContents.mainFrame) return false;
   try {
-    const raw: unknown = JSON.parse(await readFile(pendingPath(), "utf8"));
-    if (!raw || typeof raw !== "object") return null;
-    const value = raw as Record<string, unknown>;
-    if (typeof value.state !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(value.state) || typeof value.createdAt !== "number" || !Number.isFinite(value.createdAt)) return null;
-    return { state: value.state, createdAt: value.createdAt, returnTo: sanitizeDesktopReturnTo(value.returnTo) };
-  } catch { return null; }
+    return new URL(frame.url).origin === new URL(webUrl).origin;
+  } catch {
+    return false;
+  }
 }
 
-async function exchangeOneTimeToken(token: string) {
-  if (!appUrl) return false;
-  const origin = appUrl.origin;
-  try {
-    const response = await session.defaultSession.fetch(`${origin}/api/auth/one-time-token/verify`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json", Origin: origin, Referer: `${origin}/` },
-      body: JSON.stringify({ token }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    return response.ok;
-  } catch { return false; }
+export function registerDesktopAuthIpcHandlers(url: string): void {
+  webUrl = url;
+
+  ipcMain.handle(
+    "auth:start-browser-sign-in",
+    async (
+      event,
+      input: { page?: unknown; provider?: unknown; callbackUrl?: unknown },
+    ) => {
+      if (!isTrustedAuthFrame(event)) {
+        throw new Error("Untrusted sign-in request");
+      }
+      const page = input?.page;
+      if (!isDesktopSignInPage(page)) {
+        throw new Error("Unknown sign-in page");
+      }
+      // Destination semantics: the request names one of the social providers
+      // the web app supports, and the return target stays bounded.
+      const provider = input?.provider;
+      if (!isSupportedSignInProvider(provider)) {
+        throw new Error("Unsupported sign-in provider");
+      }
+      const callbackUrl = input?.callbackUrl;
+      if (
+        callbackUrl !== undefined &&
+        (typeof callbackUrl !== "string" || callbackUrl.length > 2_048)
+      ) {
+        throw new Error("Invalid sign-in destination");
+      }
+      const pending = createPendingSignIn({
+        page,
+        returnTo: sanitizeDesktopReturnTo(callbackUrl),
+      });
+      await savePendingSignIn(pending);
+      await shell.openExternal(
+        buildBrowserSignInUrl({
+          webUrl: url,
+          page,
+          state: pending.state,
+          provider,
+        }),
+      );
+      return { ok: true };
+    },
+  );
 }
 
-export async function handleDesktopAuthDeepLink(rawUrl: string) {
-  if (!mainWindow || mainWindow.isDestroyed() || !appUrl) {
-    queuedDeepLinks.push(rawUrl);
+/**
+ * Entry point for every `keinsaas://` URL the OS delivers. Safe to call before
+ * the window exists: the link is queued and replayed by
+ * `flushQueuedDeepLinks()` once bootstrap has a window.
+ */
+export async function handleAuthDeepLink(url: string): Promise<void> {
+  if (!webUrl || !mainWindow || mainWindow.isDestroyed()) {
+    queuedDeepLinks.push(url);
     return;
   }
-  const deepLink = parseDesktopAuthDeepLink(rawUrl);
-  if (!deepLink || inFlight) return;
+
+  const link = parseDesktopAuthDeepLink(url);
+  if (!link) {
+    console.warn("[desktop] ignoring unrecognised deep link");
+    return;
+  }
+  if (inFlight) return;
   inFlight = true;
+
   try {
-    const pending = await loadPending();
-    if (!pending) return;
-    const expected = Buffer.from(pending.state, "utf8");
-    const actual = Buffer.from(deepLink.state, "utf8");
-    if (pending.createdAt + PENDING_TTL_MS < Date.now() || expected.length !== actual.length || !timingSafeEqual(expected, actual)) return;
-    await rm(pendingPath(), { force: true });
-    if (await exchangeOneTimeToken(deepLink.token)) {
-      await mainWindow.loadURL(new URL(pending.returnTo, appUrl.origin).toString());
-      mainWindow.show();
-      mainWindow.focus();
+    const pending = await loadPendingSignIn();
+    const match = matchPendingSignIn(pending, link.state, Date.now());
+
+    if (match === "none") {
+      console.warn("[desktop] deep link arrived without a pending sign-in");
+      focusMainWindow();
+      return;
     }
-  } finally { inFlight = false; }
+    if (match !== "ok" || !pending) {
+      if (match === "expired") await clearPendingSignIn();
+      notifyFailure(match === "ok" ? "mismatch" : match);
+      return;
+    }
+
+    // One shot: whatever happens next, this state cannot be replayed.
+    await clearPendingSignIn();
+
+    const result = await verifyOneTimeToken(link.token);
+    if (!result.ok) {
+      notifyFailure(result.reason);
+      return;
+    }
+
+    await showSignedIn(pending.returnTo);
+  } finally {
+    inFlight = false;
+  }
 }
 
-export function flushDesktopAuthDeepLinks() {
-  for (const url of queuedDeepLinks.splice(0)) void handleDesktopAuthDeepLink(url);
+export function flushQueuedDeepLinks(): void {
+  const links = queuedDeepLinks.splice(0, queuedDeepLinks.length);
+  for (const link of links) {
+    void handleAuthDeepLink(link);
+  }
+}
+
+export function focusMainWindow(): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+  if (process.platform === "darwin") {
+    app.focus({ steal: true });
+  }
+}
+
+async function verifyOneTimeToken(
+  token: string,
+): Promise<{ ok: true } | { ok: false; reason: "verify_failed" | "network" }> {
+  if (!webUrl) return { ok: false, reason: "network" };
+  const origin = new URL(webUrl).origin;
+  const verifyUrl = `${origin}/api/auth/one-time-token/verify`;
+
+  let response: Response;
+  try {
+    response = await session.defaultSession.fetch(verifyUrl, {
+      method: "POST",
+      // Send and store cookies through the app's own session, so the
+      // Set-Cookie on the response is exactly what a page navigation would get.
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        // Better Auth rejects a cookie-bearing POST without an Origin it trusts.
+        Origin: origin,
+        Referer: `${origin}/`,
+      },
+      body: JSON.stringify({ token }),
+    });
+  } catch (error) {
+    recordDesktopError(OPERATION, error, { reason: "network" });
+    return { ok: false, reason: "network" };
+  }
+
+  if (!response.ok) {
+    recordDesktopError(
+      OPERATION,
+      new Error(`one-time-token verify responded ${response.status}`),
+      { reason: "verify_failed", status: response.status },
+    );
+    return { ok: false, reason: "verify_failed" };
+  }
+
+  await ensureSessionCookie(response, origin);
+  return { ok: true };
+}
+
+/**
+ * Belt and braces: Chromium should have stored the session cookie from the
+ * verify response already. If it did not, apply the Set-Cookie headers by hand
+ * so the next navigation is authenticated.
+ */
+async function ensureSessionCookie(
+  response: Response,
+  origin: string,
+): Promise<void> {
+  const cookies = session.defaultSession;
+  const existing = await cookies.cookies.get({ url: origin });
+  if (existing.some((cookie) => cookie.name.endsWith(SESSION_COOKIE_SUFFIX))) {
+    return;
+  }
+
+  const headers = response.headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+  const setCookies =
+    typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
+
+  for (const raw of setCookies) {
+    const parsed = parseSetCookie(raw);
+    if (!parsed) continue;
+    await cookies.cookies.set({
+      url: origin,
+      name: parsed.name,
+      value: parsed.value,
+      path: parsed.path ?? "/",
+      secure: parsed.secure,
+      httpOnly: parsed.httpOnly,
+      sameSite: "lax",
+      ...(parsed.expirationDate !== undefined
+        ? { expirationDate: parsed.expirationDate }
+        : {}),
+    });
+  }
+}
+
+async function showSignedIn(returnTo: string): Promise<void> {
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || !webUrl) return;
+  // `returnTo` is a sanitised in-app path, so this can only resolve within
+  // the baked web origin.
+  const target = new URL(returnTo, webUrl).toString();
+  try {
+    await window.loadURL(target);
+  } catch (error) {
+    recordDesktopError(OPERATION, error, { reason: "load_failed" });
+  }
+  focusMainWindow();
+}
+
+function notifyFailure(reason: BrowserSignInFailureReason): void {
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) return;
+  window.webContents.send("auth:browser-sign-in-failed", { reason });
+  focusMainWindow();
+}
+
+function pendingFilePath(): string {
+  return path.join(app.getPath("userData"), PENDING_FILE_NAME);
+}
+
+async function savePendingSignIn(pending: PendingSignIn): Promise<void> {
+  const file = pendingFilePath();
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(pending), { mode: 0o600 });
+}
+
+async function loadPendingSignIn(): Promise<PendingSignIn | null> {
+  try {
+    return parsePendingSignIn(await fs.readFile(pendingFilePath(), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function clearPendingSignIn(): Promise<void> {
+  await fs.rm(pendingFilePath(), { force: true });
 }

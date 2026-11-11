@@ -1,224 +1,185 @@
-import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+
+import type { MCPServerConfig, MCPToolInfo } from "@keinsaas/mcp-types";
+
+import { isMaybeRemoteConfig, isMaybeStdioConfig } from "@keinsaas/mcp-types";
+
+import {
+  assertDesktopMcpToolAllowed,
+  filterAllowedDesktopMcpTools,
+} from "@keinsaas/mcp-core/mcp-tool-policy";
+
+import { hashPayload } from "./audit-sink.js";
+
+import {
+  MCP_DEFAULT_CALL_TIMEOUT_MS,
+  MCP_DEFAULT_CONNECT_TIMEOUT_MS,
+  buildStdioTransport,
+  withTimeout,
+} from "@keinsaas/mcp-router";
+
+import { writeAuditEvent } from "./audit-sink.js";
 import { stringifyBoundedJson } from "./bounded-json.js";
-import {
-  buildMcpConfigFingerprint,
-  desktopMcpConfigSchema,
-  desktopRemoteMcpConfigSchema,
-  desktopToolCallSchema,
-  isDesktopMcpToolAllowed,
-} from "./mcp-policy.js";
-import {
-  createPinnedRemoteMcpFetch,
-  getRemoteMcpOrigin,
-} from "./pinned-remote-fetch.js";
+import { parseDesktopMcpConfig, parseDesktopToolCall } from "./mcp-policy.js";
+import { recordDesktopError } from "./otel.js";
+import { createPinnedRemoteMcpFetch } from "./pinned-remote-fetch.js";
 
-type RemoteFetchFactory = (
-  approvedOrigin: string,
-  headers: Record<string, string>,
-) => FetchLike;
+const CONNECT_TIMEOUT_MS = MCP_DEFAULT_CONNECT_TIMEOUT_MS;
+const MAX_RESULT_CHARS = 4 * 1024 * 1024;
 
-const CONNECT_TIMEOUT_MS = 12_000;
-const CALL_TIMEOUT_MS = 30_000;
-const MAX_RESULT_CHARS = 1_000_000;
-const BASE_ENV_KEYS = [
-  "PATH",
-  "HOME",
-  "USERPROFILE",
-  "SYSTEMROOT",
-  "COMSPEC",
-  "TEMP",
-  "TMP",
-  "LANG",
-];
-
-export type DesktopMcpConfig =
-  | { command: string; args?: string[]; env?: Record<string, string> }
-  | { url: string; headers?: Record<string, string> };
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message: string,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-    promise.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
+function buildPinnedRemoteTransport(
+  config: Extract<MCPServerConfig, { url: string }>,
+  useSse: boolean,
+): Transport {
+  const url = new URL(config.url);
+  const fetch = createPinnedRemoteMcpFetch(url.origin, config.headers ?? {});
+  const requestInit = { headers: config.headers, redirect: "error" as const };
+  return useSse
+    ? new SSEClientTransport(url, { requestInit, fetch })
+    : new StreamableHTTPClientTransport(url, { requestInit, fetch });
 }
 
-function buildChildEnvironment(
-  config: Extract<DesktopMcpConfig, { command: string }>,
-) {
-  const result: Record<string, string> = {};
-  for (const key of BASE_ENV_KEYS) {
-    const value = process.env[key];
-    if (value) result[key] = value;
+function boundResult<T>(value: T): T {
+  const serialized = stringifyBoundedJson(value, MAX_RESULT_CHARS);
+  return JSON.parse(serialized) as T;
+}
+
+async function connectClient(
+  client: Client,
+  config: MCPServerConfig,
+): Promise<void> {
+  if (isMaybeStdioConfig(config)) {
+    const transport = buildStdioTransport(config, { remoteOnly: false });
+
+    await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS);
+
+    return;
   }
-  return { ...result, ...(config.env ?? {}) };
+
+  if (isMaybeRemoteConfig(config)) {
+    try {
+      const transport = buildPinnedRemoteTransport(config, false);
+
+      await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS);
+
+      return;
+    } catch {
+      const transport = buildPinnedRemoteTransport(config, true);
+
+      await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS);
+
+      return;
+    }
+  }
+
+  throw new Error("Invalid MCP server config");
 }
 
 async function withConnectedClient<T>(
-  configInput: unknown,
+  config: MCPServerConfig,
+
   run: (client: Client) => Promise<T>,
-  operationTimeoutMs: number,
-  remoteFetchFactory: RemoteFetchFactory = createPinnedRemoteMcpFetch,
-) {
-  const config = desktopMcpConfigSchema.parse(configInput);
+): Promise<T> {
   const client = new Client({
-    name: "void-agent-desktop-mcp",
+    name: "keinsaas-navigator-desktop-mcp",
+
     version: "0.1.0",
   });
+
   try {
-    if ("command" in config) {
-      const transport = new StdioClientTransport({
-        command: config.command,
-        args: config.args ?? [],
-        env: buildChildEnvironment(config),
-        stderr: "pipe",
-      });
-      try {
-        await withTimeout(
-          client.connect(transport),
-          CONNECT_TIMEOUT_MS,
-          "MCP server connection timed out",
-        );
-        return await withTimeout(
-          run(client),
-          operationTimeoutMs,
-          "MCP operation timed out",
-        );
-      } finally {
-        await client.close().catch(() => undefined);
-        await transport.close().catch(() => undefined);
-      }
-    }
-    const remote = desktopRemoteMcpConfigSchema.parse(config);
-    const origin = getRemoteMcpOrigin(remote);
-    const safeFetch = remoteFetchFactory(origin, remote.headers ?? {});
-    const requestInit = { redirect: "error" as const };
-    let connected = false;
-    try {
-      await withTimeout(
-        client.connect(
-          new StreamableHTTPClientTransport(new URL(remote.url), {
-            fetch: safeFetch,
-            requestInit,
-            reconnectionOptions: {
-              initialReconnectionDelay: 500,
-              maxReconnectionDelay: 2_000,
-              reconnectionDelayGrowFactor: 1.5,
-              maxRetries: 2,
-            },
-          }),
-        ),
-        CONNECT_TIMEOUT_MS,
-        "MCP server connection timed out",
-      );
-      connected = true;
-    } catch {
-      // Some legacy servers support only SSE; the same pinned fetch/origin
-      // boundary applies to event-stream and POST requests.
-      await withTimeout(
-        client.connect(
-          new SSEClientTransport(new URL(remote.url), {
-            fetch: safeFetch,
-            requestInit,
-            eventSourceInit: { fetch: safeFetch },
-          }),
-        ),
-        CONNECT_TIMEOUT_MS,
-        "MCP server connection timed out",
-      );
-      connected = true;
-    }
-    if (!connected) throw new Error("MCP connection failed");
-    return await withTimeout(
-      run(client),
-      operationTimeoutMs,
-      "MCP operation timed out",
-    );
+    await connectClient(client, config);
+
+    return await run(client);
   } finally {
     await client.close().catch(() => undefined);
   }
 }
 
-export function createDesktopMcpOperations(
-  remoteFetchFactory: RemoteFetchFactory = createPinnedRemoteMcpFetch,
-) {
-  return {
-    async listTools(configInput: unknown) {
-      const config = desktopMcpConfigSchema.parse(configInput);
-      const tools = await withConnectedClient(
-        config,
-        async (client) => (await client.listTools()).tools,
-        CONNECT_TIMEOUT_MS,
-        remoteFetchFactory,
-      );
-      return tools
-        .filter((tool) => isDesktopMcpToolAllowed(tool.name))
-        .slice(0, 100)
-        .map((tool) => {
-          const description =
-            typeof tool.description === "string"
-              ? tool.description.slice(0, 4_000)
-              : "";
-          let inputSchema: unknown = tool.inputSchema;
-          try {
-            inputSchema = JSON.parse(
-              stringifyBoundedJson(inputSchema ?? null, 32_000),
-            );
-          } catch {
-            inputSchema = {
-              type: "object",
-              properties: {},
-              description:
-                "Input schema omitted because it exceeded the desktop display limit.",
-            };
-          }
-          return { name: tool.name, description, inputSchema };
-        });
-    },
-    async callTool(configInput: unknown, callInput: unknown) {
-      const config = desktopMcpConfigSchema.parse(configInput);
-      const call = desktopToolCallSchema.parse(callInput);
-      if (!isDesktopMcpToolAllowed(call.toolName))
-        throw new Error(
-          "This desktop MCP tool is not allowed by Void-Agent's read-only policy",
-        );
-      const result = await withConnectedClient(
-        config,
-        (client) =>
-          client.callTool({ name: call.toolName, arguments: call.params }),
-        CALL_TIMEOUT_MS,
-        remoteFetchFactory,
-      );
-      let serialized: string;
-      try {
-        serialized = stringifyBoundedJson(result ?? null, MAX_RESULT_CHARS);
-      } catch {
-        throw new Error("MCP result exceeded the desktop display limit");
-      }
-      return JSON.parse(serialized) as unknown;
-    },
-  };
+export async function listDesktopMcpTools(
+  configInput: MCPServerConfig,
+): Promise<MCPToolInfo[]> {
+  const config = parseDesktopMcpConfig(configInput);
+  return withConnectedClient(config, async (client) => {
+    const result = await withTimeout(
+      client.listTools(),
+      MCP_DEFAULT_CALL_TIMEOUT_MS,
+    );
+
+    return boundResult(
+      filterAllowedDesktopMcpTools(result.tools).map(
+        (tool) =>
+          ({
+            name: tool.name,
+
+            description: tool.description,
+
+            inputSchema: tool.inputSchema,
+          }) as MCPToolInfo,
+      ),
+    );
+  });
 }
 
-const desktopMcpOperations = createDesktopMcpOperations();
+export async function callDesktopMcpTool(
+  configInput: MCPServerConfig,
+  toolNameInput: string,
+  paramsInput: Record<string, unknown> = {},
+): Promise<unknown> {
+  const config = parseDesktopMcpConfig(configInput);
+  const { toolName, params } = parseDesktopToolCall({
+    toolName: toolNameInput,
+    params: paramsInput,
+  });
+  assertDesktopMcpToolAllowed(toolName);
 
-export const listDesktopMcpTools = desktopMcpOperations.listTools;
-export const callDesktopMcpTool = desktopMcpOperations.callTool;
+  const argsHash = await hashPayload(params);
 
-export function hashMcpAuditValue(value: unknown) {
-  return createHash("sha256")
-    .update(JSON.stringify(value ?? null))
-    .digest("hex");
-}
+  try {
+    const rawResult = await withConnectedClient(config, async (client) =>
+      withTimeout(
+        client.callTool({ name: toolName, arguments: params }),
+        MCP_DEFAULT_CALL_TIMEOUT_MS,
+      ),
+    );
+    const result = boundResult(rawResult);
 
-export function getMcpConfigFingerprint(configInput: unknown) {
-  return buildMcpConfigFingerprint(desktopMcpConfigSchema.parse(configInput));
+    const resultHash = await hashPayload(result);
+
+    writeAuditEvent({
+      action: "mcp.tool.call",
+
+      resourceType: "mcp_tool",
+
+      toolName,
+
+      argsHash,
+
+      resultHash,
+
+      outcome: "success",
+    });
+
+    return result;
+  } catch (error) {
+    writeAuditEvent({
+      action: "mcp.tool.call",
+
+      resourceType: "mcp_tool",
+
+      toolName,
+
+      argsHash,
+
+      outcome: "failure",
+    });
+
+    // The audit sink is local-only; this is what makes a local stdio MCP
+    // failure visible to us at all.
+    recordDesktopError("mcp.tool.call", error, { "mcp.tool.name": toolName });
+
+    throw error;
+  }
 }

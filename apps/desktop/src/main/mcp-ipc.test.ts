@@ -1,307 +1,165 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  handlers: new Map<string, (...args: unknown[]) => unknown>(),
+  handlers: new Map<string, (...args: unknown[]) => Promise<unknown>>(),
   showMessageBox: vi.fn(),
-  appendFile: vi.fn(),
   listDesktopMcpTools: vi.fn(),
   callDesktopMcpTool: vi.fn(),
-  getMcpConfigFingerprint: vi.fn(),
-  hashMcpAuditValue: vi.fn(),
-  readRecentDesktopMcpAuditEvents: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
-  app: { getPath: () => "/tmp/void-agent-desktop-test" },
-  dialog: { showMessageBox: mocks.showMessageBox },
   ipcMain: {
-    handle: (name: string, handler: (...args: unknown[]) => unknown) =>
-      mocks.handlers.set(name, handler),
+    handle: (
+      name: string,
+      handler: (...args: unknown[]) => Promise<unknown>,
+    ) => {
+      mocks.handlers.set(name, handler);
+    },
   },
+  dialog: { showMessageBox: mocks.showMessageBox },
 }));
-vi.mock("node:fs/promises", () => ({ appendFile: mocks.appendFile }));
 vi.mock("./mcp-spawner.js", () => ({
-  callDesktopMcpTool: mocks.callDesktopMcpTool,
-  getMcpConfigFingerprint: mocks.getMcpConfigFingerprint,
-  hashMcpAuditValue: mocks.hashMcpAuditValue,
   listDesktopMcpTools: mocks.listDesktopMcpTools,
+  callDesktopMcpTool: mocks.callDesktopMcpTool,
 }));
-vi.mock("./mcp-audit-log.js", () => ({
-  readRecentDesktopMcpAuditEvents: mocks.readRecentDesktopMcpAuditEvents,
+vi.mock("./audit-sink.js", () => ({
+  parseAuditEvent: (event: unknown) => event,
+  writeAuditEvent: vi.fn(),
+  hashPayload: async (value: unknown) => `hash:${JSON.stringify(value)}`,
 }));
 
 import type { BrowserWindow } from "electron";
 import { configureMcpIpc, registerMcpIpcHandlers } from "./mcp-ipc.js";
 
-const origin = "https://void-agent.example";
-const config = {
-  command: "node",
-  args: ["server.js"],
-  env: { API_KEY: "secret" },
+const ORIGIN = "https://app.example";
+const CONFIG = {
+  url: "https://mcp.example/rpc",
+  headers: { Authorization: "Bearer test" },
 };
-const call = { toolName: "read_file", params: { path: "notes.txt" } };
+let trustedWindow: BrowserWindow;
 
-function setup() {
-  const mainFrame = { url: `${origin}/mcp/test/server-1` };
-  const webContents = { mainFrame };
-  const window = {
-    webContents,
-    isDestroyed: () => false,
-  } as unknown as BrowserWindow;
-  const event = {
-    sender: webContents,
-    senderFrame: mainFrame,
-  };
-  configureMcpIpc(window, origin);
-  registerMcpIpcHandlers();
+function makeWindow() {
+  const mainFrame = { url: `${ORIGIN}/mcp/test/thread-1` };
   return {
-    event,
-    callTool: mocks.handlers.get("mcp:tool-call")!,
-    listTools: mocks.handlers.get("mcp:list-tools")!,
-    getAuditHistory: mocks.handlers.get("mcp:get-audit-history")!,
+    isDestroyed: () => false,
+    webContents: { mainFrame },
+  } as unknown as BrowserWindow;
+}
+
+function makeEvent(window: BrowserWindow, url = `${ORIGIN}/mcp/test/thread-1`) {
+  const mainFrame = window.webContents.mainFrame;
+  return {
+    sender: window.webContents,
+    senderFrame: url === `${ORIGIN}/mcp/test/thread-1` ? mainFrame : { url },
   };
 }
 
-describe("desktop MCP IPC config consent", () => {
+function getHandler(name: string) {
+  const handler = mocks.handlers.get(name);
+  if (!handler) throw new Error(`Missing handler ${name}`);
+  return handler;
+}
+
+describe("desktop MCP IPC approval boundary", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mocks.handlers.clear();
-    mocks.showMessageBox.mockResolvedValue({ response: 0 });
-    mocks.appendFile.mockResolvedValue(undefined);
-    mocks.getMcpConfigFingerprint.mockImplementation((value) =>
-      JSON.stringify(value),
-    );
-    mocks.hashMcpAuditValue.mockReturnValue("audit-hash");
-    mocks.listDesktopMcpTools.mockResolvedValue([]);
-    mocks.readRecentDesktopMcpAuditEvents.mockResolvedValue([
-      { action: "mcp.tool-call", outcome: "success", toolName: "read_file" },
-    ]);
-    mocks.callDesktopMcpTool.mockResolvedValue({
-      content: [{ type: "text", text: "read result" }],
-    });
+    mocks.showMessageBox.mockReset().mockResolvedValue({ response: 0 });
+    mocks.listDesktopMcpTools
+      .mockReset()
+      .mockResolvedValue([{ name: "read_file" }]);
+    mocks.callDesktopMcpTool.mockReset().mockResolvedValue({ content: [] });
+    trustedWindow = makeWindow();
+    configureMcpIpc(trustedWindow, ORIGIN);
+    registerMcpIpcHandlers();
   });
 
-  it("confirms the exact executable config before tool-call consent and execution", async () => {
-    const { event, callTool } = setup();
-    const result = await callTool(event, { config, ...call });
-
-    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
-    expect(mocks.showMessageBox.mock.calls[0]?.[1]).toMatchObject({
-      title: "Allow a local MCP process?",
-      detail: expect.stringContaining("Program: node server.js"),
-    });
-    expect(mocks.showMessageBox.mock.calls[0]?.[1].detail).toContain(
-      "Environment variable names: API_KEY",
-    );
-    expect(mocks.showMessageBox.mock.calls[1]?.[1]).toMatchObject({
-      title: "Run a local MCP tool?",
-    });
-    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(config, call);
-    expect(result).toMatchObject({
-      content: [{ type: "text", text: "read result" }],
-    });
-    const successAudit = JSON.parse(
-      mocks.appendFile.mock.calls.at(-1)?.[1] as string,
-    );
-    expect(successAudit).toMatchObject({
-      action: "mcp.tool-call",
-      argsHash: "audit-hash",
-      resultHash: "audit-hash",
-      outcome: "success",
-    });
-    expect(JSON.stringify(successAudit)).not.toContain("read result");
-  });
-
-  it("requires exact-origin remote consent and binds renewed consent to credentials", async () => {
-    const { event, listTools, callTool } = setup();
-    const remote = {
-      url: "https://mcp.example/rpc?tenant=one",
-      headers: { Authorization: "Bearer highly-secret" },
-    };
-    await listTools(event, { config: remote });
-    expect(mocks.showMessageBox.mock.calls[0]?.[1]).toMatchObject({
-      title: "Allow a remote MCP server?",
-      detail: expect.stringContaining("HTTPS origin: https://mcp.example"),
-    });
-    const detail = mocks.showMessageBox.mock.calls[0]?.[1].detail as string;
-    expect(detail).toContain("Authorization");
-    expect(detail).not.toContain("highly-secret");
-
-    const changedCredentials = {
-      ...remote,
-      headers: { Authorization: "Bearer rotated-secret" },
-    };
-    await callTool(event, { config: changedCredentials, ...call });
-    expect(mocks.showMessageBox).toHaveBeenCalledTimes(3);
-    expect(mocks.showMessageBox.mock.calls[1]?.[1]).toMatchObject({
-      title: "Allow a remote MCP server?",
-    });
-    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(
-      changedCredentials,
-      call,
-    );
-  });
-
-  it("shows remote destination and network disclosure before sending exact arguments", async () => {
-    const { event, callTool } = setup();
-    const remote = {
-      url: "https://remote-tool-consent.example/mcp",
-      headers: { Authorization: "Bearer do-not-display-this" },
-    };
-
-    await callTool(event, {
-      config: remote,
-      toolName: "read_file",
-      params: { path: "report.txt" },
-    });
-
-    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
-    const configConsent = mocks.showMessageBox.mock.calls[0]?.[1];
-    expect(configConsent?.title).toBe("Allow a remote MCP server?");
-    expect(configConsent?.detail).toContain("Authorization");
-    expect(configConsent?.detail).not.toContain("do-not-display-this");
-
-    const callConsent = mocks.showMessageBox.mock.calls[1]?.[1];
-    expect(callConsent).toMatchObject({
-      title: "Send a remote MCP tool request?",
-      message: "Send “read_file” to https://remote-tool-consent.example?",
-      buttons: ["Send request", "Cancel"],
-    });
-    expect(callConsent?.detail).toContain(
-      "sends these exact arguments to https://remote-tool-consent.example",
-    );
-    expect(callConsent?.detail).toContain('"path": "report.txt"');
-    expect(callConsent?.detail).toContain("untrusted content");
-    expect(callConsent?.detail).not.toContain("do-not-display-this");
-    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(remote, {
-      toolName: "read_file",
-      params: { path: "report.txt" },
-    });
-  });
-
-  it("does not dispatch a remote MCP call after the user cancels its request consent", async () => {
-    const { event, callTool } = setup();
-    const remote = { url: "https://remote-cancel.example/mcp" };
-    mocks.showMessageBox
-      .mockResolvedValueOnce({ response: 0 })
-      .mockResolvedValueOnce({ response: 1 });
-
+  it("rejects another origin or route before showing consent", async () => {
+    const window = trustedWindow;
     await expect(
-      callTool(event, {
-        config: remote,
+      getHandler("mcp:list-tools")(
+        makeEvent(window, "https://evil.example/mcp/test/x"),
+        {
+          config: CONFIG,
+        },
+      ),
+    ).rejects.toThrow("trusted MCP test page");
+    await expect(
+      getHandler("mcp:tool-call")(makeEvent(window, `${ORIGIN}/chat`), {
+        config: CONFIG,
         toolName: "read_file",
-        params: { path: "private.txt" },
       }),
-    ).rejects.toThrow("Remote MCP tool request was not approved");
-
-    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
-    expect(mocks.appendFile).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.stringContaining('"outcome":"denied"'),
-      expect.any(Object),
-    );
+    ).rejects.toThrow("trusted MCP test page");
+    expect(mocks.showMessageBox).not.toHaveBeenCalled();
+    expect(mocks.listDesktopMcpTools).not.toHaveBeenCalled();
   });
 
-  it("shows the complete exact arguments even when they exceed the former preview limit", async () => {
-    const { event, callTool } = setup();
-    const testConfig = { ...config, command: "node-long-argument-test" };
-    const longValue = "x".repeat(5_000);
-    const exactCall = {
-      toolName: "read_file",
-      params: { path: "notes.txt", context: longValue },
-    };
-
-    await callTool(event, { config: testConfig, ...exactCall });
-
-    const toolPrompt = mocks.showMessageBox.mock.calls[1]?.[1];
-    expect(toolPrompt?.detail).toContain("Exact arguments (full JSON):");
-    expect(toolPrompt?.detail).toContain(longValue);
-    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(
-      testConfig,
-      exactCall,
+  it("requires per-session consent for each exact server configuration", async () => {
+    const window = trustedWindow;
+    const event = makeEvent(window);
+    await expect(
+      getHandler("mcp:list-tools")(event, { config: CONFIG }),
+    ).resolves.toEqual([{ name: "read_file" }]);
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(1);
+    expect(mocks.showMessageBox.mock.calls[0]?.[1].detail).toContain(
+      "DNS addresses are checked and pinned",
     );
+    await getHandler("mcp:list-tools")(event, {
+      config: { ...CONFIG, headers: { Authorization: "Bearer changed" } },
+    });
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
   });
 
-  it("does not execute a local tool when its exact-arguments consent is declined", async () => {
-    const { event, callTool } = setup();
-    const testConfig = { ...config, command: "node-declined-tool-test" };
+  it("asks for each tool call and redacts secrets in the native review", async () => {
+    const window = trustedWindow;
+    const config = { ...CONFIG, url: "https://review.example/rpc" };
+    await expect(
+      getHandler("mcp:tool-call")(makeEvent(window), {
+        config,
+        toolName: "read_file",
+        params: { path: "notes.txt", apiKey: "secret-value" },
+      }),
+    ).resolves.toEqual({ content: [] });
+    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
+    expect(mocks.showMessageBox.mock.calls[0]?.[1].detail).not.toContain(
+      "Bearer test",
+    );
+    expect(mocks.showMessageBox.mock.calls[1]?.[1].detail).toContain(
+      '"apiKey":"[redacted]"',
+    );
+    expect(mocks.showMessageBox.mock.calls[1]?.[1].detail).not.toContain(
+      "secret-value",
+    );
+    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(config, "read_file", {
+      path: "notes.txt",
+      apiKey: "secret-value",
+    });
+  });
+
+  it("never executes after a user cancels tool approval", async () => {
     mocks.showMessageBox
       .mockResolvedValueOnce({ response: 0 })
       .mockResolvedValueOnce({ response: 1 });
-
+    const window = trustedWindow;
     await expect(
-      callTool(event, { config: testConfig, ...call }),
-    ).rejects.toThrow("Local MCP tool call was not approved");
-
-    expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
+      getHandler("mcp:tool-call")(makeEvent(window), {
+        config: { url: "https://cancel.example/rpc" },
+        toolName: "read_file",
+        params: { path: "notes.txt" },
+      }),
+    ).rejects.toThrow("not approved");
     expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
-    expect(mocks.appendFile).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.stringContaining('"outcome":"denied"'),
-      expect.any(Object),
-    );
   });
 
-  it("requires new process consent when the executable config changes after listing", async () => {
-    const { event, listTools, callTool } = setup();
-    const listedConfig = {
-      command: "node-listing-test",
-      args: ["initial.js"],
-    };
-    const changedConfig = { command: "python", args: ["mcp_server.py"] };
-
-    await listTools(event, { config: listedConfig });
-    await callTool(event, { config: changedConfig, ...call });
-
-    expect(mocks.showMessageBox).toHaveBeenCalledTimes(3);
-    expect(mocks.showMessageBox.mock.calls[1]?.[1]).toMatchObject({
-      title: "Allow a local MCP process?",
-      detail: expect.stringContaining("Program: python mcp_server.py"),
-    });
-    expect(mocks.callDesktopMcpTool).toHaveBeenCalledWith(changedConfig, call);
-  });
-
-  it("does not execute or request tool consent when process consent is denied", async () => {
-    const { event, callTool } = setup();
-    const unapprovedConfig = { command: "never-approved-process" };
-    mocks.showMessageBox.mockResolvedValueOnce({ response: 1 });
-
+  it("blocks non-allowlisted tools before asking to execute", async () => {
+    const window = trustedWindow;
     await expect(
-      callTool(event, { config: unapprovedConfig, ...call }),
-    ).rejects.toThrow("Local MCP process was not approved");
+      getHandler("mcp:tool-call")(makeEvent(window), {
+        config: { url: "https://write.example/rpc" },
+        toolName: "delete_file",
+        params: {},
+      }),
+    ).rejects.toThrow("not allowed");
+    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
     expect(mocks.showMessageBox).toHaveBeenCalledTimes(1);
-    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
-  });
-
-  it("rejects IPC from a different sender before showing consent", async () => {
-    const { callTool } = setup();
-    const untrustedEvent = {
-      sender: {},
-      senderFrame: { url: `${origin}/mcp/test/server-1` },
-    };
-
-    await expect(callTool(untrustedEvent, { config, ...call })).rejects.toThrow(
-      "Untrusted desktop IPC sender",
-    );
-    expect(mocks.showMessageBox).not.toHaveBeenCalled();
-    expect(mocks.callDesktopMcpTool).not.toHaveBeenCalled();
-  });
-
-  it("returns only the main-process safe audit projection to the MCP test page", async () => {
-    const { event, getAuditHistory } = setup();
-    await expect(getAuditHistory(event)).resolves.toEqual([
-      { action: "mcp.tool-call", outcome: "success", toolName: "read_file" },
-    ]);
-    expect(mocks.readRecentDesktopMcpAuditEvents).toHaveBeenCalledWith(
-      "/tmp/void-agent-desktop-test",
-    );
-
-    const untrustedEvent = {
-      sender: {},
-      senderFrame: { url: `${origin}/mcp/test/server-1` },
-    };
-    await expect(getAuditHistory(untrustedEvent)).rejects.toThrow(
-      "Untrusted desktop IPC sender",
-    );
   });
 });

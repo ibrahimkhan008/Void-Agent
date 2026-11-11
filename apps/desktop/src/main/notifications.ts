@@ -1,50 +1,30 @@
-import {
-  BrowserWindow,
-  type IpcMainInvokeEvent,
-  Notification,
-  ipcMain,
-} from "electron";
+import { Notification } from "electron";
+import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
+import { resolveAppIconPath } from "./icon.js";
 
-export type DesktopAgentAlertKind =
-  | "complete"
-  | "needs_approval"
-  | "needs_input"
-  | "error";
-
-type DesktopAgentAlert = { kind: DesktopAgentAlertKind; threadId: string };
-
-const COPY: Record<DesktopAgentAlertKind, { title: string; body: string }> = {
-  complete: {
-    title: "Void-Agent response ready",
-    body: "Your chat response is ready.",
-  },
-  needs_approval: {
-    title: "Void-Agent needs your approval",
-    body: "A chat is waiting for your review.",
-  },
-  needs_input: {
-    title: "Void-Agent needs your input",
-    body: "A chat is waiting for your response.",
-  },
-  error: {
-    title: "Void-Agent response issue",
-    body: "A chat response needs attention.",
-  },
+export type DesktopAgentAlertPayload = {
+  kind: "complete" | "needs_approval" | "needs_input" | "error";
+  threadId?: string;
+  title: string;
+  body: string;
+  onlyWhenAway?: boolean;
 };
 
-let trustedWindow: BrowserWindow | null = null;
+let mainWindow: BrowserWindow | null = null;
 let trustedOrigin = "";
 
 export function configureDesktopNotifications(
-  window: BrowserWindow,
+  window: BrowserWindow | null,
   origin: string,
-) {
-  trustedWindow = window;
+): void {
+  mainWindow = window;
   trustedOrigin = origin;
 }
 
-function assertTrustedSender(event: IpcMainInvokeEvent) {
-  const window = trustedWindow;
+export function assertTrustedNotificationSender(
+  event: IpcMainInvokeEvent,
+): void {
+  const window = mainWindow;
   if (
     !window ||
     window.isDestroyed() ||
@@ -62,57 +42,83 @@ function assertTrustedSender(event: IpcMainInvokeEvent) {
   }
 }
 
-function parseAlert(raw: unknown): DesktopAgentAlert {
-  if (!raw || typeof raw !== "object") {
+export function parseDesktopNotification(
+  raw: unknown,
+): DesktopAgentAlertPayload {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Invalid desktop notification");
   }
   const value = raw as Record<string, unknown>;
+  const allowedKinds = new Set([
+    "complete",
+    "needs_approval",
+    "needs_input",
+    "error",
+  ]);
   if (
-    !Object.hasOwn(COPY, value.kind as string) ||
-    typeof value.threadId !== "string" ||
-    !/^[A-Za-z0-9_-]{1,128}$/.test(value.threadId)
+    !allowedKinds.has(value.kind as string) ||
+    (value.threadId !== undefined &&
+      (typeof value.threadId !== "string" ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(value.threadId))) ||
+    typeof value.title !== "string" ||
+    !value.title.trim() ||
+    value.title.length > 120 ||
+    typeof value.body !== "string" ||
+    !value.body.trim() ||
+    value.body.length > 280 ||
+    (value.onlyWhenAway !== undefined &&
+      typeof value.onlyWhenAway !== "boolean")
   ) {
     throw new Error("Invalid desktop notification");
   }
   return {
-    kind: value.kind as DesktopAgentAlertKind,
-    threadId: value.threadId,
+    kind: value.kind as DesktopAgentAlertPayload["kind"],
+    ...(typeof value.threadId === "string" ? { threadId: value.threadId } : {}),
+    title: value.title,
+    body: value.body,
+    ...(typeof value.onlyWhenAway === "boolean"
+      ? { onlyWhenAway: value.onlyWhenAway }
+      : {}),
   };
 }
 
-export function registerDesktopNotificationHandlers() {
-  ipcMain.handle("notifications:show", (event, raw: unknown) => {
-    assertTrustedSender(event);
-    const alert = parseAlert(raw);
-    const window = trustedWindow;
-    if (!window || window.isDestroyed()) return false;
-    if (window.isFocused() && !window.isMinimized()) return false;
-    if (!Notification.isSupported()) return false;
+export function showDesktopAgentNotification(
+  payload: DesktopAgentAlertPayload,
+): boolean {
+  if (payload.onlyWhenAway !== false && mainWindow) {
+    const focused = mainWindow.isFocused();
+    const minimized = mainWindow.isMinimized();
+    if (focused && !minimized) {
+      return false;
+    }
+  }
+  if (!mainWindow || mainWindow.isDestroyed() || !Notification.isSupported()) {
+    return false;
+  }
 
-    const copy = COPY[alert.kind];
-    const notification = new Notification(copy);
-    notification.on("click", () => {
-      if (!trustedWindow || trustedWindow.isDestroyed()) return;
-      if (trustedWindow.isMinimized()) trustedWindow.restore();
-      trustedWindow.show();
-      trustedWindow.focus();
-      const path = `/chat/${encodeURIComponent(alert.threadId)}`;
-      void trustedWindow.webContents.executeJavaScript(
-        `window.location.assign(${JSON.stringify(path)})`,
-        true,
-      );
-    });
-    notification.show();
-    return true;
+  const icon = resolveAppIconPath();
+  const notification = new Notification({
+    title: payload.title,
+    body: payload.body,
+    ...(icon ? { icon } : {}),
+    silent: false,
   });
 
-  ipcMain.handle("notifications:get-permission", (event) => {
-    assertTrustedSender(event);
-    return Notification.isSupported() ? "granted" : "unsupported";
+  notification.on("click", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+    const path = payload.threadId
+      ? `/chat/${encodeURIComponent(payload.threadId)}`
+      : "/";
+    void mainWindow.webContents.executeJavaScript(
+      `window.location.assign(${JSON.stringify(path)})`,
+      true,
+    );
   });
-
-  ipcMain.handle("notifications:request-permission", (event) => {
-    assertTrustedSender(event);
-    return Notification.isSupported() ? "granted" : "unsupported";
-  });
+  notification.show();
+  return true;
 }

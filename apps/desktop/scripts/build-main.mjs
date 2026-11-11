@@ -1,49 +1,46 @@
-import { mkdir } from "node:fs/promises";
+import * as esbuild from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const desktopRoot = path.resolve(here, "..");
-const projectRoot = path.resolve(desktopRoot, "..", "..");
-await mkdir(path.join(desktopRoot, "dist", "main"), { recursive: true });
-await mkdir(path.join(desktopRoot, "dist", "preload"), { recursive: true });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const desktopRoot = path.resolve(__dirname, "..");
 
-await build({
-  entryPoints: [path.join(desktopRoot, "src", "main", "index.ts")],
-  outfile: path.join(desktopRoot, "dist", "main", "index.js"),
+const bakedWebUrl =
+  process.env.KEINSAAS_WEB_URL?.trim() || "https://app.keinsaas.com";
+
+await esbuild.build({
+  entryPoints: [path.join(desktopRoot, "src/main/index.ts")],
+  outfile: path.join(desktopRoot, "dist/main/index.js"),
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node22",
-  external: ["electron", "electron-updater"],
+  target: "node20",
   sourcemap: true,
   define: {
-    "process.env.VOID_AGENT_WEB_URL": JSON.stringify(
-      process.env.VOID_AGENT_WEB_URL || process.env.NEXT_PUBLIC_BASE_URL || "",
-    ),
+    "process.env.KEINSAAS_WEB_URL": JSON.stringify(bakedWebUrl),
   },
-  absWorkingDir: projectRoot,
+  external: ["electron", "electron-updater"],
+  plugins: [
+    {
+      name: "bundle-workspace-only",
+      setup(build) {
+        build.onResolve({ filter: /.*/ }, (args) => {
+          if (args.path.startsWith("@keinsaas/") || args.path === "zod") {
+            return null;
+          }
+          if (
+            !args.path.startsWith(".") &&
+            !path.isAbsolute(args.path) &&
+            !args.path.startsWith("node:")
+          ) {
+            return { path: args.path, external: true };
+          }
+          return null;
+        });
+      },
+    },
+  ],
+  logLevel: "info",
 });
-await build({
-  entryPoints: [path.join(desktopRoot, "src", "preload", "index.ts")],
-  outfile: path.join(desktopRoot, "dist", "preload", "index.js"),
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  target: "node22",
-  external: ["electron"],
-  sourcemap: true,
-  absWorkingDir: projectRoot,
-});
-await build({
-  entryPoints: [path.join(desktopRoot, "src", "preload", "server-picker.ts")],
-  outfile: path.join(desktopRoot, "dist", "preload", "server-picker.js"),
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  target: "node22",
-  external: ["electron"],
-  sourcemap: true,
-  absWorkingDir: projectRoot,
-});
+
+console.log("Desktop main process bundled to dist/main/index.js");

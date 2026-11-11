@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("electron", () => ({
-  BrowserWindow: { fromWebContents: vi.fn() },
   Notification: class {
     constructor(options: unknown) {
       mocks.notificationOptions(options);
@@ -26,12 +25,10 @@ vi.mock("electron", () => ({
 }));
 
 import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
-import {
-  configureDesktopNotifications,
-  registerDesktopNotificationHandlers,
-} from "./notifications.js";
+import { registerNotificationHandlers } from "./notification-ipc.js";
+import { configureDesktopNotifications } from "./notifications.js";
 
-const origin = "https://void-agent.example";
+const origin = "https://app.example";
 
 function setup() {
   const frame = { url: `${origin}/chat/thread-1` };
@@ -53,7 +50,7 @@ function setup() {
     senderFrame: frame,
   } as unknown as IpcMainInvokeEvent;
   configureDesktopNotifications(window, origin);
-  registerDesktopNotificationHandlers();
+  registerNotificationHandlers();
   return {
     event,
     window,
@@ -62,6 +59,14 @@ function setup() {
   };
 }
 
+const alert = {
+  kind: "needs_approval",
+  threadId: "thread-1",
+  title: "Approval needed",
+  body: "Review and approve to continue.",
+  onlyWhenAway: true,
+};
+
 describe("desktop native notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,15 +74,17 @@ describe("desktop native notifications", () => {
     mocks.notificationSupported.mockReturnValue(true);
   });
 
-  it("uses fixed generic copy and builds a local route from a validated thread ID", () => {
+  it("shows validated copy and derives a same-app route from the thread id", () => {
     const { event, show, window } = setup();
-    expect(show(event, { kind: "needs_approval", threadId: "thread-1" })).toBe(
-      true,
+    expect(show(event, { ...alert, url: "javascript:alert(1)" })).toBe(true);
+    expect(mocks.notificationOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: alert.title,
+        body: alert.body,
+        silent: false,
+      }),
     );
-    expect(mocks.notificationOptions).toHaveBeenCalledWith({
-      title: "Void-Agent needs your approval",
-      body: "A chat is waiting for your review.",
-    });
+    expect(mocks.notificationShow).toHaveBeenCalledOnce();
     const click = mocks.notificationOn.mock.calls[0]?.[1];
     click();
     expect(window.show).toHaveBeenCalled();
@@ -88,39 +95,31 @@ describe("desktop native notifications", () => {
     );
   });
 
-  it("rejects forged IPC senders and malformed route identifiers", () => {
+  it("rejects forged senders, foreign origins, and malformed thread IDs", () => {
     const { event, show } = setup();
-    expect(() =>
-      show({ ...event, sender: {} }, { kind: "complete", threadId: "x" }),
-    ).toThrow("Untrusted desktop notification sender");
-    expect(() =>
-      show(event, { kind: "complete", threadId: "../settings" }),
-    ).toThrow("Invalid desktop notification");
-    expect(() =>
-      show(event, { kind: "complete", threadId: "x", title: "secret" }),
-    ).not.toThrow();
-    expect(mocks.notificationOptions).toHaveBeenCalledWith({
-      title: "Void-Agent response ready",
-      body: "Your chat response is ready.",
-    });
+    expect(() => show({ ...event, sender: {} }, alert)).toThrow(
+      "Untrusted desktop notification sender",
+    );
+    expect(() => show(event, { ...alert, threadId: "../settings" })).toThrow(
+      "Invalid desktop notification",
+    );
+    (event.senderFrame as unknown as { url: string }).url =
+      "https://attacker.example/chat";
+    expect(() => show(event, alert)).toThrow(
+      "Untrusted desktop notification origin",
+    );
   });
 
-  it("suppresses alerts while focused and when native notifications are unsupported", () => {
+  it("bounds notification copy and suppresses alerts while focused or unsupported", () => {
     const { event, show, window } = setup();
+    expect(() => show(event, { ...alert, body: "x".repeat(281) })).toThrow(
+      "Invalid desktop notification",
+    );
     vi.mocked(window.isFocused).mockReturnValue(true);
-    expect(show(event, { kind: "complete", threadId: "thread-1" })).toBe(false);
+    expect(show(event, alert)).toBe(false);
     vi.mocked(window.isFocused).mockReturnValue(false);
     mocks.notificationSupported.mockReturnValue(false);
-    expect(show(event, { kind: "complete", threadId: "thread-1" })).toBe(false);
+    expect(show(event, alert)).toBe(false);
     expect(mocks.notificationShow).not.toHaveBeenCalled();
-  });
-
-  it("rejects a trusted window frame with an untrusted origin", () => {
-    const { event: trustedEvent, show } = setup();
-    (trustedEvent.senderFrame as unknown as { url: string }).url =
-      "https://evil.example/chat";
-    expect(() =>
-      show(trustedEvent, { kind: "error", threadId: "thread-1" }),
-    ).toThrow("Untrusted desktop notification origin");
   });
 });

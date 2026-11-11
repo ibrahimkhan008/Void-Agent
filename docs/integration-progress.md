@@ -1736,3 +1736,147 @@ Fresh status audit is recorded in [MIGRATION-STATUS-REPORT.md](MIGRATION-STATUS-
 - Revalidated the committed source tree after commit hooks: 588/588 test files and 3,131/3,131 tests passed; 6 GiB typecheck passed; lint passed with warnings; Drizzle metadata check passed; build passed with 205/205 pages generated; diff checks passed.
 - Build page-data collection logged read-only PostgreSQL error column "preset_id" does not exist for the published-agents endpoint. No database writes or migrations occurred; PostgreSQL/runtime readiness remains unverified.
 - B20 remains MISSING and disabled. C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification. No parity completion claim is made.
+
+### 2026-11-09 00:08 IST - A01 core chat lifecycle implementation checkpoint
+- Implemented atomic new-thread + first-user-message persistence, server-validated user message role, one-winner message-run claims, generic 409 conflicts for duplicate/colliding IDs, per-attempt `runAttemptId` compare-and-swap protection, stale-failure rejection, and transactionally consistent user/assistant finalization. `/schedule` and unknown-skill fast paths now claim and finalize runs to prevent replayed side effects. New-chat URL transition waits for an OK, non-redirected POST with a body and only occurs on `/dashboard` for a draft chat.
+- Fixed two PostgreSQL migration blockers found against an isolated cluster: migration 0042 used unsupported `min(uuid)` and migration 0068 began with a UTF-8 BOM PostgreSQL rejects. No production or configured application database was used.
+- Isolated PostgreSQL 17.11 with pgvector 0.8.7: complete migration chain passed on fresh test database `void_agent_a01_fresh_test`; real PostgreSQL A01 suite passed 10/10 (transactional first message, ordering/cursor pagination, rollback, ownership, collision isolation, concurrent claims, retry, stale attempt CAS, atomic finalization).
+- Focused A01: 5 files / 26 tests passed. Full `pnpm test`: 593 files / 3,157 tests passed. 6 GiB `pnpm check-types` passed. `pnpm lint` passed with existing Next deprecation/workspace-root and `<img>` warnings; Biome checked 2,292 files. `pnpm db:check` passed. Production build passed and generated 205/205 pages. `git diff --check` passed before this documentation batch; rerun after docs.
+- A01 remains PARTIAL under the register's end-to-end bar: authenticated API/provider streaming/cancel and browser retry flows were not exercised through a live application session. No real provider credentials were used. Independent reviewers checked route idempotency/attempt fencing and SDK custom-fetch compatibility; no code review blockers remain. Exact latest status and test evidence: `docs/MIGRATION-STATUS-REPORT.md`.
+- No commit, push, deployment, production DB access, or reference-repository edit. Preserve the two user-owned untracked `cognixai-*-spec.md` files.
+
+### 2026-11-09 00:26 IST - A01 final validation update
+- Final full test run after route and transport tests: `pnpm test` PASS, 595 files / 3,172 tests. Focused A01 run: 7 files / 41 tests; includes 12 real PostgreSQL integration tests, 4 mocked chat-route tests, and 9 custom transport tests. Fresh PostgreSQL database `void_agent_a01_fresh_test` is isolated on local PostgreSQL 17.11 + pgvector 0.8.7; complete migration chain applied and the connected database/address verified by the test harness.
+- Current source typecheck PASS with 6 GiB heap; lint PASS (existing Next deprecation/workspace-root and `<img>` warnings; Biome checked 2,295 files); `pnpm db:check` PASS; `git diff --check` PASS before this entry. Production build PASS with 205/205 pages generated using the isolated test database URL; no production DB/provider used.
+- Added `src/app/api/chat/route.lifecycle.test.ts` for unauthenticated 401, invalid role 400, foreign-thread 403, and new-thread atomic-repository-call wiring. The last case intentionally fails at mocked model resolution after verifying the first-message transaction call; it does not demonstrate database or streaming behavior through HTTP.
+- Extracted `createChatTransportFetch` and integrated it into ChatBot. Nine helper tests verify success-only draft navigation, redirected/error/empty response rejection, GET reconnect behavior, and abort signal passthrough. These are unit tests, not mounted browser E2E.
+- A01 stays PARTIAL. Remaining: authenticated POST through a controlled provider stream/tool continuation, actual timeout/error/cancel callback persistence, and browser send/retry/history journey. Real provider credentials were not used. No commit/push/deploy. See latest migration status report.
+
+## A01 run-claim collision fix and callback verification — 2026-11-09 00:44 IST
+
+- Independent concurrency review found and fixed a repository conflict predicate gap: claimMessageRun now requires an existing row to match both the requested thread and role=user before retryable upsert. This prevents a retryable assistant row from being overwritten by a client-submitted user turn using the same message ID.
+- Added real PostgreSQL regression coverage asserting the claim is rejected and assistant role/content/metadata remain unchanged. The unit SQL assertion now verifies the role predicate as well.
+- Added mocked route callback coverage for successful terminal finalization, sanitized retryable provider failure state, and aborted partial-response persistence. These invoke route callbacks directly; they do not verify AI SDK callback scheduling, provider stream bytes, real provider calls, or browser E2E.
+- Isolated PostgreSQL lifecycle suite: PASS, 13/13. Focused A01 suite: PASS, 7 files / 45 tests. Full suite: PASS, 595 files / 3,176 tests using only the local A01 test database URL override.
+- NODE_OPTIONS=--max-old-space-size=6144 pnpm check-types: PASS (also included in the successful production build after test updates). pnpm lint: PASS with existing Next deprecation/workspace-root and img warnings. pnpm db:check: PASS (metadata only). 6 GiB pnpm build: PASS, exit 0, generated 205/205 pages; existing dependency-analysis and dynamic-session warnings remain. git diff --check is to be rerun after this documentation append.
+- A01 remains PARTIAL. Real provider streaming, SDK callback execution order, actual timeout/cancellation over HTTP, and browser send/retry/history remain unverified. The route has a Next maxDuration=300 setting, but this is not proof that timeout state is persisted on every deployment runtime.
+- No commit, push, deployment, production database access, or reference-repository edit. Original untracked user-owned files remain untouched.
+
+---
+
+### 2026-11-09 01:24 IST � A01 lifecycle update
+- Corrected the retryable assistant-ID/user-claim collision at the SQL conflict boundary and added real PostgreSQL coverage.
+- Wired 285-second generation deadline with a persistence grace before the 300-second route limit; timeout is retryable, and explicit stop wins a simultaneous race. Failure persistence is awaited before stream finish can finalize.
+- Added controlled AI SDK 5 V2 model test of actual route stream serialization/SSE, streamed response, success finalization, and sanitized retryable stream error.
+- Current validation: isolated PostgreSQL lifecycle 13/13; focused A01 9 files / 55 tests; full suite 597 files / 3,186 tests; 6 GiB typecheck, lint, db metadata check, build (205/205 pages), all PASS. Existing lint/build warnings are documented in `docs/testing-report.md`.
+- A01 remains PARTIAL: no browser send/retry/history journey, no route using real PostgreSQL persistence end to end, and no live provider/runtime timeout test. No push/deploy/reference changes.
+
+### A01 implementation update — 2026-11-09 02:30 IST
+- A01 remains PARTIAL; see `docs/MIGRATION-STATUS-REPORT.md` and the updated A01 row in `docs/feature-work-register.md`.
+- Added route-to-real-PostgreSQL coverage using a controlled AI SDK model: successful first-turn persistence, authorization denial, provider failure/retry/replay, and HTTP request cancellation with partial assistant persistence.
+- Added controlled real AI SDK stream tests for deadline timeout persistence, explicit stop precedence, sanitized stream errors, and finalization DB failure recovery. Finalization retries the same transaction once; repeated failure is marked non-retryable to prevent replaying tools that already ran.
+- SQL claim predicate now rejects rows with `error.retryable=false`; real PostgreSQL tests verify false is not reclaimable while explicit true and legacy absent flags remain retryable.
+- Authenticated Playwright covers mocked request failure/retry/render and PostgreSQL-seeded conversation reload/hydration. 3 tests passed. It does not prove the browser POST was persisted by `/api/chat`.
+- Validation: focused A01 11 files / 66 tests; PG claim/lifecycle subset 2 files / 17 tests; full suite 599 files / 3,197 tests; 6 GiB typecheck; lint; DB metadata check; production build 205/205; diff check all pass. Initial full-suite run had one timing-race test failure; after replacing immediate effect assertion with `waitFor`, isolated 5/5 and full suite passed.
+- Next: build one authenticated browser journey that posts to the actual A01 route using a controlled local provider and then reloads the resulting PostgreSQL-backed conversation; verify browser-visible tool continuation or record exact infrastructure blocker. No live provider credentials or deployment timeout verification are available here.
+
+## Repository roles corrected 2026-11-09
+
+Canonical upstream is `keinsaasforever/better-chatbot` `main`; customized destination is `ibrahimkhan008/Void-Agent`. Earlier `Void-Agent-V2` references above describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare live upstream `main` with the destination and preserve Void-Agent customizations. The current user instruction keeps changes local: no commit, push, or deployment.
+## Canonical upstream port checkpoint — 2026-11-09 03:05:55 +05:30
+- Source: keinsaasforever/better-chatbot main at 6f4183566bc48616303cb84055f11f79578c82fe; destination: ibrahimkhan008/Void-Agent main at 589fa48f3c323d049e51d566f3b8ddff95d59bc5. No common Git ancestor; exact fork commit unknown. The configured Git remote named better-chatbot is canonical; the remote named upstream points to an unrelated repository.
+- Already present: upstream mention-chip behavior from 989dc36 is implemented in destination user-message-text.tsx and message-mentions.ts.
+- Ported: upstream 945d3da lifetime team-member allowance. Destination retains its DB/API column name monthlyCapMicros for compatibility but sums all monthly ledger periods inside the member-locked reservation transaction; expired current-period reservations update the ledger before the sum. Admin and error copy now describe the lifetime cap. Focused tests: 3 files, 14 tests passed. Typecheck passed. No real PostgreSQL or live provider verification for this port yet.
+- Pending: Project-brain no-Inngest dispatch gap from upstream 93fdb8e is under implementation. The entire 2.0 workspace has not been synchronized; compare concrete capabilities against current upstream before claiming parity.
+- No commit, push, deployment or upstream source edit.
+
+
+### Budget safety correction — 2026-11-09 03:07:35 +05:30
+Independent review found that TTL-only reservation expiry could release allowance while a request is still running. The final port keeps reserved spend charged across all monthly periods until explicit finalize/release; it does not auto-expire holds by elapsed time. A late settlement of a previously expired legacy row can still record actual usage. This supersedes the earlier checkpoint's description of expiring current-period reservations. Stale holds require a future reconciler with proof of termination, not a time-only release. Focused tests and typecheck must be rerun after this correction.
+
+
+Canonical sync final validation: isolated PostgreSQL 4/4, full unit suite 3183 passed/21 skipped; project-brain remains partial for manual and connector enqueue. Build status pending.
+Validation follow-up 2026-11-09: after removing TTL-only expiry, focused budget tests 3 files/14 tests passed; isolated PostgreSQL budget suite 4/4 passed; full suite 597 passed + 3 skipped, 3183 passed + 21 skipped; production build exited 0; lint and db:check passed; git diff --check exit 0. No commit/push/deploy.
+Upstream dispatch scope update (2026-11-09 06:01:14 +05:30): MCP and Composio connector sync routes now also schedule newly inserted project-brain runs after their transactions commit. Focused connector suites passed 16/16. Document, chat, and both connector dispatch are covered; manual project-brain analysis remains dependent on the scheduler. Current production build after these route changes completed successfully; current git diff --check exit 0.
+Upstream sync final-state update (2026-11-09 06:11:05 +05:30): The B06 queue dispatch port now covers all five ProjectBrainRun insertion paths: document ingest, project chat refresh, manual analysis/retry, MCP connector sync, and Composio connector sync. Each only schedules after durable insert/commit, with the existing database claim retained. Manual analysis is no longer pending; B06 remains PARTIAL for unverified real provider/PostgreSQL/browser lifecycle. Upstream TensorX models are now wired as direct optional provider routes. New provider feature A34 makes the register 100 workflows. Current provider/auth resolution rejects missing or masked server keys and the catalog filters absent credentials. Focused combined tests pass 50/50; TensorX-focused suite 17/17, manual route 8/8, connector suites 16/16, project brain queue suite 23/23. Current 6 GiB typecheck and production build passed; full suite result 3183 passed/21 skipped was run before the final small TensorX/manual route additions. No live TensorX verification.
+Superseding sync update (2026-11-09 06:13:05 +05:30): Project-brain dispatch now also covers manual analysis and stale retry; together with document ingestion, chat refresh, MCP sync, and Composio sync, every current ProjectBrainRun insert path schedules after commit. Focused tests show targeted dispatch and no duplicate dispatch for active runs. B06 remains PARTIAL only for real provider/PostgreSQL/browser lifecycle verification. TensorX direct provider/model port from upstream 2.0 is tracked as A34; 100 individually listed workflows. Focused relevant tests 50/50; isolated budget PostgreSQL tests 4/4; final 6 GiB typecheck, production build, scoped Biome, and git diff --check passed. Full suite last run before manual/TensorX edits: 597 files/3183 tests passed, 3 files/21 tests skipped. No live TensorX credentials/provider verification. No commit/push/deploy.
+
+> Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
+
+## Staging integration checkpoint — 2026-11-11 00:00 IST
+
+This is a live-workspace checkpoint, not a completion claim. Destination work remains in `C:\Users\Ikra\Desktop\Void-Agent`; integration code is in `C:\Users\Ikra\Desktop\Void-Agent-integration-staging` and has not been promoted.
+
+- Exact Better Chatbot snapshot `6f4183566bc48616303cb84055f11f79578c82fe`: all 1,768 tracked paths are present in staging; full content comparison of deliberate edits is still pending.
+- Completed in staging with focused evidence: Dodo repository typing fix (3 tests); Saved Notes and Collections selected tests (27 tests), plus prior scoped typecheck/Biome; eCanvas (9 files / 26 tests); community (5 files / 13 tests, 6 GiB typecheck, db:check, scoped Biome); archive (4 route files / 11 tests, 6 GiB typecheck, db:check, scoped Biome); desktop (20 files / 124 tests, typecheck/build/Biome from desktop batch). These checks are feature-focused and mostly mocked, not live external-service or browser verification.
+- Staging A01 safeguards exist under `apps/web/src`: message run claims/attempt fencing, deadlines, failed-run persistence, finalization recovery, persisted-tail handling. Focused A01 unit/mock selection passed 7 files / 44 tests. This does not prove current-session real PostgreSQL integration. The current Windows host has no PostgreSQL service/binaries/listener, and Docker is disallowed by repository guidance; no database URL values or `.env` content were read.
+- Connector OAuth/catalog and tool workflow are still in progress. Latest focused connector/provider/approval tests passed 9 files / 44 tests and 6 GiB typecheck/lint passed. Mocked complete write paths currently covered are Gmail send/reply, Drive create, and Teams send; read actions are covered for Gmail, Drive, Calendar, GitHub, Outlook, Slack, Notion, Teams. Source-tool mapping and remaining write operations are still pending; no live provider/PostgreSQL verification.
+- Original custom features added to the staging queue: per-thread Insights is in progress with a reachable UI entry required; AI app builder, bug-bounty workflows, and chat-request challenge controls remain to be implemented or individually dispositioned. B20 remains MISSING and browser execution stays disabled. C38 remains PARTIAL pending live Composio/PostgreSQL/browser verification.
+- Do not promote yet. Staging contains a local `.env` and temporary `apps/void-agent-desktop`; both must be excluded. Keep root `.env`/`.env.local`, `agents.md`, both CognixAI specs, primary context/docs, and all primary dirty work untouched.
+- No full current-tree suite, monorepo build, actual PostgreSQL migration apply, promotion, commit, push, or deployment has occurred.
+
+Next: close connector source-tool parity with tests; finish Insights and the A01 test gap; implement/disposition remaining original features; then perform full staging validation, compare upstream file content deltas, create a safe promotion backup, and validate the actual destination after a non-destructive overlay.
+
+## 2026-11-11 00:12 IST — completed batches and remaining work
+
+### Newly closed since prior checkpoint
+- A01 staged transport fix: primary success-gated draft navigation behavior is now present in `apps/web`; route lifecycle and controlled AI SDK stream tests cover auth, role/ownership, atomic new-thread wiring, duplicate claim conflict, stream success/failure, timeout, cancellation and finalization retry. 3 files / 15 tests plus 4 persistence/recovery files / 16 tests; 6 GiB typecheck and scoped Biome passed. No live PostgreSQL/provider/browser E2E.
+- Thread Insights: owner-scoped bounded transcript, strict output schema, timeout/rate limit, repeatable-read snapshot and hash/count/latest-ID recheck on persistence, thread-page toolbar trigger, stale label/refresh. 4 files / 11 tests, 6 GiB typecheck, db:check, scoped Biome passed. No live DB/provider/browser E2E.
+- Community and Archive remain closed as detailed in the previous checkpoint (13 and 11 focused tests respectively).
+
+### Still in progress / not ready to promote
+- Direct connectors: source has 45 tool files. Latest 44-test selected suite covers Gmail send/reply, Drive create and Teams send with approval plus read paths. Nine additional provider write actions (Asana, ClickUp, Discord, Freshdesk, Jira, Linear, Productboard, Zendesk, Zulip) and any provider contracts not verified remain in progress. No live provider/PostgreSQL.
+- AI app builder, Bug Bounty, and chat request challenge controls remain open.
+- Full current combined suite, production web build, complete desktop revalidation, and content-level upstream delta report remain pending.
+- Current Windows host has no PostgreSQL service/binaries/listener; Docker is prohibited. Do not claim PostgreSQL integration or migration application.
+- Preserve staging `.env`, temporary duplicate desktop, root secrets/specs/context, and all primary dirty files. No promotion, commit, push or deployment.
+
+Next: complete connector write action mapping/tests, finish A01 coverage, complete outstanding original features or document concrete exclusions, then run aggregate staging validation and plan the non-destructive primary promotion.
+
+## 2026-11-11 00:17 IST — active feature status update
+
+- Connector port: 6 files / 39 focused tests passed after Asana, ClickUp and Linear approval-gated write paths landed. These three join the already tested Gmail send/reply, Drive create and Teams send paths. Jira and Zendesk newer edits are unverified; Productboard, Freshdesk (two actions), Discord and Zulip remain unsupported/under review. Live providers and PostgreSQL were not used.
+- C45 source comparison is now complete: the original cryptographic challenge is missing from staging. Its user/session/IP/UA/client-key binding, request hash/MAC, client signature, proof-of-work, expiry/replay/origin/rate controls and adaptive Turnstile are documented; implementation is assigned. It remains a security gap until the cache boundary and end-to-end route checks pass.
+- AI app builder is starting. It is a prompt-to-app sandbox lifecycle, distinct from existing E2B user-code execution. A durable owner-scoped build job, allowlisted templates, safe relative paths and fixed commands are required. `0080`/idx81 reserved.
+- Still pending: bug bounty, remaining connector writes, actual current-session PostgreSQL, full monorepo suite/build and primary promotion. B20 remains MISSING/disabled; C38 remains PARTIAL pending live verification.
+
+## 2026-11-11 00:20 IST — connector verification update
+
+- Connector write paths now have mocked approval coverage for Gmail send/reply, Drive create, Teams send, Asana `create_task`, ClickUp `create_task`, Linear `create_issue`, Jira `add_comment`, and Zendesk `add_comment`; latest suite 7 files / 44 tests PASS.
+- Jira uses PKCE OAuth 3LO with fixed official API origin and validated cloudId. Zendesk host comes only from validated server-side subdomain config; tokens are owner-bound and encrypted. No live provider or PostgreSQL verification.
+- Still unresolved: Productboard config-driven exact write schema; Freshdesk safe encrypted API-key/subdomain onboarding and two approved actions; Discord's Bot-token-only contract; Zulip's per-user realm/token with strict host pinning.
+- Current 6 GiB typecheck is blocked by C45's in-progress `ChatRequestSecuritySchema` export, not connector code. Re-run after guard merge.
+
+### Typecheck snapshot correction — 2026-11-11 00:22 IST
+Connector agent reports the missing C45 `ChatRequestSecuritySchema` export is now present and a 6 GiB web typecheck passed on that intermediate staging snapshot. C45 route/client edits continued after that run and are not covered by it; a fresh typecheck is pending after those edits. Connector-focused status remains 7 files / 44 tests PASS. Do not call the current combined tree typechecked until the final post-edit run completes.
+
+## AI app-builder schema checkpoint — 2026-11-11 00:28 IST
+
+The staging workspace now has an additive `app_build` persistence model and migration `0080_void_agent_app_builder.sql` (journal idx81), plus a repository and initial runner/generator. `pnpm --filter web db:check` passes through 0080; this validates Drizzle metadata only and does not apply SQL to PostgreSQL. API/UI, lifecycle tests, owner-thread DB constraint review, sandbox cleanup and full feature verification remain unfinished. Do not count C43 complete or promote this partial vertical slice.
+
+## 2026-11-11 00:32 IST — connector expansion checkpoint
+
+Freshdesk has been implemented with encrypted per-user API-key credentials, validated server-side tenant subdomain, safe official Basic auth, and approval-gated create_ticket/add_reply. Focused connector suite: 9 files / 51 tests PASS. Mock write workflows now cover 11 actions across Gmail, Drive, Teams, Asana, ClickUp, Linear, Jira, Zendesk and Freshdesk. No live providers/PostgreSQL.
+
+Official Productboard v2 contract confirms a feature must be parented under a component (component under product) and fields vary by workspace. Productboard is being adapted with component discovery/config validation and an explicitly approved selected component. Discord's source Bot-token model and Zulip's realm token/host model remain unresolved.
+
+The current 6 GiB typecheck clears C45 but is stopped by a missing `afterAll` import in the new app-builder route test; it is assigned to the app-builder owner. Full suite/build remain pending.
+
+## 2026-11-11 00:37 IST — app builder implementation progress
+
+The staging app now has a standalone build create/detail UI and APIs, owner-scoped persistence (migration 0080), bounded plan generation and E2B runner, cancellation/cleanup path, and tests (2 files / 11 tests passed). Database schema enforces owner/thread relation, active-build cap and sandbox uniqueness. The build tool is currently not registered in chat; route integration is being coordinated with the C45 owner. Resume/cleanup edge tests and combined typecheck/db:check/Biome are still pending. No real PostgreSQL, E2B credentials, or browser E2E.
+
+
+## Current migration audit — 2026-11-11 01:05 IST
+
+Current status of record is docs/MIGRATION-STATUS-REPORT.md. Weighted overall ~44% (38–50% range), implementation 58%, verified functionality 31%; prior 60% overall estimate is superseded as overstated. Original source zip-main@aa9fce0f545afb18b9a191724be092887f83630b, upstream better-chatbot@6f4183566bc48616303cb84055f11f79578c82fe, destination Void-Agent@589fa48f3c323d049e51d566f3b8ddff95d59bc5. Staging is C:/Users/Ikra/Desktop/Void-Agent-integration-staging, not promoted. It has 1,609/1,768 upstream contents identical, 159 different, zero missing. Original src path mapping is unresolved and is not a parity count. Bug Bounty is missing; original App Builder modes are omitted; B20 remains blocked/disabled.
+
+The audit did not rerun tests or builds. Existing focused results are agent-reported only. No live PostgreSQL/provider/browser E2E is established. Preserve 61 destination changes; do not copy staging .env; explicitly handle apps/void-agent-desktop. A helper modified 21 staging App Builder files during the read-only audit. Review them first. See docs/migration-handoff.md for ordered work.
+
+## Final checkpoint — promotion complete (2026-11-11 06:20 IST)
+
+- The staged integration was promoted into `C:\Users\Ikra\Desktop\Void-Agent` via a hash-protected overlay (staging `.env` files, node_modules, build outputs, `apps/void-agent-desktop`, uppercase `AGENTS.md`, and primary-owned docs/specs excluded) and validated in the destination: web 498 files / 3,361 tests, typecheck, lint, `db:check`, production build — all PASS; desktop 22 files / 132 tests + typecheck + build PASS. Evidence: docs/testing-report.md ("Controller session — 2026-11-11 06:20 IST").
+- Landed in this final batch: C45 challenge + pkh fail-open fix + AES envelope layer; C44 Bug Bounty port (migration 0081, unapplied); C43 App Builder completion (static/agent modes, clarify, resume lifecycle fix, tool registered); C42 Productboard + Zulip with exact-payload approvals and host pinning (Discord excluded with justification); admin console core (site_config pages + `/api/admin/config` + `/api/admin/tools`); legal routes; webhook outbox delivery driver; `/api/user/memory` (dead endpoint fixed); memory tools bound to the Memory toolkit; Azure OpenAI branch restored; ~3.9k locale mojibake values repaired and key parity restored (1,937 leaves per locale); desktop canonicalization (apps/desktop; void-agent-desktop excluded) + application-menu/desktop-handoff re-ported (132 tests).
+- All 159 upstream differences classified (0 unresolved) and all zip-main families dispositioned: docs/upstream-diff-classification.md, docs/zip-main-parity-map.md, docs/zip-main-triage-{ai,ui,api}.md.
+- Backup verified restorable at C:\Users\Ikra\Desktop\void-agent-backup-20261111; superseded old tree relocated there (recoverable). Git HEAD 8b7b128 unchanged; nothing committed, pushed, deployed, or migrated.
+- Remaining work: docs/MIGRATION-STATUS-REPORT.md §16 (runtime site_config consumption, secondary admin pages, landing redesign, scheduler chat tool + agent_view/team migration specs, 28 connector providers, memory auto-extraction, locale translation pass, C45 production env, B20 stays disabled).

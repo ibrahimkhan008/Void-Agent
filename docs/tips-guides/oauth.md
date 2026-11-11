@@ -90,21 +90,44 @@ DISABLE_SIGN_UP=1
 
 ### Base URL Configuration
 
-For OAuth to work correctly, you must set the `FLARE_AUTH_URL` environment variable to match how you access the application:
+For OAuth to work correctly, you must set the `BETTER_AUTH_URL` environment variable to match how you access the application:
 
 ```text
 # For local development with HTTPS
-FLARE_AUTH_URL=https://localhost:3000
+BETTER_AUTH_URL=https://localhost:3000
 
 # For local development with HTTP (default)
-FLARE_AUTH_URL=http://localhost:3000
+BETTER_AUTH_URL=http://localhost:3000
 
 # For production
-FLARE_AUTH_URL=https://yourdomain.com
+BETTER_AUTH_URL=https://yourdomain.com
 ```
 
-**Important:** If you're using HTTPS locally (e.g., via a reverse proxy or custom SSL setup), make sure to set `FLARE_AUTH_URL=https://localhost:3000` to ensure OAuth callbacks work correctly.
+**Important:** If you're using HTTPS locally (e.g., via a reverse proxy or custom SSL setup), make sure to set `BETTER_AUTH_URL=https://localhost:3000` to ensure OAuth callbacks work correctly.
+
+## Desktop app (Electron)
+
+Providers refuse OAuth inside embedded web views. Google returns
+`403 disallowed_useragent` ("This browser or app may not be secure") as soon as
+the consent screen loads in an Electron window, and the callback never fires.
+The desktop app therefore never loads a provider itself:
+
+1. Clicking a provider inside the app opens the web app's sign-in page in the
+   user's default browser with `callbackUrl=/desktop/auth/complete?state=<nonce>`.
+2. The browser completes the normal flow above, so the OAuth redirect URI stays
+   `https://<domain>/api/auth/callback/<provider>`. **No extra redirect URI is
+   needed for the desktop app.**
+3. `/desktop/auth/complete` (session required) mints a one-time token via the
+   Better Auth `oneTimeToken` plugin (`lib/auth/auth-instance.ts`: 5-minute
+   expiry, hashed at rest, server-minted only) and opens
+   `keinsaas://auth/callback?token=…&state=…`.
+4. The desktop main process checks the nonce, calls
+   `POST /api/auth/one-time-token/verify`, and the session cookie lands in the
+   app. See `apps/desktop/README.md` for the Electron side and how to test it.
+
+The browser and the app share one Better Auth session; signing out in the
+browser signs the app out as well.
 
 ## Done
 
-You can now sign in to Flare AI using your Google, GitHub or Microsoft account. Restart the application to apply the changes.
+You can now sign in to better-chatbot using your Google, GitHub or Microsoft account. Restart the application to apply the changes.
