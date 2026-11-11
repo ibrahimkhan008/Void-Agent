@@ -106,3 +106,7 @@ Key production vars in `/etc/flare.env`:
 3. `sudo systemctl restart flare.service` — deploy and verify
 4. Check `curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/` returns 200
 5. Update `context.md` with a timestamped entry of all changes made
+
+## Current migration handoff
+
+2026-11-11: the migration was PROMOTED and validated — the destination is now the integrated monorepo (`apps/web` + `apps/desktop` + `packages/*`), with web 498 files/3,361 tests, desktop 22 files/132 tests, and typecheck/lint/db:check/build all PASS (docs/testing-report.md, "Controller session" section; docs/MIGRATION-STATUS-REPORT.md §16 has the remaining-work list). Status of record: docs/MIGRATION-STATUS-REPORT.md; ordered history: docs/migration-handoff.md; parity dispositions: docs/zip-main-parity-map.md + docs/zip-main-triage-{ai,ui,api}.md; upstream diff classifications: docs/upstream-diff-classification.md. Verified-restorable backup incl. the pre-promotion working tree: C:\Users\Ikra\Desktop\void-agent-backup-20261111. The earlier 44% weighted estimate is a historical 2026-11-11 01:05 audit value, superseded by the promotion. Standing restrictions unchanged: do not modify upstream or zip-main; no commit, push, deploy, or production migrations; never read/copy staging .env (staging is now a historical snapshot); keep browser execution disabled while B20 is blocked (B20 remains MISSING).
