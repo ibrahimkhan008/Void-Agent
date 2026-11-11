@@ -14,7 +14,7 @@ import {
   type SandboxDeploymentPhase,
   isSandboxApiResponse,
 } from "lib/e2b/sandbox-contract";
-import { toAny } from "lib/utils";
+import { randomId, toAny } from "lib/utils";
 import {
   FileText,
   Globe,
@@ -167,7 +167,7 @@ export function ArtifactChip({
     // sandbox this deploy is about to reuse, so a client-side sweep would
     // pause the box we are reconnecting to, and could land after the resume.
     const generation = ++deployGeneration.current;
-    const requestId = crypto.randomUUID();
+    const requestId = randomId();
     const starting: SandboxApiResponse = {
       requestId,
       phase: "starting_sandbox",

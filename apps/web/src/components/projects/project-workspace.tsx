@@ -5,7 +5,7 @@ import {
   isProjectRunActive,
   isProjectRunStale,
 } from "@/lib/project-brain/run-status";
-import { fetcher } from "@/lib/utils";
+import { fetcher, randomId } from "@/lib/utils";
 import {
   Brain,
   LayoutDashboard,
@@ -132,7 +132,7 @@ export function ProjectWorkspace({
             `/api/projects/${project.id}/tools/${tool.id}/sync`,
             {
               method: "POST",
-              headers: { "Idempotency-Key": crypto.randomUUID() },
+              headers: { "Idempotency-Key": randomId() },
             },
           );
           if (!response.ok) {

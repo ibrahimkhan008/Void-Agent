@@ -1,7 +1,7 @@
 "use client";
 
 import { useComposioConnections } from "@/hooks/queries/use-composio-connections";
-import { fetcher } from "lib/utils";
+import { fetcher, randomId } from "lib/utils";
 import {
   CheckCircle2,
   ExternalLink,
@@ -122,7 +122,7 @@ export function ProjectToolPicker({
       // we refresh the workspace so the widgets update live.
       void fetch(`/api/projects/${projectId}/tools/${tool.id}/sync`, {
         method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Idempotency-Key": randomId() },
       })
         .then(async (res) => {
           if (!res.ok) throw new Error(await res.text());

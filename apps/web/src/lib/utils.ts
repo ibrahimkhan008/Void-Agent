@@ -7,6 +7,27 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * UUID v4 that also works in insecure browser contexts: `crypto.randomUUID`
+ * is gated behind HTTPS/localhost, so plain-HTTP LAN or external-host
+ * browsing falls back to `getRandomValues` (available everywhere) and, only
+ * if even that is missing, a timestamp-based id.
+ */
+export function randomId(): string {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  if (typeof c?.getRandomValues === "function") {
+    const bytes = c.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
+      "",
+    );
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
  * Pulls a human-readable message out of an error body.
  *
  * Routes in this app answer with two shapes: a flat `{ error: "..." }` and,

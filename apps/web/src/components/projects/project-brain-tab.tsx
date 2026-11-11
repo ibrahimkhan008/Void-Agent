@@ -1,6 +1,6 @@
 "use client";
 
-import { fetcher } from "@/lib/utils";
+import { fetcher, randomId } from "@/lib/utils";
 import { Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -64,7 +64,10 @@ export function ProjectBrainTab({
     try {
       const response = await fetch(
         `/api/projects/${projectId}/tools/${toolId}/sync`,
-        { method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() } },
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": randomId() },
+        },
       );
       const payload = await response.json().catch(() => null);
       if (!response.ok) {

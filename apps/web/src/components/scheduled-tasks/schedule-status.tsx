@@ -2,7 +2,7 @@
 
 import { cronToHumanReadable } from "@/lib/scheduled-tasks/time-to-cron";
 import { format, formatDistanceToNow } from "date-fns";
-import { cn } from "lib/utils";
+import { cn, randomId } from "lib/utils";
 import {
   AlertCircle,
   CheckCircle2,
@@ -73,7 +73,7 @@ export function ScheduleStatus({
     try {
       const idempotencyKey =
         manualRunRequestKey.current ??
-        (manualRunRequestKey.current = crypto.randomUUID());
+        (manualRunRequestKey.current = randomId());
       const res = await fetch(`/api/scheduled-tasks/${task.id}/run`, {
         method: "POST",
         headers: { "Idempotency-Key": idempotencyKey },
