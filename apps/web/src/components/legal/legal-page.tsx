@@ -2,6 +2,7 @@ import { cn } from "lib/utils";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { LegalToc } from "./legal-toc";
 
 /**
  * Cognix legal article layout — exact clone of cognixai.in legal pages.
@@ -205,33 +206,16 @@ export function LegalPage({
 
       {/* ===== Two-column grid: sticky TOC sidebar + article ===== */}
       <div className="mx-auto grid max-w-6xl gap-10 px-6 pb-32 lg:grid-cols-[240px_1fr] lg:gap-16">
-        {/* Sticky TOC sidebar — numbered prefixes + brand-glow left border */}
+        {/* Sticky TOC sidebar — scroll-spy: active item follows the reader.
+            self-start keeps the nav at content height: a stretched grid item
+            fills its column, leaving sticky zero room to travel. */}
         <nav
           aria-label={`${eyebrow} sections`}
-          className="sticky top-28 hidden text-sm lg:block"
+          className="sticky top-28 hidden self-start text-sm lg:block"
         >
-          <div className="space-y-0.5">
-            <p className="mb-4 px-4 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
-              On this page
-            </p>
-            {sections.map((section, i) => (
-              <a
-                key={section.id}
-                href={`#${section.id}`}
-                className={cn(
-                  "-ml-px flex gap-2.5 border-l py-1.5 pl-4 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)",
-                  i === 0
-                    ? "border-(--brand-glow) text-(--paper)"
-                    : "border-transparent text-(--paper)/55 hover:text-(--paper)",
-                )}
-              >
-                <span className="w-5 shrink-0 text-[11px]/6 text-(--paper)/40 tabular-nums">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                {section.title}
-              </a>
-            ))}
-          </div>
+          <LegalToc
+            sections={sections.map((s) => ({ id: s.id, title: s.title }))}
+          />
         </nav>
 
         {/* Article body */}
