@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "ui/table";
 import { Badge } from "ui/badge";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { Input } from "ui/input";
 import { buttonVariants } from "ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
@@ -217,6 +218,13 @@ export function UsersTable({
 
   return (
     <div className="space-y-4 w-full">
+      {/* Cognix section header (§4.8): eyebrow → display heading. */}
+      <div className="space-y-2">
+        <Eyebrow>Admin</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em]">
+          {t("title")}
+        </h1>
+      </div>
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Form action={baseUrl} ref={formRef}>

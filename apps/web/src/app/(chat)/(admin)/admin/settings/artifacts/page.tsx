@@ -5,6 +5,7 @@ import {
   ShortcutHelpModal,
   useAdminShortcuts,
 } from "@/components/admin/ui/shortcut-help-modal";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   showSaveError,
   showSaveSuccess,
@@ -139,14 +140,15 @@ export default function ArtifactsPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <div className="space-y-6">
-        {/* Header */}
+        {/* Cognix section header (§4.8): eyebrow → display heading. */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <div className="space-y-2">
+            <Eyebrow>Admin</Eyebrow>
+            <h1 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
               <SparklesIcon className="size-6 text-muted-foreground" />
               Artifacts
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground">
               Configure artifact generation model and enabled output types.
             </p>
           </div>

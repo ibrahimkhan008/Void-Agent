@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, ReactNode } from "react";
 import { Loader2, CheckCircle2Icon, RotateCcw, Save } from "lucide-react";
 import { Button } from "ui/button";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { showSaveSuccess, showSaveError } from "./toast-helpers";
 import { ShortcutHelpModal, useAdminShortcuts } from "./shortcut-help-modal";
 
@@ -161,12 +162,14 @@ function PageHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
+      {/* Cognix section header (§4.8): eyebrow → display heading. */}
+      <div className="space-y-2">
+        <Eyebrow>Admin</Eyebrow>
+        <h1 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
           {icon}
           {title}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="flex items-center gap-3">
         {isDirty && (

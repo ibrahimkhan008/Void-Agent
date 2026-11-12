@@ -9,6 +9,7 @@ import {
   showSaveSuccess,
 } from "@/components/admin/ui/toast-helpers";
 import { cn } from "lib/utils";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   CheckCircle2Icon,
   Globe,
@@ -160,14 +161,15 @@ export default function GeneralPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <div className="space-y-6">
-        {/* Header */}
+        {/* Cognix section header (§4.8): eyebrow → display heading. */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <div className="space-y-2">
+            <Eyebrow>Admin</Eyebrow>
+            <h1 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">
               <Settings2Icon className="size-6 text-muted-foreground" />
               General
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground">
               App-level configuration, branding, and rate limits.
             </p>
           </div>
