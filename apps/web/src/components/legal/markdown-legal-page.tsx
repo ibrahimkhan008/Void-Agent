@@ -55,7 +55,12 @@ export async function MarkdownLegalPage({
 function parseMarkdownSections(raw: string): LegalSection[] {
   const lines = raw.split("\n");
   const sections: LegalSection[] = [];
-  let current: { id: string; title: string; lines: string[] } | null = null;
+  let current: {
+    id: string;
+    title: string;
+    tocTitle?: string;
+    lines: string[];
+  } | null = null;
   let inToc = false;
 
   for (const line of lines) {
@@ -90,9 +95,13 @@ function parseMarkdownSections(raw: string): LegalSection[] {
       if (current) {
         sections.push(toSection(current));
       }
-      const headingText = trimmed.replace(/^## \d*[.)]?\s*/, "").trim();
-      const id = slugify(headingText);
-      current = { id, title: headingText, lines: [] };
+      // Keep the authored "1." number on the article H2 (cognix style:
+      // "1. Agreement") but expose a plain label for the TOC rail, which
+      // carries its own 01/02 numbering.
+      const headingText = trimmed.replace(/^##\s+/, "").trim();
+      const tocTitle = headingText.replace(/^\d+[.)]\s+/, "").trim();
+      const id = slugify(tocTitle);
+      current = { id, title: headingText, tocTitle, lines: [] };
       continue;
     }
 
@@ -112,14 +121,59 @@ function parseMarkdownSections(raw: string): LegalSection[] {
 function toSection(current: {
   id: string;
   title: string;
+  tocTitle?: string;
   lines: string[];
 }): LegalSection {
   const html = renderMarkdown(current.lines);
   return {
     id: current.id,
     title: current.title,
+    tocTitle: current.tocTitle,
     body: <div dangerouslySetInnerHTML={{ __html: html }} />,
   };
+}
+
+/** Render consecutive `|`-pipe lines as a cognix tray+card table. */
+function renderMarkdownTable(lines: string[]): string {
+  const rows = lines
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|"));
+  if (rows.length < 2) {
+    return `<p class="mt-5">${inline(rows.join(" "))}</p>`;
+  }
+  const cells = (row: string) =>
+    row
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+
+  const header = cells(rows[0]);
+  // Skip the |---|---| separator row (and any stray blank-ish rows).
+  const bodyRows = rows
+    .slice(1)
+    .filter((row) => !/^\|[\s:|-]+\|$/.test(row))
+    .map(cells);
+
+  const th = header
+    .map(
+      (h) =>
+        `<th class="bg-(--ink-2)/60 px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.12em] text-(--paper)/55 uppercase">${inline(h)}</th>`,
+    )
+    .join("");
+  const tr = bodyRows
+    .map(
+      (row) =>
+        `<tr>${row
+          .map(
+            (c) =>
+              `<td class="border-t border-black/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75">${inline(c)}</td>`,
+          )
+          .join("")}</tr>`,
+    )
+    .join("");
+
+  return `<div class="bs-tray mt-6 overflow-x-auto"><div class="bs-card overflow-hidden"><table class="min-w-full border-collapse text-left text-sm"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div></div>`;
 }
 
 /** Minimal markdown-to-HTML for legal body text. */
@@ -153,6 +207,19 @@ function renderMarkdown(lines: string[]): string {
     if (inList) {
       html.push("</ul>");
       inList = false;
+    }
+
+    // Pipe tables — collect the whole block and render tray+card (§7.7)
+    if (trimmed.startsWith("|")) {
+      const tableLines: string[] = [];
+      let j = i;
+      while (j < lines.length && lines[j].trim().startsWith("|")) {
+        tableLines.push(lines[j]);
+        j++;
+      }
+      html.push(renderMarkdownTable(tableLines));
+      i = j - 1;
+      continue;
     }
 
     // Bold headers inside sections
