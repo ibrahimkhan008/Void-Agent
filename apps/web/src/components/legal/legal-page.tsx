@@ -208,7 +208,7 @@ export function LegalPage({
 
       {/* ===== Two-column grid: sticky TOC sidebar + article ===== */}
       <div className="mx-auto grid max-w-6xl gap-10 px-6 pb-32 lg:grid-cols-[240px_1fr] lg:gap-16">
-        {/* Sticky TOC sidebar — no numbered prefixes */}
+        {/* Sticky TOC sidebar — numbered prefixes + brand-glow left border */}
         <nav
           aria-label={`${eyebrow} sections`}
           className="sticky top-28 hidden text-sm lg:block"
@@ -217,12 +217,20 @@ export function LegalPage({
             <p className="mb-4 px-4 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
               On this page
             </p>
-            {sections.map((section) => (
+            {sections.map((section, i) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                className="block px-4 py-1.5 text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:bg-white/50 border-l-2 border-(--brand-glow)"
+                className={cn(
+                  "-ml-px flex gap-2.5 border-l py-1.5 pl-4 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)",
+                  i === 0
+                    ? "border-(--brand-glow) text-(--paper)"
+                    : "border-transparent text-(--paper)/55 hover:text-(--paper)",
+                )}
               >
+                <span className="w-5 shrink-0 text-[11px]/6 text-(--paper)/40 tabular-nums">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 {section.title}
               </a>
             ))}
@@ -239,7 +247,7 @@ export function LegalPage({
           )}
           {sections.map((section) => (
             <section key={section.id} id={section.id}>
-              <h2 className="mt-16 scroll-mt-28 border-t border-black/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">
+              <h2 className="mt-12 scroll-mt-28 border-t border-black/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">
                 {section.title}
               </h2>
               <div className="space-y-0 text-base/7 text-(--paper)/75">
