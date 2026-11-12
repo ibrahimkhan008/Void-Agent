@@ -8,18 +8,19 @@ import {
 } from "@/components/legal/legal-page";
 
 export const metadata = legalMetadata(
-  "Refund Policy",
-  "Refund eligibility, cancellations, and the refund request process.",
+  "Refund & Cancellation Policy",
+  "How to cancel a subscription, when a refund is due, how to ask for one, and how long it takes.",
   "/refund-policy",
 );
 
 export default function RefundPolicyPage() {
   return (
     <LegalPage
-      title="Refund Policy"
-      description="Refund eligibility, cancellations, and the refund request process."
-      version="v2.0"
-      effective="2026-11-12"
+      title="Refund & Cancellation"
+      accentTitle="Policy"
+      description="How to cancel a subscription, when a refund is due, how to ask for one, and how long it takes."
+      version="2.0"
+      effective="November 1, 2026"
       sections={[
         {
           id: "purchases-billing",
