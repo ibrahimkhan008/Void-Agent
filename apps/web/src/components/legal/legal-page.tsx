@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { BrandButtonLink } from "@/components/ui/brand-button";
-import { LegalToc } from "./legal-toc";
+import { LegalToc, LegalTocCollapsible } from "./legal-toc";
 
 /**
  * Cognix legal article layout — exact clone of cognixai.in legal pages.
@@ -207,6 +207,18 @@ export function LegalPage({
             ))}
           </div>
         </nav>
+      )}
+
+      {/* ===== Mobile "On this page" collapsible (cognix §7.7) ===== */}
+      {sections.length > 0 && (
+        <div className="mx-auto max-w-3xl px-6 pb-10 lg:hidden">
+          <LegalTocCollapsible
+            sections={sections.map((s) => ({
+              id: s.id,
+              title: s.tocTitle ?? s.title,
+            }))}
+          />
+        </div>
       )}
 
       {/* ===== Two-column grid: sticky TOC sidebar + article ===== */}
