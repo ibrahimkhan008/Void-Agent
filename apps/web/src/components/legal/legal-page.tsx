@@ -1,7 +1,10 @@
 import { cn } from "lib/utils";
+import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { AccentSpan } from "@/components/ui/accent-span";
+import { BrandButtonLink } from "@/components/ui/brand-button";
 import { LegalToc } from "./legal-toc";
 
 /**
@@ -11,6 +14,9 @@ import { LegalToc } from "./legal-toc";
 export interface LegalSection {
   id: string;
   title: string;
+  /** Plain label for the TOC rail when `title` carries its own number
+      ("1. Introduction" → tocTitle "Introduction"); TOC numbers itself. */
+  tocTitle?: string;
   body: React.ReactNode;
 }
 
@@ -87,14 +93,14 @@ export function LegalPage({
                   priority
                 />
               </span>
-              <span className="text-base font-medium text-(--paper) sm:text-sm">
+              <span className="text-[17px] font-medium tracking-[-0.01em] text-(--paper)">
                 Void-Agent
               </span>
             </Link>
           </div>
 
-          {/* Center nav links (desktop only) */}
-          <div className="hidden items-center gap-1 md:flex">
+          {/* Center pill nav (desktop only) — links inside a tray chip */}
+          <div className="hidden items-center rounded-xl bg-black/[0.035] p-1 md:flex">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -106,14 +112,20 @@ export function LegalPage({
             ))}
           </div>
 
-          {/* CTA */}
+          {/* Right: Log in (outline) + Start free (primary + arrow, glow sweep) */}
           <div className="flex items-center justify-end gap-2">
-            <Link
+            <BrandButtonLink
+              variant="outline"
+              size="md"
               href="/sign-in"
-              className="block rounded-lg px-3.5 py-1.5 text-sm whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper) bg-white text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+              className="hidden sm:inline-flex"
             >
-              Open Dashboard
-            </Link>
+              Log in
+            </BrandButtonLink>
+            <BrandButtonLink variant="default" size="md" href="/sign-up">
+              Start free
+              <ArrowRight data-icon="end" />
+            </BrandButtonLink>
           </div>
         </nav>
       </header>
@@ -125,21 +137,14 @@ export function LegalPage({
           <span className="text-(--brand-glow)">*</span>
           {eyebrow}
         </div>
-        {/* Display H1: normal part + Instrument Serif accent word(s) */}
+        {/* Display H1: normal part + dithered serif accent word(s) */}
         <h1 className="mt-6 text-5xl leading-[1.03] font-normal tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl">
           {title}
           {accentTitle && (
-            <span
-              className="italic"
-              style={{
-                fontFamily:
-                  "var(--font-accent), 'Instrument Serif', Georgia, serif",
-                fontWeight: 400,
-              }}
-            >
+            <>
               {" "}
-              {accentTitle}
-            </span>
+              <AccentSpan>{accentTitle}</AccentSpan>
+            </>
           )}
         </h1>
         <p className="mt-5 text-lg/8 text-pretty text-(--paper)/75 max-w-[560px] mx-auto">
@@ -214,7 +219,10 @@ export function LegalPage({
           className="sticky top-28 hidden self-start text-sm lg:block"
         >
           <LegalToc
-            sections={sections.map((s) => ({ id: s.id, title: s.title }))}
+            sections={sections.map((s) => ({
+              id: s.id,
+              title: s.tocTitle ?? s.title,
+            }))}
           />
         </nav>
 
@@ -351,38 +359,39 @@ export function LegalTable({
   rows: string[][];
 }) {
   return (
-    <div className="mt-5 overflow-x-auto rounded-2xl bg-white border border-black/[0.08] shadow-sm">
-      <table className="w-full text-left text-sm border-collapse">
-        <thead>
-          <tr className="bg-(--ink-2)/60">
-            {headers.map((header) => (
-              <th
-                key={header}
-                className="bg-(--ink-2)/60 px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.12em] text-(--paper)/55 uppercase"
-              >
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr
-              key={i}
-              className="border-t border-black/[0.06] hover:bg-black/[0.015]"
-            >
-              {row.map((cell, j) => (
-                <td
-                  key={j}
-                  className="border-t border-black/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75"
+    /* Cognix tray+card layering: big rounded tray in ink-2 holding a small
+       white card (§7.7) — .bs-tray/.bs-card carry the radii and shadows. */
+    <div className="bs-tray mt-6 overflow-x-auto">
+      <div className="bs-card overflow-hidden">
+        <table className="min-w-full border-collapse text-left text-sm">
+          <thead>
+            <tr>
+              {headers.map((header) => (
+                <th
+                  key={header}
+                  className="bg-(--ink-2)/60 px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.12em] text-(--paper)/55 uppercase"
                 >
-                  {cell}
-                </td>
+                  {header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i}>
+                {row.map((cell, j) => (
+                  <td
+                    key={j}
+                    className="border-t border-black/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75"
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1687,6 +1687,19 @@
   width: 16px;
   height: 16px;
 }
+/* Trailing icons (data-icon="end") slide 2px right on hover, per the v2
+   button spec — leading icons (social logos) must not move. */
+.bs-btn [data-icon="end"] {
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.bs-btn:hover [data-icon="end"] {
+  transform: translateX(2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bs-btn:hover [data-icon="end"] {
+    transform: none;
+  }
+}
 .bs-btn:active {
   transform: scale(0.97);
   transition-duration: 100ms;

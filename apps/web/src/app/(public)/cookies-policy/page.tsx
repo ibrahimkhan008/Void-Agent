@@ -19,7 +19,8 @@ export default function CookiesPolicyPage() {
     <MarkdownLegalPage
       filePath={POLICY_PATH}
       eyebrow="Legal"
-      title="Cookies Policy"
+      title="Cookies"
+      accentTitle="Policy"
       description="How Void-Agent uses cookies, local storage, and similar technologies to run and improve our services."
       version="v2.0"
       effective="2026-03-05"

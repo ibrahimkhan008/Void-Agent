@@ -19,7 +19,8 @@ export default function PrivacyPolicyPage() {
     <MarkdownLegalPage
       filePath={POLICY_PATH}
       eyebrow="Legal"
-      title="Privacy Policy"
+      title="Privacy"
+      accentTitle="Policy"
       description="How Void-Agent collects, uses, stores, protects, and shares your information across our platform, products, and services."
       version="v2.0"
       effective="2026-03-05"

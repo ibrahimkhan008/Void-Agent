@@ -19,7 +19,8 @@ export default function TermsOfServicePage() {
     <MarkdownLegalPage
       filePath={POLICY_PATH}
       eyebrow="Legal"
-      title="Terms of Service"
+      title="Terms of"
+      accentTitle="Service"
       description="The agreement between you and Void-Agent for using our platform, products, and services."
       version="v3.0"
       effective="2026-11-12"
