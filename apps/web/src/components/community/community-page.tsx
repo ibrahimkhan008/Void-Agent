@@ -7,6 +7,7 @@ import type {
   CommunityPost,
 } from "app-types/community";
 import { authClient } from "lib/auth/client";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { COMMUNITY_MEDIA_MAX_BYTES } from "lib/community/media-validation";
 import {
   Bookmark,
@@ -314,9 +315,13 @@ export function CommunityPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
-      <header className="mb-7">
-        <h1 className="text-2xl font-bold sm:text-3xl">Community</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+      {/* Cognix section header (§4.8): eyebrow → display heading. */}
+      <header className="mb-7 space-y-2">
+        <Eyebrow>Community</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance sm:text-4xl">
+          Community
+        </h1>
+        <p className="text-sm text-muted-foreground">
           Share ideas and learn with other Void-Agent users.
         </p>
       </header>

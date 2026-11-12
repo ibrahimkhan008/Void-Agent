@@ -1,6 +1,7 @@
 "use client";
 
 import { DodoBillingCard } from "@/components/payments/dodo/dodo-billing-card";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { useProfileTranslations } from "@/hooks/use-profile-translations";
 import { BasicUserWithLastLogin } from "app-types/user";
 import { cn, fetcher } from "lib/utils";
@@ -60,9 +61,12 @@ export function UserDetail({
       className="min-h-full p-4 md:p-6 space-y-6"
       data-testid="user-detail-content"
     >
-      {/* Hero Section */}
+      {/* Hero Section — Cognix detail header (§4.8) */}
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{user?.name}</h1>
+        <Eyebrow>Admin</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em]">
+          {user?.name}
+        </h1>
         <p className="text-muted-foreground">{t("userDetailDescription")}</p>
       </div>
 
