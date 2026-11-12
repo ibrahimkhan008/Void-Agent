@@ -129,8 +129,16 @@ export default function SignIn({
           },
         },
       )
+      .then((res) => {
+        // better-auth resolves with { data, error } instead of rejecting on
+        // HTTP errors (e.g. 403 INVALID_ORIGIN) — surface it or the click
+        // appears to do nothing.
+        if (res?.error) {
+          toast.error(res.error.message || "Sign-in failed. Please try again.");
+        }
+      })
       .catch((e) => {
-        toast.error(e.error);
+        toast.error(e instanceof Error ? e.message : "Sign-in failed");
       });
   };
   if (desktop.pending) {

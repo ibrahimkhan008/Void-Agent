@@ -35,7 +35,7 @@ export default function SignUpPage({
     }
     startTransition(async () => {
       try {
-        await authClient.signIn.social(
+        const res = await authClient.signIn.social(
           { provider, callbackURL: callbackUrl || "/" },
           {
             onSuccess(ctx) {
@@ -55,6 +55,12 @@ export default function SignUpPage({
             },
           },
         );
+        // better-auth resolves with { data, error } instead of rejecting on
+        // HTTP errors (e.g. 403 INVALID_ORIGIN) — surface it or the click
+        // appears to do nothing.
+        if (res?.error) {
+          toast.error(res.error.message || "Sign-up failed. Please try again.");
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Unknown error");
       }
