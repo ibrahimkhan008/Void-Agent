@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 /**
- * Cognix legal article layout (§5 / §7).
+ * Cognix legal article layout — exact clone of cognixai.in legal pages.
  *
- * Structure: light brand-surface page → floating pill navbar space →
- * centered hero (eyebrow version line + display H1 + sub) → two-column
- * grid (sticky TOC sidebar + article body).
- *
- * Sections render with the exact Cognix treatment:
- * - H2: `mt-16 scroll-mt-28 border-t border-black/10 pt-12 text-3xl
- *   font-normal tracking-[-0.03em] text-balance text-(--paper)`
- * - Body: `mt-5 text-(--paper)/75`
- * - Lists: `list-disc space-y-2 pl-5 marker:text-(--brand-glow)`
- * - Links: `text-(--brand) underline decoration-(--brand)/30 underline-offset-4`
- * - Tables: `border-t border-black/[0.06]` with `text-sm/6`
+ * Structure:
+ * 1. Floating pill navbar (fixed, rounded-2xl, backdrop-blur, landing-drop)
+ * 2. Hero (centered, pt-40 for navbar clearance, eyebrow + display H1)
+ * 3. Two-column grid (sticky TOC sidebar + article body)
+ * 4. Footer (border-t, watermark wordmark)
  */
 
 export interface LegalSection {
@@ -30,6 +25,7 @@ export interface LegalPageProps {
   effective?: string;
   updated?: string;
   sections: LegalSection[];
+  siblings?: Array<{ label: string; href: string }>;
 }
 
 export function legalMetadata(
@@ -45,6 +41,13 @@ export function legalMetadata(
   };
 }
 
+const NAV_LINKS = [
+  { label: "About", href: "/about" },
+  { label: "Docs", href: "/docs" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Changelog", href: "/changelog" },
+];
+
 export function LegalPage({
   title,
   description,
@@ -52,13 +55,70 @@ export function LegalPage({
   effective,
   updated,
   sections,
+  siblings = [],
 }: LegalPageProps) {
   return (
-    <div className="brand-surface min-h-dvh">
-      {/* Hero: centered, display-scale, matches Cognix legal pages. */}
-      <section className="mx-auto max-w-3xl px-6 pt-32 pb-14 text-center sm:pt-40">
+    <div
+      className="brand-surface min-h-dvh w-full overflow-x-clip"
+      style={{ fontFamily: "var(--font-sans)" }}
+    >
+      {/* ===== Floating pill navbar (Cognix §4.1) ===== */}
+      <header className="landing-drop fixed inset-x-3 z-100 mx-auto max-w-7xl rounded-2xl backdrop-blur-xl transition-[top,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] top-3 sm:inset-x-4 sm:top-4 bg-(--ink-2)/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+        <nav
+          aria-label="Main"
+          className="grid h-[60px] grid-cols-[1fr_auto] items-center gap-4 pr-2.5 pl-4 md:grid-cols-[1fr_auto_1fr]"
+        >
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2.5">
+              <span className="relative block shrink-0 size-7">
+                <Image
+                  src="/flare-logo-192.webp"
+                  alt="Void-Agent"
+                  width={28}
+                  height={28}
+                  className="object-contain"
+                  priority
+                />
+              </span>
+              <span className="text-base font-medium text-(--paper) sm:text-sm">
+                Void-Agent
+              </span>
+            </Link>
+          </div>
+
+          {/* Center nav links (desktop only) */}
+          <div className="hidden items-center gap-1 md:flex">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block rounded-lg px-3.5 py-1.5 text-[13.5px] transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40 text-(--paper)/60 hover:text-(--paper) hover:bg-white/70"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="flex items-center justify-end gap-2">
+            <Link
+              href="/sign-in"
+              className="block rounded-lg px-3.5 py-1.5 text-sm whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper) bg-white text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+            >
+              Open Dashboard
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      {/* ===== Hero ===== */}
+      <section className="mx-auto max-w-3xl px-6 pt-40 pb-14 text-center sm:pt-48">
+        <p className="text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
+          {title}
+        </p>
         {version && (
-          <p className="text-[11px] font-medium tracking-[0.14em] uppercase text-(--paper)/45 font-mono">
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-(--brand)/10 px-3 py-1 text-[11px] font-medium text-(--brand)">
             {version}
             {effective && ` · Effective ${effective}`}
             {updated && ` · Updated ${updated}`}
@@ -67,24 +127,47 @@ export function LegalPage({
         <h1 className="mt-6 text-5xl leading-[1.03] font-normal tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl">
           {title}
         </h1>
-        <p className="mt-5 text-lg/[1.55] text-(--paper)/60 max-w-[560px] mx-auto">
+        <p className="mt-5 text-lg/8 text-pretty text-(--paper)/75 max-w-[560px] mx-auto">
           {description}
         </p>
       </section>
 
-      {/* Two-column grid: sticky TOC sidebar + article body. */}
+      {/* ===== Sibling document pills ===== */}
+      {siblings.length > 0 && (
+        <nav
+          aria-label="Legal documents"
+          className="mx-auto max-w-6xl px-6 pb-8"
+        >
+          <div className="max-w-full overflow-x-auto rounded-xl bg-black/[0.04] p-1 [scrollbar-width:none] flex gap-1">
+            {siblings.map((sib) => (
+              <Link
+                key={sib.href}
+                href={sib.href}
+                className="block rounded-lg px-3.5 py-1.5 text-[13.5px] whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40 text-(--paper)/60 hover:text-(--paper) hover:bg-white/70"
+              >
+                {sib.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      {/* ===== Two-column grid: sticky TOC sidebar + article ===== */}
       <div className="mx-auto grid max-w-6xl gap-10 px-6 pb-32 lg:grid-cols-[240px_1fr] lg:gap-16">
-        {/* Sticky TOC sidebar. */}
-        <nav aria-label="On this page" className="hidden lg:block">
-          <div className="sticky top-28 space-y-1">
-            <p className="mb-3 px-4 text-[11px] font-medium tracking-[0.12em] uppercase text-(--paper)/45 font-mono">
+        {/* Sticky TOC sidebar */}
+        <nav
+          aria-label={`${title} sections`}
+          className="sticky top-28 hidden text-sm lg:block"
+        >
+          <div className="space-y-1">
+            <p className="mb-3 px-4 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
               On this page
             </p>
             {sections.map((section, i) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                className="flex items-start gap-2.5 rounded-lg px-4 py-1.5 text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:bg-white/50"
+                className="-ml-px flex gap-2.5 border-l py-1.5 pl-4 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper) border-transparent text-(--paper)/55 hover:text-(--paper)"
               >
                 <span className="w-5 shrink-0 text-[11px]/6 text-(--paper)/40 tabular-nums">
                   {String(i + 1).padStart(2, "0")}
@@ -95,20 +178,20 @@ export function LegalPage({
           </div>
         </nav>
 
-        {/* Article body. */}
+        {/* Article body */}
         <article className="min-w-0 max-w-[72ch]">
           {sections.map((section) => (
             <section key={section.id} id={section.id}>
               <h2 className="mt-16 scroll-mt-28 border-t border-black/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">
                 {section.title}
               </h2>
-              <div className="mt-5 space-y-5 text-base/7 text-(--paper)/75">
+              <div className="space-y-0 text-base/7 text-(--paper)/75">
                 {section.body}
               </div>
             </section>
           ))}
 
-          {/* Footer: back link. */}
+          {/* Bottom back link */}
           <div className="mt-16 border-t border-black/10 pt-8">
             <Link
               href="/"
@@ -119,6 +202,62 @@ export function LegalPage({
           </div>
         </article>
       </div>
+
+      {/* ===== Footer ===== */}
+      <footer className="border-t border-(--paper)/6 bg-(--ink) text-(--paper)">
+        <div className="mx-auto max-w-7xl px-6 pt-14 pb-10">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="relative block shrink-0 size-7">
+                  <Image
+                    src="/flare-logo-192.webp"
+                    alt="Void-Agent"
+                    width={28}
+                    height={28}
+                    className="object-contain"
+                  />
+                </span>
+                <span className="text-base font-medium">Void-Agent</span>
+              </div>
+              <p className="mt-3 max-w-[40ch] text-sm/6 text-(--paper)/55">
+                An AI workspace for getting things done.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-12 gap-y-6">
+              <div>
+                <p className="text-sm font-medium">Legal</p>
+                <ul className="mt-3 space-y-2">
+                  {[
+                    { label: "Terms of Service", href: "/terms-of-service" },
+                    { label: "Privacy Policy", href: "/privacy-policy" },
+                    { label: "Cookies Policy", href: "/cookies-policy" },
+                    { label: "Refund Policy", href: "/refund-policy" },
+                    {
+                      label: "Grievance Redressal",
+                      href: "/grievance-redressal",
+                    },
+                  ].map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:underline underline-offset-4"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="mt-10 border-t border-(--paper)/6 pt-6">
+            <p className="text-sm text-(--paper)/45">
+              © 2026 Void-Agent. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -173,7 +312,7 @@ export function LegalTable({
             {headers.map((header) => (
               <th
                 key={header}
-                className="px-4 py-3 text-[11px] font-medium tracking-[0.12em] uppercase text-(--paper)/55"
+                className="bg-(--ink-2)/60 px-4 py-2.5 text-left text-[11px] font-medium tracking-[0.12em] text-(--paper)/55 uppercase"
               >
                 {header}
               </th>
