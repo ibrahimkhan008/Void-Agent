@@ -1,6 +1,7 @@
 "use client";
 
 import { ArchiveDialog } from "@/components/archives/archive-dialog";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import type { Archive, ArchivedThread } from "@/types/archive";
 import {
   Archive as ArchiveIcon,
@@ -77,16 +78,20 @@ export function ArchiveDetail({
       >
         <ArrowLeft className="size-4" /> All archives
       </Link>
+      {/* Cognix detail header (§4.8): eyebrow → display heading. */}
       <header className="flex flex-wrap items-start gap-3">
-        <ArchiveIcon className="mt-1 size-6 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <h1 className="break-words text-2xl font-semibold">{archive.name}</h1>
+        <ArchiveIcon className="mt-9 size-6 text-muted-foreground" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Eyebrow>History</Eyebrow>
+          <h1 className="break-words text-3xl font-normal tracking-[-0.03em] text-balance">
+            {archive.name}
+          </h1>
           {archive.description && (
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {archive.description}
             </p>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Created {new Date(archive.createdAt).toLocaleDateString()}
           </p>
         </div>

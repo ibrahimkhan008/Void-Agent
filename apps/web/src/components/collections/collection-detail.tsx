@@ -1,6 +1,7 @@
 "use client";
 
 import { useCollection } from "@/hooks/queries/use-collections";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { ArrowLeft, Loader2, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -83,10 +84,14 @@ export function CollectionDetail({ id }: { id: string }) {
         <ArrowLeft className="size-4" />
         All collections
       </Link>
+      {/* Cognix detail header (§4.8): eyebrow → display heading. */}
       <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{data.collection.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="space-y-2">
+          <Eyebrow>Knowledge</Eyebrow>
+          <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+            {data.collection.name}
+          </h1>
+          <p className="text-sm text-muted-foreground">
             {data.collection.description || "Private collection"}
           </p>
         </div>

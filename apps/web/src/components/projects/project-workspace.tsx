@@ -6,6 +6,7 @@ import {
   isProjectRunStale,
 } from "@/lib/project-brain/run-status";
 import { fetcher, randomId } from "@/lib/utils";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   Brain,
   LayoutDashboard,
@@ -164,14 +165,17 @@ export function ProjectWorkspace({
   return (
     <div className="flex min-h-screen flex-col gap-5 p-4 md:p-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="space-y-2">
+          <Eyebrow>Project</Eyebrow>
+          <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+            {project.name}
+          </h1>
+          <p className="text-sm text-muted-foreground">
             {project.goal ?? project.description}
           </p>
           {(runStuck || latestRun?.status === "failed") && (
             <p
-              className="mt-1 text-xs text-muted-foreground"
+              className="text-xs text-muted-foreground"
               // The short cause helps an editor debug; viewers get the text only.
               title={
                 project.role !== "viewer" && latestRun?.errorMessage

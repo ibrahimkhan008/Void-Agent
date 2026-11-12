@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppBuild } from "@/hooks/queries/use-app-builds";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   ArrowLeft,
   ExternalLink,
@@ -100,9 +101,10 @@ export function BuildDetail({ id }: { id: string }) {
         App builder
       </Link>
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-2">
+          <Eyebrow>Build</Eyebrow>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-semibold">
+            <h1 className="truncate text-3xl font-normal tracking-[-0.03em] text-balance">
               {build.title || "App build"}
             </h1>
             <Badge
@@ -118,11 +120,9 @@ export function BuildDetail({ id }: { id: string }) {
             </Badge>
           </div>
           {build.summary && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {build.summary}
-            </p>
+            <p className="text-sm text-muted-foreground">{build.summary}</p>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">{build.prompt}</p>
+          <p className="text-xs text-muted-foreground">{build.prompt}</p>
         </div>
         <div className="flex items-center gap-2">
           {build.previewUrl && (
