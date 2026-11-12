@@ -111,3 +111,4 @@ apps/void-agent-desktop/out/
 
 # gateway compile output
 apps/gateway/dist/
+.env*
