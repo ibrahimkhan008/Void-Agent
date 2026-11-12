@@ -236,7 +236,10 @@
       "haveAccount": "已有账户？"
     },
     "Intro": {
-      "description": "欢迎来到 MCP 聊天机器人。登录以体验我们的 AI 驱动的对话工具。"
+      "description": "欢迎来到 MCP 聊天机器人。登录以体验我们的 AI 驱动的对话工具。",
+      "title": "Void-Agent",
+      "line1": "把工作交给它。",
+      "line2": "稍后再来看。"
     },
     "Desktop": {
       "continueInBrowser": "请在浏览器中继续",

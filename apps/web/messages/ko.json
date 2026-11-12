@@ -236,7 +236,10 @@
       "haveAccount": "이미 계정이 있으신가요?"
     },
     "Intro": {
-      "description": "Flare AI에 오신 것을 환영합니다. 우리의 AI 기반 대화 도구를 경험하세요."
+      "description": "Flare AI에 오신 것을 환영합니다. 우리의 AI 기반 대화 도구를 경험하세요.",
+      "title": "Void-Agent",
+      "line1": "일을 맡기세요.",
+      "line2": "나중에 확인하세요."
     },
     "Desktop": {
       "continueInBrowser": "브라우저에서 계속하세요",

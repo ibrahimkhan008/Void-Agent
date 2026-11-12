@@ -1,10 +1,12 @@
-import { Button } from "../ui/button";
 import { SocialAuthenticationProvider } from "app-types/authentication";
-import { GoogleIcon } from "ui/google-icon";
-import { GithubIcon } from "ui/github-icon";
-import { MicrosoftIcon } from "ui/microsoft-icon";
 import { cn } from "lib/utils";
+import { GithubIcon } from "ui/github-icon";
+import { GoogleIcon } from "ui/google-icon";
+import { MicrosoftIcon } from "ui/microsoft-icon";
+import { BrandButton } from "../ui/brand-button";
 
+// Cognix §4.15: provider buttons are outline, h-9, in a 3-col grid on
+// sm+, with the dotted green glow revealing from bottom-left on hover.
 export default function SocialProviders({
   socialAuthenticationProviders,
   onSocialProviderClick,
@@ -17,42 +19,48 @@ export default function SocialProviders({
   disabled?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-col gap-2 w-full", className)}>
+    <div className={cn("grid gap-2 w-full sm:grid-cols-3", className)}>
       {socialAuthenticationProviders.includes("google") && (
-        <Button
+        <BrandButton
           variant="outline"
+          size="md"
           onClick={() => onSocialProviderClick("google")}
-          className="flex-1 w-full"
+          className="h-9 text-[13px]"
           data-testid="google-signup-button"
           disabled={disabled}
+          aria-label="Continue with Google"
         >
-          <GoogleIcon className="size-4 fill-foreground" />
+          <GoogleIcon className="size-4 fill-current" />
           Google
-        </Button>
+        </BrandButton>
       )}
       {socialAuthenticationProviders.includes("github") && (
-        <Button
+        <BrandButton
           variant="outline"
+          size="md"
           onClick={() => onSocialProviderClick("github")}
-          className="flex-1 w-full"
+          className="h-9 text-[13px]"
           data-testid="github-signup-button"
           disabled={disabled}
+          aria-label="Continue with GitHub"
         >
-          <GithubIcon className="size-4 fill-foreground" />
+          <GithubIcon className="size-4 fill-current" />
           GitHub
-        </Button>
+        </BrandButton>
       )}
       {socialAuthenticationProviders.includes("microsoft") && (
-        <Button
+        <BrandButton
           variant="outline"
+          size="md"
           onClick={() => onSocialProviderClick("microsoft")}
-          className="flex-1 w-full"
+          className="h-9 text-[13px]"
           data-testid="microsoft-signup-button"
           disabled={disabled}
+          aria-label="Continue with Microsoft"
         >
-          <MicrosoftIcon className="size-4 fill-foreground" />
+          <MicrosoftIcon className="size-4 fill-current" />
           Microsoft
-        </Button>
+        </BrandButton>
       )}
     </div>
   );

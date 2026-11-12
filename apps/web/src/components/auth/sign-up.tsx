@@ -1,24 +1,15 @@
 "use client";
 
-import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { BrandButtonLink } from "@/components/ui/brand-button";
+import { useDesktopBrowserSignIn } from "@/hooks/use-desktop-browser-sign-in";
 import { analytics } from "@/lib/analytics/posthog";
 import { callbackUrlQuery } from "@/lib/auth/callback-url";
 import { SocialAuthenticationProvider } from "app-types/authentication";
 import { authClient } from "auth/client";
-import { cn } from "lib/utils";
 import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { startTransition } from "react";
 import { toast } from "sonner";
-import { useDesktopBrowserSignIn } from "@/hooks/use-desktop-browser-sign-in";
 import { DesktopSignInPending } from "./desktop-sign-in-pending";
 import SocialProviders from "./social-providers";
 
@@ -78,37 +69,39 @@ export default function SignUpPage({
     );
   }
   return (
-    <Card className="w-full md:max-w-md bg-background border-none mx-auto shadow-none">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center ">
-          {isFirstUser ? t("Auth.SignUp.titleAdmin") : t("Auth.SignUp.title")}
-        </CardTitle>
-        <CardDescription className="text-center">
-          {isFirstUser
-            ? t("Auth.SignUp.signUpDescriptionAdmin")
-            : t("Auth.SignUp.signUpDescription")}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+    // Cognix §4.15: no card chrome — grouping by space, not boxes.
+    // The (auth) layout already provides the brand-surface backdrop.
+    <div className="w-full md:max-w-sm mx-auto flex flex-col items-start gap-1 text-left">
+      <h1 className="text-2xl font-normal tracking-[-0.03em] text-balance">
+        {isFirstUser ? t("Auth.SignUp.titleAdmin") : t("Auth.SignUp.title")}
+      </h1>
+      <p className="text-sm text-(--bs-paper)/60">
+        {isFirstUser
+          ? t("Auth.SignUp.signUpDescriptionAdmin")
+          : t("Auth.SignUp.signUpDescription")}
+      </p>
+      <div className="mt-8 flex flex-col gap-4 w-full">
         {emailAndPasswordEnabled && (
-          <Link
+          <BrandButtonLink
+            variant="default"
+            size="lg"
             href={`/sign-up/email${callbackUrlQuery(callbackUrl)}`}
             data-testid="email-signup-button"
-            className={cn(buttonVariants({ variant: "default" }), "w-full")}
+            className="w-full"
           >
             <Mail className="size-4" />
             {t("Auth.SignUp.email")}
-          </Link>
+          </BrandButtonLink>
         )}
         {socialAuthenticationProviders.length > 0 && (
           <>
             {emailAndPasswordEnabled && (
-              <div className="flex items-center my-4">
-                <div className="flex-1 h-px bg-accent"></div>
-                <span className="px-4 text-sm text-muted-foreground">
+              <div className="flex items-center">
+                <div className="flex-1 h-px bg-(--bs-paper)/10"></div>
+                <span className="px-4 text-[11px] font-mono uppercase tracking-[0.14em] text-(--bs-paper)/45">
                   {t("Auth.SignIn.orContinueWith")}
                 </span>
-                <div className="flex-1 h-px bg-accent"></div>
+                <div className="flex-1 h-px bg-(--bs-paper)/10"></div>
               </div>
             )}
             <SocialProviders
@@ -117,7 +110,7 @@ export default function SignUpPage({
             />
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

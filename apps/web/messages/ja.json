@@ -236,7 +236,10 @@
       "haveAccount": "すでにアカウントをお持ちですか？"
     },
     "Intro": {
-      "description": "Flare AI へようこそ。AIを活用した会話ツールを体験するためにサインインしてください。"
+      "description": "Flare AI へようこそ。AIを活用した会話ツールを体験するためにサインインしてください。",
+      "title": "Void-Agent",
+      "line1": "仕事を任せて。",
+      "line2": "あとで確認してください。"
     },
     "Desktop": {
       "continueInBrowser": "ブラウザで続行してください",

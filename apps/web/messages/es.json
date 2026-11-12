@@ -236,7 +236,10 @@
       "haveAccount": "¿Ya tienes una cuenta?"
     },
     "Intro": {
-      "description": "Bienvenido a Void-Agent. Inicia sesión para experimentar una nueva forma de trabajar."
+      "description": "Bienvenido a Void-Agent. Inicia sesión para experimentar una nueva forma de trabajar.",
+      "title": "Void-Agent",
+      "line1": "Dale el trabajo.",
+      "line2": "Vuelve más tarde."
     },
     "Desktop": {
       "continueInBrowser": "Continúa en tu navegador",
