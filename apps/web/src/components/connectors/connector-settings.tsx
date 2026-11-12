@@ -1,4 +1,5 @@
 "use client";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -260,7 +261,10 @@ export function ConnectorSettings() {
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
       <header>
-        <h1 className="text-2xl font-semibold">Connected accounts</h1>
+        <Eyebrow>Integrate</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+          Connected accounts
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Connect accounts to use their data with Void-Agent. Provider
           credentials are stored encrypted and scoped to your account.

@@ -1,5 +1,6 @@
 "use client";
 import { McpShareableCard } from "@/components/mcp-shareable-card";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,28 +8,28 @@ import Link from "next/link";
 
 import { Skeleton } from "ui/skeleton";
 
-import { ScrollArea } from "ui/scroll-area";
-import { useTranslations } from "next-intl";
-import { useMcpList } from "@/hooks/queries/use-mcp-list";
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { toast } from "sonner";
-import { Loader2, Plug, Search, Store, X, Zap } from "lucide-react";
-import { cn, fetcher } from "lib/utils";
-import { authClient } from "auth/client";
 import {
-  useComposioConnections,
   type ComposioToolkit,
+  useComposioConnections,
 } from "@/hooks/queries/use-composio-connections";
+import { useMcpList } from "@/hooks/queries/use-mcp-list";
+import { authClient } from "auth/client";
+import { cn, fetcher } from "lib/utils";
+import { Loader2, Plug, Search, Store, X, Zap } from "lucide-react";
+import { useTranslations } from "next-intl";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerPortal,
   DrawerTitle,
-  DrawerDescription,
 } from "ui/drawer";
 import { Input } from "ui/input";
-import useSWR from "swr";
+import { ScrollArea } from "ui/scroll-area";
 
 const LightRays = dynamic(() => import("@/components/ui/light-rays"), {
   ssr: false,
@@ -509,7 +510,8 @@ export default function MCPDashboard({ message }: { message?: string }) {
         <div className="pt-8 flex-1 relative flex flex-col gap-4 px-8 max-w-3xl h-full mx-auto pb-8">
           {/* ── Header ── */}
           <div className="flex items-center pb-8">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Eyebrow>Connect</Eyebrow>
+            <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance flex items-center gap-2">
               {t("title")}
               {showValidating && isValidating && !isLoading && (
                 <Loader2 className="size-4 animate-spin" />

@@ -1,29 +1,30 @@
 "use client";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
-import { useTranslations } from "next-intl";
-import { AgentSummary, AgentUpdateSchema } from "app-types/agent";
-import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
-import { Button } from "ui/button";
-import { Plus, ArrowUpRight, Library } from "lucide-react";
-import Link from "next/link";
-import { BackgroundPaths } from "ui/background-paths";
-import { useBookmark } from "@/hooks/queries/use-bookmark";
-import { useMutateAgents } from "@/hooks/queries/use-agents";
-import { toast } from "sonner";
-import useSWR from "swr";
-import { fetcher } from "lib/utils";
+import { appStore } from "@/app/store";
+import { AgentLibraryDrawer } from "@/components/agent/agent-library-drawer";
+import { ScheduleStatusBadge } from "@/components/scheduled-tasks/schedule-status-badge";
 import { Visibility } from "@/components/shareable-actions";
 import { ShareableCard } from "@/components/shareable-card";
-import { ScheduleStatusBadge } from "@/components/scheduled-tasks/schedule-status-badge";
+import { useMutateAgents } from "@/hooks/queries/use-agents";
+import { useBookmark } from "@/hooks/queries/use-bookmark";
 import { useScheduledTasks } from "@/hooks/queries/use-scheduled-tasks";
-import { AgentLibraryDrawer } from "@/components/agent/agent-library-drawer";
-import { notify } from "lib/notify";
-import { useState } from "react";
-import { handleErrorWithToast } from "ui/shared-toast";
-import { safe } from "ts-safe";
-import { canCreateAgent } from "lib/auth/client-permissions";
 import { analytics } from "@/lib/analytics/posthog";
-import { appStore } from "@/app/store";
+import { AgentSummary, AgentUpdateSchema } from "app-types/agent";
+import { canCreateAgent } from "lib/auth/client-permissions";
+import { notify } from "lib/notify";
+import { fetcher } from "lib/utils";
+import { ArrowUpRight, Library, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
+import { safe } from "ts-safe";
+import { BackgroundPaths } from "ui/background-paths";
+import { Button } from "ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
+import { handleErrorWithToast } from "ui/shared-toast";
 import { useShallow } from "zustand/shallow";
 
 interface AgentsListProps {
@@ -149,7 +150,11 @@ export function AgentsList({
       <AgentLibraryDrawer />
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold" data-testid="agents-title">
+        <Eyebrow>Agents</Eyebrow>
+        <h1
+          className="text-3xl font-normal tracking-[-0.03em] text-balance"
+          data-testid="agents-title"
+        >
           {t("Layout.agents")}
         </h1>
         <div className="flex items-center gap-2">

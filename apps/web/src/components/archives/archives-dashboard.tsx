@@ -1,4 +1,5 @@
 "use client";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 import { ArchiveDialog } from "@/components/archives/archive-dialog";
 import { useArchives } from "@/hooks/queries/use-archives";
@@ -40,7 +41,10 @@ export function ArchivesDashboard() {
     <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Archives</h1>
+          <Eyebrow>History</Eyebrow>
+          <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+            Archives
+          </h1>
           <p className="text-sm text-muted-foreground">
             Organize conversations without removing them from chat history.
           </p>

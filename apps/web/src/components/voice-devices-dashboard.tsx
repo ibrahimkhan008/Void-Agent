@@ -1,4 +1,5 @@
 "use client";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 import { VoiceCaptureSummaryPanel } from "@/components/voice-capture-summary-panel";
 import {
@@ -420,7 +421,10 @@ export function VoiceDevicesDashboard() {
     <main className="mx-auto w-full max-w-3xl p-6">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Voice devices</h1>
+          <Eyebrow>Devices</Eyebrow>
+          <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+            Voice devices
+          </h1>
           <p className="text-sm text-muted-foreground">
             Pair and revoke supported M5Stack Atom Echo S3R devices.
           </p>
