@@ -195,7 +195,7 @@ export function LegalPage({
                 className={cn(
                   "block rounded-lg px-3.5 py-1.5 text-[13.5px] whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40",
                   i === activeSibling
-                    ? "bg-white text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+                    ? "bg-white text-(--paper) rounded-xl"
                     : "text-(--paper)/60 hover:text-(--paper) hover:bg-white/70",
                 )}
               >
