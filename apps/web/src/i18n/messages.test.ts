@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SUPPORTED_LOCALES } from "../lib/const";
-import de from "../../messages/de.json";
 import en from "../../messages/en.json";
-import es from "../../messages/es.json";
-import fr from "../../messages/fr.json";
-import ja from "../../messages/ja.json";
-import ko from "../../messages/ko.json";
-import pt from "../../messages/pt.json";
-import zh from "../../messages/zh.json";
 
-const CATALOGS: Record<string, unknown> = { en, de, es, fr, ja, ko, pt, zh };
+// The product is English-only; the catalog set is guarded to match.
+const CATALOGS: Record<string, unknown> = { en };
 
 /** Every leaf key path in a message catalog, e.g. `Billing.usageLimit.title`. */
 function keyPaths(value: unknown, prefix = ""): string[] {

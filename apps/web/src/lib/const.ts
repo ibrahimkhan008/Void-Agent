@@ -133,35 +133,6 @@ export const SUPPORTED_LOCALES = [
     code: "en",
     name: "English 🇺🇸",
   },
-  {
-    code: "de",
-    name: "Deutsch 🇩🇪",
-  },
-  {
-    code: "ko",
-    name: "Korean 🇰🇷",
-  },
-
-  {
-    code: "es",
-    name: "Spanish 🇪🇸",
-  },
-  {
-    code: "fr",
-    name: "French 🇫🇷",
-  },
-  {
-    code: "ja",
-    name: "Japanese 🇯🇵",
-  },
-  {
-    code: "zh",
-    name: "Chinese 🇨🇳",
-  },
-  {
-    code: "pt",
-    name: "Português 🇧🇷",
-  },
 ];
 
 export const BACKGROUND_COLORS = [

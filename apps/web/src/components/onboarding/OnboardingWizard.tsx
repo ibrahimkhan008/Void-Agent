@@ -8,80 +8,50 @@ import { Button } from "ui/button";
 import { cn } from "lib/utils";
 import type { ComposioToolkit } from "@/hooks/queries/use-composio-connections";
 import type { OnboardingStep } from "app-types/user";
-import {
-  AutomationOverviewStep,
-  type OnboardingLanguage,
-} from "./AutomationOverviewStep";
+import { AutomationOverviewStep } from "./AutomationOverviewStep";
 
 const ONBOARDING_PAGE_SIZE = 50;
 
 const connectAppsCopy = {
-  de: {
-    connectedLabel: "Verbunden",
-    connectLabel: "Verbinden",
-    disconnectLabel: "Trennen",
-    loadError: "Apps konnten nicht geladen werden",
-    connectError: "App konnte nicht verbunden werden",
-    disconnectError: "Verbindung konnte nicht getrennt werden",
-    disconnectedToast: "Getrennt",
-    heading: "Verbindet eure Apps",
-    description:
-      "Verbindet die Tools, die ihr jeden Tag nutzt. Eure KI kann sie danach automatisch einsetzen - ohne Copy-Paste und ohne Tab-Hopping.",
-    connectedCount: (count: number) =>
-      `${count} App${count !== 1 ? "s" : ""} verbunden`,
-    loadingMore: "Lädt...",
-    loadMore: "Mehr laden",
-    skip: "Erstmal überspringen",
-    primaryWithApps: "Void-Agent starten",
-    primaryWithoutApps: "Zur App",
-    continueError: "Weiter geht gerade nicht",
-    notConfigured:
-      "App-Verbindungen sind auf dieser Instanz noch nicht eingerichtet. Ein Admin kann sie mit einem Composio-Key (COMPOSIO_API_KEY) aktivieren. Void-Agent funktioniert auch ohne.",
-  },
-  en: {
-    connectedLabel: "Connected",
-    connectLabel: "Connect",
-    disconnectLabel: "Disconnect",
-    loadError: "Failed to load apps",
-    connectError: "Failed to connect app",
-    disconnectError: "Failed to disconnect",
-    disconnectedToast: "Disconnected",
-    heading: "Connect Your Apps",
-    description:
-      "Connect the tools you use every day. Your AI can then use them automatically - no copy-pasting, no switching tabs.",
-    connectedCount: (count: number) =>
-      `${count} app${count !== 1 ? "s" : ""} connected`,
-    loadingMore: "Loading...",
-    loadMore: "Load more",
-    skip: "Skip for now",
-    primaryWithApps: "Start using Void-Agent",
-    primaryWithoutApps: "Go to app",
-    continueError: "Failed to continue",
-    notConfigured:
-      "App connections are not set up on this instance yet. An admin can turn them on with a Composio key (COMPOSIO_API_KEY). Void-Agent works without them.",
-  },
-} satisfies Record<
-  OnboardingLanguage,
-  {
-    connectedLabel: string;
-    connectLabel: string;
-    disconnectLabel: string;
-    loadError: string;
-    connectError: string;
-    disconnectError: string;
-    disconnectedToast: string;
-    heading: string;
-    description: string;
-    connectedCount: (count: number) => string;
-    loadingMore: string;
-    loadMore: string;
-    skip: string;
-    primaryWithApps: string;
-    primaryWithoutApps: string;
-    continueError: string;
-    notConfigured: string;
-  }
->;
+  connectedLabel: "Connected",
+  connectLabel: "Connect",
+  disconnectLabel: "Disconnect",
+  loadError: "Failed to load apps",
+  connectError: "Failed to connect app",
+  disconnectError: "Failed to disconnect",
+  disconnectedToast: "Disconnected",
+  heading: "Connect Your Apps",
+  description:
+    "Connect the tools you use every day. Your AI can then use them automatically - no copy-pasting, no switching tabs.",
+  connectedCount: (count: number) =>
+    `${count} app${count !== 1 ? "s" : ""} connected`,
+  loadingMore: "Loading...",
+  loadMore: "Load more",
+  skip: "Skip for now",
+  primaryWithApps: "Start using Void-Agent",
+  primaryWithoutApps: "Go to app",
+  continueError: "Failed to continue",
+  notConfigured:
+    "App connections are not set up on this instance yet. An admin can turn them on with a Composio key (COMPOSIO_API_KEY). Void-Agent works without them.",
+} as {
+  connectedLabel: string;
+  connectLabel: string;
+  disconnectLabel: string;
+  loadError: string;
+  connectError: string;
+  disconnectError: string;
+  disconnectedToast: string;
+  heading: string;
+  description: string;
+  connectedCount: (count: number) => string;
+  loadingMore: string;
+  loadMore: string;
+  skip: string;
+  primaryWithApps: string;
+  primaryWithoutApps: string;
+  continueError: string;
+  notConfigured: string;
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +96,7 @@ function AppCard({
   onConnect: (slug: string) => void;
   onDisconnect: (connectedAccountId: string) => void;
   isConnecting: boolean;
-  copy: (typeof connectAppsCopy)[OnboardingLanguage];
+  copy: typeof connectAppsCopy;
 }) {
   return (
     <div
@@ -194,10 +164,8 @@ function AppCard({
 // ─── Connect Apps Step ────────────────────────────────────────────────────────
 
 function ConnectAppsStep({
-  language,
   onFinish,
 }: {
-  language: OnboardingLanguage;
   onFinish: () => void;
 }) {
   const [toolkits, setToolkits] = useState<ComposioToolkit[]>([]);
@@ -208,7 +176,7 @@ function ConnectAppsStep({
   const [connectingSlug, setConnectingSlug] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  const copy = connectAppsCopy[language];
+  const copy = connectAppsCopy;
   const connectedCount = toolkits.filter((t) => t.isConnected).length;
 
   const fetchPage = useCallback(
@@ -434,7 +402,6 @@ async function setOnboardingStep(step: OnboardingStep) {
 
 export function OnboardingWizard({ initialStep }: Props) {
   const [step, setStep] = useState<OnboardingStep>(initialStep);
-  const [language, setLanguage] = useState<OnboardingLanguage>("de");
   const handleFinish = () => {
     window.location.href = "/";
   };
@@ -444,9 +411,9 @@ export function OnboardingWizard({ initialStep }: Props) {
       await setOnboardingStep("connect_tools");
       setStep("connect_tools");
     } catch {
-      toast.error(connectAppsCopy[language].continueError);
+      toast.error(connectAppsCopy.continueError);
     }
-  }, [language]);
+  }, []);
 
   const handlePickPath = useCallback(async (href: string) => {
     try {
@@ -461,8 +428,6 @@ export function OnboardingWizard({ initialStep }: Props) {
   if (step === "automation_overview") {
     return (
       <AutomationOverviewStep
-        language={language}
-        onLanguageChange={setLanguage}
         onContinue={handleAutomationContinue}
         onPickPath={handlePickPath}
       />
@@ -471,7 +436,7 @@ export function OnboardingWizard({ initialStep }: Props) {
 
   return (
     <div className="w-full max-w-2xl">
-      <ConnectAppsStep language={language} onFinish={handleFinish} />
+      <ConnectAppsStep onFinish={handleFinish} />
     </div>
   );
 }

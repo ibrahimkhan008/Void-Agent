@@ -2,7 +2,6 @@
 
 import { appStore } from "@/app/store";
 import { useThemeStyle } from "@/hooks/use-theme-style";
-import { getLocaleAction } from "@/i18n/get-locale";
 import { BasicUser } from "app-types/user";
 import {
   BillingMenuItem,
@@ -11,7 +10,7 @@ import {
 } from "@/components/gate";
 import { IS_CLOUD_EDITION } from "@/lib/edition";
 import { authClient } from "auth/client";
-import { BASE_THEMES, COOKIE_KEY_LOCALE, SUPPORTED_LOCALES } from "lib/const";
+import { BASE_THEMES } from "lib/const";
 import { getUserAvatar } from "lib/user/utils";
 import { capitalizeFirstLetter, cn, fetcher } from "lib/utils";
 import {
@@ -20,7 +19,6 @@ import {
   ChevronsUpDown,
   Command,
   Gift,
-  Languages,
   LogOutIcon,
   MessageCircleWarning,
   MessagesSquare,
@@ -33,7 +31,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { Suspense, useCallback } from "react";
+import { Suspense } from "react";
 import useSWR from "swr";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import {
@@ -189,7 +187,6 @@ export function AppSidebarUserInner(props: {
                 </DropdownMenuPortal>
               </DropdownMenuSub>
               <SelectTheme />
-              <SelectLanguage />
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer"
@@ -311,45 +308,6 @@ function SelectTheme() {
               </DropdownMenuCheckboxItem>
             ))}
           </div>
-        </DropdownMenuSubContent>
-      </DropdownMenuPortal>
-    </DropdownMenuSub>
-  );
-}
-
-function SelectLanguage() {
-  const t = useTranslations("Layout");
-  const { data: currentLocale } = useSWR(COOKIE_KEY_LOCALE, getLocaleAction, {
-    fallbackData: SUPPORTED_LOCALES[0].code,
-    revalidateOnFocus: false,
-  });
-  const handleOnChange = useCallback((locale: string) => {
-    document.cookie = `${COOKIE_KEY_LOCALE}=${locale}; path=/;`;
-    window.location.reload();
-  }, []);
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <Languages className="mr-2 size-4" />
-        <span>{t("language")}</span>
-      </DropdownMenuSubTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuSubContent className="w-48 max-h-96 overflow-y-auto">
-          <DropdownMenuLabel className="text-muted-foreground">
-            {t("language")}
-          </DropdownMenuLabel>
-          {SUPPORTED_LOCALES.map((locale) => (
-            <DropdownMenuCheckboxItem
-              key={locale.code}
-              checked={locale.code === currentLocale}
-              onCheckedChange={() =>
-                locale.code !== currentLocale && handleOnChange(locale.code)
-              }
-            >
-              {locale.name}
-            </DropdownMenuCheckboxItem>
-          ))}
         </DropdownMenuSubContent>
       </DropdownMenuPortal>
     </DropdownMenuSub>

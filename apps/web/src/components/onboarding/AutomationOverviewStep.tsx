@@ -3,66 +3,36 @@
 import Image from "next/image";
 import { ArrowRight, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "ui/button";
-import { cn } from "lib/utils";
-
-export type OnboardingLanguage = "de" | "en";
 
 const overviewCopy = {
-  de: {
-    headline: "Womit sparen wir euch zuerst Zeit?",
-    paths: [
-      {
-        title: "Einfache Aufgaben selbst automatisieren",
-        description:
-          "Nutzt einen fertigen Agenten oder beschreibt kurz, was passieren soll.",
-        examples: ["Recherche-Agent", "CRM-Manager", "Sales Coach"],
-        ctaLabel: "Agenten ansehen",
-      },
-      {
-        title: "Komplexe Abläufe mit uns bauen",
-        description:
-          "Ladet euren Workflow hoch und wir führen euch entspannt durch den Rest.",
-        examples: ["Voice", "Screen Recording", "Dokument-Upload"],
-        ctaLabel: "Onboarding starten",
-      },
-    ],
-    skipLabel: "Erstmal überspringen",
-  },
-  en: {
-    headline: "Pick how you wanna start automating",
-    paths: [
-      {
-        title: "Automate simple tasks yourself",
-        description: "Use a pre-built agent or describe the task.",
-        examples: ["Research Agent", "CRM Manager", "Sales Coach"],
-        ctaLabel: "Browse agents",
-      },
-      {
-        title: "Let us handle the complex stuff",
-        description: "Upload your workflow and follow the magic.",
-        examples: ["Voice", "Screen recording", "Document upload"],
-        ctaLabel: "Start onboarding",
-      },
-    ],
-    skipLabel: "Skip for now",
-  },
-} satisfies Record<
-  OnboardingLanguage,
-  {
-    headline: string;
-    paths: {
-      title: string;
-      description: string;
-      examples: string[];
-      ctaLabel: string;
-    }[];
-    skipLabel: string;
-  }
->;
+  headline: "Pick how you wanna start automating",
+  paths: [
+    {
+      title: "Automate simple tasks yourself",
+      description: "Use a pre-built agent or describe the task.",
+      examples: ["Research Agent", "CRM Manager", "Sales Coach"],
+      ctaLabel: "Browse agents",
+    },
+    {
+      title: "Let us handle the complex stuff",
+      description: "Upload your workflow and follow the magic.",
+      examples: ["Voice", "Screen recording", "Document upload"],
+      ctaLabel: "Start onboarding",
+    },
+  ],
+  skipLabel: "Skip for now",
+} as {
+  headline: string;
+  paths: {
+    title: string;
+    description: string;
+    examples: string[];
+    ctaLabel: string;
+  }[];
+  skipLabel: string;
+};
 
 interface AutomationOverviewStepProps {
-  language: OnboardingLanguage;
-  onLanguageChange: (language: OnboardingLanguage) => void;
   onContinue: () => void;
   onPickPath: (href: string) => void;
 }
@@ -123,12 +93,10 @@ function PathCard({
 }
 
 export function AutomationOverviewStep({
-  language,
-  onLanguageChange,
   onContinue,
   onPickPath,
 }: AutomationOverviewStepProps) {
-  const copy = overviewCopy[language];
+  const copy = overviewCopy;
 
   return (
     <div className="w-full max-w-3xl">
@@ -147,27 +115,6 @@ export function AutomationOverviewStep({
             <span className="hidden text-base font-semibold tracking-tight sm:inline">
               Void-Agent
             </span>
-          </div>
-          <div
-            className="inline-flex rounded-full border border-border bg-background p-0.5"
-            aria-label="Language"
-          >
-            {(["de", "en"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={language === option}
-                onClick={() => onLanguageChange(option)}
-                className={cn(
-                  "h-8 min-w-9 rounded-full px-3 text-xs font-medium transition-colors",
-                  language === option
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {option.toUpperCase()}
-              </button>
-            ))}
           </div>
         </div>
         <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight">
