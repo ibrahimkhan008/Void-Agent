@@ -43,6 +43,8 @@ const PUBLIC_DESTINATION_PAGES = new Set([
   "/grievance-redressal",
   "/about",
   "/landing",
+  "/docs",
+  "/docs/mcp",
   "/pricing",
   "/plans",
   "/gallery/agents",
