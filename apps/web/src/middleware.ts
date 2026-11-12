@@ -42,6 +42,7 @@ const PUBLIC_DESTINATION_PAGES = new Set([
   "/cookies-policy",
   "/grievance-redressal",
   "/about",
+  "/landing",
   "/pricing",
   "/plans",
   "/gallery/agents",
@@ -300,6 +301,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!sessionCookie) {
+    // Anonymous visitors to the bare root see the public marketing homepage
+    // (served from /landing via a rewrite so the URL stays "/"). Signed-in
+    // users keep the chat workspace at "/".
+    if (pathname === "/") {
+      return NextResponse.rewrite(new URL("/landing", request.url));
+    }
     // Carry the requested page as `callbackUrl` instead of dropping it. An
     // invited user opening /accept-invitation/:id signs in (or signs up) and
     // lands back on the invitation, which is why that route needs no
