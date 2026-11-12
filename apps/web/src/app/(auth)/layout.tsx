@@ -28,7 +28,7 @@ export default async function AuthLayout({
           <Reveal delay={0} rise={0} duration={0.3} className="landing-drop">
             <div className="flex items-center gap-3">
               <Image
-                src="/flare-logo-192.webp"
+                src="/logo-192.webp"
                 alt="Void-Agent logo"
                 width={24}
                 height={24}

@@ -11,7 +11,7 @@ export const metadata = legalMetadata(
 const POLICY_PATH = path.join(
   process.cwd(),
   "legal-consent",
-  "cognix-cookies-policy.md",
+  "cookies-policy.md",
 );
 
 export default function CookiesPolicyPage() {

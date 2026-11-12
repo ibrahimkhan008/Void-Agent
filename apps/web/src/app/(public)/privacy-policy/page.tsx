@@ -11,7 +11,7 @@ export const metadata = legalMetadata(
 const POLICY_PATH = path.join(
   process.cwd(),
   "legal-consent",
-  "cognix-privacy-policy.md",
+  "privacy-policy.md",
 );
 
 export default function PrivacyPolicyPage() {

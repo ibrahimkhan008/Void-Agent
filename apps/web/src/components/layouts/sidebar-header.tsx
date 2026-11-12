@@ -90,7 +90,7 @@ export function SidebarHeaderShared({
                       data-testid="sidebar-logo-collapsed"
                     >
                       <Image
-                        src="/flare-logo-512.webp"
+                        src="/logo-512.webp"
                         alt="Void-Agent"
                         width={28}
                         height={28}
@@ -113,7 +113,7 @@ export function SidebarHeaderShared({
                   ) : (
                     <div className="flex items-center gap-2">
                       <Image
-                        src="/flare-logo-192.webp"
+                        src="/logo-192.webp"
                         alt="Void-Agent logo"
                         width={24}
                         height={24}

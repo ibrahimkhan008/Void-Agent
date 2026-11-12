@@ -64,7 +64,7 @@ const FEATURE_FLAG_DEFS: FeatureFlag[] = [
 export default function GeneralPage() {
   const defaults: GeneralConfig = {
     appName: "Flare AI",
-    appLogoUrl: "/flare-logo-512.webp",
+    appLogoUrl: "/logo-512.webp",
     defaultToolChoice: "auto",
     freeTierDailyTokenLimit: 150000,
     freeTierEnabled: true,
@@ -260,7 +260,7 @@ export default function GeneralPage() {
                     setConfig((c) => ({ ...c, appLogoUrl: e.target.value }))
                   }
                   className="h-9 flex-1 px-3 text-sm rounded-md border bg-background"
-                  placeholder="/flare-logo-512.webp"
+                  placeholder="/logo-512.webp"
                 />
                 {config.appLogoUrl && (
                   <div className="h-9 w-9 rounded-md border overflow-hidden shrink-0">

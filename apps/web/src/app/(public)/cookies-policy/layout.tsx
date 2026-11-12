@@ -1,18 +1,20 @@
 import { Metadata } from "next";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://flare-sh.tech";
+// No hardcoded domain fallback: og:url is only emitted when the deployment
+// sets NEXT_PUBLIC_SITE_URL, so no stale brand domain leaks into the head.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Cookies Policy - Flare AI",
+  title: "Cookies Policy - Void-Agent",
   description:
-    "Learn about cookies used by Flare AI. Our cookies policy explains what cookies we use and how they improve your experience.",
+    "Learn about cookies used by Void-Agent. Our cookies policy explains what cookies we use and how they improve your experience.",
   alternates: {
     canonical: "/cookies-policy",
   },
   openGraph: {
-    title: "Cookies Policy - Flare AI",
-    description: "Learn about cookies used by Flare AI.",
-    url: `${siteUrl}/cookies-policy`,
+    title: "Cookies Policy - Void-Agent",
+    description: "Learn about cookies used by Void-Agent.",
+    ...(siteUrl ? { url: `${siteUrl}/cookies-policy` } : {}),
     type: "website",
   },
 };

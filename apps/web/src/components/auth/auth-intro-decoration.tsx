@@ -4,7 +4,7 @@
  * Centered Flare logo decoration for the empty flex-1 slot in the
  * (auth) split-screen layout.
  *
- * Visual: the existing /flare-logo-192.webp logo, scaled larger than
+ * Visual: the existing /logo-192.webp logo, scaled larger than
  * the header version, centered. Behind it, a soft radial gradient
  * blob that pulses (opacity loop) and the logo itself has a slow,
  * subtle scale loop. Both animations are wrapped in
@@ -51,7 +51,7 @@ export function AuthIntroDecoration() {
         }
       >
         <Image
-          src="/flare-logo-192.webp"
+          src="/logo-192.webp"
           alt="Void-Agent"
           width={128}
           height={128}

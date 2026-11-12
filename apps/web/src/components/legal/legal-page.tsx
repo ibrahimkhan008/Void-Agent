@@ -85,7 +85,7 @@ export function LegalPage({
             <Link href="/" className="flex items-center gap-2.5">
               <span className="relative block shrink-0 size-7">
                 <Image
-                  src="/flare-logo-192.webp"
+                  src="/logo-192.webp"
                   alt="Void-Agent"
                   width={28}
                   height={28}
@@ -277,7 +277,7 @@ export function LegalPage({
               <div className="flex items-center gap-2.5">
                 <span className="relative block shrink-0 size-7">
                   <Image
-                    src="/flare-logo-192.webp"
+                    src="/logo-192.webp"
                     alt="Void-Agent"
                     width={28}
                     height={28}

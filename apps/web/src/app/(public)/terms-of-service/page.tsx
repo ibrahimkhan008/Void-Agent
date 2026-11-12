@@ -11,7 +11,7 @@ export const metadata = legalMetadata(
 const POLICY_PATH = path.join(
   process.cwd(),
   "legal-consent",
-  "cognix-terms-of-service.md",
+  "terms-of-service.md",
 );
 
 export default function TermsOfServicePage() {

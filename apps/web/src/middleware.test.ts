@@ -38,7 +38,7 @@ describe("destination public surfaces remain narrowly authenticated", () => {
     "/api/voice/devices/register",
     "/embed/agent-123",
     "/embed.js",
-    "/flare-logo-192.webp",
+    "/logo-192.webp",
   ])("lets endpoint %s reach its own authentication boundary", async (path) => {
     const response = await middleware(
       new NextRequest(`http://localhost${path}`),
