@@ -1,15 +1,10 @@
+import { cn } from "lib/utils";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 /**
  * Cognix legal article layout — exact clone of cognixai.in legal pages.
- *
- * Structure:
- * 1. Floating pill navbar (fixed, rounded-2xl, backdrop-blur, landing-drop)
- * 2. Hero (centered, pt-40 for navbar clearance, eyebrow + display H1)
- * 3. Two-column grid (sticky TOC sidebar + article body)
- * 4. Footer (border-t, watermark wordmark)
  */
 
 export interface LegalSection {
@@ -19,13 +14,22 @@ export interface LegalSection {
 }
 
 export interface LegalPageProps {
+  /** Eyebrow label (e.g., "Legal") */
+  eyebrow?: string;
+  /** The normal-text part of the display H1 */
   title: string;
+  /** The Instrument Serif accent word(s) — rendered after the title */
+  accentTitle?: string;
   description: string;
   version?: string;
   effective?: string;
   updated?: string;
+  /** Intro paragraph shown before the first section */
+  introParagraph?: string;
   sections: LegalSection[];
   siblings?: Array<{ label: string; href: string }>;
+  /** Index of the currently active sibling pill */
+  activeSibling?: number;
 }
 
 export function legalMetadata(
@@ -49,13 +53,17 @@ const NAV_LINKS = [
 ];
 
 export function LegalPage({
+  eyebrow = "Legal",
   title,
+  accentTitle,
   description,
   version,
   effective,
   updated,
+  introParagraph,
   sections,
   siblings = [],
+  activeSibling,
 }: LegalPageProps) {
   return (
     <div
@@ -114,36 +122,82 @@ export function LegalPage({
 
       {/* ===== Hero ===== */}
       <section className="mx-auto max-w-3xl px-6 pt-40 pb-14 text-center sm:pt-48">
-        <p className="text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
-          {title}
-        </p>
-        {version && (
-          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-(--brand)/10 px-3 py-1 text-[11px] font-medium text-(--brand)">
-            {version}
-            {effective && ` · Effective ${effective}`}
-            {updated && ` · Updated ${updated}`}
-          </p>
-        )}
+        {/* Eyebrow: green asterisk + uppercase mono label */}
+        <div className="inline-flex items-center gap-2 text-[11px] font-medium tracking-[0.14em] text-(--paper)/55 uppercase">
+          <span className="text-(--brand-glow)">*</span>
+          {eyebrow}
+        </div>
+        {/* Display H1: normal part + Instrument Serif accent word(s) */}
         <h1 className="mt-6 text-5xl leading-[1.03] font-normal tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl">
           {title}
+          {accentTitle && (
+            <span
+              className="italic"
+              style={{
+                fontFamily:
+                  "var(--font-accent), 'Instrument Serif', Georgia, serif",
+                fontWeight: 400,
+              }}
+            >
+              {" "}
+              {accentTitle}
+            </span>
+          )}
         </h1>
         <p className="mt-5 text-lg/8 text-pretty text-(--paper)/75 max-w-[560px] mx-auto">
           {description}
         </p>
+
+        {/* Version line: EFFECTIVE <date> · UPDATED <date> · VERSION <version> */}
+        {(effective || updated || version) && (
+          <p className="mt-8 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
+            {effective && (
+              <>
+                <span className="font-medium">Effective</span>
+                <span className="ml-1 normal-case text-(--paper)/75">
+                  {effective}
+                </span>
+              </>
+            )}
+            {updated && (
+              <>
+                <span className="mx-2">·</span>
+                <span className="font-medium">Updated</span>
+                <span className="ml-1 normal-case text-(--paper)/75">
+                  {updated}
+                </span>
+              </>
+            )}
+            {version && (
+              <>
+                <span className="mx-2">·</span>
+                <span className="font-medium">Version</span>
+                <span className="ml-1 normal-case text-(--paper)/75">
+                  {version}
+                </span>
+              </>
+            )}
+          </p>
+        )}
       </section>
 
-      {/* ===== Sibling document pills ===== */}
+      {/* ===== Sibling document pills (centered) ===== */}
       {siblings.length > 0 && (
         <nav
           aria-label="Legal documents"
-          className="mx-auto max-w-6xl px-6 pb-8"
+          className="mx-auto max-w-3xl px-6 pb-8 flex justify-center"
         >
           <div className="max-w-full overflow-x-auto rounded-xl bg-black/[0.04] p-1 [scrollbar-width:none] flex gap-1">
-            {siblings.map((sib) => (
+            {siblings.map((sib, i) => (
               <Link
                 key={sib.href}
                 href={sib.href}
-                className="block rounded-lg px-3.5 py-1.5 text-[13.5px] whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40 text-(--paper)/60 hover:text-(--paper) hover:bg-white/70"
+                className={cn(
+                  "block rounded-lg px-3.5 py-1.5 text-[13.5px] whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40",
+                  i === activeSibling
+                    ? "bg-white text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+                    : "text-(--paper)/60 hover:text-(--paper) hover:bg-white/70",
+                )}
               >
                 {sib.label}
               </Link>
@@ -154,24 +208,21 @@ export function LegalPage({
 
       {/* ===== Two-column grid: sticky TOC sidebar + article ===== */}
       <div className="mx-auto grid max-w-6xl gap-10 px-6 pb-32 lg:grid-cols-[240px_1fr] lg:gap-16">
-        {/* Sticky TOC sidebar */}
+        {/* Sticky TOC sidebar — no numbered prefixes */}
         <nav
-          aria-label={`${title} sections`}
+          aria-label={`${eyebrow} sections`}
           className="sticky top-28 hidden text-sm lg:block"
         >
-          <div className="space-y-1">
-            <p className="mb-3 px-4 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
+          <div className="space-y-0.5">
+            <p className="mb-4 px-4 text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase font-medium">
               On this page
             </p>
-            {sections.map((section, i) => (
+            {sections.map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                className="-ml-px flex gap-2.5 border-l py-1.5 pl-4 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper) border-transparent text-(--paper)/55 hover:text-(--paper)"
+                className="block px-4 py-1.5 text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:bg-white/50 border-l-2 border-(--brand-glow)"
               >
-                <span className="w-5 shrink-0 text-[11px]/6 text-(--paper)/40 tabular-nums">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
                 {section.title}
               </a>
             ))}
@@ -180,6 +231,12 @@ export function LegalPage({
 
         {/* Article body */}
         <article className="min-w-0 max-w-[72ch]">
+          {/* Intro paragraph before the first section */}
+          {introParagraph && (
+            <p className="text-base/7 text-(--paper)/70 mb-2">
+              {introParagraph}
+            </p>
+          )}
           {sections.map((section) => (
             <section key={section.id} id={section.id}>
               <h2 className="mt-16 scroll-mt-28 border-t border-black/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">

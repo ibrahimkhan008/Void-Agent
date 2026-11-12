@@ -17,11 +17,15 @@ export const metadata = legalMetadata(
 export default function GrievanceRedressalPage() {
   return (
     <LegalPage
-      title="Grievance Redressal"
+      eyebrow="Legal"
+      title="Grievance Redressal & Data"
+      accentTitle="Rights"
       description="Contact the Grievance Officer, exercise your data rights, report content, and know how quickly we respond."
-      version="v1.0"
-      effective="2026-11-12"
-      updated="2026-11-12"
+      version="1.0"
+      effective="November 12, 2026"
+      updated="November 12, 2026"
+      introParagraph="Your rights under the DPDP Act, 2023."
+      activeSibling={4}
       siblings={[
         { label: "Terms", href: "/terms-of-service" },
         { label: "Privacy", href: "/privacy-policy" },
