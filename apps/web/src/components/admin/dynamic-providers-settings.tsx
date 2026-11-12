@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Button } from "ui/button";
@@ -185,7 +186,10 @@ export function DynamicProvidersSettings() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
       <header>
-        <h1 className="text-2xl font-semibold">Dynamic model providers</h1>
+        <Eyebrow>Settings</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+          Dynamic model providers
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Configure OpenAI-compatible providers. API keys are encrypted
           server-side and never shown after saving.

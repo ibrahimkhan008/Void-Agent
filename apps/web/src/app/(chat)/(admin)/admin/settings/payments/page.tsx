@@ -1,6 +1,7 @@
 "use client";
 
 import { DodoPaymentsSettings } from "@/components/admin/dodo-payments-settings";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { CreditCard } from "lucide-react";
 
 // Staging port note (WP6c): the destination payments page writes the whole
@@ -14,7 +15,10 @@ export default function PaymentsPage() {
       <div className="flex items-center gap-2 px-6 pt-6">
         <CreditCard className="size-6 text-muted-foreground" />
         <div>
-          <h1 className="text-2xl font-semibold">Payments</h1>
+          <Eyebrow>Settings</Eyebrow>
+          <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+            Payments
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Dodo Payments credentials, environment, and tier → product id
             mapping used for self-service plan upgrades.

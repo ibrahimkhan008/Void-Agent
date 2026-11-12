@@ -8,6 +8,7 @@ import {
   showSaveError,
   showSaveSuccess,
 } from "@/components/admin/ui/toast-helpers";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   AlertCircle,
   CheckCircle,
@@ -487,7 +488,8 @@ export default function ToolsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Eyebrow>Settings</Eyebrow>
+            <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
               <WrenchIcon className="size-6 text-muted-foreground" />
               Tools
             </h1>

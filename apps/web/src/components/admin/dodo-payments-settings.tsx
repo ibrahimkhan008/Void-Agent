@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "ui/button";
@@ -110,7 +111,10 @@ export function DodoPaymentsSettings() {
       data-testid="dodo-payments-settings"
     >
       <div>
-        <h1 className="text-2xl font-semibold">Dodo Payments</h1>
+        <Eyebrow>Settings</Eyebrow>
+        <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+          Dodo Payments
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Optional self-service billing. Autumn remains the primary organization
           billing provider.
