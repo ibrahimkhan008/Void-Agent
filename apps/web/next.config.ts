@@ -118,3 +118,9 @@ export default withSentryConfig(getConfig, {
     },
   },
 });
+
+// The changelog lives at /updates; send legacy /index visitors there before
+// anything else can intercept the path.
+export const redirects = async () => [
+  { source: "/index", destination: "/updates", permanent: false },
+];
