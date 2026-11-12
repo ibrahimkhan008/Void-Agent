@@ -1,5 +1,6 @@
 "use client";
 
+import { Eyebrow } from "@/components/ui/eyebrow";
 import type { WorkflowSummary } from "app-types/workflow";
 import { Plus, Workflow as WorkflowIcon } from "lucide-react";
 import Link from "next/link";
@@ -52,17 +53,27 @@ export function WorkflowIndex({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Workflows</h1>
-          <p className="text-sm text-muted-foreground">
-            Build a tool from a graph of steps, then call it from any chat.
-          </p>
+      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      <div className="mb-8 space-y-3">
+        <Eyebrow>Automate</Eyebrow>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-normal tracking-[-0.03em] text-balance">
+              Workflows
+            </h1>
+            <p className="mt-2 text-lg/[1.55] text-muted-foreground">
+              Build a tool from a graph of steps, then call it from any chat.
+            </p>
+          </div>
+          <Button
+            onClick={createWorkflow}
+            disabled={creating}
+            className="shrink-0"
+          >
+            <Plus className="size-4" />
+            New workflow
+          </Button>
         </div>
-        <Button onClick={createWorkflow} disabled={creating}>
-          <Plus className="size-4" />
-          New workflow
-        </Button>
       </div>
 
       {workflows.length === 0 ? (

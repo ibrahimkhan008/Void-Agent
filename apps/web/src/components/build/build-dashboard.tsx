@@ -1,8 +1,9 @@
 "use client";
 
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { useAppBuilds } from "@/hooks/queries/use-app-builds";
 import { fetcher } from "lib/utils";
-import { Loader2, Plus, Rocket } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
@@ -146,11 +147,14 @@ export function BuildDashboard({
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      <header className="flex items-start gap-3">
-        <Rocket className="mt-1 size-6 text-primary" />
+      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      <header className="space-y-3">
+        <Eyebrow>Build</Eyebrow>
         <div>
-          <h1 className="text-2xl font-semibold">App builder</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-4xl font-normal tracking-[-0.03em] text-balance">
+            App builder
+          </h1>
+          <p className="mt-2 text-lg/[1.55] text-muted-foreground">
             Generate a small web app and preview it in an owner-scoped E2B
             sandbox.
           </p>

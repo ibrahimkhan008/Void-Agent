@@ -1,7 +1,8 @@
 "use client";
 
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { useCollections } from "@/hooks/queries/use-collections";
-import { Library, Loader2, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -44,14 +45,17 @@ export function CollectionsDashboard() {
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6 px-6 py-8">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Library className="size-6" />
-          Collections
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Private document collections your assistant can search.
-        </p>
+      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      <header className="space-y-3">
+        <Eyebrow>Knowledge</Eyebrow>
+        <div>
+          <h1 className="text-4xl font-normal tracking-[-0.03em] text-balance">
+            Collections
+          </h1>
+          <p className="mt-2 text-lg/[1.55] text-muted-foreground">
+            Private document collections your assistant can search.
+          </p>
+        </div>
       </header>
       <section className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <label className="grid gap-2 text-sm">
