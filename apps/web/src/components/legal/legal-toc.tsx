@@ -46,7 +46,9 @@ export function LegalToc({
   const updateMarker = useCallback(() => {
     const scroller = listRef.current;
     if (!scroller || !activeId) return;
-    const active = scroller.querySelector(`a[href="#${activeId}"]`);
+    const active = scroller.querySelector<HTMLElement>(
+      `a[href="#${activeId}"]`,
+    );
     if (!active) return;
     setMarker({ top: active.offsetTop, height: active.offsetHeight });
   }, [activeId]);
