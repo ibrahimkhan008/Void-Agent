@@ -2,7 +2,7 @@
 import { SidebarMenuAction, SidebarMenuButton, useSidebar } from "ui/sidebar";
 import { SidebarMenu, SidebarMenuItem } from "ui/sidebar";
 import { SidebarGroupContent } from "ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { Tooltip } from "ui/tooltip";
 
 import { useStartNewChat } from "@/hooks/use-start-new-chat";
 import { requireCredits } from "@/lib/billing/require-credits";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MCPIcon } from "ui/mcp-icon";
 import { SidebarGroup } from "ui/sidebar";
@@ -26,11 +27,23 @@ import { WriteIcon } from "ui/write-icon";
 import { ProjectDialog } from "../projects/project-dialog";
 import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 
+/**
+ * Sidebar navigation menu items with the Cognix active-chip treatment:
+ * the current route's item gets `isActive` → the shadcn primitive applies
+ * the `data-[active=true]` pill. Hover states use the Cognix
+ * `bg-black/[0.05]` fill rather than the shadcn default accent.
+ */
 export function AppSidebarMenus({ user }: { user?: BasicUser }) {
   const startNewChat = useStartNewChat();
   const t = useTranslations("");
   const { setOpenMobile } = useSidebar();
   const [addProjectDialogOpen, setAddProjectDialogOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname?.startsWith(href + "/");
+  };
 
   return (
     <SidebarGroup>
@@ -46,7 +59,7 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                   startNewChat();
                 }}
               >
-                <SidebarMenuButton className="flex font-semibold group/new-chat bg-input/20 border border-border/40">
+                <SidebarMenuButton className="flex font-semibold group/new-chat bg-input/20 border border-border/40 hover:bg-black/[0.05]">
                   <WriteIcon className="size-4" />
                   {t("Layout.newChat")}
                   <div className="flex items-center gap-1 text-xs font-medium ml-auto opacity-0 group-hover/new-chat:opacity-100 transition-opacity">
@@ -68,7 +81,10 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <Link href="/mcp">
-                <SidebarMenuButton className="font-semibold">
+                <SidebarMenuButton
+                  isActive={isActive("/mcp")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
                   <MCPIcon className="size-4 fill-accent-foreground" />
                   {t("Layout.mcpConfiguration")}
                 </SidebarMenuButton>
@@ -80,7 +96,10 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <Link href="/workflow">
-                <SidebarMenuButton className="font-semibold">
+                <SidebarMenuButton
+                  isActive={isActive("/workflow")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
                   <Waypoints className="size-4" />
                   {t("Layout.workflow")}
                 </SidebarMenuButton>
@@ -92,7 +111,10 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <Link href="/ecanvas" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton className="font-semibold">
+                <SidebarMenuButton
+                  isActive={isActive("/ecanvas")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
                   <PanelsTopLeft className="size-4" />
                   Canvas
                 </SidebarMenuButton>
@@ -104,7 +126,10 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <Link href="/knowledge" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton className="font-semibold">
+                <SidebarMenuButton
+                  isActive={isActive("/knowledge")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
                   <Library className="size-4" />
                   Collections
                 </SidebarMenuButton>
@@ -116,7 +141,10 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           <Tooltip>
             <SidebarMenuItem>
               <Link href="/build" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton className="font-semibold">
+                <SidebarMenuButton
+                  isActive={isActive("/build")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
                   <Rocket className="size-4" />
                   App Builder
                 </SidebarMenuButton>
@@ -124,44 +152,49 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
-        {getIsUserAdmin(user) && <AppSidebarAdmin />}
-        <SidebarMenu className="group/project">
+        <SidebarMenu>
           <Tooltip>
             <SidebarMenuItem>
-              <Link href="/projects" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton className="font-semibold">
-                  <FolderSearchIcon className="size-4" />
-                  Projects
-                </SidebarMenuButton>
-              </Link>
-              <SidebarMenuAction
-                className="group-hover/project:opacity-100 opacity-0 transition-opacity"
+              <SidebarMenuButton
+                className="font-medium hover:bg-black/[0.05]"
                 onClick={() => {
-                  // Controlled trigger: it bypasses ProjectDialog's own opener,
-                  // so the gate has to be repeated here.
                   if (!requireCredits()) return;
                   setAddProjectDialogOpen(true);
                 }}
               >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PlusIcon className="size-4" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" align="center">
-                    New project
-                  </TooltipContent>
-                </Tooltip>
+                <PlusIcon className="size-4" />
+                Projects
+              </SidebarMenuButton>
+              <SidebarMenuAction
+                className="top-1.5"
+                showOnHover
+                onClick={() => {
+                  if (!requireCredits()) return;
+                  setAddProjectDialogOpen(true);
+                }}
+              >
+                <FolderSearchIcon className="size-4" />
               </SidebarMenuAction>
             </SidebarMenuItem>
           </Tooltip>
         </SidebarMenu>
+        <ProjectDialog
+          open={addProjectDialogOpen}
+          onOpenChange={setAddProjectDialogOpen}
+        >
+          <SidebarMenuButton
+            className="font-medium hover:bg-black/[0.05]"
+            onClick={() => {
+              if (!requireCredits()) return;
+              setAddProjectDialogOpen(true);
+            }}
+          >
+            <PlusIcon className="size-4" />
+            Projects
+          </SidebarMenuButton>
+        </ProjectDialog>
+        {user && getIsUserAdmin({ role: user.role }) && <AppSidebarAdmin />}
       </SidebarGroupContent>
-      <ProjectDialog
-        open={addProjectDialogOpen}
-        onOpenChange={setAddProjectDialogOpen}
-      >
-        <span />
-      </ProjectDialog>
     </SidebarGroup>
   );
 }
