@@ -1840,6 +1840,16 @@
   display: none;
 }
 
+/* Leaf gradient — the brand's only allowed gradient direction: a neutral
+   top that grows into Cognix Green at the base (design.md). Never blend
+   hues side to side; the green always comes from below. */
+.gradient-leaf {
+  background: linear-gradient(to bottom, #121212, #0b7a3f 55%, #1cd86a);
+}
+.gradient-leaf-soft {
+  background: linear-gradient(to bottom, #c7c7c4, #1cd86a);
+}
+
 /* Accent span — italic serif with paper→brand gradient + halftone mask */
 .bs-accent {
   font-family: var(--font-accent), "Instrument Serif", Georgia, serif;

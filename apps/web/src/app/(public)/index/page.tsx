@@ -26,6 +26,7 @@ export default function IndexPage() {
         <div aria-hidden className="absolute inset-0 -z-10 opacity-40">
           <DitherCanvas
             src="/images/dither-footer.png"
+            topFade
             className="h-full w-full object-cover [image-rendering:pixelated]"
           />
         </div>

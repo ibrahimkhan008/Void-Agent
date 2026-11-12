@@ -16,6 +16,7 @@ export function LandingHero() {
       >
         <DitherCanvas
           src="/images/dither-footer.png"
+          topFade
           className="h-full w-full object-cover object-top [image-rendering:pixelated]"
         />
       </div>

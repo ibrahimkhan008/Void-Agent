@@ -13,6 +13,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 
 type BillingInterval = "monthly" | "annual";
@@ -152,9 +153,20 @@ function PlanPrice({
       className="mt-6 text-4xl font-medium tracking-tight tabular-nums text-(--paper)"
       aria-label={`${price} per month`}
     >
-      <span aria-hidden className="inline-block">
-        {price}
-      </span>
+      {/* Swapped prices crossfade with a short blur (design.md motion rule). */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={price}
+          aria-hidden
+          initial={{ opacity: 0, filter: "blur(4px)" }}
+          animate={{ opacity: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, filter: "blur(4px)" }}
+          transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+          className="inline-block"
+        >
+          {price}
+        </motion.span>
+      </AnimatePresence>
     </p>
   );
 }
