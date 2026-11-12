@@ -1551,12 +1551,54 @@
   --bs-brand-glow: #22c55e;
   --bs-cognix-green: #1cd86a;
 
+  /* Unprefixed aliases — components inside the surface reference these
+     directly (text-(--paper), text-(--brand-glow), …). Without them the
+     declarations are invalid at computed-value time and every color silently
+     falls back to whatever the surrounding app theme inherits. */
+  --ink: var(--bs-ink);
+  --ink-2: var(--bs-ink-2);
+  --paper: var(--bs-paper);
+  --brand: var(--bs-brand);
+  --brand-glow: var(--bs-brand-glow);
+
   /* canonical shadow stacks */
   --bs-shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.06),
     0 8px 20px -12px rgba(0, 0, 0, 0.12);
   --bs-shadow-tray: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px
     rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05), 0 24px 60px -36px
     rgba(0, 0, 0, 0.25);
+
+  /* Pin the type to the brand stack. `--font-sans` is a `@theme inline` token
+     and is never emitted as a real CSS variable, so a raw
+     `font-family: var(--font-sans)` resolved to nothing and surfaces fell
+     back to the browser default. `--font-geist-sans` is the variable the root
+     layout actually publishes via next/font. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  /* Force the light display theme inside this scope. The app may run dark
+     (`html.dark`); every token below is re-declared on this element so
+     descendants — including shadcn components — resolve light values no
+     matter what the surrounding theme inherits. */
+  color-scheme: light;
+  --background: #ececea;
+  --foreground: #121212;
+  --card: #ffffff;
+  --card-foreground: #121212;
+  --popover: #ffffff;
+  --popover-foreground: #121212;
+  --primary: #121212;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f3;
+  --secondary-foreground: #121212;
+  --muted: rgba(18, 18, 18, 0.05);
+  --muted-foreground: rgba(18, 18, 18, 0.6);
+  --accent: rgba(18, 18, 18, 0.05);
+  --accent-foreground: #121212;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: rgba(18, 18, 18, 0.1);
+  --input: rgba(18, 18, 18, 0.12);
+  --ring: rgba(18, 18, 18, 0.3);
 
   background: var(--bs-ink);
   color: var(--bs-paper);

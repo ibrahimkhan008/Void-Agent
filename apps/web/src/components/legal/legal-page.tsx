@@ -66,10 +66,7 @@ export function LegalPage({
   activeSibling,
 }: LegalPageProps) {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ fontFamily: "var(--font-sans)" }}
-    >
+    <div className="brand-surface min-h-dvh w-full overflow-x-clip">
       {/* ===== Floating pill navbar (Cognix §4.1) ===== */}
       <header className="landing-drop fixed inset-x-3 z-100 mx-auto max-w-7xl rounded-2xl backdrop-blur-xl transition-[top,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] top-3 sm:inset-x-4 sm:top-4 bg-(--ink-2)/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
         <nav

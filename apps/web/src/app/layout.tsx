@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { AgentNotificationPrefsSync } from "@/components/agent-alerts/agent-notification-prefs-sync";
@@ -24,6 +24,16 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+// Display serif for the brand-surface accent words ("Rights" in "Grievance
+// Redressal & Data *Rights*", etc.). Exposed as `--font-accent`; surfaces that
+// don't opt into the brand-surface never reference it.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-accent",
+  weight: "400",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -64,7 +74,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
         suppressHydrationWarning
       >
         {/*
