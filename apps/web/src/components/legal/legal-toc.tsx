@@ -27,6 +27,7 @@ export function LegalToc({
     sections[0]?.id ?? null,
   );
   const [thumb, setThumb] = useState({ height: 0, offset: 0 });
+  const [marker, setMarker] = useState({ top: 0, height: 0 });
   const listRef = useRef<HTMLDivElement>(null);
 
   const updateThumb = useCallback(() => {
@@ -39,6 +40,16 @@ export function LegalToc({
       offset: (el.scrollTop / (el.scrollHeight || 1)) * trackH,
     });
   }, []);
+
+  // The green rail segment slides to the active item (cognix style: one
+  // continuous hairline behind the list, a brand-glow bar on the active one).
+  const updateMarker = useCallback(() => {
+    const scroller = listRef.current;
+    if (!scroller || !activeId) return;
+    const active = scroller.querySelector(`a[href="#${activeId}"]`);
+    if (!active) return;
+    setMarker({ top: active.offsetTop, height: active.offsetHeight });
+  }, [activeId]);
 
   useEffect(() => {
     const ids = sections.map((s) => s.id);
@@ -72,9 +83,10 @@ export function LegalToc({
   // via onScroll (scrollIntoView fires a scroll event, so it stays in sync).
   useEffect(() => {
     updateThumb();
+    updateMarker();
     window.addEventListener("resize", updateThumb);
     return () => window.removeEventListener("resize", updateThumb);
-  }, [updateThumb, sections]);
+  }, [updateThumb, updateMarker, sections]);
 
   return (
     <div className="space-y-0.5">
@@ -85,8 +97,21 @@ export function LegalToc({
         <div
           ref={listRef}
           onScroll={updateThumb}
-          className="max-h-[calc(100vh-8rem)] overflow-y-auto pr-4 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="relative max-h-[calc(100vh-8rem)] overflow-y-auto pr-4 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
+          {/* Continuous rail line + the green segment on the active item.
+              Both live inside the scroller so they scroll with the list;
+              items themselves carry no border (a -ml-px border gets clipped
+              by the overflow container). */}
+          <div
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-px bg-(--paper)/10"
+          />
+          <div
+            aria-hidden
+            className="absolute left-0 w-[2px] rounded-full bg-(--brand-glow) transition-[top,height] duration-200"
+            style={{ top: marker.top, height: marker.height }}
+          />
           {sections.map((section, i) => {
             const active = section.id === activeId;
             // Hand-authored titles may carry their own "1." number; the rail's
@@ -97,10 +122,10 @@ export function LegalToc({
                 key={section.id}
                 href={`#${section.id}`}
                 className={cn(
-                  "-ml-px flex gap-2.5 border-l py-1.5 pl-4 transition-[color,border-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)",
+                  "flex gap-2.5 py-1.5 pl-4 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)",
                   active
-                    ? "border-(--brand-glow) font-medium text-(--paper)"
-                    : "border-transparent text-(--paper)/55 hover:text-(--paper)",
+                    ? "font-medium text-(--paper)"
+                    : "text-(--paper)/55 hover:text-(--paper)",
                 )}
               >
                 <span
