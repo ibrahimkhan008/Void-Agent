@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import {
-  SparklesIcon,
-  Loader2,
-  CheckCircle2Icon,
-  RotateCcw,
-} from "lucide-react";
-import { Button } from "ui/button";
 import { ModelSelector } from "@/components/admin/ui/model-selector";
-import {
-  showSaveSuccess,
-  showSaveError,
-} from "@/components/admin/ui/toast-helpers";
 import {
   ShortcutHelpModal,
   useAdminShortcuts,
 } from "@/components/admin/ui/shortcut-help-modal";
+import {
+  showSaveError,
+  showSaveSuccess,
+} from "@/components/admin/ui/toast-helpers";
+import {
+  CheckCircle2Icon,
+  Loader2,
+  RotateCcw,
+  SparklesIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "ui/button";
 
 interface ArtifactsConfig {
   model?: string;

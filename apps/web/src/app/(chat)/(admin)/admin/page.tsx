@@ -1,3 +1,5 @@
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { requireAdminPermission } from "auth/permissions";
 import {
   BotIcon,
   BoxIcon,
@@ -10,7 +12,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { unauthorized } from "next/navigation";
-import { requireAdminPermission } from "auth/permissions";
 
 // Force dynamic rendering to avoid static generation issues with session
 export const dynamic = "force-dynamic";
@@ -79,14 +80,17 @@ export default async function AdminIndexPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <Settings2Icon className="size-6 text-muted-foreground" />
-          Admin
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Site configuration and management.
-        </p>
+      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      <div className="space-y-3">
+        <Eyebrow>Administration</Eyebrow>
+        <div>
+          <h1 className="text-4xl font-normal tracking-[-0.03em] text-balance">
+            Admin
+          </h1>
+          <p className="mt-2 text-lg/[1.55] text-muted-foreground">
+            Site configuration and management.
+          </p>
+        </div>
       </div>
 
       <div className="border rounded-xl bg-card p-5 space-y-4">

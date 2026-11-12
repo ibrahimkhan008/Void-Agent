@@ -1,13 +1,13 @@
 "use client";
 
-import { Shield } from "lucide-react";
 import { AdminSettingsPage } from "@/components/admin/ui/admin-settings-page";
 import {
   FieldLabel,
-  TextField,
   NumberField,
   SectionCard,
+  TextField,
 } from "@/components/admin/ui/form-fields";
+import { Shield } from "lucide-react";
 
 const DEFAULTS = {
   sessionExpiresInSeconds: 60 * 60 * 24,

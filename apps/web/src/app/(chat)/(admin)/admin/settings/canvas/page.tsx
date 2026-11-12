@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { BoxIcon, Loader2, CheckCircle2Icon, RotateCcw } from "lucide-react";
-import { Button } from "ui/button";
-import { Switch } from "ui/switch";
 import { ModelSelector } from "@/components/admin/ui/model-selector";
-import {
-  showSaveSuccess,
-  showSaveError,
-} from "@/components/admin/ui/toast-helpers";
 import {
   ShortcutHelpModal,
   useAdminShortcuts,
 } from "@/components/admin/ui/shortcut-help-modal";
+import {
+  showSaveError,
+  showSaveSuccess,
+} from "@/components/admin/ui/toast-helpers";
+import { BoxIcon, CheckCircle2Icon, Loader2, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "ui/button";
+import { Switch } from "ui/switch";
 
 interface CanvasConfig {
   model?: string;

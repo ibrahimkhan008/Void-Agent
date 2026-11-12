@@ -13,10 +13,10 @@ import {
   showSaveError,
   showSaveSuccess,
 } from "@/components/admin/ui/toast-helpers";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { createProviderDiscoveryRequest } from "lib/admin/provider-discovery-request";
 import {
   AlertCircleIcon,
-  BotIcon,
   CheckCircle2Icon,
   Download,
   Eye,
@@ -946,14 +946,17 @@ export default function ModelsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <BotIcon className="size-6 text-muted-foreground" />
-              Model Providers
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Configure AI providers, default models, and fallbacks.
-            </p>
+          {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+          <div className="space-y-3">
+            <Eyebrow>Settings</Eyebrow>
+            <div>
+              <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
+                Model Providers
+              </h1>
+              <p className="mt-2 text-base/[1.55] text-muted-foreground">
+                Configure AI providers, default models, and fallbacks.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {isDirty && (
