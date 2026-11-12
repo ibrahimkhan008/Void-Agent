@@ -1535,3 +1535,272 @@
     @apply transition-colors duration-300;
   }
 }
+
+/* ============================================================
+   Design-system extension (additive mod): display-surface tokens,
+   motion keyframes and the tray/card layering used by the brand
+   components (BrandButton, Eyebrow, AccentSpan, Reveal, DitherCanvas).
+   Scoped under .brand-surface so nothing above is affected.
+   ============================================================ */
+.brand-surface {
+  /* display-surface tokens (independent of the app theme) */
+  --bs-ink: #ececea;
+  --bs-ink-2: #f5f5f3;
+  --bs-paper: #121212;
+  --bs-brand: #0b7a3f;
+  --bs-brand-glow: #22c55e;
+  --bs-cognix-green: #1cd86a;
+
+  /* canonical shadow stacks */
+  --bs-shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.06),
+    0 8px 20px -12px rgba(0, 0, 0, 0.12);
+  --bs-shadow-tray: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px
+    rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05), 0 24px 60px -36px
+    rgba(0, 0, 0, 0.25);
+
+  background: var(--bs-ink);
+  color: var(--bs-paper);
+}
+
+.brand-surface .bs-tray {
+  border-radius: 20px;
+  background: var(--bs-ink-2);
+  padding: 6px;
+  box-shadow: var(--bs-shadow-tray);
+}
+
+.brand-surface .bs-card {
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: var(--bs-shadow-card);
+}
+
+/* Motion — landing-drop/rise keyframes with a no-JS gate: the initial
+   hidden state only applies when the root has the `js` class (set by the
+   pre-paint inline script), so content is never invisible without JS. */
+@keyframes landing-drop {
+  0% {
+    opacity: 0;
+    translate: 0 -70px;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+
+@keyframes landing-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--rise, 14px));
+  }
+  to {
+    opacity: var(--rise-opacity, 1);
+    transform: translateY(0);
+  }
+}
+
+.js .brand-surface .landing-rise {
+  opacity: var(--rise-opacity, 1);
+  animation: landing-rise var(--rise-duration, 0.7s)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0s) both;
+}
+
+.js .brand-surface [data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(var(--rise, 14px));
+  filter: blur(var(--rise-blur, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-surface .landing-rise,
+  .js .brand-surface [data-reveal="pending"] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ============================================================
+   §4.3 Button system (brand variants) — layered ::before ring/edge
+   gradient, ::after dotted brand-glow sweep, color-mix hover fills
+   ============================================================ */
+.bs-btn {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  color: #121212;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), background 0.2s
+    cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+}
+.bs-btn > svg:not([class*="size-"]) {
+  width: 16px;
+  height: 16px;
+}
+.bs-btn:active {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bs-btn:active {
+    transform: none;
+  }
+  .bs-btn::after {
+    display: none;
+  }
+}
+
+.bs-btn-default {
+  --surface-base: #dcdcd9;
+  --surface-lit: #cbcbc7;
+  --btn-ring: rgba(0, 0, 0, 0.14);
+  --btn-edge-top: rgba(255, 255, 255, 0.7);
+  --btn-edge-bottom: rgba(0, 0, 0, 0.12);
+  background: linear-gradient(
+    to bottom,
+    var(--surface-lit),
+    var(--surface-base)
+  );
+}
+.bs-btn-default:hover {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-lit) 94%, #fff),
+    color-mix(in srgb, var(--surface-base) 94%, #fff)
+  );
+}
+
+.bs-btn-outline {
+  --surface-base: #ffffff;
+  --surface-lit: #f7f7f6;
+  --btn-ring: rgba(0, 0, 0, 0.15);
+  --btn-edge-top: rgba(255, 255, 255, 0.9);
+  --btn-edge-bottom: rgba(0, 0, 0, 0.1);
+  background: linear-gradient(
+    to bottom,
+    var(--surface-lit),
+    var(--surface-base)
+  );
+}
+.bs-btn-outline:hover {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-lit) 94%, #fff),
+    color-mix(in srgb, var(--surface-base) 94%, #fff)
+  );
+}
+
+.bs-btn-secondary {
+  --surface-base: #f2f2f2;
+  --surface-lit: #eaeaea;
+  --btn-ring: rgba(0, 0, 0, 0.12);
+  --btn-edge-top: rgba(255, 255, 255, 0.8);
+  --btn-edge-bottom: rgba(0, 0, 0, 0.08);
+  background: linear-gradient(
+    to bottom,
+    var(--surface-lit),
+    var(--surface-base)
+  );
+}
+.bs-btn-secondary:hover {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-lit) 94%, #fff),
+    color-mix(in srgb, var(--surface-base) 94%, #fff)
+  );
+}
+
+.bs-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    to bottom,
+    var(--btn-edge-top),
+    var(--btn-edge-bottom)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: exclude;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.bs-btn {
+  box-shadow:
+    0 0 0 1px var(--btn-ring),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.04),
+    0 8px 20px -12px rgba(0, 0, 0, 0.12);
+}
+
+.bs-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    70% 120% at 100% 50%,
+    var(--bs-brand-glow),
+    transparent 70%
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 0.8px, transparent 1.1px);
+  -webkit-mask-size: 2.5px 2.5px;
+  mask-image: radial-gradient(circle, #000 0.8px, transparent 1.1px);
+  mask-size: 2.5px 2.5px;
+  opacity: 0.75;
+  transform-origin: right;
+  transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1), transform 0.25s
+    cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+.bs-btn:hover::after {
+  opacity: 1;
+  transform: scaleX(1.6);
+}
+.bs-btn-outline::after {
+  background: radial-gradient(
+    90% 160% at 0% 100%,
+    var(--bs-brand-glow),
+    transparent 62%
+  );
+  transform-origin: left;
+  opacity: 0;
+  transform: translateX(-33%);
+}
+.bs-btn-outline:hover::after {
+  opacity: 0.7;
+  transform: translateX(0);
+}
+.bs-btn-secondary::after {
+  display: none;
+}
+
+/* Accent span — italic serif with paper→brand gradient + halftone mask */
+.bs-accent {
+  font-family: var(--font-accent), "Instrument Serif", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  background-image: linear-gradient(
+    to right,
+    var(--bs-paper) 30%,
+    var(--bs-brand)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.06em;
+  -webkit-mask-image: radial-gradient(circle, #000 0.95px, #0000 1.3px);
+  -webkit-mask-size: 2.4px 2.4px;
+  mask-image: radial-gradient(circle, #000 0.95px, #0000 1.3px);
+  mask-size: 2.4px 2.4px;
+}
