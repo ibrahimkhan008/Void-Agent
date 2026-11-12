@@ -16,11 +16,20 @@ export const metadata = legalMetadata(
 export default function RefundPolicyPage() {
   return (
     <LegalPage
+      eyebrow="Legal"
       title="Refund & Cancellation"
       accentTitle="Policy"
       description="How to cancel a subscription, when a refund is due, how to ask for one, and how long it takes."
       version="2.0"
       effective="November 1, 2026"
+      siblings={[
+        { label: "Terms", href: "/terms-of-service" },
+        { label: "Privacy", href: "/privacy-policy" },
+        { label: "Cookies", href: "/cookies-policy" },
+        { label: "Refunds", href: "/refund-policy" },
+        { label: "Grievance", href: "/grievance-redressal" },
+      ]}
+      activeSibling={3}
       sections={[
         {
           id: "purchases-billing",

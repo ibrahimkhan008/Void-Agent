@@ -18,10 +18,19 @@ export default function TermsOfServicePage() {
   return (
     <MarkdownLegalPage
       filePath={POLICY_PATH}
+      eyebrow="Legal"
       title="Terms of Service"
       description="The agreement between you and Void-Agent for using our platform, products, and services."
       version="v3.0"
       effective="2026-11-12"
+      siblings={[
+        { label: "Terms", href: "/terms-of-service" },
+        { label: "Privacy", href: "/privacy-policy" },
+        { label: "Cookies", href: "/cookies-policy" },
+        { label: "Refunds", href: "/refund-policy" },
+        { label: "Grievance", href: "/grievance-redressal" },
+      ]}
+      activeSibling={0}
     />
   );
 }

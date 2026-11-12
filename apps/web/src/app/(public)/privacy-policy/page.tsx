@@ -18,10 +18,19 @@ export default function PrivacyPolicyPage() {
   return (
     <MarkdownLegalPage
       filePath={POLICY_PATH}
+      eyebrow="Legal"
       title="Privacy Policy"
       description="How Void-Agent collects, uses, stores, protects, and shares your information across our platform, products, and services."
       version="v2.0"
       effective="2026-03-05"
+      siblings={[
+        { label: "Terms", href: "/terms-of-service" },
+        { label: "Privacy", href: "/privacy-policy" },
+        { label: "Cookies", href: "/cookies-policy" },
+        { label: "Refunds", href: "/refund-policy" },
+        { label: "Grievance", href: "/grievance-redressal" },
+      ]}
+      activeSibling={1}
     />
   );
 }

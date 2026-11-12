@@ -18,10 +18,19 @@ export default function CookiesPolicyPage() {
   return (
     <MarkdownLegalPage
       filePath={POLICY_PATH}
+      eyebrow="Legal"
       title="Cookies Policy"
       description="How Void-Agent uses cookies, local storage, and similar technologies to run and improve our services."
       version="v2.0"
       effective="2026-03-05"
+      siblings={[
+        { label: "Terms", href: "/terms-of-service" },
+        { label: "Privacy", href: "/privacy-policy" },
+        { label: "Cookies", href: "/cookies-policy" },
+        { label: "Refunds", href: "/refund-policy" },
+        { label: "Grievance", href: "/grievance-redressal" },
+      ]}
+      activeSibling={2}
     />
   );
 }

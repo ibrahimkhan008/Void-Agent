@@ -15,12 +15,22 @@ export async function MarkdownLegalPage({
   description,
   version,
   effective,
+  eyebrow,
+  accentTitle,
+  introParagraph,
+  siblings = [],
+  activeSibling,
 }: {
   filePath: string;
   title: string;
   description: string;
   version?: string;
   effective?: string;
+  eyebrow?: string;
+  accentTitle?: string;
+  introParagraph?: string;
+  siblings?: Array<{ label: string; href: string }>;
+  activeSibling?: number;
 }) {
   const raw = await readFile(filePath, "utf8");
   const sections = parseMarkdownSections(raw);
@@ -31,6 +41,11 @@ export async function MarkdownLegalPage({
       description={description}
       version={version}
       effective={effective}
+      eyebrow={eyebrow}
+      accentTitle={accentTitle}
+      introParagraph={introParagraph}
+      siblings={siblings}
+      activeSibling={activeSibling}
       sections={sections}
     />
   );
