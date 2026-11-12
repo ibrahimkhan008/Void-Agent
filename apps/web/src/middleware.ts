@@ -42,6 +42,7 @@ const PUBLIC_DESTINATION_PAGES = new Set([
   "/cookies-policy",
   "/grievance-redressal",
   "/about",
+  "/pricing",
   "/plans",
   "/gallery/agents",
   "/marketplace/mcp",
