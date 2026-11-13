@@ -46,7 +46,7 @@ const PUBLIC_DESTINATION_PAGES = new Set([
   "/docs",
   "/docs/mcp",
   "/vs/manus",
-  "/updates",
+  "/index",
   "/contact",
   "/contact-sales",
   "/branding",
