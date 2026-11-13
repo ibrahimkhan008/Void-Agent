@@ -54,7 +54,7 @@ next-env.d.ts
 
 local-data
 
-# Void-Agent local-only files, development artifacts, and database data
+# Void Agent local-only files, development artifacts, and database data
 .env.sentry-build-plugin
 context.md
 /.audit/
@@ -71,9 +71,9 @@ context.md
 /.tmp-*/
 /scripts/tmp-test/
 apps/desktop/out/
-apps/void-agent-desktop/out/
+apps/Void Agent-desktop/out/
 apps/desktop/node_modules/
-apps/void-agent-desktop/node_modules/
+apps/Void Agent-desktop/node_modules/
 /.claude/
 /.gemini/
 /codex.txt
@@ -105,10 +105,13 @@ tsx-0/
 # electron desktop build output
 apps/desktop/dist/
 apps/desktop/build/
-apps/void-agent-desktop/dist/
-apps/void-agent-desktop/build/
-apps/void-agent-desktop/out/
+apps/Void Agent-desktop/dist/
+apps/Void Agent-desktop/build/
+apps/Void Agent-desktop/out/
 
 # gateway compile output
 apps/gateway/dist/
-.env*
+.env
+.env.*
+!.env.example
+!docker/.env.production.example

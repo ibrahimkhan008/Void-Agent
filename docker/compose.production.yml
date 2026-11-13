@@ -1,0 +1,73 @@
+# Production stack for a VPS: the app plus a Postgres with pgvector.
+#
+#   cp docker/.env.production.example .env.production   # fill every value
+#   docker compose -f docker/compose.production.yml --env-file .env.production up -d --build
+#
+# Differences from the dev compose:
+#   - Postgres is NOT exposed to the internet (no ports:) — only the app
+#     network can reach it. The app port is bound to 127.0.0.1 so TLS is
+#     terminated by your reverse proxy or Cloudflare Tunnel in front.
+#   - Postgres credentials come from the env file (set a strong password).
+#   - Healthchecks gate the app on a ready database.
+#   - Redis is included by default (resumable chat streams need it in
+#     production); remove the service + REDIS_URL to run without it.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    ports:
+      - '127.0.0.1:3000:3000'
+    env_file:
+      - .env.production
+    environment:
+      - NO_HTTPS=1
+      - POSTGRES_URL=postgres://voidagent:${POSTGRES_PASSWORD}@postgres:5432/void_agent
+      - REDIS_URL=redis://redis:6379
+    networks:
+      - void-agent
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/api/auth/ok']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      - POSTGRES_USER=voidagent
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=void_agent
+    networks:
+      - void-agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U voidagent -d void_agent']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    networks:
+      - void-agent
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  void-agent:
+    driver: bridge
