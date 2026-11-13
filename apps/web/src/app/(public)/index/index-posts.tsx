@@ -37,7 +37,7 @@ export const POSTS: IndexPost[] = [
     tag: "Security & Legal",
     date: "November 12, 2026",
     readTime: "4 min read",
-    team: "Void-Agent Team",
+    team: "Void Agent Team",
     id: "#4fda255",
     featured: true,
   },
@@ -50,7 +50,7 @@ export const POSTS: IndexPost[] = [
     tag: "Product",
     date: "November 4, 2026",
     readTime: "3 min read",
-    team: "Void-Agent Team",
+    team: "Void Agent Team",
     id: "#a17c340",
   },
   {
@@ -74,7 +74,7 @@ export const POSTS: IndexPost[] = [
     tag: "Product",
     date: "October 21, 2026",
     readTime: "4 min read",
-    team: "Void-Agent Team",
+    team: "Void Agent Team",
     id: "#c30e562",
   },
   {
@@ -110,7 +110,7 @@ export const POSTS: IndexPost[] = [
     tag: "Product",
     date: "September 30, 2026",
     readTime: "3 min read",
-    team: "Void-Agent Team",
+    team: "Void Agent Team",
     id: "#f63b895",
   },
   {
@@ -158,7 +158,7 @@ export const POSTS: IndexPost[] = [
     tag: "Announcements",
     date: "September 2, 2026",
     readTime: "2 min read",
-    team: "Void-Agent Team",
+    team: "Void Agent Team",
     id: "#da7fcd9",
   },
 ];

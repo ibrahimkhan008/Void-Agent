@@ -24,7 +24,7 @@ export function Preview({ html, iframeRef }: Props) {
         </svg>
         <p>Draw or drop references in frames, describe it, and hit Generate</p>
         <span className="preview-hint">
-          Void-Agent will turn your sketch into code
+          Void Agent will turn your sketch into code
         </span>
       </div>
     );

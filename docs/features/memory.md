@@ -1,6 +1,6 @@
 # Cross-thread memory
 
-Flare can remember facts about you across every chat. Tell it once — your name, your stack, the project you're shipping, the way you like code review comments — and it carries that context into new threads automatically.
+Void Agent can remember facts about you across every chat. Tell it once — your name, your stack, the project you're shipping, the way you like code review comments — and it carries that context into new threads automatically.
 
 ## What it does
 
@@ -12,7 +12,7 @@ The next time you open a thread, the model only sees the **top 20 memories most 
 
 The pipeline runs entirely in the background. There is no setting to flip.
 
-1. **Extraction** (`src/lib/ai/memory/extract-memories.ts`) — a cheap, fast model (`flare / Gemini 3 Flash`) reads the just-finished user message and assistant reply, then returns 0–5 memory candidates. The schema enforces a category (identity, career, projects, preferences, instructions, context), a scope (user, agent, thread), a confidence (0–1), and a content string (1–500 chars, third-person factual).
+1. **Extraction** (`src/lib/ai/memory/extract-memories.ts`) — a cheap, fast model (`void-agent / Gemini 3 Flash`) reads the just-finished user message and assistant reply, then returns 0–5 memory candidates. The schema enforces a category (identity, career, projects, preferences, instructions, context), a scope (user, agent, thread), a confidence (0–1), and a content string (1–500 chars, third-person factual).
 2. **Persistence** (`src/lib/ai/memory/extract-and-store.ts`) — candidates with `confidence >= 0.6` are saved. The schema's `vector(1536)` column is populated by an embedding call against the same message. Duplicates are de-duplicated by cosine distance within the same user.
 3. **Retrieval** (`src/lib/db/pg/repositories/memory-repository.pg.ts`) — when a new chat starts, the user's last message is embedded and the repository returns the top 20 memories by cosine similarity, optionally filtered by agent or thread scope.
 4. **Injection** (`src/lib/ai/prompts.ts` → `buildUserSystemPromptWithMemory`) — the top 20 memories are formatted as a `<user_memories>` block and prepended to the system prompt. The model is told to use them silently, not to announce that it is reading from memory.
@@ -82,7 +82,7 @@ To permanently wipe everything, use the "Delete all" button in the panel header.
 
 ## Cost
 
-The extraction pass uses `flare / Gemini 3 Flash` (cheap model) regardless of the model you are chatting with. Cost is bounded to one LLM call per finished assistant reply, with at most 5 candidates returned. There is no debouncing yet for free-tier users; the call happens after every reply. Embedding is one call per saved memory. At typical usage (10–30 saves/day) the marginal cost is well under a cent per day.
+The extraction pass uses `void-agent / Gemini 3 Flash` (cheap model) regardless of the model you are chatting with. Cost is bounded to one LLM call per finished assistant reply, with at most 5 candidates returned. There is no debouncing yet for free-tier users; the call happens after every reply. Embedding is one call per saved memory. At typical usage (10–30 saves/day) the marginal cost is well under a cent per day.
 
 ## See also
 

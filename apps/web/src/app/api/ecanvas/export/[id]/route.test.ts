@@ -18,8 +18,8 @@ import { DELETE, GET } from "./route";
 
 const id = "217c9e15-a2d5-4e68-9d2a-16bc1532ff56";
 const context = { params: Promise.resolve({ id }) };
-const request = (origin = "https://void-agent.test") =>
-  new Request(`https://void-agent.test/api/ecanvas/export/${id}`, {
+const request = (origin = "https://voidagent.test") =>
+  new Request(`https://voidagent.test/api/ecanvas/export/${id}`, {
     method: "DELETE",
     headers: { origin },
   });
@@ -42,7 +42,7 @@ beforeEach(() => {
 
 describe("GET /api/ecanvas/export/[id]", () => {
   it("returns public export data without owner credentials", async () => {
-    const response = await GET(new Request("https://void-agent.test"), context);
+    const response = await GET(new Request("https://voidagent.test"), context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toMatchObject({ id, title: "Public canvas" });
@@ -52,14 +52,14 @@ describe("GET /api/ecanvas/export/[id]", () => {
   it("returns not found for invalid or revoked exports", async () => {
     expect(
       (
-        await GET(new Request("https://void-agent.test"), {
+        await GET(new Request("https://voidagent.test"), {
           params: Promise.resolve({ id: "not-a-uuid" }),
         })
       ).status,
     ).toBe(404);
     mocks.selectByIdPublic.mockResolvedValue(null);
     expect(
-      (await GET(new Request("https://void-agent.test"), context)).status,
+      (await GET(new Request("https://voidagent.test"), context)).status,
     ).toBe(404);
   });
 });

@@ -51,7 +51,7 @@ export const appBuildRepository = pgAppBuildRepository;
 export const chatExportRepository = pgChatExportRepository;
 export const publishedPageRepository = pgPublishedPageRepository;
 export const voiceDeviceRepository = pgVoiceDeviceRepository;
-// Void-Agent's richer hardware OTA/history workflows are kept separate from
+// Void Agent's richer hardware OTA/history workflows are kept separate from
 // the upstream device-pairing contract so both APIs can coexist safely.
 export const voiceDeviceCustomRepository = pgCustomVoiceDeviceRepository;
 export const browserCredentialRepository = pgBrowserCredentialRepository;

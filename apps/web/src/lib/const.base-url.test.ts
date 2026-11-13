@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBaseUrl } from "./const";
 
 const baseUrlEnv = [
-  "FLARE_AUTH_URL",
+  "VOIDAGENT_AUTH_URL",
   "NEXT_PUBLIC_BASE_URL",
   "BETTER_AUTH_URL",
   "AUTH_URL",
@@ -15,9 +15,9 @@ afterEach(() => {
 });
 
 describe("getBaseUrl", () => {
-  it("prefers the configured public Void-Agent origin", () => {
+  it("prefers the configured public Void Agent origin", () => {
     for (const name of baseUrlEnv) vi.stubEnv(name, "");
-    vi.stubEnv("FLARE_AUTH_URL", "https://void.example/path");
+    vi.stubEnv("VOIDAGENT_AUTH_URL", "https://void.example/path");
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://fallback.example");
 
     expect(getBaseUrl()).toBe("https://void.example");
@@ -25,7 +25,7 @@ describe("getBaseUrl", () => {
 
   it("rejects credentials and malformed URLs before trying the next source", () => {
     for (const name of baseUrlEnv) vi.stubEnv(name, "");
-    vi.stubEnv("FLARE_AUTH_URL", "https://user:secret@void.example");
+    vi.stubEnv("VOIDAGENT_AUTH_URL", "https://user:secret@void.example");
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "not a valid host / @");
     vi.stubEnv("BETTER_AUTH_URL", "https://auth.example/callback");
 

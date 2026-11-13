@@ -14,7 +14,7 @@ const CHALLENGE_ENDPOINT = "/api/chat/challenge";
 const POW_YIELD_EVERY = 256;
 const POW_MAX_ATTEMPTS = 500_000;
 const CHALLENGE_MIN_REMAINING_MS = 15_000;
-const CLIENT_ID_STORAGE_KEY = "flare.chat.client.id";
+const CLIENT_ID_STORAGE_KEY = "voidagent.chat.client.id";
 const CLIENT_ID_PATTERN = /^[a-zA-Z0-9_-]{16,128}$/;
 
 type ChatSecurityClientContext = {

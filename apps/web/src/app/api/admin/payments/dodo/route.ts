@@ -17,11 +17,11 @@ import { z } from "zod";
 const MAX_BODY_BYTES = 8 * 1024;
 const productIdsSchema = z
   .object({
-    "flare-pro": z.string().trim().max(128).optional(),
-    "flare-max": z.string().trim().max(128).optional(),
-    "flare-enterprises": z.string().trim().max(128).optional(),
-    "flare-enterprises-pro": z.string().trim().max(128).optional(),
-    "flare-enterprises-max": z.string().trim().max(128).optional(),
+    "voidagent-pro": z.string().trim().max(128).optional(),
+    "voidagent-max": z.string().trim().max(128).optional(),
+    "voidagent-enterprises": z.string().trim().max(128).optional(),
+    "voidagent-enterprises-pro": z.string().trim().max(128).optional(),
+    "voidagent-enterprises-max": z.string().trim().max(128).optional(),
   })
   .strict();
 const payloadSchema = z

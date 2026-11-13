@@ -96,7 +96,7 @@ export function ProviderModal({ state, onUpdate, onClose }: Props) {
       >
         <div className="pm-header">
           <h2 className="pm-title" id="canvas-models-title">
-            Void-Agent Models
+            Void Agent Models
           </h2>
           <button
             className="pm-close"

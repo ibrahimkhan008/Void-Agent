@@ -20,7 +20,7 @@ const MODES: Array<{ mode: WorkspaceMode; href: string }> = [
 ];
 
 /**
- * Work | Cockpit pill (Cognix §4.4 segmented control): a radiogroup with
+ * Work | Cockpit pill (Design system §4.4 segmented control): a radiogroup with
  * track `bg-black/[0.03] ring-1 ring-black/[0.06]` and the selected option
  * carrying an absolutely-positioned white chip behind the label. The
  * shadcn Tabs primitive supplies the tablist semantics and arrow-key
@@ -68,7 +68,7 @@ export function WorkspaceModeToggle({
               aria-current={active === mode ? "page" : undefined}
               aria-checked={active === mode}
             >
-              {/* Cognix active white chip: an absolutely-positioned pill
+              {/* Void Agent active white chip: an absolutely-positioned pill
                   behind the label (the ::before ring gives it depth). */}
               {!cockpit && (
                 <span

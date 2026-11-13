@@ -96,7 +96,7 @@ describe("embedSessionRepository", () => {
   });
 
   it("preserves explicit owner, tier, and captcha values when creating", async () => {
-    const row = { id: "s2", userId: "u1", rateLimitTier: "flare-pro" };
+    const row = { id: "s2", userId: "u1", rateLimitTier: "voidagent-pro" };
     mocks.insertChain.returning.mockResolvedValueOnce([row]);
     const expiresAt = new Date("2026-06-02T00:00:00Z");
     const firstMessageCaptchaAt = new Date("2026-06-01T00:00:00Z");
@@ -105,7 +105,7 @@ describe("embedSessionRepository", () => {
       agentId: "a1",
       userId: "u1",
       anonymousToken: "tok",
-      rateLimitTier: "flare-pro",
+      rateLimitTier: "voidagent-pro",
       expiresAt,
       firstMessageCaptchaAt,
     });
@@ -115,7 +115,7 @@ describe("embedSessionRepository", () => {
       agentId: "a1",
       userId: "u1",
       anonymousToken: "tok",
-      rateLimitTier: "flare-pro",
+      rateLimitTier: "voidagent-pro",
       expiresAt,
       firstMessageCaptchaAt,
     });

@@ -5,15 +5,15 @@ import { Metadata } from "next";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Terms of Service - Void-Agent",
+  title: "Terms of Service - Void Agent",
   description:
-    "Read the Terms of Service for Void-Agent. Understand your rights and responsibilities when using our AI chat platform.",
+    "Read the Terms of Service for Void Agent. Understand your rights and responsibilities when using our AI chat platform.",
   alternates: {
     canonical: "/terms-of-service",
   },
   openGraph: {
-    title: "Terms of Service - Void-Agent",
-    description: "Read the Terms of Service for Void-Agent.",
+    title: "Terms of Service - Void Agent",
+    description: "Read the Terms of Service for Void Agent.",
     ...(siteUrl ? { url: `${siteUrl}/terms-of-service` } : {}),
     type: "website",
   },

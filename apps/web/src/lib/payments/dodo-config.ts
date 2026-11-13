@@ -4,11 +4,11 @@ import { siteConfigRepository } from "lib/db/repository";
 import { decrypt } from "lib/security/encryption";
 
 export const PAID_TIER_DODO_PRODUCT_ID_ENV: Record<string, string> = {
-  "flare-pro": "DODO_PRODUCT_FLARE_PRO",
-  "flare-max": "DODO_PRODUCT_FLARE_MAX",
-  "flare-enterprises": "DODO_PRODUCT_FLARE_ENTERPRISES",
-  "flare-enterprises-pro": "DODO_PRODUCT_FLARE_ENTERPRISES_PRO",
-  "flare-enterprises-max": "DODO_PRODUCT_FLARE_ENTERPRISES_MAX",
+  "voidagent-pro": "DODO_PRODUCT_VOIDAGENT_PRO",
+  "voidagent-max": "DODO_PRODUCT_VOIDAGENT_MAX",
+  "voidagent-enterprises": "DODO_PRODUCT_VOIDAGENT_ENTERPRISES",
+  "voidagent-enterprises-pro": "DODO_PRODUCT_VOIDAGENT_ENTERPRISES_PRO",
+  "voidagent-enterprises-max": "DODO_PRODUCT_VOIDAGENT_ENTERPRISES_MAX",
 };
 
 export type DodoEnvironment = "test_mode" | "live_mode";

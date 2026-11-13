@@ -10,7 +10,7 @@ export function getVoiceDeviceTokenPepper(): string {
   return pepper;
 }
 
-/** Domain-separated hash used by Void-Agent's OTA bootstrap protocol. */
+/** Domain-separated hash used by Void Agent's OTA bootstrap protocol. */
 export function hashVoiceDeviceSecret(
   kind: "token" | "pair" | "bootstrap",
   value: string,

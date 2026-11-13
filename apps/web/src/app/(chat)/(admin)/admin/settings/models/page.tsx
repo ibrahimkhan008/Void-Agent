@@ -78,7 +78,7 @@ interface ProviderStatus {
 }
 
 const PROVIDER_DISPLAY: Record<string, string> = {
-  flare: "Flare",
+  voidagent: "Void Agent",
   groq: "Groq",
   openai: "OpenAI",
   google: "Google Gemini",
@@ -162,41 +162,41 @@ function getDynamicProviderEntries(
 function buildDefaultModelsConfig(): ModelsConfig {
   return {
     providers: {
-      flare: {
+      voidagent: {
         enabled: true,
         apiKeyConfigured: true,
         defaultModel: "Claude Opus 4.6",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       groq: {
         enabled: true,
         apiKeyConfigured: true,
         defaultModel: "Llama 4 17b Scout",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       openai: {
         enabled: true,
         apiKeyConfigured: false,
         defaultModel: "GPT 5.5",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       google: {
         enabled: true,
         apiKeyConfigured: false,
         defaultModel: "Gemini 3 Flash",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       anthropic: {
         enabled: true,
         apiKeyConfigured: false,
         defaultModel: "Claude Opus 4.6",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       perplexity: {
         enabled: true,
         apiKeyConfigured: false,
         defaultModel: "Sonar",
-        fallbackChain: [{ provider: "flare", model: "Gemini 3 Flash" }],
+        fallbackChain: [{ provider: "voidagent", model: "Gemini 3 Flash" }],
       },
       openrouter: {
         enabled: false,
@@ -719,7 +719,7 @@ export default function ModelsPage() {
       const a = document.createElement("a");
       a.href = url;
       const date = new Date().toISOString().split("T")[0];
-      a.download = `flare-config-${date}.json`;
+      a.download = `voidagent-config-${date}.json`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Configuration exported successfully");
@@ -946,7 +946,7 @@ export default function ModelsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+          {/* Section header: eyebrow → display heading → sub. */}
           <div className="space-y-3">
             <Eyebrow>Settings</Eyebrow>
             <div>

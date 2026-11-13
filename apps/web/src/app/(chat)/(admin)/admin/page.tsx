@@ -80,7 +80,7 @@ export default async function AdminIndexPage() {
 
   return (
     <div className="space-y-8">
-      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      {/* Section header: eyebrow → display heading → sub. */}
       <div className="space-y-3">
         <Eyebrow>Administration</Eyebrow>
         <div>

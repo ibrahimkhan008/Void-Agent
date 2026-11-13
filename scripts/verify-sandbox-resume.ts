@@ -6,7 +6,7 @@ const threadId = `resume-probe-${Date.now()}`;
 const userId = "probe";
 
 const main = async () => {
-  // 1. create via the real Flare path
+  // 1. create via the real Void Agent path
   const a = await getThreadSandbox({ threadId, userId, env: "base" });
   console.log(`created ${a.sandbox.sandboxId} (created=${a.created})`);
   await a.sandbox.files.write(
@@ -40,11 +40,11 @@ const main = async () => {
   );
   console.log("filesystem after resume:", JSON.stringify(r.stdout.trim()));
 
-  // 5. simulate a Flare restart: metadata-only discovery, empty in-process cache
+  // 5. simulate a Void Agent restart: metadata-only discovery, empty in-process cache
   const { resetThreadSandbox } = await import("lib/sandbox/session");
   const found = await Sandbox.list({
     query: {
-      metadata: { app: "flare", feature: "tool", threadId },
+      metadata: { app: "voidagent", feature: "tool", threadId },
       state: ["running", "paused"],
     },
   }).nextItems();

@@ -39,7 +39,7 @@ export function AppSidebar({
       className="border-r border-sidebar-border/80"
     >
       <SidebarHeaderShared
-        title="Void-Agent"
+        title="Void Agent"
         href="/"
         enableShortcuts={true}
         onLinkClick={startNewChat}

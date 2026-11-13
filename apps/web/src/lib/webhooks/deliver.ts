@@ -8,7 +8,7 @@ import { formatSignatureHeader } from "./sign";
 import { UrlBlockedError, resolvePublicWebhookUrl } from "./url-guard";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
-const USER_AGENT = "flare-webhooks/1";
+const USER_AGENT = "void-agent-webhooks/1";
 const SIGNATURE_HEADER = "X-Webhook-Signature";
 const MAX_BACKOFF_MS = 60 * 60 * 1000;
 const BASE_BACKOFF_MS = 1000;

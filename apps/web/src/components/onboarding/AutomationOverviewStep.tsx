@@ -113,7 +113,7 @@ export function AutomationOverviewStep({
               className="shrink-0"
             />
             <span className="hidden text-base font-semibold tracking-tight sm:inline">
-              Void-Agent
+              Void Agent
             </span>
           </div>
         </div>

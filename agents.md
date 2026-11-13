@@ -11,25 +11,25 @@ Before making any code, config, or docs change:
 
 ## Session Memory System
 
-Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ubuntu-Flare-main/memory/`. After every session:
+Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ubuntu-Void Agent-main/memory/`. After every session:
 - Save key user preferences, feedback, project facts, and reference pointers to the memory directory.
 - Update `MEMORY.md` index with new entries.
 - Load relevant memories at the start of each session.
 
 ## Deployment
 
-- **DO NOT use Docker** for this project — deployment is via `flare.service` (systemd) on port 4000.
-- Service env file: `/etc/flare.env` (separate from `.env` in the repo root).
-- Deploy: `sudo systemctl restart flare.service`
-- Check: `sudo journalctl -u flare.service --no-pager -n 50`
-- The site runs behind Cloudflare Tunnel (`cloudflared-tunnel.service`) serving `flare-sh.tech` → `localhost:4000`.
+- **DO NOT use Docker** for this project — deployment is via `void-agent.service` (systemd) on port 4000.
+- Service env file: `/etc/void-agent.env` (separate from `.env` in the repo root).
+- Deploy: `sudo systemctl restart void-agent.service`
+- Check: `sudo journalctl -u void-agent.service --no-pager -n 50`
+- The site runs behind Cloudvoid-agent Tunnel (`cloudflared-tunnel.service`) serving `app.void-agent.test` → `localhost:4000`.
 
 ## Admin Panel Patterns
 
 ### Model Selector
 - `ModelSelector` and `FallbackModelSelector` in `src/components/admin/ui/model-selector.tsx` fetch from three endpoints in parallel: `/api/chat/models`, `/api/admin/providers`, `/api/admin/config`.
 - They read the enabled/disabled state of providers from the admin config and filter disabled providers' models from the dropdown.
-- Model names are stored as UI display names (e.g., "Claude Opus 4.6"), NOT API IDs (e.g., "flare/claude-opus-4.6").
+- Model names are stored as UI display names (e.g., "Claude Opus 4.6"), NOT API IDs (e.g., "voidagent/claude-opus-4.6").
 
 ### Dynamic Provider CRUD
 - `GET /api/admin/providers` — list dynamic providers from `site_config` DB table (key: "models", field: `dynamicProviders`).
@@ -39,7 +39,7 @@ Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ub
 
 ### Encryption
 - API keys are encrypted with AES-256-GCM via `lib/security/encryption.ts`.
-- `ENCRYPTION_MASTER_KEY` env var (32 chars) must be set in `/etc/flare.env`.
+- `ENCRYPTION_MASTER_KEY` env var (32 chars) must be set in `/etc/void-agent.env`.
 - `isEncryptionAvailable()` checks if the key is configured before attempting encryption.
 
 ### Provider Test Connection
@@ -55,9 +55,9 @@ Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ub
 ## Known Issues (2026-05-31)
 
 - Duplicate dynamic provider block in `models.ts` was removed — only one definition at line ~487.
-- `ModelSelector` provider filter uses lowercase ID matching. API returns provider names like "Flare" → transformed to "flare" via `.toLowerCase().replace(/\s+/g, "-")`. This matches the `providerId` prop used in admin cards.
+- `ModelSelector` provider filter uses lowercase ID matching. API returns provider names like "Void Agent" → transformed to "voidagent" via `.toLowerCase().replace(/\s+/g, "-")`. This matches the `providerId` prop used in admin cards.
 - Dynamic provider models in the chat UI need to be registered via `registerDynamicProvider()` in `models.ts` at runtime — currently the models are fetched from discovery but the runtime model resolution may not include them unless the provider is added to `allModels`.
-- `Flare`/`flare` duplicate: Both static `flare` provider and dynamic `flare` entry produce the same slug. Deduplication in `modelsInfo` prefers the static `flare` provider. Dynamic providers with the same slug as a static provider are filtered out to prevent duplicate model entries.
+- `Void Agent`/`void-agent` duplicate: Both static `void-agent` provider and dynamic `void-agent` entry produce the same slug. Deduplication in `modelsInfo` prefers the static `void-agent` provider. Dynamic providers with the same slug as a static provider are filtered out to prevent duplicate model entries.
 
 ## Site Config DB Table Structure
 
@@ -76,8 +76,8 @@ The `site_config` table stores configuration under different `key` values:
 `modelsInfo` deduplicates models using `deduplicateModels()` which:
 1. Groups models by normalized `providerId` (lowercase, spaces to hyphens).
 2. For each group with multiple entries, keeps the first entry with that `providerId`.
-3. For the specific `flare`/`Flare` case: prefers the static `flare` provider (created directly in `models.ts`) over the dynamic `flare` entry (created via `createOpenAICompatibleModels` from `OPENAI_COMPATIBLE_DATA`).
-4. This prevents the same model (e.g., "Claude Opus 4.6") from appearing twice with both "flare" and "Flare" provider IDs.
+3. For the specific `void-agent`/`Void Agent` case: prefers the static `void-agent` provider (created directly in `models.ts`) over the dynamic `void-agent` entry (created via `createOpenAICompatibleModels` from `OPENAI_COMPATIBLE_DATA`).
+4. This prevents the same model (e.g., "Claude Opus 4.6") from appearing twice with both "voidagent" and "Void Agent" provider IDs.
 
 ## Default Config Fallback Pattern
 
@@ -89,10 +89,10 @@ This ensures that when no config exists in the DB, the merge `mergeWithDefaults(
 
 ## Environment Variables Reference
 
-Key production vars in `/etc/flare.env`:
+Key production vars in `/etc/void-agent.env`:
 - `ENCRYPTION_MASTER_KEY` — 32-char key for AES-256-GCM API key encryption
 - `FIRECRAWL_API_KEY` — for browser agent sandbox
-- `FLARE_API_KEY` / `KORE_API_KEY` — for Flare LLM provider
+- `VOIDAGENT_API_KEY` / `KORE_API_KEY` — for Void Agent LLM provider
 - `GROQ_API_KEY`, `GROQ_BASE_URL` — for Groq provider
 - `ZAI_API_KEY`, `ZAI_BASE_URL` — for Z AI (GLM) provider
 - `POSTGRES_URL` — database connection
@@ -103,10 +103,10 @@ Key production vars in `/etc/flare.env`:
 
 1. `pnpm check` — lint + types + unit tests must pass
 2. `pnpm build` — production build must succeed
-3. `sudo systemctl restart flare.service` — deploy and verify
+3. `sudo systemctl restart void-agent.service` — deploy and verify
 4. Check `curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/` returns 200
 5. Update `context.md` with a timestamped entry of all changes made
 
 ## Current migration handoff
 
-2026-11-11: the migration was PROMOTED and validated — the destination is now the integrated monorepo (`apps/web` + `apps/desktop` + `packages/*`), with web 498 files/3,361 tests, desktop 22 files/132 tests, and typecheck/lint/db:check/build all PASS (docs/testing-report.md, "Controller session" section; docs/MIGRATION-STATUS-REPORT.md §16 has the remaining-work list). Status of record: docs/MIGRATION-STATUS-REPORT.md; ordered history: docs/migration-handoff.md; parity dispositions: docs/zip-main-parity-map.md + docs/zip-main-triage-{ai,ui,api}.md; upstream diff classifications: docs/upstream-diff-classification.md. Verified-restorable backup incl. the pre-promotion working tree: C:\Users\Ikra\Desktop\void-agent-backup-20261111. The earlier 44% weighted estimate is a historical 2026-11-11 01:05 audit value, superseded by the promotion. Standing restrictions unchanged: do not modify upstream or zip-main; no commit, push, deploy, or production migrations; never read/copy staging .env (staging is now a historical snapshot); keep browser execution disabled while B20 is blocked (B20 remains MISSING).
+2026-11-11: the migration was PROMOTED and validated — the destination is now the integrated monorepo (`apps/web` + `apps/desktop` + `packages/*`), with web 498 files/3,361 tests, desktop 22 files/132 tests, and typecheck/lint/db:check/build all PASS (docs/testing-report.md, "Controller session" section; docs/MIGRATION-STATUS-REPORT.md §16 has the remaining-work list). Status of record: docs/MIGRATION-STATUS-REPORT.md; ordered history: docs/migration-handoff.md; parity dispositions: docs/zip-main-parity-map.md + docs/zip-main-triage-{ai,ui,api}.md; upstream diff classifications: docs/upstream-diff-classification.md. Verified-restorable backup incl. the pre-promotion working tree: C:\Users\Ikra\Desktop\Void Agent-backup-20261111. The earlier 44% weighted estimate is a historical 2026-11-11 01:05 audit value, superseded by the promotion. Standing restrictions unchanged: do not modify upstream or zip-main; no commit, push, deploy, or production migrations; never read/copy staging .env (staging is now a historical snapshot); keep browser execution disabled while B20 is blocked (B20 remains MISSING).

@@ -17,12 +17,12 @@ import { AgentsTabs } from "./agents-tabs";
 import { ModelsCatalog } from "./models-catalog";
 
 export const metadata: Metadata = {
-  title: "Void-Agent: Autonomous AI Agent Platform with Multi-Model Freedom",
+  title: "Void Agent: Autonomous AI Agent Platform with Multi-Model Freedom",
   description:
-    "Void-Agent is an autonomous AI agent platform that plans, codes, and runs multi-step tasks in cloud sandboxes — plus multi-model flexibility across Claude, GPT, Gemini, Groq and DeepSeek.",
+    "Void Agent is an autonomous AI agent platform that plans, codes, and runs multi-step tasks in cloud sandboxes — plus multi-model flexibility across Claude, GPT, Gemini, Groq and DeepSeek.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Void-Agent: Autonomous AI Agent Platform with Multi-Model Freedom",
+    title: "Void Agent: Autonomous AI Agent Platform with Multi-Model Freedom",
     description:
       "Build full-stack web apps in sandboxes, automate workflows via MCP, and switch models across Claude, GPT, Gemini and DeepSeek.",
     type: "website",
@@ -31,12 +31,12 @@ export const metadata: Metadata = {
 
 const FAQ_ITEMS = [
   {
-    question: "What makes Void-Agent different from Manus?",
+    question: "What makes Void Agent different from Manus?",
     answer:
-      "Void-Agent is an autonomous AI agent platform like Manus that plans, codes, and runs multi-step tasks in isolated cloud sandboxes. Unlike tools that lock you into one orchestrator or model, Void-Agent lets you switch between Claude, GPT, Gemini, DeepSeek and more inside the same thread, connect your own tools through MCP, and start on a free plan.",
+      "Void Agent is an autonomous AI agent platform like Manus that plans, codes, and runs multi-step tasks in isolated cloud sandboxes. Unlike tools that lock you into one orchestrator or model, Void Agent lets you switch between Claude, GPT, Gemini, DeepSeek and more inside the same thread, connect your own tools through MCP, and start on a free plan.",
   },
   {
-    question: "How does the Void-Agent Cloud Agent build full-stack web apps?",
+    question: "How does the Void Agent Cloud Agent build full-stack web apps?",
     answer:
       "Cloud Agent starts a dedicated, isolated Linux sandbox with Node.js, Python, git and dev servers. It plans the task, writes and edits files, runs terminal commands, fixes its own errors, and gives you a live preview link in your workspace.",
   },
@@ -46,17 +46,17 @@ const FAQ_ITEMS = [
       "Yes. Cloud Agent runs as a background job, so you can close the tab and come back later to finished work. You can press Stop at any time.",
   },
   {
-    question: "What AI models are available in Void-Agent?",
+    question: "What AI models are available in Void Agent?",
     answer:
-      "Void-Agent gives you 30+ models from Anthropic, OpenAI, Google, Groq, Z AI and more, including the Claude, GPT, Gemini and DeepSeek families, under one account with no vendor lock-in.",
+      "Void Agent gives you 30+ models from Anthropic, OpenAI, Google, Groq, Z AI and more, including the Claude, GPT, Gemini and DeepSeek families, under one account with no vendor lock-in.",
   },
   {
     question: "Can I connect my own tools?",
     answer:
-      "Yes. Void-Agent supports Model Context Protocol (MCP) servers, so you can connect tools like GitHub, Notion or your own APIs and choose which ones each chat or agent is allowed to use.",
+      "Yes. Void Agent supports Model Context Protocol (MCP) servers, so you can connect tools like GitHub, Notion or your own APIs and choose which ones each chat or agent is allowed to use.",
   },
   {
-    question: "Is there a free plan for Void-Agent?",
+    question: "Is there a free plan for Void Agent?",
     answer:
       "Yes. The Free plan includes weekly AI tokens for multi-model chat, image generation, document analysis and a Cloud Agent launch each week, with no credit card required.",
   },

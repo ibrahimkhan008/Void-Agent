@@ -23,7 +23,7 @@ export default async function CanvasExportPage({
             {exported.title}
           </h1>
           <p className="text-xs text-muted-foreground">
-            Shared Void-Agent canvas
+            Shared Void Agent canvas
             {exported.exporterName ? ` · by ${exported.exporterName}` : ""}
           </p>
         </div>

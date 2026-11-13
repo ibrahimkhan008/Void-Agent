@@ -25,8 +25,9 @@ import { eq } from "drizzle-orm";
 import { MemoryTable, UserTable } from "lib/db/pg/schema.pg";
 import { pgDb } from "lib/db/pg/db.pg";
 
-const DEFAULT_LOADTEST_USER_ID = "00000000-0000-4000-8000-00000000load" as const;
-const DEFAULT_LOADTEST_EMAIL = "loadtest@flare.local" as const;
+const DEFAULT_LOADTEST_USER_ID =
+  "00000000-0000-4000-8000-00000000load" as const;
+const DEFAULT_LOADTEST_EMAIL = "loadtest@void-agent.local" as const;
 const DEFAULT_COUNT = 50;
 
 const CATEGORIES = [
@@ -38,23 +39,83 @@ const CATEGORIES = [
   "context",
 ] as const;
 
-const SAMPLE_MEMORIES: Array<{ category: (typeof CATEGORIES)[number]; content: string }> = [
-  { category: "identity", content: "Prefers to be called 'Karthik' rather than 'K'." },
-  { category: "identity", content: "Lives in Bangalore, India; IST timezone (UTC+5:30)." },
-  { category: "identity", content: "Speaks English and Tamil; reads Hindi but rarely writes it." },
-  { category: "career", content: "Senior software engineer at a fintech; 8 years of full-stack experience." },
-  { category: "career", content: "Currently focused on distributed systems and Postgres internals." },
-  { category: "career", content: "Previously worked at two early-stage startups, one as a founding engineer." },
-  { category: "projects", content: "Flare AI — a multi-LLM chat platform with MCP integration; open source." },
-  { category: "projects", content: "Side project: a real-time collaborative whiteboard in Rust + WebRTC." },
-  { category: "preferences", content: "Always wants code examples in TypeScript unless asked otherwise." },
-  { category: "preferences", content: "Prefers concise answers; asks for depth only when requested." },
-  { category: "preferences", content: "Dislikes marketing-speak; appreciates direct, specific responses." },
-  { category: "instructions", content: "Never repeat the user's name more than once per response." },
-  { category: "instructions", content: "When suggesting a library, always mention the latest stable version." },
-  { category: "instructions", content: "When explaining a concept, give one concrete example first, theory second." },
-  { category: "context", content: "Currently debugging a Postgres query planner regression after upgrading to 16." },
-  { category: "context", content: "Has a flight to Tokyo on the 14th; will be offline for ~36 hours." },
+const SAMPLE_MEMORIES: Array<{
+  category: (typeof CATEGORIES)[number];
+  content: string;
+}> = [
+  {
+    category: "identity",
+    content: "Prefers to be called 'Karthik' rather than 'K'.",
+  },
+  {
+    category: "identity",
+    content: "Lives in Bangalore, India; IST timezone (UTC+5:30).",
+  },
+  {
+    category: "identity",
+    content: "Speaks English and Tamil; reads Hindi but rarely writes it.",
+  },
+  {
+    category: "career",
+    content:
+      "Senior software engineer at a fintech; 8 years of full-stack experience.",
+  },
+  {
+    category: "career",
+    content: "Currently focused on distributed systems and Postgres internals.",
+  },
+  {
+    category: "career",
+    content:
+      "Previously worked at two early-stage startups, one as a founding engineer.",
+  },
+  {
+    category: "projects",
+    content:
+      "Void Agent — a multi-LLM chat platform with MCP integration; open source.",
+  },
+  {
+    category: "projects",
+    content:
+      "Side project: a real-time collaborative whiteboard in Rust + WebRTC.",
+  },
+  {
+    category: "preferences",
+    content: "Always wants code examples in TypeScript unless asked otherwise.",
+  },
+  {
+    category: "preferences",
+    content: "Prefers concise answers; asks for depth only when requested.",
+  },
+  {
+    category: "preferences",
+    content:
+      "Dislikes marketing-speak; appreciates direct, specific responses.",
+  },
+  {
+    category: "instructions",
+    content: "Never repeat the user's name more than once per response.",
+  },
+  {
+    category: "instructions",
+    content:
+      "When suggesting a library, always mention the latest stable version.",
+  },
+  {
+    category: "instructions",
+    content:
+      "When explaining a concept, give one concrete example first, theory second.",
+  },
+  {
+    category: "context",
+    content:
+      "Currently debugging a Postgres query planner regression after upgrading to 16.",
+  },
+  {
+    category: "context",
+    content:
+      "Has a flight to Tokyo on the 14th; will be offline for ~36 hours.",
+  },
 ];
 
 const fillToCount = (count: number) => {
@@ -84,13 +145,13 @@ const main = async () => {
   const count = Number.parseInt(getArg("--count", `${DEFAULT_COUNT}`), 10);
   const reset = hasFlag("--reset");
 
-  console.log(`Seeding load-test user  id=${userId}  email=${email}  count=${count}`);
+  console.log(
+    `Seeding load-test user  id=${userId}  email=${email}  count=${count}`,
+  );
 
   if (reset) {
     console.log("  --reset: deleting existing user and memories");
-    await pgDb
-      .delete(MemoryTable)
-      .where(eq(MemoryTable.userId, userId));
+    await pgDb.delete(MemoryTable).where(eq(MemoryTable.userId, userId));
     await pgDb.delete(UserTable).where(eq(UserTable.id, userId));
   }
 
@@ -133,7 +194,8 @@ const main = async () => {
   const result = await pgDb.execute<{ count: string }>(
     sql`SELECT COUNT(*)::text AS count FROM ${MemoryTable} WHERE user_id = ${userId}`,
   );
-  const total = (result as unknown as Array<{ count: string }>)[0]?.count ?? "?";
+  const total =
+    (result as unknown as Array<{ count: string }>)[0]?.count ?? "?";
   console.log(`  ✓ row count: ${total}`);
 
   console.log("");

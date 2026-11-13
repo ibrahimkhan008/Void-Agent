@@ -58,7 +58,7 @@ import {
 } from "./chat-request-guard.shared";
 import { stableJsonStringify } from "./stable-json";
 
-const BASE_URL = "https://void-agent.test";
+const BASE_URL = "https://voidagent.test";
 const USER_ID = "user-1";
 const SESSION_ID = "session-1";
 const IP = "203.0.113.7";

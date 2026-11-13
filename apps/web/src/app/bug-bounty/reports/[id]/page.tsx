@@ -13,7 +13,7 @@ import { STATUS_BADGE } from "@/components/bug-bounty/bug-bounty-status";
 import { BugReportComments } from "@/components/bug-bounty/bug-report-comments";
 
 export const metadata = {
-  title: "Bug report — Flare Bug Bounty",
+  title: "Bug report — Void Agent Bug Bounty",
 };
 
 export const dynamic = "force-dynamic";
@@ -89,7 +89,7 @@ export default async function BugReportDetailPage({ params }: PageProps) {
               ) : null}
             </div>
             <Button variant="outline" asChild>
-              <a href="mailto:security@flareai.co">
+              <a href="mailto:security@voidagent.local">
                 <Mail className="size-4 mr-1" />
                 Contact security
               </a>

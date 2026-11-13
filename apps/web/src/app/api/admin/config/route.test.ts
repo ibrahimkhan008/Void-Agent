@@ -49,7 +49,7 @@ const postRequest = (body: unknown, origin = "https://local.test") =>
 
 const MODEL_CATALOG = [
   {
-    provider: "flare",
+    provider: "voidagent",
     models: [{ name: "Claude Opus 4.6" }, { name: "Gemini 3 Flash" }],
     hasAPIKey: true,
   },
@@ -92,7 +92,7 @@ describe("admin config route", () => {
             enabled: true,
           },
         },
-        fallbackModel: "flare/Gemini 3 Flash",
+        fallbackModel: "void-agent/Gemini 3 Flash",
       },
       general: { appName: "Custom Name" },
     });
@@ -116,7 +116,7 @@ describe("admin config route", () => {
     expect(body.config.tools.apiKeysSecrets).toBeUndefined();
     // Built-in providers come from the runtime catalog with the first model
     // as default; dynamic providers are rendered separately from the DB.
-    expect(body.config.models.providers.flare).toMatchObject({
+    expect(body.config.models.providers.voidagent).toMatchObject({
       enabled: true,
       apiKeyConfigured: true,
       defaultModel: "Claude Opus 4.6",
@@ -131,7 +131,7 @@ describe("admin config route", () => {
       apiKeyRef: "dyn_alpha",
     });
     // Legacy "provider/model" fallback strings migrate to the chain format.
-    expect(body.config.models.fallbackModel).toBe("flare/Gemini 3 Flash");
+    expect(body.config.models.fallbackModel).toBe("void-agent/Gemini 3 Flash");
   });
 
   it("marks dynamic provider keys absent when no secret or env reference resolves", async () => {
@@ -214,7 +214,7 @@ describe("admin config route", () => {
       postRequest({
         key: "models",
         settings: {
-          providers: { flare: { enabled: false } },
+          providers: { voidagent: { enabled: false } },
           dynamicProviders: {
             alpha: { name: "Alpha Renamed", enabled: true, models: [] },
           },
@@ -225,7 +225,7 @@ describe("admin config route", () => {
     const write = mocks.upsert.mock.calls.find(([key]) => key === "models");
     // Shallow section merge keeps fields the UI does not manage.
     expect(write?.[1].modelPricing).toEqual({ legacy: true });
-    expect(write?.[1].providers).toEqual({ flare: { enabled: false } });
+    expect(write?.[1].providers).toEqual({ voidagent: { enabled: false } });
     expect(write?.[1].dynamicProviders.alpha.apiKeyRef).toBe("dyn_alpha");
     expect(write?.[1].dynamicProviders.alpha.apiKey).toBeUndefined();
     expect(mocks.invalidate).toHaveBeenCalledTimes(1);

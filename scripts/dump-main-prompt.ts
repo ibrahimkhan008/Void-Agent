@@ -11,12 +11,12 @@ console.log(
     { id: "u", name: "Kety", email: "k@x.com" } as any,
     undefined,
     undefined,
-    { provider: "flare", model: "opus" },
+    { provider: "voidagent", model: "opus" },
     {
       enabledToolkits: on,
       availableButOff: all.filter((i) => !on.includes(i)),
       supportsTools: true,
-      tier: "flare-enterprises-max",
+      tier: "voidagent-enterprises-max",
     },
   ),
 );

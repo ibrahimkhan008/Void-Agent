@@ -7,7 +7,7 @@ const handlers = toNextJsHandler(auth.handler);
 const getAuthEnvDiagnostics = () => ({
   hasBetterAuthSecret: Boolean(process.env.BETTER_AUTH_SECRET),
   hasBaseUrl: Boolean(
-    process.env.FLARE_AUTH_URL || process.env.NEXT_PUBLIC_BASE_URL,
+    process.env.VOIDAGENT_AUTH_URL || process.env.NEXT_PUBLIC_BASE_URL,
   ),
   hasGoogleClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
   hasGoogleClientSecret: Boolean(process.env.GOOGLE_CLIENT_SECRET),

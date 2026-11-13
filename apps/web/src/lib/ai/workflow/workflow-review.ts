@@ -272,7 +272,7 @@ export function getWorkflowEffectReview(nodes: ReviewNode[]) {
         tool.type === "mcp-tool"
           ? `MCP server ${bounded(tool.serverName || "unnamed")} (${bounded(tool.serverId || "unknown ID")}), tool ${bounded(tool.id)}`
           : tool.type === "app-tool"
-            ? `Void-Agent tool ${bounded(tool.id)}`
+            ? `Void Agent tool ${bounded(tool.id)}`
             : `unsupported tool type ${bounded(tool.type || "unknown")}`;
       if (tool.type !== "mcp-tool" && tool.type !== "app-tool")
         issues.push(`${label}: ${target}`);

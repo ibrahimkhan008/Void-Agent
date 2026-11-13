@@ -425,7 +425,7 @@ export const McpServerTable = pgTable(
   (table) => [index("mcp_server_organization_id_idx").on(table.organizationId)],
 );
 
-// Void-Agent marketplace installations are user-owned instances of a
+// Void Agent marketplace installations are user-owned instances of a
 // catalogued MCP server. Keep this separate from upstream's server ownership
 // configuration so per-install credentials remain isolated.
 export const McpServerInstallTable = pgTable(
@@ -579,7 +579,7 @@ export const DodoWebhookEventTable = pgTable("dodo_webhook_event", {
 });
 export type DodoWebhookEventEntity = typeof DodoWebhookEventTable.$inferSelect;
 
-// Void-Agent-owned n8n account mapping. Credentials are scoped to the owning
+// Void Agent-owned n8n account mapping. Credentials are scoped to the owning
 // application user and cascade when that account is deleted.
 export const N8nUserTable = pgTable("n8n_user", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -3323,7 +3323,7 @@ export const VoiceDeviceRegistrationTable = pgTable(
       onDelete: "set null",
     }),
     deliveryToken: text("delivery_token"),
-    // Void-Agent uses a one-time bootstrap secret and encrypts device tokens
+    // Void Agent uses a one-time bootstrap secret and encrypts device tokens
     // at rest. Keep Better Chatbot's legacy deliveryToken column for existing
     // installations, but new provisioning paths must use these fields.
     bootstrapSecretHash: text("bootstrap_secret_hash"),
@@ -4114,7 +4114,7 @@ export type NewWebhookDelivery = typeof WebhookDeliveryTable.$inferInsert;
 // #16 — Anonymous embedded-chat sessions. These are scoped to one public
 // agent and may optionally retain the publishing user for owner dashboards.
 // `anonymous_token` is the external lookup key; later agents will mint a
-// short-lived JWT from it without using Flare user auth.
+// short-lived JWT from it without using Void Agent user auth.
 export const EmbedSessionTable = pgTable(
   "embed_session",
   {
@@ -4213,7 +4213,7 @@ export const ApiRateLimitBucketTable = pgTable(
 export type ApiRateLimitBucket = typeof ApiRateLimitBucketTable.$inferSelect;
 export type NewApiRateLimitBucket = typeof ApiRateLimitBucketTable.$inferInsert;
 
-// Void-Agent admin configuration. Kept separate from upstream Better Auth
+// Void Agent admin configuration. Kept separate from upstream Better Auth
 // account/provider tables; these rows store application settings by key.
 export const SiteConfigTable = pgTable("site_config", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -4224,7 +4224,7 @@ export const SiteConfigTable = pgTable("site_config", {
 
 export type SiteConfigEntity = typeof SiteConfigTable.$inferSelect;
 
-// Void-Agent security activity used for new-device/location warnings. Metadata
+// Void Agent security activity used for new-device/location warnings. Metadata
 // is reduced before insertion (validated IP, bounded UA, referer origin only).
 export const SecurityEventTable = pgTable(
   "security_event",
@@ -4323,7 +4323,7 @@ export const MemoryTable = pgTable(
 
 export type MemoryEntity = typeof MemoryTable.$inferSelect;
 
-// Durable Void-Agent workflow execution state. Kept distinct from upstream
+// Durable Void Agent workflow execution state. Kept distinct from upstream
 // NavigatorWorkflowRunTable because this stores checkpoints, pending external
 // effects, and the approval/replay contract for saved-workflow runs.
 export const WorkflowExecutionTable = pgTable(
@@ -4547,7 +4547,7 @@ export const CommunityReactionTable = pgTable(
   ],
 );
 
-// Original Void-Agent chat archives are distinct from workspaces/projects.
+// Original Void Agent chat archives are distinct from workspaces/projects.
 // The upstream archive table was converted to `project` in migration 0032,
 // so this namespaced table preserves the original archive workflow without
 // colliding with that historical data model.
@@ -4614,7 +4614,7 @@ export type CommunityReactionEntity =
   typeof CommunityReactionTable.$inferSelect;
 
 // ---------------------------------------------------------------------------
-// C44 — Bug Bounty (ported from the destination repo's Flare bug bounty)
+// C44 — Bug Bounty (ported from the destination repo's Void Agent bug bounty)
 // ---------------------------------------------------------------------------
 // `BugReportTable` is the user-submitted report. Reports are owned by a user
 // and triaged by an admin through repository-only admin paths (the API surface

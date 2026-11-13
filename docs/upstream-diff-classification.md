@@ -1,13 +1,13 @@
 # Upstream Diff Classification (WP5) — Better Chatbot `6f4183566bc48616303cb84055f11f79578c82fe` vs Integration Staging
 
-Status: promotion-gate artifact. Generated 2026-11-11. Classification of every content difference between the pinned upstream snapshot and `C:\Users\Ikra\Desktop\Void-Agent-integration-staging`.
+Status: promotion-gate artifact. Generated 2026-11-11. Classification of every content difference between the pinned upstream snapshot and `C:\Users\Ikra\Desktop\Void Agent-integration-staging`.
 
 ## 1. Method
 
 1. Enumerated all upstream tracked paths: `git -C better-chatbot-upstream-git ls-files` → **1,768 paths** at commit `6f4183566bc48616303cb84055f11f79578c82fe` (HEAD verified).
 2. Helper scripts (`compare.sh`, `gen-diffs.sh`, `gen-diffs2.sh`, `staging-only.sh`) were written to `C:\Users\Ikra\AppData\Local\Temp\wp5-diff\` (outside both repos) and run with repo paths as arguments. Neither repo was modified; no git state was changed; staging `.env` files were never read.
 3. Per-path comparison used byte-exact SHA-256. Every differing file got a unified diff, then a second diff with `--strip-trailing-cr` to separate real content changes from CRLF noise.
-4. Each differing file's diff was reviewed. Ambiguous files were cross-checked against the destination tree (`Void-Agent` root `src/`) — staging files byte-identical to destination originals prove deliberate carry-over (verified for `create-table.ts`, `resizable.tsx`; near-identical for `xiaozhi/ota/route.ts`).
+4. Each differing file's diff was reviewed. Ambiguous files were cross-checked against the destination tree (`Void Agent` root `src/`) — staging files byte-identical to destination originals prove deliberate carry-over (verified for `create-table.ts`, `resizable.tsx`; near-identical for `xiaozhi/ota/route.ts`).
 5. Staging-only paths (no upstream counterpart) were enumerated and are summarized in aggregate in section 5.
 
 ## 2. Counts
@@ -39,12 +39,12 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | Path | Cat | Evidence | Recommended action |
 | --- | --- | --- | --- |
 | .env.example | IC | C45 guard env vars (guard secret, allowed origins, Turnstile) documented | none |
-| .github/FUNDING.yml | IC | Funding account `cgoinglove` → `Flare-Labs` (rebrand) | none |
-| .gitignore | RUC | Adds Void-Agent local-only/artifact ignore entries; upstream entries intact | none |
+| .github/FUNDING.yml | IC | Funding account `cgoinglove` → `Void Agent-Labs` (rebrand) | none |
+| .gitignore | RUC | Adds Void Agent local-only/artifact ignore entries; upstream entries intact | none |
 | CHANGELOG.md | IC | Adds pointer to preserved pre-sync changelog in docs/upstream | none |
 | CONTRIBUTING.md | IC | db:check guidance, no-Docker deploy note, pre-sync guide pointer | none |
-| LICENSE | IC | Adds `Flare AI` copyright line; MIT text preserved | none |
-| README.md | IC | Replaced with Void-Agent README; upstream README archived at docs/upstream | none |
+| LICENSE | IC | Adds `Void Agent` copyright line; MIT text preserved | none |
+| README.md | IC | Replaced with Void Agent README; upstream README archived at docs/upstream | none |
 | apps/desktop/package.json | RUC | Pins `ipaddr.js`/`undici` for pinned remote transport | none |
 | apps/desktop/src/main/auto-updater.ts | IC | Secure update feed validation; destroyed-window guard; upstream behavior kept | none |
 | apps/desktop/src/main/index.ts | IC | Trusted IPC wiring; dev-only local HTTP; upstream lifecycle kept | none |
@@ -70,9 +70,9 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | apps/web/messages/zh.json | ACC | ~1,147 values double-encoded UTF-8 (mojibake) | Restore upstream zh strings; re-merge destination keys as UTF-8 |
 | apps/web/next.config.ts | IC | Security headers (CSP/HSTS/frame), embed headers, Sentry, sw.js headers; upstream config preserved | none |
 | apps/web/package.json | RUC | Adds deps (excalidraw, sentry, dompurify, html2canvas, etc.); nothing removed | none |
-| apps/web/public/manifest.json | IC | Void-Agent PWA manifest (icons, theme, shortcuts) | none |
+| apps/web/public/manifest.json | IC | Void Agent PWA manifest (icons, theme, shortcuts) | none |
 | apps/web/public/sw.js | IC | Same-origin notification-click validation, bounded push payload (documented merge) | none |
-| apps/web/src/app/(auth)/layout.tsx | IC | Void-Agent logo/branding, AuthIntroDecoration, noindex metadata | none |
+| apps/web/src/app/(auth)/layout.tsx | IC | Void Agent logo/branding, AuthIntroDecoration, noindex metadata | none |
 | apps/web/src/app/(chat)/chat/[thread]/page.tsx | IC | ThreadInsightsPanel added; upstream page intact | none |
 | apps/web/src/app/(public)/export/[id]/page.tsx | IC | Share-token-gated public export + OG metadata; legacy share disabled by default, legacy path kept | Confirm legacy-share default is the intended promote behavior |
 | apps/web/src/app/api/admin/actions.ts | IC | `updateUserTierAction` added; upstream actions intact | none |
@@ -86,11 +86,11 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | apps/web/src/app/api/chat/route-helpers.test.ts | IC | Run-deadline tests added | none |
 | apps/web/src/app/api/chat/route-helpers.ts | IC | Adds `createChatRunDeadline` + grace constant; upstream helpers intact | none |
 | apps/web/src/app/api/chat/route.ts **[WP1/WP3 in-flight]** | IC | C45 challenge guard (non-headless) + A01 run-claim/atomic first message/deadline/recovery; upstream flow preserved as superset | Re-verify guard wiring after WP1/WP3 settle |
-| apps/web/src/app/api/push/test/route.ts | IC | Push test title rebranded to Void-Agent | none |
+| apps/web/src/app/api/push/test/route.ts | IC | Push test title rebranded to Void Agent | none |
 | apps/web/src/app/api/scheduled-tasks/[id]/run/route.ts | IC | Idempotent, claim-fenced manual runs; same-origin check; upstream trigger preserved | none |
 | apps/web/src/app/api/user/preferences/route.ts | IC | Preferences merged with existing values; 400 on invalid body | none |
-| apps/web/src/app/api/voice/xiaozhi/ota/route.ts | IC | Void-Agent REST OTA protocol replaces upstream xiaozhi websocket OTA for new registrations; rate-limited; activate route keeps xiaozhi flow | Confirm dropping websocket OTA config for authed devices is intended |
-| apps/web/src/app/layout.tsx | IC | Void-Agent title/description metadata | none |
+| apps/web/src/app/api/voice/xiaozhi/ota/route.ts | IC | Void Agent REST OTA protocol replaces upstream xiaozhi websocket OTA for new registrations; rate-limited; activate route keeps xiaozhi flow | Confirm dropping websocket OTA config for authed devices is intended |
+| apps/web/src/app/layout.tsx | IC | Void Agent title/description metadata | none |
 | apps/web/src/components/admin/users-table.tsx | IC | Bulk suspend/delete, role filter; row-click nav replaced by details action | none |
 | apps/web/src/components/auth/social-providers.tsx | IC | `disabled` prop added to social buttons (challenge gate) | none |
 | apps/web/src/components/chat-bot.tsx **[WP1/WP3 in-flight]** | IC | C45 client guard + Turnstile + transport fetch (URL rewrite moved post-success); upstream composer flow preserved | Re-verify after WP1/WP3 settle |
@@ -146,7 +146,7 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | apps/web/src/lib/ai/tools/index.ts | IC | Destination toolkit/tool-name enums extended | none |
 | apps/web/src/lib/ai/tools/tool-kit.ts | IC | Connectors bucket + explicit empty capability buckets | none |
 | apps/web/src/lib/ai/tools/visualization/create-table.ts | IC | Schema loosened (nullable→optional, rows `z.any()`); byte-identical to destination | Note: upstream input validation weakened by design; keep or tighten |
-| apps/web/src/lib/ai/workflow/executor/graph-store.test.ts | IC | Test fixture renamed `cgoing`→`flare` | none |
+| apps/web/src/lib/ai/workflow/executor/graph-store.test.ts | IC | Test fixture renamed `cgoing`→`void-agent` | none |
 | apps/web/src/lib/ai/workflow/executor/node-executor.ts | IC | External-effect approval hooks; public HTTP via pinned resolver; upstream executors kept | none |
 | apps/web/src/lib/ai/workflow/executor/tool-node-executor.test.ts | IC | Approval-gate ordering/fail-closed tests | none |
 | apps/web/src/lib/ai/workflow/executor/workflow-executor.test.ts | IC | Checkpoint replay + effect approval tests; mock model relabeled | none |
@@ -162,7 +162,7 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | apps/web/src/lib/chat/browser-tool-gate.test.ts | IC | Egress gate tests | none |
 | apps/web/src/lib/chat/browser-tool-gate.ts | IC | Global egress-isolation gate prepended to upstream suppression reasons | none |
 | apps/web/src/lib/code-runner/safe-js-run.ts | IC | Sandbox drops fetch/setTimeout/setInterval (documented exfiltration/escape risk) | Confirm upstream sandbox capability reduction is intended |
-| apps/web/src/lib/const.ts | RUC | FLARE_AUTH_URL/NEXT_PUBLIC_BASE_URL precedence + getBaseUrl helper; upstream BASE_URL fallbacks intact | none |
+| apps/web/src/lib/const.ts | RUC | VOIDAGENT_AUTH_URL/NEXT_PUBLIC_BASE_URL precedence + getBaseUrl helper; upstream BASE_URL fallbacks intact | none |
 | apps/web/src/lib/db/migrations/pg/meta/_journal.json | IC | 15 void_agent migrations (0067–0081) appended; upstream entries intact | Run db:check after schema settles |
 | apps/web/src/lib/db/pg/repositories/admin-repository.pg.ts | IC | Bulk suspendUsers/deleteUsers added | none |
 | apps/web/src/lib/db/pg/repositories/chat-export-repository.pg.ts | IC | Share-token create/revoke/lookup; upstream queries kept | none |
@@ -195,7 +195,7 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 | apps/web/src/types/user.ts | IC | SavedNote types + preferences extension | none |
 | apps/web/src/types/voice-device.ts | IC | `isVoiceDeviceType` guard added | none |
 | apps/web/src/types/workflow.ts | IC | pendingEffect + awaiting_approval/effect_uncertain/cancelled statuses | none |
-| package.json (root) | ACC | Intended: rename to `void-agent` + void:desktop scripts; unintended: whole file re-serialized with stray-indent JSON style; no content lost | Re-serialize in upstream formatting (biome format), keep name/scripts |
+| package.json (root) | ACC | Intended: rename to `Void Agent` + void:desktop scripts; unintended: whole file re-serialized with stray-indent JSON style; no content lost | Re-serialize in upstream formatting (biome format), keep name/scripts |
 | pnpm-lock.yaml | RUC | Regenerated for added deps (@sentry, @babel chain, excalidraw, dompurify, html2canvas, turnstile, ipaddr/undici) + peer churn; no upstream package dropped | Re-run lockfile install/verify before promote |
 
 ## 4. Per-category notes
@@ -209,7 +209,7 @@ Categories: `IC` = INTENTIONAL_CUSTOM, `RUC` = REQUIRED_UPSTREAM_CUSTOMIZATION, 
 2. `apps/web/messages/ko.json` — same corruption pattern, ~1,329 values (e.g. `업데이트` → `ì—…ëì´íŠ¸`).
 3. `apps/web/messages/zh.json` — same corruption pattern, ~1,147 values.
    **Shared action (1–3):** restore the upstream translations for corrupted keys and re-merge the destination-only keys with correct UTF-8 handling; add a JSON parse + encoding sanity check to the locale-merge step.
-4. `package.json` (root) — intended edits are only `name: "void-agent"` and six `void:desktop:*` scripts, but the whole file was re-serialized with an inconsistent stray-indent JSON style, changing all 131 lines. **Action:** re-serialize in upstream formatting (biome format) keeping the intended edits.
+4. `package.json` (root) — intended edits are only `name: "Void Agent"` and six `void:desktop:*` scripts, but the whole file was re-serialized with an inconsistent stray-indent JSON style, changing all 131 lines. **Action:** re-serialize in upstream formatting (biome format) keeping the intended edits.
 5. `apps/web/src/lib/ai/__snapshots__/prompts.test.ts.snap` — EOL-only (CRLF) difference; semantically identical. **Action:** restore upstream bytes.
 
 Additionally, `apps/web/messages/en.json`, `es.json`, `pt.json` (classified INTENTIONAL_CUSTOM) each contain 1 double-encoded merged value (en L2056, es L655, pt L2007) — fix the strings during the same locale-correction pass.
@@ -219,7 +219,7 @@ Additionally, `apps/web/messages/en.json`, `es.json`, `pt.json` (classified INTE
 
 ## 5. Staging-only areas (no upstream counterpart) — aggregate
 
-Staging contains ~870 files with no upstream tracked counterpart. Solely in aggregate: `apps/web` carries the destination integration — 267 added `public/` assets; custom API route families (voice devices/OTA, n8n, admin extras, Dodo payments, eCanvas, community, connectors OAuth/tools, collections, bug-bounty, archives, thread insights, workflow executions/approvals, manual scheduled runs, webhook subscriptions, public `/api/v1`, MCP marketplace/installs, app builder, REST API keys, inbound triggers, embed sessions); custom libs (chat-request guard `chat-request-guard.*` [WP1/WP3 in-flight], workflow run-approval/execution-state, http-request-approval, connector registry, notes, community/archives/insights/collections services, site-config, memory, Dodo, security/same-origin/rate-limit helpers, `browser-egress-capability`, `limited-download`, `upstash-rest-cache`, `mcp-config-parser`, webhooks URL guard, sentry configs); custom components (canvas, archives, bug-bounty, collections, community, connectors, build, marketplace, payments, API keys, embed chat, voice dashboards); and additive migrations `0067`–`0081`. `apps/desktop` adds its security/transport modules (`mcp-policy`, `pinned-remote-fetch`, `secure-update-feed`, `server-picker-policy`, `bounded-json`) with tests. `apps/void-agent-desktop` (52 files) is the temporary comparison desktop copy — **excluded from promotion** per project decisions. Non-app trees: `docs/upstream/` archived upstream docs + `docs/chat-request-security.md`, `deploy/` (flare.service + install script), `email-tems/` (5 templates), `legal-consent/` (3 policy pages), `custom-mcp-server/`, root `cognixai-*-spec.md`, generated `openai-compatible.config.ts`, and `tsconfig.tsbuildinfo` build artifact. Secrets `​.env` (root), `docker/.env`, and `apps/web/.env` exist in staging and must never be promoted or copied (contents not read).
+Staging contains ~870 files with no upstream tracked counterpart. Solely in aggregate: `apps/web` carries the destination integration — 267 added `public/` assets; custom API route families (voice devices/OTA, n8n, admin extras, Dodo payments, eCanvas, community, connectors OAuth/tools, collections, bug-bounty, archives, thread insights, workflow executions/approvals, manual scheduled runs, webhook subscriptions, public `/api/v1`, MCP marketplace/installs, app builder, REST API keys, inbound triggers, embed sessions); custom libs (chat-request guard `chat-request-guard.*` [WP1/WP3 in-flight], workflow run-approval/execution-state, http-request-approval, connector registry, notes, community/archives/insights/collections services, site-config, memory, Dodo, security/same-origin/rate-limit helpers, `browser-egress-capability`, `limited-download`, `upstash-rest-cache`, `mcp-config-parser`, webhooks URL guard, sentry configs); custom components (canvas, archives, bug-bounty, collections, community, connectors, build, marketplace, payments, API keys, embed chat, voice dashboards); and additive migrations `0067`–`0081`. `apps/desktop` adds its security/transport modules (`mcp-policy`, `pinned-remote-fetch`, `secure-update-feed`, `server-picker-policy`, `bounded-json`) with tests. `apps/Void Agent-desktop` (52 files) is the temporary comparison desktop copy — **excluded from promotion** per project decisions. Non-app trees: `docs/upstream/` archived upstream docs + `docs/chat-request-security.md`, `deploy/` (void-agent.service + install script), `email-tems/` (5 templates), `legal-consent/` (3 policy pages), `custom-mcp-server/`, root `void-agentai-*-spec.md`, generated `openai-compatible.config.ts`, and `tsconfig.tsbuildinfo` build artifact. Secrets `​.env` (root), `docker/.env`, and `apps/web/.env` exist in staging and must never be promoted or copied (contents not read).
 
 ## 6. In-flight work annotation
 
@@ -231,4 +231,4 @@ An independent re-derivation against the PROMOTED destination (upstream pinned 6
 
 **All five repairs recorded above are CONFIRMED landed in the promoted tree:** ja/ko/zh (and en/es/pt) have **0 double-encoded values** (strict latin-extended-before-CJK scan: 0 hits across all 8 locale files; upstream keys all present, +60 destination keys each, only deliberate rebrand values differ); the **Azure OpenAI branch is byte-identical to upstream** with its two tests present; root package.json is a minimal clean edit in upstream formatting. The classification rows above that marked ja/ko/zh/package.json ACCIDENTAL and create-openai-compatiable* MISSING_UPSTREAM_FUNCTIONALITY are therefore historical to the pre-repair checkpoint.
 
-Residuals found by the re-audit (both cosmetic, both resolved or accepted): the stale `apps/void-agent-desktop` importer in pnpm-lock.yaml — **removed by a lockfile regen on 2026-11-11** (verified 0 references; desktop 22 files/132 tests and the C45 guard suite re-passed after regen); a UTF-8 BOM at the start of destination README.md — accepted as-is (cosmetic). Spot-checks of 15+ intentional classifications AGREE with this doc; the verified full tables live with the audit record.
+Residuals found by the re-audit (both cosmetic, both resolved or accepted): the stale `apps/Void Agent-desktop` importer in pnpm-lock.yaml — **removed by a lockfile regen on 2026-11-11** (verified 0 references; desktop 22 files/132 tests and the C45 guard suite re-passed after regen); a UTF-8 BOM at the start of destination README.md — accepted as-is (cosmetic). Spot-checks of 15+ intentional classifications AGREE with this doc; the verified full tables live with the audit record.

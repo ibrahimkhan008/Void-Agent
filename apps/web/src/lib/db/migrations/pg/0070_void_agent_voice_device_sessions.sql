@@ -1,4 +1,4 @@
--- Void-Agent device sessions and transcript segments are intentionally
+-- Void Agent device sessions and transcript segments are intentionally
 -- distinct from Better Chatbot's browser voice-session tables. This migration
 -- is additive so it does not rewrite existing voice-session data.
 CREATE TABLE IF NOT EXISTS "voice_device_session" (

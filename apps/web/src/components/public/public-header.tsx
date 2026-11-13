@@ -54,7 +54,7 @@ export function PublicHeader() {
             <span className="relative block shrink-0 size-7">
               <Image
                 src="/logo-va-512.webp"
-                alt="Void-Agent"
+                alt="Void Agent"
                 width={28}
                 height={28}
                 className="object-contain"
@@ -62,7 +62,7 @@ export function PublicHeader() {
               />
             </span>
             <span className="text-[17px] font-medium tracking-[-0.01em] text-(--paper)">
-              Void-Agent
+              Void Agent
             </span>
           </Link>
         </div>

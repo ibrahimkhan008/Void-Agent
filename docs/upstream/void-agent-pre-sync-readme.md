@@ -4,14 +4,14 @@
 [![Local First](https://img.shields.io/badge/Local-First-blue)](https://localfirstweb.dev/)
 [![Discord](https://img.shields.io/discord/1374047276074537103?label=Discord&logo=discord&color=5865F2)](https://discord.gg/gCRu69Upnp)
 
-[![Deploy with Vercel](https://vercel.com/button)](<https://vercel.com/new/clone?repository-url=https://github.com/Ayushprtp/zip-main&env=BETTER_AUTH_SECRET&env=OPENAI_API_KEY&env=GOOGLE_GENERATIVE_AI_API_KEY&env=ANTHROPIC_API_KEY&envDescription=BETTER_AUTH_SECRET+is+required+(enter+any+secret+value).+At+least+one+LLM+provider+API+key+(OpenAI,+Claude,+or+Google)+is+required,+but+you+can+add+all+of+them.+See+the+link+below+for+details.&envLink=https://github.com/Ayushprtp/zip-main/blob/main/.env.example&demo-title=flare-ai&demo-description=An+Open-Source+Chatbot+Template+Built+With+Next.js+and+the+AI+SDK+by+Vercel.&products=[{"type":"integration","protocol":"storage","productSlug":"neon","integrationSlug":"neon"},{"type":"integration","protocol":"storage","productSlug":"upstash-kv","integrationSlug":"upstash"},{"type":"blob"}]>)
+[![Deploy with Vercel](https://vercel.com/button)](<https://vercel.com/new/clone?repository-url=https://github.com/Ayushprtp/zip-main&env=BETTER_AUTH_SECRET&env=OPENAI_API_KEY&env=GOOGLE_GENERATIVE_AI_API_KEY&env=ANTHROPIC_API_KEY&envDescription=BETTER_AUTH_SECRET+is+required+(enter+any+secret+value).+At+least+one+LLM+provider+API+key+(OpenAI,+Claude,+or+Google)+is+required,+but+you+can+add+all+of+them.+See+the+link+below+for+details.&envLink=https://github.com/Ayushprtp/zip-main/blob/main/.env.example&demo-title=void-agent-ai&demo-description=An+Open-Source+Chatbot+Template+Built+With+Next.js+and+the+AI+SDK+by+Vercel.&products=[{"type":"integration","protocol":"storage","productSlug":"neon","integrationSlug":"neon"},{"type":"integration","protocol":"storage","productSlug":"upstash-kv","integrationSlug":"upstash"},{"type":"blob"}]>)
 
-🚀 **[Live Demo](https://flare-sh.tech/)** | See the experience in action in the [preview](#preview) below!
+🚀 **[Live Demo](https://app.void-agent.test/)** | See the experience in action in the [preview](#preview) below!
 
 #### Demo Chats
 
-- **MCP Tools Demo:** [Chat with Tools](https://flare-sh.tech/export/a4820921-8012-496b-8a5d-13757050bafe)
-- **Image Generation Demo:** [Chat with Image Generation](https://flare-sh.tech/export/452ad745-9efb-49ae-9114-10db15f1b827)
+- **MCP Tools Demo:** [Chat with Tools](https://app.void-agent.test/export/a4820921-8012-496b-8a5d-13757050bafe)
+- **Image Generation Demo:** [Chat with Image Generation](https://app.void-agent.test/export/452ad745-9efb-49ae-9114-10db15f1b827)
 
 ## Quick Start 🚀
 
@@ -23,7 +23,7 @@ You only need **one AI Provider API Key** (OpenAI, Claude, Gemini, etc.). Everyt
 
 ---
 
-**Flare AI** - A better AI agent for individuals and teams, inspired by ChatGPT, Claude, Grok, and Gemini.
+**Void Agent** - A better AI agent for individuals and teams, inspired by ChatGPT, Claude, Grok, and Gemini.
 
 • **Multi-AI Support** - Integrates all major LLMs: OpenAI, Anthropic, Google, xAI, Ollama, and more  
 • **Powerful Tools** - MCP protocol, web search (SearXNG or Exa AI), sandboxed JS/Python code execution, data visualization  
@@ -108,7 +108,7 @@ Sample prompt:
 **Example:** Create custom workflows that become callable tools in your chat conversations.
 
 - Build visual workflows with the fully embedded **n8n editor** — no separate login needed, users are auto-provisioned and authenticated via secure token exchange
-- n8n shares the same PostgreSQL database as Flare, so each Flare account maps directly to its own n8n account
+- n8n shares the same PostgreSQL database as Void Agent, so each Void Agent account maps directly to its own n8n account
 - Connect LLM nodes (for AI reasoning) and Tool nodes (for MCP tool execution)
 - Publish workflows to make them available as `@workflow_name` tools in chat
 - Chain complex multi-step processes into reusable, automated sequences
@@ -177,7 +177,7 @@ This lets you flexibly choose between autonomous, guided, or tool-free interacti
 
 <img width="1034" height="940" alt="web-search" src="https://github.com/user-attachments/assets/261037d9-e1a7-44ad-b45e-43780390a94e" />
 
-Built-in web search. Flare ships with **SearXNG** (self-hosted, privacy-respecting metasearch) out of the box, with [Exa AI](https://exa.ai) available as an alternative. Search the web and extract content from URLs directly in your chats.
+Built-in web search. Void Agent ships with **SearXNG** (self-hosted, privacy-respecting metasearch) out of the box, with [Exa AI](https://exa.ai) available as an alternative. Search the web and extract content from URLs directly in your chats.
 
 - **Self-hosted:** SearXNG aggregates Google, Bing, DuckDuckGo and more — no API key required
 - **Optional:** Add `EXA_API_KEY` to `.env` for semantic AI-powered search
@@ -303,7 +303,7 @@ BETTER_AUTH_SECRET=****
 
 # (Optional)
 # URL for Better Auth (the URL you access the app from)
-FLARE_AUTH_URL=
+VOIDAGENT_AUTH_URL=
 
 # === Database ===
 # If you don't have PostgreSQL running locally, start it with: pnpm docker:pg
@@ -376,7 +376,7 @@ NOT_ALLOW_ADD_MCP_SERVERS=
 
 ## 📘 Guides
 
-Step-by-step setup guides for running and configuring Flare AI.
+Step-by-step setup guides for running and configuring Void Agent.
 
 #### [🔌 MCP Server Setup & Tool Testing](./docs/tips-guides/mcp-server-setup-and-tool-testing.md)
 
@@ -419,7 +419,7 @@ Step-by-step setup guides for running and configuring Flare AI.
 
 ## 🗺️ Roadmap
 
-Planned features coming soon to Flare AI:
+Planned features coming soon to Void Agent:
 
 - [x] **File Upload & Storage** (Vercel Blob integration)
 - [x] **Image Generation**
@@ -437,7 +437,7 @@ If this project has been helpful to you, please consider supporting its developm
 
 - ⭐ **Star** this repository
 - 🐛 **Report** bugs and suggest features
-- 💰 **[Become a sponsor](https://github.com/sponsors/Flare-Labs)** to support ongoing development
+- 💰 **[Become a sponsor](https://github.com/sponsors/Void Agent-Labs)** to support ongoing development
 
 Your support helps maintain and improve this project. Thank you! 🙏
 

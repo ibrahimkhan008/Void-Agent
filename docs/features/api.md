@@ -1,6 +1,6 @@
 # REST API and API keys
 
-Flare exposes a versioned REST surface under `/api/v1/...` so external
+Void Agent exposes a versioned REST surface under `/api/v1/...` so external
 systems — dashboards, scripts, server-to-server automations — can read and
 write threads, messages, and agents without a Better Auth session. Access
 is gated by per-user API keys, issued from `/api/api-key`, presented as

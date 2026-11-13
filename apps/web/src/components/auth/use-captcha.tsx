@@ -11,7 +11,7 @@ import { useTheme } from "next-themes";
 import { useCallback, useRef, useState } from "react";
 
 /**
- * Cloudflare Turnstile for the auth forms. Renders nothing and blocks nothing
+ * Cloudvoid-agent Turnstile for the auth forms. Renders nothing and blocks nothing
  * when no site key is configured, so local dev and self-hosts are unaffected.
  *
  * Three rules here are not obvious and each one has cost a production

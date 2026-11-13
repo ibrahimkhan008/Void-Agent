@@ -66,9 +66,9 @@ const SHARED_RULES = `Rules:
 - Only call \`${BLOCKED_TOOL_NAME}\` when a person is genuinely required. If you are
   merely stuck, or the task turns out to be impossible, finish your turn and say
   so plainly.
-- The browser solves CAPTCHAs by itself (reCAPTCHA, Cloudflare and similar). If
+- The browser solves CAPTCHAs by itself (reCAPTCHA, Cloudvoid-agent and similar). If
   you land on one, WAIT for it to clear — poll the page every few seconds rather
-  than acting. Never click a Cloudflare checkbox or a "verify you are human"
+  than acting. Never click a Cloudvoid-agent checkbox or a "verify you are human"
   control yourself: doing so interferes with the solver and can turn a challenge
   that would have cleared into a hard block. Only treat a challenge as a wall
   once it has plainly failed to clear after a reasonable wait.
@@ -221,7 +221,7 @@ wall, so report what it says instead of retrying.`,
           // On for every run, not just unattended ones. Kernel charges nothing
           // for it, and the CAPTCHA solver it brings is worth most on the
           // portals this tool exists for — a watched run still cannot solve a
-          // Cloudflare challenge by itself. Egress is chosen separately (and
+          // Cloudvoid-agent challenge by itself. Egress is chosen separately (and
           // defaults to direct) so this does not route us into Kernel's
           // managed proxy pool, which blocks government and banking domains.
           stealth: true,

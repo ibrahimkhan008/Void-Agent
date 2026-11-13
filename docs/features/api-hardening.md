@@ -1,12 +1,12 @@
 # API hardening
 
-API hardening is the Phase 5 layer around Flare's public REST and webhook
+API hardening is the Phase 5 layer around Void Agent's public REST and webhook
 surface. Phase 3 shipped API keys and signed webhook delivery primitives; Phase
 5 adds operational controls: per-key/IP rate limits, usage accounting, key
 rotation, safe key display metadata, webhook subscription management, delivery
 visibility, and health stats.
 
-The goal is simple: external callers can integrate with Flare without sharing a
+The goal is simple: external callers can integrate with Void Agent without sharing a
 browser session, while users can see which keys and webhooks are active, how much
 they are used, when they fail, and how to rotate or shut them down without
 surprise downtime.
@@ -39,7 +39,7 @@ routes under `/api/v1`.
 Example request:
 
 ```bash
-curl https://app.flare.ai/api/v1/threads   -H "Authorization: Bearer ck_live_..."
+curl https://app.void-agent.ai/api/v1/threads   -H "Authorization: Bearer ck_live_..."
 ```
 
 Scope matching supports exact scopes, prefix wildcards like `threads:*`, and the
@@ -273,7 +273,7 @@ Cookie: <Better Auth session>
 Content-Type: application/json
 
 {
-  "url": "https://example.com/hooks/flare",
+  "url": "https://example.com/hooks/void-agent",
   "eventTypes": ["thread.created", "message.created"],
   "description": "Production webhook"
 }
@@ -285,7 +285,7 @@ Create response:
 {
   "subscription": {
     "id": "whsub_123",
-    "url": "https://example.com/hooks/flare",
+    "url": "https://example.com/hooks/void-agent",
     "eventTypes": ["thread.created", "message.created"],
     "description": "Production webhook",
     "enabled": true,
@@ -316,7 +316,7 @@ Content-Type: application/json
 ```
 
 The route updates both `signingSecret` and `secretHash`. Receivers should support
-a short dual-secret deploy window on their side because Flare stores one active
+a short dual-secret deploy window on their side because Void Agent stores one active
 signing secret per subscription.
 
 ## Webhook failure stats and deliveries

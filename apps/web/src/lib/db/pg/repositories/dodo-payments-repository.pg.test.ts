@@ -13,7 +13,7 @@ const currentSubscription = {
   dodoSubscriptionId: "sub-1",
   dodoCustomerId: "cus-1",
   dodoProductId: "product-pro",
-  tier: "flare-pro",
+  tier: "voidagent-pro",
   status: "cancelled",
   previousBillingDate: null,
   nextBillingDate: null,
@@ -48,7 +48,7 @@ describe("Dodo subscription event ordering", () => {
       userId: "user-1",
       dodoSubscriptionId: "sub-1",
       dodoProductId: "product-pro",
-      tier: "flare-pro",
+      tier: "voidagent-pro",
       status: "active",
       eventTimestamp,
     });
@@ -76,7 +76,7 @@ describe("Dodo subscription event ordering", () => {
       userId: "user-1",
       dodoSubscriptionId: "sub-1",
       dodoProductId: "product-pro",
-      tier: "flare-pro",
+      tier: "voidagent-pro",
       status: "active",
       eventTimestamp,
     });

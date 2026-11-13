@@ -23,7 +23,7 @@ vi.mock("@/lib/security/chat-request-guard.server", () => ({
 import { POST } from "./route";
 
 function makeRequest(body: string, headers: HeadersInit = {}) {
-  return new Request("https://void-agent.test/api/chat/challenge", {
+  return new Request("https://voidagent.test/api/chat/challenge", {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body,

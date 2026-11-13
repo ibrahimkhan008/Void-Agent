@@ -236,8 +236,8 @@
       "haveAccount": "Already have an account?"
     },
     "Intro": {
-      "description": "Welcome to Void-Agent. Sign in to experience a new way of working.",
-      "title": "Void-Agent",
+      "description": "Welcome to Void Agent. Sign in to experience a new way of working.",
+      "title": "Void Agent",
       "line1": "Hand it the work.",
       "line2": "Check back later."
     },
@@ -248,12 +248,12 @@
       "back": "Back",
       "handoffFailed": "Sign-in could not be completed in the app. Please try again.",
       "handoffExpired": "The sign-in link expired. Please start again from the app.",
-      "handoffTitle": "Return to Void-Agent",
+      "handoffTitle": "Return to Void Agent",
       "handoffDescription": "You are signed in. Return to the app to continue. You can close this tab afterwards.",
-      "returnToApp": "Open Void-Agent",
+      "returnToApp": "Open Void Agent",
       "handoffHint": "Nothing happened? Use the button above, or restart sign-in from the app.",
       "invalidLinkTitle": "This sign-in link is not valid",
-      "invalidLinkDescription": "Start sign-in again from the Void-Agent app."
+      "invalidLinkDescription": "Start sign-in again from the Void Agent app."
     },
     "Captcha": {
       "failed": "Human verification could not load. Your request may be rejected — try reloading the page."
@@ -1694,7 +1694,7 @@
     },
     "teamsPlan": {
       "title": "Join our Teams plan",
-      "description": "Organizations with shared workspaces, member management and per-member AI budgets are part of the Void-Agent Teams plan, for €8 per user. Book a short call and we will set up billing and your organization with you.",
+      "description": "Organizations with shared workspaces, member management and per-member AI budgets are part of the Void Agent Teams plan, for €8 per user. Book a short call and we will set up billing and your organization with you.",
       "cta": "Book a call",
       "dismiss": "Not now"
     }

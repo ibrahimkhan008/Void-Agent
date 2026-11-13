@@ -4,7 +4,7 @@ import { MarkdownLegalPage } from "@/components/legal/markdown-legal-page";
 
 export const metadata = legalMetadata(
   "Terms of Service",
-  "The agreement between you and Void-Agent for using our platform and services.",
+  "The agreement between you and Void Agent for using our platform and services.",
   "/terms-of-service",
 );
 
@@ -21,7 +21,7 @@ export default function TermsOfServicePage() {
       eyebrow="Legal"
       title="Terms of"
       accentTitle="Service"
-      description="The agreement between you and Void-Agent for using our platform, products, and services."
+      description="The agreement between you and Void Agent for using our platform, products, and services."
       version="v3.0"
       effective="2026-11-12"
       siblings={[

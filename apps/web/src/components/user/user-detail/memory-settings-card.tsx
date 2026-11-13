@@ -421,7 +421,7 @@ export function MemorySettingsCard() {
           </div>
 
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-            Void-Agent automatically remembers important facts from your
+            Void Agent automatically remembers important facts from your
             conversations. You can also add, edit, or remove memories manually.
           </p>
         </CardHeader>
@@ -537,7 +537,7 @@ export function MemorySettingsCard() {
               <p className="text-xs mt-1 text-center max-w-xs">
                 {search
                   ? "Try different keywords"
-                  : "Flare will learn about you as you chat, or you can add memories manually"}
+                  : "Void Agent will learn about you as you chat, or you can add memories manually"}
               </p>
             </div>
           ) : (
@@ -674,7 +674,7 @@ export function MemorySettingsCard() {
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-lg">
-              Import memory to Flare
+              Import memory to Void Agent
             </DialogTitle>
             <DialogDescription className="sr-only">
               Import memories from another AI provider
@@ -726,7 +726,7 @@ export function MemorySettingsCard() {
                   2
                 </span>
                 <p className="text-sm font-medium">
-                  Paste results below to add to Flare&apos;s memory
+                  Paste results below to add to Void Agent&apos;s memory
                 </p>
               </div>
               <Textarea

@@ -8,7 +8,7 @@ const textDecoder = new TextDecoder();
 const HEX_PATTERN = /^[a-fA-F0-9]+$/;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
-const AAD_BYTES = textEncoder.encode("flare-chat-payload-v1");
+const AAD_BYTES = textEncoder.encode("void-agent-chat-payload-v1");
 
 export type EncryptedChatPayload = {
   version: typeof CHAT_PAYLOAD_CIPHER_VERSION;

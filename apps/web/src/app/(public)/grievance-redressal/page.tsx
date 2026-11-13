@@ -40,7 +40,7 @@ export default function GrievanceRedressalPage() {
           body: (
             <>
               <LegalP>
-                Void-Agent has appointed a Grievance Officer. The officer
+                Void Agent has appointed a Grievance Officer. The officer
                 handles grievances about personal data, complaints about
                 content, and consumer complaints.
               </LegalP>
@@ -51,9 +51,9 @@ export default function GrievanceRedressalPage() {
               <LegalTable
                 headers={["Detail", "Information"]}
                 rows={[
-                  ["Name", "Founder & CEO, Void-Agent"],
-                  ["Email", "support@void-agent.local"],
-                  ["Postal address", "Void-Agent, India"],
+                  ["Name", "Founder & CEO, Void Agent"],
+                  ["Email", "support@Void Agent.local"],
+                  ["Postal address", "Void Agent, India"],
                   [
                     "Working hours",
                     "Monday to Friday, 10:00 to 18:00 IST, except public holidays",
@@ -61,7 +61,7 @@ export default function GrievanceRedressalPage() {
                 ]}
               />
               <LegalP>
-                This is the single monitored mailbox for Void-Agent, so use it
+                This is the single monitored mailbox for Void Agent, so use it
                 for data rights requests, grievances, content complaints and
                 security reports alike. Start the subject line with the type of
                 request.
@@ -118,10 +118,10 @@ export default function GrievanceRedressalPage() {
             <>
               <LegalP>
                 Email{" "}
-                <LegalLink href="mailto:support@void-agent.local">
-                  support@void-agent.local
+                <LegalLink href="mailto:support@Void Agent.local">
+                  support@Void Agent.local
                 </LegalLink>{" "}
-                from the email address registered to your Void-Agent account.
+                from the email address registered to your Void Agent account.
               </LegalP>
               <LegalP>
                 Use a subject line that starts with the type of request. For
@@ -133,7 +133,7 @@ export default function GrievanceRedressalPage() {
               <LegalP>Include:</LegalP>
               <LegalUl>
                 <li>
-                  the email address of your Void-Agent account (this is the
+                  the email address of your Void Agent account (this is the
                   identifier we use to find you)
                 </li>
                 <li>
@@ -239,9 +239,9 @@ export default function GrievanceRedressalPage() {
             <>
               <LegalP>
                 To report a suspected security vulnerability, or a breach
-                involving Void-Agent, write to{" "}
-                <LegalLink href="mailto:security@void-agent.local">
-                  security@void-agent.local
+                involving Void Agent, write to{" "}
+                <LegalLink href="mailto:security@Void Agent.local">
+                  security@Void Agent.local
                 </LegalLink>
                 .
               </LegalP>

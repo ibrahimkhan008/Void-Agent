@@ -70,7 +70,7 @@ export default function BugBountyLandingPage() {
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl">
             {program?.heroSubtitle ??
-              "Help us keep Flare safe. Submit a valid security or product bug and earn a bounty."}
+              "Help us keep Void Agent safe. Submit a valid security or product bug and earn a bounty."}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild size="lg">
@@ -353,7 +353,10 @@ export default function BugBountyLandingPage() {
             </Link>
           </Button>
           <Button asChild size="lg" variant="ghost">
-            <Link href="https://github.com/Flare-Labs/flare-ai" target="_blank">
+            <Link
+              href="https://github.com/ibrahimkhan008/Void-Agent"
+              target="_blank"
+            >
               <ExternalLink className="size-4 mr-2" />
               View source on GitHub
             </Link>

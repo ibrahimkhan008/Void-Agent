@@ -2,7 +2,7 @@ import "load-env";
 import { Sandbox } from "e2b";
 import { SANDBOX_ENVIRONMENTS } from "lib/sandbox/templates";
 
-const name = process.argv[2] || "flare-python";
+const name = process.argv[2] || "void-agent-python";
 const probe =
   process.argv[3] ||
   "python3 -c 'import pandas,sklearn;print(pandas.__version__, sklearn.__version__)'";

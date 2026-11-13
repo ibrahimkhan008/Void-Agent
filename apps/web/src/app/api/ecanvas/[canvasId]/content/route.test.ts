@@ -21,8 +21,8 @@ import { GET, POST } from "./route";
 
 const canvasId = "217c9e15-a2d5-4e68-9d2a-16bc1532ff56";
 const context = { params: Promise.resolve({ canvasId }) };
-const request = (body: unknown, origin = "https://void-agent.test") =>
-  new Request(`https://void-agent.test/api/ecanvas/${canvasId}/content`, {
+const request = (body: unknown, origin = "https://voidagent.test") =>
+  new Request(`https://voidagent.test/api/ecanvas/${canvasId}/content`, {
     method: "POST",
     headers: { origin, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -40,10 +40,10 @@ describe("eCanvas temporary content API", () => {
   it("requires a signed-in user and reads only that user's canvas key", async () => {
     mocks.session = null;
     expect(
-      (await GET(new Request("https://void-agent.test"), context)).status,
+      (await GET(new Request("https://voidagent.test"), context)).status,
     ).toBe(401);
     mocks.session = { user: { id: "user-1" } };
-    const response = await GET(new Request("https://void-agent.test"), context);
+    const response = await GET(new Request("https://voidagent.test"), context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(mocks.get).toHaveBeenCalledWith("user-1", canvasId);

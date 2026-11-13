@@ -1,6 +1,6 @@
 # Voice agent delegation
 
-Voice sessions can call `runAgent` to ask an accessible Void-Agent agent a question and speak its answer in the current session. Delegation runs a single text turn with the selected agent's configured model and instructions. It has no tool access and cannot take external actions.
+Voice sessions can call `runAgent` to ask an accessible Void Agent agent a question and speak its answer in the current session. Delegation runs a single text turn with the selected agent's configured model and instructions. It has no tool access and cannot take external actions.
 
 The route enforces authentication, same-origin requests, per-user rate limits, agent access checks, bounded input/output, an execution timeout, and the active team's monthly AI budget. Provider errors are returned as a generic message. Model choice comes from the agent's enabled pinned model, then the enabled provider default; the client cannot select a model.
 

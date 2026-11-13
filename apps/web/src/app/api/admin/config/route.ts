@@ -90,7 +90,7 @@ function buildDefaultArtifactsConfig() {
 
 function buildDefaultGeneralConfig() {
   return {
-    appName: "Flare AI",
+    appName: "Void Agent",
     appLogoUrl: "/logo-512.webp",
     defaultToolChoice: "auto",
     freeTierDailyTokenLimit: 150_000,

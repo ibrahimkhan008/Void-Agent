@@ -54,9 +54,9 @@ vi.mock("lib/ai/workflow/run-saved-workflow", () => ({
 import { POST } from "./route";
 
 const URL =
-  "https://void-agent.test/api/workflow/executions/0d3e9e33-fc3d-4a63-b497-1662b8ba8ce8/decision";
+  "https://voidagent.test/api/workflow/executions/0d3e9e33-fc3d-4a63-b497-1662b8ba8ce8/decision";
 
-function request(origin = "https://void-agent.test") {
+function request(origin = "https://voidagent.test") {
   return new Request(URL, {
     method: "POST",
     headers: { origin, "content-type": "application/json" },

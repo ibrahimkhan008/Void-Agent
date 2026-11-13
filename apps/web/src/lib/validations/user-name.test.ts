@@ -3,7 +3,7 @@ import { userNameSchema } from "./user-name";
 
 describe("userNameSchema", () => {
   it("accepts common human names", () => {
-    const result = userNameSchema.safeParse("Flare Labs O'Connor-Singh");
+    const result = userNameSchema.safeParse("Void Agent Labs O'Connor-Singh");
     expect(result.success).toBe(true);
   });
 

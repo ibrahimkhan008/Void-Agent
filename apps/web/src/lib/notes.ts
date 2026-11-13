@@ -132,7 +132,7 @@ export function buildSavedNoteMarkdown({
   return [
     `# ${title.trim() || getNoteTitleFromMarkdown(markdownBody)}`,
     "",
-    `Saved from Void-Agent on ${savedAt.toISOString()}`,
+    `Saved from Void Agent on ${savedAt.toISOString()}`,
     "",
     markdownBody.trim(),
     sourceSection ? `\n${sourceSection}` : "",

@@ -24,7 +24,7 @@ import { DesktopSignInPending } from "./desktop-sign-in-pending";
 import { useCaptcha } from "./use-captcha";
 
 // Strong ease-out: the start of the entrance is the moment the eye is
-// tracking. Cognix auth card §4.15: a white card on a soft tray frame,
+// tracking. Void Agent auth card §4.15: a white card on a soft tray frame,
 // display-scale 400-weight heading, no card chrome.
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
@@ -158,7 +158,7 @@ export default function SignIn({
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: EASE_OUT }}
     >
-      {/* Cognix §4.15 auth card: a single white card on a soft tray frame,
+      {/* Design system §4.15 auth card: a single white card on a soft tray frame,
           no card chrome — grouping by space, not by boxes. */}
       <div className="w-full md:max-w-sm mx-auto flex flex-col">
         <motion.div

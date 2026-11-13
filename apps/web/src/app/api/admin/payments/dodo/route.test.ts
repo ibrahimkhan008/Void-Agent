@@ -52,7 +52,12 @@ describe("admin Dodo configuration", () => {
     mocks.rateLimit.mockResolvedValue({ allowed: true });
     mocks.getConfig.mockImplementation(async (key: string) =>
       key === "payments"
-        ? { dodo: { retain: true, productIds: { "flare-max": "old-product" } } }
+        ? {
+            dodo: {
+              retain: true,
+              productIds: { "voidagent-max": "old-product" },
+            },
+          }
         : { apiKeysSecrets: { keep: "untouched" } },
     );
     mocks.upsert.mockResolvedValue(undefined);
@@ -83,7 +88,7 @@ describe("admin Dodo configuration", () => {
       request({
         enabled: true,
         environment: "live_mode",
-        productIds: { "flare-pro": "new-product", "flare-max": "" },
+        productIds: { "voidagent-pro": "new-product", "voidagent-max": "" },
         apiKey: "plain-api",
         webhookSecret: "plain-webhook",
       }),
@@ -98,7 +103,7 @@ describe("admin Dodo configuration", () => {
       retain: true,
       enabled: true,
       environment: "live_mode",
-      productIds: { "flare-pro": "new-product" },
+      productIds: { "voidagent-pro": "new-product" },
     });
     const toolsWrite = mocks.upsert.mock.calls.find(([key]) => key === "tools");
     expect(toolsWrite?.[1].apiKeysSecrets).toEqual({

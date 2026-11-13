@@ -9,9 +9,9 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { AccentSpan } from "@/components/ui/accent-span";
 
 export const metadata: Metadata = {
-  title: "Docs: Connect your tools with MCP | Void-Agent",
+  title: "Docs: Connect your tools with MCP | Void Agent",
   description:
-    "Connect GitHub, Notion, Slack or any MCP server to Void-Agent, use the tools in chat and Cloud Agent, and add the Void-Agent MCP server to other agents.",
+    "Connect GitHub, Notion, Slack or any MCP server to Void Agent, use the tools in chat and Cloud Agent, and add the Void Agent MCP server to other agents.",
   alternates: { canonical: "/docs/mcp" },
 };
 
@@ -23,7 +23,7 @@ const MCP_FLOW = [
   },
   {
     n: "02",
-    title: "Void-Agent",
+    title: "Void Agent",
     body: "Sees which tools your servers offer and picks one.",
   },
   {
@@ -53,7 +53,7 @@ const CONNECT_CARDS = [
   },
   {
     title: "Save",
-    body: "Void-Agent connects, lists the server's tools and keeps it in sync.",
+    body: "Void Agent connects, lists the server's tools and keeps it in sync.",
   },
 ];
 
@@ -79,16 +79,16 @@ const CHAT_CARDS = [
 const SERVER_TOOLS = [
   [
     "voidagent_get_overview",
-    "What Void-Agent is, what it can do and where to start.",
+    "What Void Agent is, what it can do and where to start.",
   ],
-  ["voidagent_list_models", "The models available in Void-Agent, by provider."],
+  ["voidagent_list_models", "The models available in Void Agent, by provider."],
   [
     "voidagent_list_capabilities",
     "Product capabilities, such as Cloud Agent and schedules.",
   ],
   [
     "voidagent_list_pages",
-    "Public Void-Agent pages that can be read as Markdown.",
+    "Public Void Agent pages that can be read as Markdown.",
   ],
   [
     "voidagent_get_page",
@@ -131,7 +131,7 @@ export default function McpDocsPage() {
         eyebrow="Docs · MCP"
         title="Connect Your Tools With"
         accent="MCP"
-        sub="Plug GitHub, Notion, Slack, your own services or any MCP server into Void-Agent, and let chat and Cloud Agent use them for you."
+        sub="Plug GitHub, Notion, Slack, your own services or any MCP server into Void Agent, and let chat and Cloud Agent use them for you."
         active="mcp"
       />
 
@@ -154,7 +154,7 @@ export default function McpDocsPage() {
             <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               search_pages
             </code>
-            . Void-Agent connects to that server, shows the tools to the agent,
+            . Void Agent connects to that server, shows the tools to the agent,
             and runs them when the agent asks.
           </p>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -222,7 +222,7 @@ export default function McpDocsPage() {
           />
           <p className="text-base/8 text-(--paper)/70">
             You can also paste a config that is wrapped in its name, the way
-            many MCP servers document it. Void-Agent fills in the name for you:
+            many MCP servers document it. Void Agent fills in the name for you:
           </p>
           <CodeBlock
             label="Named config"
@@ -242,7 +242,7 @@ export default function McpDocsPage() {
               <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
                 args
               </code>
-              ) only work on self-hosted Void-Agent.
+              ) only work on self-hosted Void Agent.
             </p>
           </div>
 
@@ -252,10 +252,10 @@ export default function McpDocsPage() {
           </SectionHeader>
           <p className="mt-5 text-base/8 text-(--paper)/70">
             Some servers, like Notion, ask you to sign in instead of pasting a
-            token. When you add one, Void-Agent opens the provider&apos;s
-            sign-in page. Approve access there and you are sent back to
-            Void-Agent, connected. The token is stored on our servers and is
-            never shown to the model.
+            token. When you add one, Void Agent opens the provider&apos;s
+            sign-in page. Approve access there and you are sent back to Void
+            Agent, connected. The token is stored on our servers and is never
+            shown to the model.
           </p>
 
           {/* Use in chat */}
@@ -312,17 +312,17 @@ Then post a short summary to #eng in Slack.`}
           <p className="mt-5 text-base/8 text-(--paper)/70">
             Add your own instructions to a whole server or to a single tool, for
             example &quot;always use the staging repo&quot; or &quot;write issue
-            titles in English&quot;. Void-Agent sends them to the agent every
+            titles in English&quot;. Void Agent sends them to the agent every
             time that server or tool is used.
           </p>
 
-          {/* Void-Agent MCP server */}
+          {/* Void Agent MCP server */}
           <SectionHeader id="voidagent-server" eyebrow="For other agents">
-            The Void-Agent MCP <AccentSpan>Server</AccentSpan>
+            The Void Agent MCP <AccentSpan>Server</AccentSpan>
           </SectionHeader>
           <p className="mt-5 text-base/8 text-(--paper)/70">
-            Void-Agent also runs its own public MCP server, so other AI agents
-            can learn about Void-Agent: its models, capabilities and pages. It
+            Void Agent also runs its own public MCP server, so other AI agents
+            can learn about Void Agent: its models, capabilities and pages. It
             is read-only, needs no sign-in, and never touches anyone&apos;s
             workspace.
           </p>
@@ -346,10 +346,10 @@ Then post a short summary to #eng in Slack.`}
             ))}
           </dl>
           <CodeBlock
-            label="Add Void-Agent to an MCP client"
+            label="Add Void Agent to an MCP client"
             code={`{
   "mcpServers": {
-    "void-agent": { "url": "https://your-domain.example/api/mcp/server" }
+    "Void Agent": { "url": "https://your-domain.example/api/mcp/server" }
   }
 }`}
           />
@@ -413,7 +413,7 @@ Then post a short summary to #eng in Slack.`}
                   Previous
                 </p>
                 <p className="mt-2 text-lg font-medium text-(--paper) transition-colors group-hover:text-(--brand)">
-                  How Void-Agent agents get work done
+                  How Void Agent agents get work done
                 </p>
               </div>
               <ArrowLeft className="size-5 text-(--paper)/50 transition-transform duration-200 group-hover:-translate-x-1 group-hover:text-(--brand)" />

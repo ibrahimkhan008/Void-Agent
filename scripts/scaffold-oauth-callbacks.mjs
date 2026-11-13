@@ -213,8 +213,7 @@ const PROVIDERS = [
     identityMethod: "json",
     emailFrom: "email",
     labelFrom: "name",
-    baseUrlExpr:
-      'process.env.EGNYTE_DOMAIN?.replace(/\\/+$/, "") || ""',
+    baseUrlExpr: 'process.env.EGNYTE_DOMAIN?.replace(/\\/+$/, "") || ""',
   },
   {
     name: "discord",
@@ -244,8 +243,8 @@ function callbackRoute(p) {
   const baseUrlDecl = p.baseUrlExpr
     ? `  const baseUrl = ${p.baseUrlExpr};\n`
     : usesBaseUrl
-    ? `  const baseUrl = process.env.BASE_URL || "";\n`
-    : "";
+      ? `  const baseUrl = process.env.BASE_URL || "";\n`
+      : "";
   const tokenUrl = p.tokenUrl
     .replace("<baseUrl>", "${baseUrl}")
     .replace("<tenant>", "${tenant}");
@@ -263,8 +262,8 @@ import { UserConnectorTable } from "lib/db/pg/schema.pg";
 import { NextRequest } from "next/server";
 
 function getRedirectUri(request: NextRequest): string {
-  if (process.env.FLARE_AUTH_URL) {
-    const baseUrl = process.env.FLARE_AUTH_URL.replace(/\\/+$/, "");
+  if (process.env.VOIDAGENT_AUTH_URL) {
+    const baseUrl = process.env.VOIDAGENT_AUTH_URL.replace(/\\/+$/, "");
     return \`\${baseUrl}/api/connectors/${p.name}/callback\`;
   }
   const url = new URL(request.url);
@@ -323,7 +322,7 @@ export async function GET(request: NextRequest) {
       );
     }
     const redirectUri = getRedirectUri(request);
-${baseUrlDecl}${p.isTeams ? "  const tenant = process.env.MICROSOFT_TENANT_ID || \"common\";\n" : ""}
+${baseUrlDecl}${p.isTeams ? '  const tenant = process.env.MICROSOFT_TENANT_ID || "common";\n' : ""}
 
     // Exchange code for token.
     const tokenBody: Record<string, string> = {
@@ -336,11 +335,13 @@ ${baseUrlDecl}${p.isTeams ? "  const tenant = process.env.MICROSOFT_TENANT_ID ||
     const tokenUrl = \`${tokenUrl}\`;
     const tokenRes = await fetch(tokenUrl, {
       method: "POST",
-      ${p.tokenMethod === "form"
-        ? `headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      ${
+        p.tokenMethod === "form"
+          ? `headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(tokenBody),`
-        : `headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tokenBody),`}
+          : `headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tokenBody),`
+      }
     });
     if (!tokenRes.ok) {
       return createConnectorOauthResponsePage(
@@ -372,9 +373,9 @@ ${
     const email = null; // Salesforce identity requires /services/oauth2/userinfo — not fetched here.
     const label = tokens.id || "${capitalize(p.name)}";`
     : p.identityMethod === "gong-no-identity"
-    ? `    const email = null;
+      ? `    const email = null;
     const label = "Gong";`
-    : `    // Fetch identity.
+      : `    // Fetch identity.
     const identityUrl = \`${identityUrl}\`;
     const identityHeaders: Record<string, string> = { Authorization: \`Bearer \${tokens.access_token}\` };
     ${identityJson ? `identityHeaders["Content-Type"] = "application/json";` : ""}

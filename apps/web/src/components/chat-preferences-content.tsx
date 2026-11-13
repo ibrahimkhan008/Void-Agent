@@ -145,7 +145,7 @@ export function UserInstructionsContent() {
             <Skeleton className="h-9" />
           ) : (
             <Input
-              placeholder="Void-Agent"
+              placeholder="Void Agent"
               value={preferences.botName}
               onChange={(e) => {
                 setPreferences({

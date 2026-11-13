@@ -63,7 +63,7 @@ const FEATURE_FLAG_DEFS: FeatureFlag[] = [
 
 export default function GeneralPage() {
   const defaults: GeneralConfig = {
-    appName: "Flare AI",
+    appName: "Void Agent",
     appLogoUrl: "/logo-512.webp",
     defaultToolChoice: "auto",
     freeTierDailyTokenLimit: 150000,
@@ -161,7 +161,7 @@ export default function GeneralPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <div className="space-y-6">
-        {/* Cognix section header (§4.8): eyebrow → display heading. */}
+        {/* Section header: eyebrow → display heading. */}
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Eyebrow>Admin</Eyebrow>
@@ -244,7 +244,7 @@ export default function GeneralPage() {
                   setConfig((c) => ({ ...c, appName: e.target.value }))
                 }
                 className="h-9 w-full px-3 text-sm rounded-md border bg-background"
-                placeholder="Flare AI"
+                placeholder="Void Agent"
               />
             </div>
 

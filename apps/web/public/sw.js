@@ -59,7 +59,7 @@ self.addEventListener("push", (event) => {
   const title =
     typeof data.title === "string"
       ? data.title.slice(0, 160)
-      : "Void-Agent";
+      : "Void Agent";
   const body =
     typeof data.body === "string"
       ? data.body.slice(0, 500)

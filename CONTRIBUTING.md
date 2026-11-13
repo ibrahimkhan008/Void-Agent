@@ -14,7 +14,7 @@ pnpm dev
 
 Provide a pre-existing PostgreSQL database with pgvector via `POSTGRES_URL` and
 the required settings from [the self-hosting guide](docs/self-hosting.md).
-Void-Agent's
+Void Agent's
 deployment workflow uses its configured system service; do not use Docker for
 this project. Never point tests or local development at production data.
 
@@ -76,6 +76,6 @@ Ask in [Discord](https://discord.gg/9dwdAYKBPp) or open an issue. A short issue
 describing what you want to change, before writing a large patch, usually saves
 everyone time.
 
-The pre-sync Void-Agent contribution guide, including its feature-request and
+The pre-sync Void Agent contribution guide, including its feature-request and
 pull-request conventions, is preserved at
-[`docs/upstream/void-agent-pre-sync-contributing.md`](docs/upstream/void-agent-pre-sync-contributing.md).
+[`docs/upstream/Void Agent-pre-sync-contributing.md`](docs/upstream/Void Agent-pre-sync-contributing.md).

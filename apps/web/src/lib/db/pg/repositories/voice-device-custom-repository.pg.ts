@@ -84,7 +84,7 @@ export const pgCustomVoiceDeviceRepository = {
         .values({
           userId: input.userId,
           deviceType: requireSupportedDeviceType(registration.deviceType),
-          displayName: input.displayName || "Void-Agent Voice Device",
+          displayName: input.displayName || "Void Agent Voice Device",
           tokenHash: hashVoiceDeviceSecret("token", token),
           firmwareVersion: registration.firmwareVersion,
         })

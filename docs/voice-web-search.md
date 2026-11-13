@@ -26,7 +26,7 @@ The client tool calls the authenticated same-origin `/api/voice/web-search` rout
 
 ## B20 browser automation remains missing
 
-This read-only search is a separate workflow, not a browser automation implementation. The Better Chatbot voice browser workflow relies on its Kernel browser, credential vault, organization policy/credit gate, abortable streamed run lifecycle, and read-only live view. Void-Agent's available Steel/Crawl/Cloak browser tools do not provide equivalent isolated egress or credential-policy lifecycle: the Steel action loop can follow redirects, navigate to arbitrary URLs, interact with forms, retain thread sessions, and expose an interactive viewer. Exposing it to voice without network-level private-address/redirect controls and a reviewed prompt-injection boundary would risk SSRF and unapproved actions. Keep B20 MISSING until that infrastructure and end-to-end cancellation/cleanup verification exist.
+This read-only search is a separate workflow, not a browser automation implementation. The Better Chatbot voice browser workflow relies on its Kernel browser, credential vault, organization policy/credit gate, abortable streamed run lifecycle, and read-only live view. Void Agent's available Steel/Crawl/Cloak browser tools do not provide equivalent isolated egress or credential-policy lifecycle: the Steel action loop can follow redirects, navigate to arbitrary URLs, interact with forms, retain thread sessions, and expose an interactive viewer. Exposing it to voice without network-level private-address/redirect controls and a reviewed prompt-injection boundary would risk SSRF and unapproved actions. Keep B20 MISSING until that infrastructure and end-to-end cancellation/cleanup verification exist.
 
 ## Verification
 

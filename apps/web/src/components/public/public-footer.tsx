@@ -23,7 +23,7 @@ const COLUMNS: { title: string; links: { label: string; href: string; newPill?: 
     title: "Company",
     links: [
       { label: "About", href: "/about" },
-      { label: "Void-Agent vs Manus", href: "/vs/manus" },
+      { label: "Void Agent vs Manus", href: "/vs/manus" },
       { label: "Contact", href: "/contact" },
       { label: "Contact sales", href: "/contact-sales" },
     ],
@@ -55,14 +55,14 @@ export function PublicFooter() {
               <span className="relative block size-7 shrink-0">
                 <Image
                   src="/logo-va-512.webp"
-                  alt="Void-Agent"
+                  alt="Void Agent"
                   width={28}
                   height={28}
                   className="object-contain"
                 />
               </span>
               <span className="text-[17px] font-medium tracking-[-0.01em] text-(--paper)">
-                Void-Agent
+                Void Agent
               </span>
             </Link>
             <p className="mt-3 max-w-[40ch] text-sm/6 text-(--paper)/55">
@@ -70,10 +70,10 @@ export function PublicFooter() {
               coding agents, on any model.
             </p>
             <a
-              href="mailto:support@void-agent.local"
+              href="mailto:support@Void Agent.local"
               className="mt-3 inline-block text-sm text-(--paper)/55 underline decoration-(--paper)/20 underline-offset-4 hover:text-(--paper)"
             >
-              support@void-agent.local
+              support@Void Agent.local
             </a>
           </div>
 
@@ -124,7 +124,7 @@ export function PublicFooter() {
             Terms
           </Link>
           <p className="ml-auto text-sm text-(--paper)/45">
-            © 2026 Void-Agent. All rights reserved.
+            © 2026 Void Agent. All rights reserved.
           </p>
         </div>
       </div>
@@ -153,7 +153,7 @@ export function PublicFooter() {
         <div
           className="absolute inset-x-0 -bottom-[0.18em] text-center text-[clamp(96px,19vw,300px)] leading-none font-medium tracking-[-0.06em] text-(--paper)/[0.08]"
         >
-          Void-Agent
+          Void Agent
         </div>
       </div>
     </footer>

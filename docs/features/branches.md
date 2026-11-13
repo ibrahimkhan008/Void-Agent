@@ -61,7 +61,7 @@ A forked thread can itself be forked, up to a depth of 5 by default. Deeper chai
 
 ## Cross-branch insights (planned)
 
-A future feature, not yet shipped: when you have multiple branches of the same source, Flare will offer a "Compare branches" view that:
+A future feature, not yet shipped: when you have multiple branches of the same source, Void Agent will offer a "Compare branches" view that:
 
 - Lines up the divergent assistant replies side by side.
 - Surfaces the differences in approach, code, or recommendation.

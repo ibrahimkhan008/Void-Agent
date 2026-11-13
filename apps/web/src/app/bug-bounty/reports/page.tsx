@@ -11,7 +11,7 @@ import { formatBugBountyAmount } from "@/hooks/use-bug-bounty";
 import { STATUS_BADGE } from "@/components/bug-bounty/bug-bounty-status";
 
 export const metadata = {
-  title: "My bug reports — Flare Bug Bounty",
+  title: "My bug reports — Void Agent Bug Bounty",
 };
 
 export const dynamic = "force-dynamic";
@@ -28,8 +28,8 @@ export default async function MyBugReportsPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">My reports</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Track the status of every report you have submitted to the Flare bug
-            bounty.
+            Track the status of every report you have submitted to the Void
+            Agent bug bounty.
           </p>
         </div>
         <Button asChild>

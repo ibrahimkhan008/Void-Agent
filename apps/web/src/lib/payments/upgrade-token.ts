@@ -13,7 +13,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  *
  * The token is signed with `BETTER_AUTH_SECRET` (already configured
  * for the rest of the app) and binds three things:
- *   - the Flare userId, so a token from one user can't be replayed
+ *   - the Void Agent userId, so a token from one user can't be replayed
  *     against another
  *   - a random nonce, so the URL is non-guessable (each checkout
  *     gets a fresh token)

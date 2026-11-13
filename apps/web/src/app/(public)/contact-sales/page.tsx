@@ -10,11 +10,11 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Contact Sales | Void-Agent",
+  title: "Contact Sales | Void Agent",
   description:
-    "Talk with Void-Agent about custom capacity, deployment planning, and operational requirements.",
+    "Talk with Void Agent about custom capacity, deployment planning, and operational requirements.",
   alternates: { canonical: "/contact-sales" },
-  openGraph: { title: "Contact Void-Agent Sales" },
+  openGraph: { title: "Contact Void Agent Sales" },
 };
 
 const FEATURES = [
@@ -63,7 +63,7 @@ export default function ContactSalesPage() {
         >
           <Link href="/" className="flex items-center gap-2.5">
             <span className="text-[17px] font-medium tracking-[-0.01em] text-white">
-              Void-Agent
+              Void Agent
             </span>
           </Link>
           <div className="hidden items-center rounded-xl bg-white/[0.05] p-1 md:flex">
@@ -108,8 +108,8 @@ export default function ContactSalesPage() {
             sales team
           </h1>
           <p className="mt-5 text-lg/8 text-zinc-400 md:text-xl/8">
-            Discuss custom capacity, deployment requirements, and the right
-            Void-Agent plan for your workload.
+            Discuss custom capacity, deployment requirements, and the right Void
+            Agent plan for your workload.
           </p>
 
           <h2 className="mt-12 text-xs font-bold tracking-wider text-zinc-500 uppercase">
@@ -152,7 +152,7 @@ export default function ContactSalesPage() {
                 <Mail className="size-5" />
               </span>
               <h2 className="mt-6 text-2xl font-bold text-white md:text-3xl">
-                Talk to Void-Agent
+                Talk to Void Agent
               </h2>
               <p className="mt-4 text-sm/7 text-zinc-400">
                 Send your expected user count, primary workflows, required
@@ -160,7 +160,7 @@ export default function ContactSalesPage() {
                 closest current plan and clearly scope any custom work.
               </p>
               <a
-                href="mailto:support@void-agent.local?subject=Void-Agent%20sales%20inquiry"
+                href="mailto:support@Void Agent.local?subject=Void Agent%20sales%20inquiry"
                 className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-5 font-semibold text-black transition-colors hover:bg-emerald-400"
               >
                 <Mail className="size-4" />
@@ -182,7 +182,7 @@ export default function ContactSalesPage() {
                   GitHub
                 </a>
                 <a
-                  href="mailto:support@void-agent.local"
+                  href="mailto:support@Void Agent.local"
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 text-sm font-medium text-white transition-colors hover:bg-zinc-900"
                 >
                   <MessageCircle className="size-4" />
@@ -192,7 +192,7 @@ export default function ContactSalesPage() {
 
               <p className="mt-auto pt-10 text-xs/6 text-zinc-500">
                 For account support, billing questions, or security reports, use
-                the same support address and include your Void-Agent account
+                the same support address and include your Void Agent account
                 email.
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function ContactSalesPage() {
           href="/"
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-300"
         >
-          ← Back to Void-Agent
+          ← Back to Void Agent
         </Link>
       </div>
     </div>

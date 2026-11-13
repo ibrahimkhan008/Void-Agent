@@ -59,11 +59,11 @@ describe("Dodo webhook route", () => {
           subscription_id: "sub_123",
           product_id: "prod_pro",
           customer: { customer_id: "cus_123" },
-          metadata: { flareUserId: "user-1", tier: "flare-pro" },
+          metadata: { voidagentUserId: "user-1", tier: "voidagent-pro" },
         },
       },
     });
-    mocks.getTier.mockResolvedValue("flare-pro");
+    mocks.getTier.mockResolvedValue("voidagent-pro");
     mocks.getProduct.mockResolvedValue("prod_pro");
     mocks.getSub.mockResolvedValue(null);
     mocks.getUser.mockResolvedValue({ id: "user-1" });
@@ -87,7 +87,7 @@ describe("Dodo webhook route", () => {
         dodoSubscriptionId: "sub_123",
         eventTimestamp: new Date("2026-11-09T08:00:00Z"),
         dodoCustomerId: "cus_123",
-        tier: "flare-pro",
+        tier: "voidagent-pro",
         status: "active",
       }),
     );
@@ -127,7 +127,7 @@ describe("Dodo webhook route", () => {
           amount: 0,
           currency: "USD",
           customer: { email: "private@example.test" },
-          metadata: { flareUserId: "user-1", secret: "must-not-persist" },
+          metadata: { voidagentUserId: "user-1", secret: "must-not-persist" },
         },
       },
     });

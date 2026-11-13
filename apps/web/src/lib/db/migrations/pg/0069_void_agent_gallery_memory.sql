@@ -1,4 +1,4 @@
--- Preserve Void-Agent's agent gallery and personal-memory workflows.
+-- Preserve Void Agent's agent gallery and personal-memory workflows.
 
 ALTER TABLE "agent"
   ADD COLUMN IF NOT EXISTS "published_at" timestamp,

@@ -3,8 +3,8 @@
 Generated: 2026-11-11. Source of record for the zip-main -> staging promotion gate.
 
 - ORIGINAL: zip-main @ `aa9fce0f545afb18b9a191724be092887f83630b` (tracked `src/` tree, 1,213 files).
-- STAGING: `Void-Agent-integration-staging` @ working tree, rooted at `apps/web/src`.
-- DESTINATION (secondary reference): `Void-Agent` working tree `src/` (evolved fork of the original).
+- STAGING: `Void Agent-integration-staging` @ working tree, rooted at `apps/web/src`.
+- DESTINATION (secondary reference): `Void Agent` working tree `src/` (evolved fork of the original).
 
 ## (a) Method + counts
 
@@ -270,12 +270,12 @@ Every guess below is UNVERIFIED - a later agent must verify semantically. `[dest
 | `src/lib/ai/codemode/executor.ts` | lib/ai | guess: destination codemode (@cloudflare/codemode dep is zip-only); staging code exec = lib/ai/tools/code/{e2b-sandbox,js-run,python-run} - port decision `[dest=same-path, content-equal]` |
 | `src/lib/ai/composio.ts` | lib/ai | guess: staging moved composio to lib/composio/{client,config,scoped-tools}.ts - verify `[dest=same-path, differs]` |
 | `src/lib/ai/harness.ts` | lib/ai | guess: destination agent harness; staging lib/ai/agent/ + lib/ai/subagents/research-subagent.ts - verify `[dest=same-path, content-equal]` |
-| `src/lib/ai/image/edit-image.test.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
-| `src/lib/ai/image/edit-image.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
-| `src/lib/ai/image/edit-models.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, content-equal]` |
-| `src/lib/ai/image/generate-flare-image.test.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
-| `src/lib/ai/image/generate-flare-image.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
-| `src/lib/ai/image/models.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip flare/konvo image gen + edit are destination providers - map `[dest=same-path, content-equal]` |
+| `src/lib/ai/image/edit-image.test.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
+| `src/lib/ai/image/edit-image.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
+| `src/lib/ai/image/edit-models.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, content-equal]` |
+| `src/lib/ai/image/generate-void-agent-image.test.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
+| `src/lib/ai/image/generate-void-agent-image.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, differs]` |
+| `src/lib/ai/image/models.ts` | lib/ai | guess: staging lib/ai/image = generate-image.ts / image-models.ts (+ mask utils); zip void-agent/konvo image gen + edit are destination providers - map `[dest=same-path, content-equal]` |
 | `src/lib/ai/ingest/csv-ingest.test.ts` | lib/ai | guess: staging lib/ai/ingest (readers/, pdf-rasterize.ts, formats.ts, limits.ts); csv-ingest + konvo-vision are destination extras - map `[dest=same-path, differs]` |
 | `src/lib/ai/ingest/csv-ingest.ts` | lib/ai | guess: staging lib/ai/ingest (readers/, pdf-rasterize.ts, formats.ts, limits.ts); csv-ingest + konvo-vision are destination extras - map `[dest=same-path, differs]` |
 | `src/lib/ai/ingest/konvo-vision-ingest.test.ts` | lib/ai | guess: staging lib/ai/ingest (readers/, pdf-rasterize.ts, formats.ts, limits.ts); csv-ingest + konvo-vision are destination extras - map `[dest=same-path, differs]` |

@@ -9,7 +9,7 @@ import "load-env";
 import { Sandbox } from "e2b";
 import { SANDBOX_ENVIRONMENTS } from "lib/sandbox/templates";
 
-const pkg = "com.flare.calc";
+const pkg = "com.void-agent.calc";
 const dir = "/home/user/work/Calculator";
 
 const files: { path: string; data: string }[] = [
@@ -82,7 +82,7 @@ dependencies {
 `,
   },
   {
-    path: `${dir}/app/src/main/java/com/flare/calc/CalculatorEngine.kt`,
+    path: `${dir}/app/src/main/java/com/void-agent/calc/CalculatorEngine.kt`,
     data: `package ${pkg}
 
 /** Left-to-right calculator state machine: the arithmetic, with no Android in it. */
@@ -142,7 +142,7 @@ class CalculatorEngine {
 `,
   },
   {
-    path: `${dir}/app/src/main/java/com/flare/calc/MainActivity.kt`,
+    path: `${dir}/app/src/main/java/com/void-agent/calc/MainActivity.kt`,
     data: `package ${pkg}
 
 import android.os.Bundle

@@ -12,7 +12,7 @@
  *
  * Cost control: `--delay-ms` throttles the LLM calls. The free-tier
  * debounce inside `runMemoryExtraction` is bypassed by passing
- * `userTier = "flare-enterprises"` — this is a one-shot maintenance
+ * `userTier = "voidagent-enterprises"` — this is a one-shot maintenance
  * pass, not a per-message hot path.
  *
  * Usage:
@@ -71,7 +71,9 @@ const main = async () => {
     batchSize: Number.parseInt(getArg("--batch-size", "50"), 10),
     delayMs: Number.parseInt(getArg("--delay-ms", "200"), 10),
     userDelayMs: Number.parseInt(getArg("--user-delay-ms", "0"), 10),
-    ...(maxThreadsRaw && maxThreadsRaw > 0 ? { maxThreads: maxThreadsRaw } : {}),
+    ...(maxThreadsRaw && maxThreadsRaw > 0
+      ? { maxThreads: maxThreadsRaw }
+      : {}),
     ...(maxThreadsPerUserRaw && maxThreadsPerUserRaw > 0
       ? { maxThreadsPerUser: maxThreadsPerUserRaw }
       : {}),
@@ -90,9 +92,7 @@ const main = async () => {
       if (userIdArg) {
         return [userIdArg];
       }
-      const rows = await pgDb
-        .select({ id: UserTable.id })
-        .from(UserTable);
+      const rows = await pgDb.select({ id: UserTable.id }).from(UserTable);
       return rows.map((r) => r.id);
     },
     listThreadIdsForUser: async (userId) => {
@@ -152,7 +152,7 @@ const main = async () => {
       // Bypass free-tier debounce — this is a maintenance pass.
       return runMemoryExtraction({
         userId,
-        userTier: "flare-enterprises",
+        userTier: "voidagent-enterprises",
         threadId,
         ...(threadTitle ? { threadTitle } : {}),
         userMessage,

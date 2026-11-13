@@ -8,7 +8,7 @@ import { BrandButtonLink } from "@/components/ui/brand-button";
 import { LegalToc, LegalTocCollapsible } from "./legal-toc";
 
 /**
- * Cognix legal article layout — exact clone of cognixai.in legal pages.
+ * Void Agent legal article layout — exact clone of void-agentai.in legal pages.
  */
 
 export interface LegalSection {
@@ -74,7 +74,7 @@ export function LegalPage({
 }: LegalPageProps) {
   return (
     <div className="brand-surface min-h-dvh w-full overflow-x-clip">
-      {/* ===== Floating pill navbar (Cognix §4.1) ===== */}
+      {/* ===== Floating pill navbar (Design system §4.1) ===== */}
       <header className="landing-drop fixed inset-x-3 z-100 mx-auto max-w-7xl rounded-2xl backdrop-blur-xl transition-[top,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] top-3 sm:inset-x-4 sm:top-4 bg-(--ink-2)/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
         <nav
           aria-label="Main"
@@ -86,7 +86,7 @@ export function LegalPage({
               <span className="relative block shrink-0 size-7">
                 <Image
                   src="/logo-192.webp"
-                  alt="Void-Agent"
+                  alt="Void Agent"
                   width={28}
                   height={28}
                   className="object-contain"
@@ -94,7 +94,7 @@ export function LegalPage({
                 />
               </span>
               <span className="text-[17px] font-medium tracking-[-0.01em] text-(--paper)">
-                Void-Agent
+                Void Agent
               </span>
             </Link>
           </div>
@@ -209,7 +209,7 @@ export function LegalPage({
         </nav>
       )}
 
-      {/* ===== Mobile "On this page" collapsible (cognix §7.7) ===== */}
+      {/* ===== Mobile "On this page" collapsible (design system §7.7) ===== */}
       {sections.length > 0 && (
         <div className="mx-auto max-w-3xl px-6 pb-10 lg:hidden">
           <LegalTocCollapsible
@@ -263,7 +263,7 @@ export function LegalPage({
               href="/"
               className="text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:underline underline-offset-4"
             >
-              ← Back to Void-Agent
+              ← Back to Void Agent
             </Link>
           </div>
         </article>
@@ -278,13 +278,13 @@ export function LegalPage({
                 <span className="relative block shrink-0 size-7">
                   <Image
                     src="/logo-192.webp"
-                    alt="Void-Agent"
+                    alt="Void Agent"
                     width={28}
                     height={28}
                     className="object-contain"
                   />
                 </span>
-                <span className="text-base font-medium">Void-Agent</span>
+                <span className="text-base font-medium">Void Agent</span>
               </div>
               <p className="mt-3 max-w-[40ch] text-sm/6 text-(--paper)/55">
                 An AI workspace for getting things done.
@@ -319,7 +319,7 @@ export function LegalPage({
           </div>
           <div className="mt-10 border-t border-(--paper)/6 pt-6">
             <p className="text-sm text-(--paper)/45">
-              © 2026 Void-Agent. All rights reserved.
+              © 2026 Void Agent. All rights reserved.
             </p>
           </div>
         </div>
@@ -328,7 +328,7 @@ export function LegalPage({
   );
 }
 
-/** Cognix legal body helpers — exact classes from the original pages. */
+/** Void Agent legal body helpers — exact classes from the original pages. */
 
 export function LegalP({ children }: { children: React.ReactNode }) {
   return <p className="mt-5">{children}</p>;
@@ -371,7 +371,7 @@ export function LegalTable({
   rows: string[][];
 }) {
   return (
-    /* Cognix tray+card layering: big rounded tray in ink-2 holding a small
+    /* Void Agent tray+card layering: big rounded tray in ink-2 holding a small
        white card (§7.7) — .bs-tray/.bs-card carry the radii and shadows. */
     <div className="bs-tray mt-6 overflow-x-auto">
       <div className="bs-card overflow-hidden">

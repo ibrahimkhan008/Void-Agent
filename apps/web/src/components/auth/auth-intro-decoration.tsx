@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Centered Flare logo decoration for the empty flex-1 slot in the
+ * Centered Void Agent logo decoration for the empty flex-1 slot in the
  * (auth) split-screen layout.
  *
  * Visual: the existing /logo-192.webp logo, scaled larger than
@@ -52,7 +52,7 @@ export function AuthIntroDecoration() {
       >
         <Image
           src="/logo-192.webp"
-          alt="Void-Agent"
+          alt="Void Agent"
           width={128}
           height={128}
           className="object-contain drop-shadow-[0_0_24px_theme(colors.primary/0.35)]"

@@ -6,7 +6,7 @@
 
 ---
 
-> This Cookies Policy explains what cookies are, how Void-Agent uses them, what choices you have, and how to manage your preferences. By continuing to use Void-Agent, you consent to our use of cookies as described in this policy.
+> This Cookies Policy explains what cookies are, how Void Agent uses them, what choices you have, and how to manage your preferences. By continuing to use Void Agent, you consent to our use of cookies as described in this policy.
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## 1. Introduction
 
-Void-Agent ("we", "us", "our") is committed to being transparent about the technologies we use to operate our platform. Like virtually every website and web application on the internet, Void-Agent uses **cookies** and similar tracking technologies to make the platform work, keep you logged in, remember your preferences, and understand how people use our product.
+Void Agent ("we", "us", "our") is committed to being transparent about the technologies we use to operate our platform. Like virtually every website and web application on the internet, Void Agent uses **cookies** and similar tracking technologies to make the platform work, keep you logged in, remember your preferences, and understand how people use our product.
 
 This policy explains exactly what we use, why we use it, and how you can control it.
 
@@ -57,7 +57,7 @@ Domain:  this site's domain
 Expires: Session
 ```
 
-When you visit Void-Agent, our servers can read the cookies stored on your browser to recognize you, restore your session, and serve you a personalized experience.
+When you visit Void Agent, our servers can read the cookies stored on your browser to recognize you, restore your session, and serve you a personalized experience.
 
 Cookies are **not programs** — they cannot run code, carry viruses, or access other files on your device. They are simply small pieces of text data.
 
@@ -65,13 +65,13 @@ Cookies are **not programs** — they cannot run code, carry viruses, or access 
 
 ## 3. Types of Cookies We Use
 
-Void-Agent uses four categories of cookies:
+Void Agent uses four categories of cookies:
 
 | Category | Description | Can Be Disabled? |
 |---|---|---|
 | **Essential** | Required for the platform to function at all | ❌ No |
 | **Preference** | Remember your settings and customizations | ✅ Yes |
-| **Analytics** | Help us understand how users use Void-Agent | ✅ Yes |
+| **Analytics** | Help us understand how users use Void Agent | ✅ Yes |
 | **Security** | Protect your account from fraud and attacks | ❌ No |
 
 ---
@@ -81,7 +81,7 @@ Void-Agent uses four categories of cookies:
 Here is a plain-English explanation of why each category of cookie exists:
 
 ### 4.1 Essential Cookies
-These are the bare minimum required to keep Void-Agent running. Without them, you wouldn't be able to log in, your session would break on every page, and the app wouldn't function at all. These cannot be turned off without breaking the platform.
+These are the bare minimum required to keep Void Agent running. Without them, you wouldn't be able to log in, your session would break on every page, and the app wouldn't function at all. These cannot be turned off without breaking the platform.
 
 **Examples of what these do:**
 - Keep you logged in as you navigate between pages
@@ -99,7 +99,7 @@ These cookies remember choices you've made so you don't have to re-configure thi
 - Save your default conversation settings or system prompt preferences
 
 ### 4.3 Analytics Cookies
-These cookies help us understand how people use Void-Agent so we can make it better. All data collected via analytics cookies is **anonymized** — we cannot identify you personally from analytics data.
+These cookies help us understand how people use Void Agent so we can make it better. All data collected via analytics cookies is **anonymized** — we cannot identify you personally from analytics data.
 
 **Examples of what these do:**
 - Track which features are used most often
@@ -124,10 +124,10 @@ These cookies are used to protect your account and the platform from malicious a
 ## 5. First-Party vs Third-Party Cookies
 
 ### 5.1 First-Party Cookies
-First-party cookies are set directly by Void-Agent (the site's own domain). These are the cookies we have full control over and are primarily described in this policy.
+First-party cookies are set directly by Void Agent (the site's own domain). These are the cookies we have full control over and are primarily described in this policy.
 
 ### 5.2 Third-Party Cookies
-Third-party cookies are set by external services that Void-Agent uses to operate. These may include:
+Third-party cookies are set by external services that Void Agent uses to operate. These may include:
 
 - **Analytics providers** — e.g., Google Analytics (if used), or privacy-first alternatives
 - **Payment processors** — e.g., Stripe or Razorpay may set cookies during checkout
@@ -135,17 +135,17 @@ Third-party cookies are set by external services that Void-Agent uses to operate
 
 Third-party cookies are governed by the respective providers' cookie and privacy policies. We only work with third-party services that meet reasonable data protection standards.
 
-> **Important:** Void-Agent does **not** use third-party advertising or retargeting cookies. We do not allow ad networks to place cookies on your device through our platform.
+> **Important:** Void Agent does **not** use third-party advertising or retargeting cookies. We do not allow ad networks to place cookies on your device through our platform.
 
 ---
 
 ## 6. Session Cookies vs Persistent Cookies
 
 ### 6.1 Session Cookies
-Session cookies are **temporary** and are deleted automatically when you close your browser. They are used to maintain your session while you're actively using Void-Agent — for example, keeping you logged in as you navigate the app.
+Session cookies are **temporary** and are deleted automatically when you close your browser. They are used to maintain your session while you're actively using Void Agent — for example, keeping you logged in as you navigate the app.
 
 ### 6.2 Persistent Cookies
-Persistent cookies remain on your device for a set period of time (or until you delete them manually). They are used to remember your preferences across multiple visits — so you don't have to re-configure your settings every time you open Void-Agent.
+Persistent cookies remain on your device for a set period of time (or until you delete them manually). They are used to remember your preferences across multiple visits — so you don't have to re-configure your settings every time you open Void Agent.
 
 | Cookie Type | Lifespan | Example Use |
 |---|---|---|
@@ -157,7 +157,7 @@ Persistent cookies remain on your device for a set period of time (or until you 
 
 ## 7. Cookies We Set — Full Breakdown
 
-Below is a detailed list of the main cookies Void-Agent sets on your device:
+Below is a detailed list of the main cookies Void Agent sets on your device:
 
 | Cookie Name | Type | Duration | Purpose |
 |---|---|---|---|
@@ -178,14 +178,14 @@ Below is a detailed list of the main cookies Void-Agent sets on your device:
 
 ## 8. Local Storage & Session Storage
 
-In addition to cookies, Void-Agent also uses **browser local storage** and **session storage** — two similar technologies built into modern browsers.
+In addition to cookies, Void Agent also uses **browser local storage** and **session storage** — two similar technologies built into modern browsers.
 
 | Technology | What It Is | How We Use It |
 |---|---|---|
 | **Local Storage** | Persistent key-value storage in your browser | Store UI preferences, cached settings, and app state between visits |
 | **Session Storage** | Temporary key-value storage (cleared on tab close) | Store temporary app state during an active session |
 
-Unlike cookies, local storage and session storage data is **never sent to our servers automatically**. It lives entirely in your browser and is only accessed by Void-Agent's JavaScript code running in the tab.
+Unlike cookies, local storage and session storage data is **never sent to our servers automatically**. It lives entirely in your browser and is only accessed by Void Agent's JavaScript code running in the tab.
 
 **What we store in local storage:**
 - Your interface preferences (sidebar state, font size, etc.)
@@ -204,9 +204,9 @@ We want to be fully transparent. Here is a list of things we explicitly **do not
 - ❌ We do **not** use cookies for behavioral advertising or retargeting
 - ❌ We do **not** sell cookie data to data brokers or advertisers
 - ❌ We do **not** use cookies to build advertising profiles about you
-- ❌ We do **not** allow third-party ad networks to place cookies on your device through Void-Agent
+- ❌ We do **not** allow third-party ad networks to place cookies on your device through Void Agent
 - ❌ We do **not** use cross-site tracking or browser fingerprinting
-- ❌ We do **not** track you across other websites after you leave Void-Agent
+- ❌ We do **not** track you across other websites after you leave Void Agent
 - ❌ We do **not** use cookies to identify you without your knowledge
 - ❌ We do **not** share cookie-derived data with third parties for commercial purposes
 
@@ -214,10 +214,10 @@ We want to be fully transparent. Here is a list of things we explicitly **do not
 
 ## 10. Third-Party Cookies & Services
 
-The following third-party services used by Void-Agent may set their own cookies on your device:
+The following third-party services used by Void Agent may set their own cookies on your device:
 
 ### 10.1 Payment Processing
-If you make a purchase on Void-Agent, our payment provider (e.g., **Stripe** or **Razorpay**) may set cookies during the checkout process to:
+If you make a purchase on Void Agent, our payment provider (e.g., **Stripe** or **Razorpay**) may set cookies during the checkout process to:
 - Detect and prevent fraud
 - Maintain the payment session
 - Comply with financial regulations
@@ -231,26 +231,26 @@ If you sign in with **Google** or **GitHub**, those services may set cookies to 
 If we use a third-party analytics service, it may set an anonymous analytics cookie. We prefer privacy-first analytics tools (e.g., Plausible or Fathom) that do not use persistent tracking cookies. If we use Google Analytics, we do so with IP anonymization enabled.
 
 ### 10.4 No Advertising Networks
-We do **not** partner with advertising networks. There are no advertising-related third-party cookies on Void-Agent.
+We do **not** partner with advertising networks. There are no advertising-related third-party cookies on Void Agent.
 
 ---
 
 ## 11. Cookie Consent
 
 ### 11.1 Your Consent
-When you first visit Void-Agent, you will be shown a cookie consent banner that gives you the option to:
+When you first visit Void Agent, you will be shown a cookie consent banner that gives you the option to:
 - **Accept all cookies** (including analytics and preference cookies)
 - **Accept essential only** (only cookies required for the platform to work)
 - **Manage preferences** (choose which categories to enable)
 
 ### 11.2 What "Essential Only" Means
 If you choose essential cookies only:
-- You will still be able to use Void-Agent fully
+- You will still be able to use Void Agent fully
 - Your preferences (theme, model, language) will not be saved across sessions
 - We will not collect analytics data about your usage
 
 ### 11.3 Recording Your Choice
-Your consent decision is stored in the `voidagent_consent` cookie for up to 1 year so we don't ask again on every visit. You can change your consent preferences at any time via the **Cookie Settings** link in the footer of the Void-Agent website.
+Your consent decision is stored in the `voidagent_consent` cookie for up to 1 year so we don't ask again on every visit. You can change your consent preferences at any time via the **Cookie Settings** link in the footer of the Void Agent website.
 
 ### 11.4 Implicit Consent
 In some jurisdictions, continued use of the platform after being shown a cookie notice constitutes implicit consent. However, we prefer to obtain explicit consent where possible.
@@ -261,8 +261,8 @@ In some jurisdictions, continued use of the platform after being shown a cookie 
 
 You have several ways to control cookies:
 
-### 12.1 Void-Agent Cookie Settings
-You can update your cookie preferences at any time by clicking **"Cookie Settings"** in the footer of the Void-Agent website. This will let you enable or disable non-essential cookie categories.
+### 12.1 Void Agent Cookie Settings
+You can update your cookie preferences at any time by clicking **"Cookie Settings"** in the footer of the Void Agent website. This will let you enable or disable non-essential cookie categories.
 
 ### 12.2 Browser Settings
 You can configure your browser to block or delete cookies. Here's how in the most popular browsers:
@@ -286,7 +286,7 @@ Privacy-focused browser extensions like **uBlock Origin**, **Privacy Badger**, o
 
 ### 12.4 Opt-Out of Analytics
 If you'd like to opt out of analytics tracking specifically:
-- Use the Void-Agent Cookie Settings panel to disable analytics cookies
+- Use the Void Agent Cookie Settings panel to disable analytics cookies
 - Or install the **Google Analytics Opt-out Browser Add-on** if we use Google Analytics
 - Or use a browser with built-in tracking protection (e.g., Firefox with Enhanced Tracking Protection)
 
@@ -298,7 +298,7 @@ Here is what happens when you disable different categories of cookies:
 
 | Cookie Type | Impact of Disabling |
 |---|---|
-| **Essential** | You will not be able to log in or use Void-Agent. Core functionality will break. |
+| **Essential** | You will not be able to log in or use Void Agent. Core functionality will break. |
 | **Security** | Disabling may expose your account to greater risk. Not recommended. |
 | **Preference** | Your settings (theme, language, model) won't be saved. You'll need to reconfigure each visit. |
 | **Analytics** | No impact on functionality. We just won't collect anonymized usage data. |
@@ -309,9 +309,9 @@ We strongly recommend keeping Essential and Security cookies enabled for the bes
 
 ## 14. Cookies & Children
 
-Void-Agent does not knowingly set cookies or use tracking technologies for users under the age of 13.
+Void Agent does not knowingly set cookies or use tracking technologies for users under the age of 13.
 
-If you believe a child under 13 has used Void-Agent and cookies have been set on their device, please contact us at **support@void-agent.local** and we will take appropriate steps to delete any associated data.
+If you believe a child under 13 has used Void Agent and cookies have been set on their device, please contact us at **support@Void Agent.local** and we will take appropriate steps to delete any associated data.
 
 For users between 13 and 18, we recommend that parents or guardians review this policy and help configure appropriate browser cookie settings if needed.
 
@@ -359,9 +359,9 @@ The latest version of this policy is always available at [/cookies-policy](/cook
 
 If you have any questions about our use of cookies or this policy, feel free to reach out:
 
-**Void-Agent**
-📧 **Support:** support@void-agent.local
-🌐 **Website:** [the Void-Agent website](/)
+**Void Agent**
+📧 **Support:** support@Void Agent.local
+🌐 **Website:** [the Void Agent website](/)
 
 ---
 

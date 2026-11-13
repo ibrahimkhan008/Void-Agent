@@ -75,7 +75,7 @@ export default function SignUpPage({
     );
   }
   return (
-    // Cognix §4.15: no card chrome — grouping by space, not boxes.
+    // Design system §4.15: no card chrome — grouping by space, not boxes.
     // The (auth) layout already provides the brand-surface backdrop.
     <div className="w-full md:max-w-sm mx-auto flex flex-col items-start gap-1 text-left">
       <h1 className="text-2xl font-normal tracking-[-0.03em] text-balance">

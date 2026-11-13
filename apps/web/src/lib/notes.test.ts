@@ -57,7 +57,7 @@ describe("saved notes helpers", () => {
       ],
       savedAt: new Date("2026-01-02T03:04:05.000Z"),
     });
-    expect(markdown).toContain("Saved from Void-Agent on 2026-01-02");
+    expect(markdown).toContain("Saved from Void Agent on 2026-01-02");
     expect(markdown).toContain("[Reference](https://example.com/source)");
     expect(sanitizeNoteFileName('a/b:"c"')).toBe("a b c");
   });

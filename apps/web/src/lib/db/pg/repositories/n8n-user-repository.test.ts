@@ -61,7 +61,7 @@ describe("pgN8nUserRepository", () => {
 
   afterEach(() => vi.unstubAllEnvs());
 
-  it("looks up the n8n identity by the authenticated Void-Agent user ID", async () => {
+  it("looks up the n8n identity by the authenticated Void Agent user ID", async () => {
     mocks.selectChain.limit.mockResolvedValue([userRecord]);
     await expect(pgN8nUserRepository.findByUserId("user-1")).resolves.toEqual(
       userRecord,

@@ -1,8 +1,8 @@
-# Void-Agent architecture and baseline
+# Void Agent architecture and baseline
 
-> **Repository roles corrected 2026-11-09:** Canonical upstream is [`keinsaasforever/better-chatbot`](https://github.com/keinsaasforever/better-chatbot) `main`; customized destination is [`ibrahimkhan008/Void-Agent`](https://github.com/ibrahimkhan008/Void-Agent). Earlier `Void-Agent-V2` references below describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare the live upstream branch with the destination and preserve Void-Agent customizations. The current instruction is to keep changes local: no commit, push, or deployment.
+> **Repository roles corrected 2026-11-09:** Canonical upstream is [`keinsaasforever/better-chatbot`](https://github.com/keinsaasforever/better-chatbot) `main`; customized destination is [`ibrahimkhan008/Void Agent`](https://github.com/ibrahimkhan008/Void Agent). Earlier `Void Agent-V2` references below describe a historical local checkout or prior audit evidence, not the canonical upstream identity. For current ports, compare the live upstream branch with the destination and preserve Void Agent customizations. The current instruction is to keep changes local: no commit, push, or deployment.
 
-Current destination: `C:/Users/Ikra/Desktop/Void-Agent`; canonical upstream: `keinsaasforever/better-chatbot` at `6f4183566bc48616303cb84055f11f79578c82fe`. The sibling `Void-Agent-V2` paths and architecture notes below are historical evidence from the earlier audit, not the current source of truth.
+Current destination: `C:/Users/Ikra/Desktop/Void Agent`; canonical upstream: `keinsaasforever/better-chatbot` at `6f4183566bc48616303cb84055f11f79578c82fe`. The sibling `Void Agent-V2` paths and architecture notes below are historical evidence from the earlier audit, not the current source of truth.
 
 **Promoted state (2026-11-11):** the destination is the integrated monorepo — `apps/web` (Next.js / React 19 / AI SDK 7, TypeScript, pnpm, Tailwind/Radix, Zustand/SWR, Better Auth, Drizzle with node-postgres and PostgreSQL/pgvector), `apps/desktop` (Electron shell carrying the merged destination security modules: MCP consent/IPC, pinned remote transport, secure updater, notification IPC, server-picker, application menu, desktop handoff), `packages/*` (audit, auth-contracts, channel-contracts, mcp-core, mcp-router, mcp-types), `servers/mcp-stdio`, root `e2b/` template infrastructure, Turbo orchestration, and an Inngest-powered scheduler with a webhook outbox delivery driver. Local development remains port 3000; do not introduce Docker deployment. The pre-promotion single-app description in the historical sections below is retained as evidence only.
 
@@ -10,7 +10,7 @@ Primary subsystem evidence (all under `apps/web/src` unless noted): `app/api/cha
 
 Baseline working-copy changes predate this directive: OAuth cookie-prefix fixes,
 middleware regression tests, credential ignore rule and legacy lockfile repair.
-Preserve these changes. The source still contains historical Flare identifiers;
+Preserve these changes. The source still contains historical Void Agent identifiers;
 do not mass-rename provider IDs, environment variables or migration history.
 
 ## Conversation history loading
@@ -22,7 +22,7 @@ Chat thread pages fetch the newest 50 messages. Older messages are requested thr
 The chat route conditionally provides no-execute tools for plan approval, bounded user questions, and editable email draft review. Dedicated chat cards return decisions through the existing AI SDK tool-result mechanism. These decisions guide model behavior and do not replace the connected tool's server-side authorization. User answers are persisted in chat history; the input workflow is explicitly not for secrets.
 
 ## F037 project document originals (2026-11-06)
-- Better Chatbot/V2 has project upload, list, download, per-document analysis, deletion, and tracked DOCX edit workflows. Void-Agent now supports project-member listing and authenticated download of original bytes for project documents uploaded into an already attached writable knowledge collection. Upload reuses the existing parser/RAG/embedding path and records a project-to-item link.
+- Better Chatbot/V2 has project upload, list, download, per-document analysis, deletion, and tracked DOCX edit workflows. Void Agent now supports project-member listing and authenticated download of original bytes for project documents uploaded into an already attached writable knowledge collection. Upload reuses the existing parser/RAG/embedding path and records a project-to-item link.
 - Original bytes are uploaded with the authenticated uploader as storage owner; only the opaque storage key is stored on the collection item. Project members retrieve by project/item IDs through an authorized no-store proxy; user-supplied keys/URLs are never accepted. Collection item listing removes storageKey from returned JSON.
 - Upload is editor-only, same-origin, rate-limited, bounded to 20 MiB (plus request framing), parser-allowlisted, active-content blocked, and rechecks project/collection authorization after parsing/indexing before linking. Failed storage/RAG work cleans the stored blob; failed RAG clears the stored key from the failed item.
 - Tests: 11 focused tests passed across project upload/download, RAG ingest and collection repository; `pnpm db:check`, whole-project typecheck, scoped Biome and production build passed (192/192 pages).
@@ -38,7 +38,8 @@ The chat route conditionally provides no-execute tools for plan approval, bounde
 - Correction to the earlier 2026-11-06 22:12 context entry: migration 0058 is at src/lib/db/migrations/pg/0058_project_document_files.sql, not src/lib/db/pg/migrations/pg/0058_project_document_files.sql.
 
 ## Verification addendum (2026-11-06 22:45:46 +05:30)
-- The production build completed successfully and generated all 192 static pages. Existing warnings remain: dynamic headers() session access during static collection, E2B dynamic equire, unpdf import.meta, <img> lint warnings, SSL mode compatibility notice, and absent optional Redis/E2B environment configuration.
+- The production build completed successfully and generated all 192 static pages. Existing warnings remain: dynamic headers() session access during static collection, E2B dynamic 
+equire, unpdf import.meta, <img> lint warnings, SSL mode compatibility notice, and absent optional Redis/E2B environment configuration.
 - The tabular-review generator now checks requested cell membership before setting the review to generating; invalid targets return 404 without issuing the status update. Focused regression test passed (1/1), and focused Biome passed.
 - Combined focused verification is 23 passing tests across 6 files (22 project-document/RAG tests plus 1 tabular-review test). Standalone pnpm check-types passed with a 6GB Node heap. pnpm db:check, scoped Biome, and git diff --check passed; Git only reported existing LF/CRLF conversion notices.
 - No full test suite, live PostgreSQL migration/application, real cloud object-storage journey, or browser/provider journey was run in this addendum. Migration 0058 is still unapplied.
@@ -52,7 +53,7 @@ The chat route conditionally provides no-execute tools for plan approval, bounde
 - **Build:** The latest production build after these parallel slices is pending. A preceding build passed 192/192 pages before the provider/notification/voice changes; do not use that earlier build as current verification.
 - **Known gaps:** No live PostgreSQL/migration application or browser/device/provider service journey was run. Migration 0058 remains unapplied. Overall migration, F037 document workflows, CreateAgent feature parity, project-specific collaboration, per-user local models, and other remaining matrix entries are still incomplete.
 
-
+Void Agent
 > Current repository identities, pinned source snapshots, desktop provenance, and staging status are maintained in [current-source-roles.md](current-source-roles.md). Historical Void-Agent-V2 references in this file are retained as prior audit evidence and do not identify the current canonical sources.
 
 ## Staged architecture additions — 2026-11-11
@@ -70,7 +71,7 @@ The separate integration workspace adds destination-specific modules under `apps
 Require exact one-use approval for every provider write. Mock-tested writes now cover Gmail, Drive, Teams, Asana, ClickUp, Linear, Jira, Zendesk. Productboard needs workspace-derived schema/relationship; Freshdesk needs encrypted per-user API-key/subdomain setup; Discord requires a Bot token (not the current user OAuth model); Zulip requires per-user realm/token and pinned-host controls. Do not enable any of these until the credential boundary and approval path are implemented and tested.
 
 ### C45 intermediate implementation note — 2026-11-11
-The cryptographic challenge port is in progress. Initial shared/client/server modules and a bounded authenticated challenge route are being added. Replay consumption uses atomic `setNX`; the implementation checks for process-local cache and fails closed rather than claim cross-instance safety. The allowed origin derives from configured deployment origins instead of copying old Flare hard-coded domains. Route/client integration and adversarial tests are not yet complete; current typecheck pass predates these latest edits.
+The cryptographic challenge port is in progress. Initial shared/client/server modules and a bounded authenticated challenge route are being added. Replay consumption uses atomic `setNX`; the implementation checks for process-local cache and fails closed rather than claim cross-instance safety. The allowed origin derives from configured deployment origins instead of copying old Void Agent hard-coded domains. Route/client integration and adversarial tests are not yet complete; current typecheck pass predates these latest edits.
 
 ### AI app builder in-progress — 2026-11-11
 An additive `app_build` table/migration 0080 and initial repository/runner are underway. Maintain one owner-scoped lifecycle per build, owner/thread integrity in PostgreSQL, allowlisted templates and fixed commands, no arbitrary shell input, bounded file path/content/output, and cleanup on failure/cancel. `db:check` passed but no actual DB application, API/UI, or end-to-end verification is complete.
@@ -84,5 +85,5 @@ The staging app now has a standalone build create/detail UI and APIs, owner-scop
 
 
 ## Current integration boundary — 2026-11-11 01:05 IST
-
+Void Agent
 The upstream-based application remains in C:/Users/Ikra/Desktop/Void-Agent-integration-staging, without Git metadata and not promoted. Destination remains at 589fa48f3c323d049e51d566f3b8ddff95d59bc5 with 61 dirty/untracked entries and no apps/web directory. Staging has 159 upstream content differences and unresolved custom equivalence. Current overall/implementation/verified estimates: 44% / 58% / 31%. Do not treat staging as deployed or fully validated.

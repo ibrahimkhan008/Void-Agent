@@ -125,7 +125,7 @@ export const storageKeyFromUrl = (input: string): string | null => {
     const rawPath = input.split(/[?#]/, 1)[0] ?? "";
     if (/(?:^|[\\/])(?:\.|%2e){1,2}(?:[\\/]|$)/i.test(rawPath)) return null;
 
-    const url = new URL(input, "https://void-agent.invalid");
+    const url = new URL(input, "https://voidagent.invalid");
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     let pathname = url.pathname;
     const appFilesPrefix = "/api/files/";

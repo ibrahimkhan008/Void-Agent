@@ -62,14 +62,14 @@ describe("Dodo checkout", () => {
     mocks.base.mockReturnValue("https://app.test");
   });
   it("uses a server-mapped product and user-bound return token", async () => {
-    const response = await POST(request({ tier: "flare-pro" }));
+    const response = await POST(request({ tier: "voidagent-pro" }));
     expect(response.status).toBe(200);
-    expect(mocks.product).toHaveBeenCalledWith("flare-pro");
+    expect(mocks.product).toHaveBeenCalledWith("voidagent-pro");
     expect(mocks.checkout).toHaveBeenCalledWith(
       expect.objectContaining({
         productId: "prod_server_configured",
         customer: expect.objectContaining({ userId: "user-1" }),
-        tier: "flare-pro",
+        tier: "voidagent-pro",
       }),
     );
     expect((await response.json()).checkoutUrl).toBe(
@@ -78,15 +78,15 @@ describe("Dodo checkout", () => {
   });
   it("rejects unauthorized, cross-origin, and caller-selected product input", async () => {
     mocks.session.mockResolvedValueOnce(null);
-    expect((await POST(request({ tier: "flare-pro" }))).status).toBe(401);
+    expect((await POST(request({ tier: "voidagent-pro" }))).status).toBe(401);
     expect(
-      (await POST(request({ tier: "flare-pro" }, "https://attacker.test")))
+      (await POST(request({ tier: "voidagent-pro" }, "https://attacker.test")))
         .status,
     ).toBe(403);
     expect(
       (
         await POST(
-          request({ tier: "flare-pro", productId: "attacker-product" }),
+          request({ tier: "voidagent-pro", productId: "attacker-product" }),
         )
       ).status,
     ).toBe(400);

@@ -142,7 +142,7 @@ function makeModel() {
 }
 
 function makeRequest(signal?: AbortSignal) {
-  return new Request("https://void-agent.test/api/chat", {
+  return new Request("https://voidagent.test/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

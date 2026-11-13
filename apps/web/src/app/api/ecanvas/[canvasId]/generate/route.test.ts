@@ -42,9 +42,9 @@ const payload = {
   messages: [{ role: "user", content: "Build a landing page" }],
 };
 
-function request(body: unknown = payload, origin = "https://void-agent.test") {
+function request(body: unknown = payload, origin = "https://voidagent.test") {
   return new Request(
-    `https://void-agent.test/api/ecanvas/${canvasId}/generate`,
+    `https://voidagent.test/api/ecanvas/${canvasId}/generate`,
     {
       method: "POST",
       headers: { origin, "content-type": "application/json" },

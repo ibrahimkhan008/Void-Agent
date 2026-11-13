@@ -228,7 +228,7 @@ export function AgentsTabs() {
               </div>
               <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2 font-mono text-[10px] text-white/35">
                 <span>Markdown · UTF-8</span>
-                <span>● void-agent</span>
+                <span>● Void Agent</span>
                 <span className="ml-auto">Ln 1 , Col 47</span>
               </div>
             </div>

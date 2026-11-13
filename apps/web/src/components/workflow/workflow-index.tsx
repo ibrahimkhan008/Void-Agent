@@ -53,7 +53,7 @@ export function WorkflowIndex({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      {/* Section header: eyebrow → display heading → sub. */}
       <div className="mb-8 space-y-3">
         <Eyebrow>Automate</Eyebrow>
         <div className="flex items-start justify-between gap-4">

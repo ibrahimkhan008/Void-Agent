@@ -45,7 +45,7 @@ export function CollectionsDashboard() {
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6 px-6 py-8">
-      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      {/* Section header: eyebrow → display heading → sub. */}
       <header className="space-y-3">
         <Eyebrow>Knowledge</Eyebrow>
         <div>

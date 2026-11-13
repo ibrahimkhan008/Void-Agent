@@ -24,7 +24,7 @@ describe("Dodo subscription summary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.session.mockResolvedValue({ user: { id: "user-1" } });
-    mocks.user.mockResolvedValue({ id: "user-1", tier: "flare-pro" });
+    mocks.user.mockResolvedValue({ id: "user-1", tier: "voidagent-pro" });
     mocks.list.mockResolvedValue([
       {
         id: "internal-id",
@@ -32,7 +32,7 @@ describe("Dodo subscription summary", () => {
         dodoSubscriptionId: "sub_private",
         dodoCustomerId: "cus_private",
         status: "active",
-        tier: "flare-pro",
+        tier: "voidagent-pro",
         previousBillingDate: null,
         nextBillingDate: null,
         cancelAtNextBillingDate: false,
@@ -46,7 +46,7 @@ describe("Dodo subscription summary", () => {
     const response = await GET();
     const text = await response.text();
     expect(response.status).toBe(200);
-    expect(text).toContain('"tier":"flare-pro"');
+    expect(text).toContain('"tier":"voidagent-pro"');
     expect(text).not.toContain("sub_private");
     expect(text).not.toContain("cus_private");
     expect(text).not.toContain("prod_private");

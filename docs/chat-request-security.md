@@ -37,6 +37,6 @@ Unit tests exercise signed challenge generation, body tampering, origin,
 expiry, client-key and proof-of-work checks, one-use replay, rate-limit failure,
 and fail-closed cache behavior. Route tests mock authentication and persistence.
 These tests do not verify a live PostgreSQL server, Redis/Upstash deployment,
-Cloudflare Turnstile credentials, a browser, or an end-to-end provider call.
+Cloudvoid-agent Turnstile credentials, a browser, or an end-to-end provider call.
 Those production integrations remain to be verified in an isolated configured
 environment.

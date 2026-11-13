@@ -2,12 +2,12 @@ import { readFile } from "node:fs/promises";
 import { LegalPage, type LegalSection } from "./legal-page";
 
 /**
- * Renders a markdown legal document through the Cognix LegalPage layout.
+ * Renders a markdown legal document through the Void Agent LegalPage layout.
  *
  * Parses the markdown by `## ` headings into LegalSection objects, then
- * renders the Cognix article: hero, sticky TOC sidebar, and sectioned body.
+ * renders the Void Agent article: hero, sticky TOC sidebar, and sectioned body.
  * Markdown formatting (bold, lists, code) is converted to the matching
- * Cognix classes.
+ * Void Agent classes.
  */
 export async function MarkdownLegalPage({
   filePath,
@@ -95,7 +95,7 @@ function parseMarkdownSections(raw: string): LegalSection[] {
       if (current) {
         sections.push(toSection(current));
       }
-      // Keep the authored "1." number on the article H2 (cognix style:
+      // Keep the authored "1." number on the article H2 (void-agent style:
       // "1. Agreement") but expose a plain label for the TOC rail, which
       // carries its own 01/02 numbering.
       const headingText = trimmed.replace(/^##\s+/, "").trim();
@@ -133,7 +133,7 @@ function toSection(current: {
   };
 }
 
-/** Render consecutive `|`-pipe lines as a cognix tray+card table. */
+/** Render consecutive `|`-pipe lines as a void-agent tray+card table. */
 function renderMarkdownTable(lines: string[]): string {
   const rows = lines
     .map((line) => line.trim())

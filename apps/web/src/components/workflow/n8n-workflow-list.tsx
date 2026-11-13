@@ -167,7 +167,7 @@ export function N8nWorkflowList() {
               No n8n workflows are available for this account.
             </CardDescription>
             <Button asChild className="mt-2">
-              <Link href="/workflow">Open Void-Agent workflows</Link>
+              <Link href="/workflow">Open Void Agent workflows</Link>
             </Button>
           </CardHeader>
         </Card>

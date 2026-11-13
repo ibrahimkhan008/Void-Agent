@@ -140,7 +140,7 @@ export default function ArtifactsPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <div className="space-y-6">
-        {/* Cognix section header (§4.8): eyebrow → display heading. */}
+        {/* Section header: eyebrow → display heading. */}
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Eyebrow>Admin</Eyebrow>
@@ -211,7 +211,7 @@ export default function ArtifactsPage() {
             </label>
             <ModelSelector
               label=""
-              providerId="flare"
+              providerId="voidagent"
               value={config.model ?? "Gemini 3 Flash"}
               onChange={(v) => setConfig((c) => ({ ...c, model: v }))}
             />

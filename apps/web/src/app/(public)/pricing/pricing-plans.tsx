@@ -43,7 +43,7 @@ const PLANS: Plan[] = [
   {
     id: "free",
     name: "Free",
-    blurb: "For trying Void-Agent and everyday questions.",
+    blurb: "For trying Void Agent and everyday questions.",
     priceAnnual: "Free",
     priceMonthly: "Free",
     annualPerMonth: 0,

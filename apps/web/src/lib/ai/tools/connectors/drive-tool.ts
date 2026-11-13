@@ -145,7 +145,7 @@ async function createDriveFile(
     mimeType && /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/iu.test(mimeType)
       ? mimeType
       : "text/plain";
-  const boundary = `void-agent-${randomBytes(18).toString("hex")}`;
+  const boundary = `Void Agent-${randomBytes(18).toString("hex")}`;
   const rawBody = [
     `--${boundary}`,
     "Content-Type: application/json; charset=UTF-8",

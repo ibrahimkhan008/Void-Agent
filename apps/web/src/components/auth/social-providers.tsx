@@ -5,7 +5,7 @@ import { GoogleIcon } from "ui/google-icon";
 import { MicrosoftIcon } from "ui/microsoft-icon";
 import { BrandButton } from "../ui/brand-button";
 
-// Cognix §4.15: provider buttons are outline, h-9, in a 3-col grid on
+// Design system §4.15: provider buttons are outline, h-9, in a 3-col grid on
 // sm+, with the dotted green glow revealing from bottom-left on hover.
 export default function SocialProviders({
   socialAuthenticationProviders,

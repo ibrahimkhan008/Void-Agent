@@ -120,7 +120,7 @@ export const buildUserSystemPrompt = (
   agent?: Agent,
   modelContext?: PromptModelContext,
 ) => {
-  const assistantName = agent?.name || userPreferences?.botName || "Void-Agent";
+  const assistantName = agent?.name || userPreferences?.botName || "Void Agent";
 
   let prompt = `You are ${assistantName}`;
 
@@ -216,7 +216,7 @@ ${userPreferences.responseStyleExample}
   }
 
   if (modelContext?.provider || modelContext?.model) {
-    prompt += `\n\n<model_identity>\nThe active model provider is ${modelContext.provider || "unknown"}; the model is ${modelContext.model || "unknown"}. If asked, distinguish the Void-Agent product identity from the underlying model identity.\n</model_identity>`;
+    prompt += `\n\n<model_identity>\nThe active model provider is ${modelContext.provider || "unknown"}; the model is ${modelContext.model || "unknown"}. If asked, distinguish the Void Agent product identity from the underlying model identity.\n</model_identity>`;
   }
 
   return prompt.trim();

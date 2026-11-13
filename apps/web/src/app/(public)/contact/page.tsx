@@ -6,9 +6,9 @@ import { AccentSpan } from "@/components/ui/accent-span";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
-  title: "Contact Void-Agent — Support, Sales, Security & Privacy",
+  title: "Contact Void Agent — Support, Sales, Security & Privacy",
   description:
-    "How to reach Void-Agent: support, sales, security disclosure and privacy request addresses, expected response times, community channels and business details.",
+    "How to reach Void Agent: support, sales, security disclosure and privacy request addresses, expected response times, community channels and business details.",
   alternates: { canonical: "/contact" },
 };
 

@@ -1,4 +1,4 @@
--- Void-Agent login/signup device and location security activity.
+-- Void Agent login/signup device and location security activity.
 CREATE TABLE IF NOT EXISTS "security_event" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "user_id" uuid NOT NULL,

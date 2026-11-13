@@ -305,7 +305,7 @@ export async function callConnectorApi(
         ? { "Content-Type": options.contentType ?? "application/json" }
         : {}),
       ...(provider === "github"
-        ? { "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Void-Agent" }
+        ? { "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Void Agent" }
         : {}),
       ...(provider === "notion" ? { "Notion-Version": "2022-06-28" } : {}),
       ...options.headers,
@@ -356,7 +356,7 @@ export async function callConnectorTextApi(
           ? `Basic ${Buffer.from(`${token}:X`).toString("base64")}`
           : `Bearer ${token}`,
       ...(options.contentType ? { "Content-Type": options.contentType } : {}),
-      ...(provider === "github" ? { "User-Agent": "Void-Agent" } : {}),
+      ...(provider === "github" ? { "User-Agent": "Void Agent" } : {}),
     },
     redirect: "error",
     signal: AbortSignal.timeout(12_000),

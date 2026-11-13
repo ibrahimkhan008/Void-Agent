@@ -35,8 +35,8 @@ interface ModelSelectorProps {
 
 const STATIC_PROVIDERS: ProviderOption[] = [
   {
-    id: "flare",
-    name: "Flare X",
+    id: "voidagent",
+    name: "Void Agent X",
     models: ["Claude Opus 4.8", "Claude Opus 4.6", "Cursorlm"].map((n) => ({
       name: n,
       metadata: EMPTY_METADATA,

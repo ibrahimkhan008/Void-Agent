@@ -178,7 +178,7 @@ Without ngrok, uploads will work but `onUploadCompleted` won't be called locally
 
 ### Custom Storage Backend
 
-To implement a custom storage driver (e.g., Cloudflare R2, MinIO, S3):
+To implement a custom storage driver (e.g., Cloudvoid-agent R2, MinIO, S3):
 
 1. Create a new file in `src/lib/file-storage/` (e.g., `r2-file-storage.ts`)
 2. Implement the `FileStorage` interface from `file-storage.interface.ts`

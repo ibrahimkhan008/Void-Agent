@@ -40,7 +40,7 @@ export default async function ProjectsPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      {/* Section header: eyebrow → display heading → sub. */}
       <header className="px-4 pt-8 pb-6 sm:px-6 max-w-6xl mx-auto">
         <Eyebrow>Workspace</Eyebrow>
         <div className="mt-4 flex items-start justify-between gap-4">
@@ -66,7 +66,7 @@ export default async function ProjectsPage() {
 
       <div className="px-4 pb-8 sm:px-6 max-w-6xl mx-auto">
         {projects.length ? (
-          /* Cognix tray+card layering (§4.5): grid of white cards on a
+          /* Tray+card layering: grid of white cards on a
              soft tray frame. */
           <div className="tray">
             <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">

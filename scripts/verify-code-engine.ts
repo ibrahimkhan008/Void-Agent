@@ -17,8 +17,8 @@ const main = async () => {
   const desc = String(ce?.description ?? "");
   console.log("description length:", desc.length);
   console.log(
-    "declares flare namespace:",
-    desc.includes("declare const flare"),
+    "declares void-agent namespace:",
+    desc.includes("declare const void-agent"),
   );
 };
 main().catch((e) => {

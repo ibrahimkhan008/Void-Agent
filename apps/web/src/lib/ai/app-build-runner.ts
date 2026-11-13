@@ -149,7 +149,7 @@ export async function executeAppBuild(input: {
     await sandbox.files.write(`${APP_DIR}/server.js`, STATIC_APP_SERVER_SOURCE);
 
     const start = await sandbox.commands.run(
-      `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
+      `nohup node ${APP_DIR}/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &`,
       { timeoutMs: 10_000 },
     );
     if (start.exitCode !== 0) throw new Error("Preview server did not start");
@@ -311,7 +311,7 @@ export async function resumeAppBuild(input: {
     }
     await sandbox.files.write(`${APP_DIR}/server.js`, STATIC_APP_SERVER_SOURCE);
     const start = await sandbox.commands.run(
-      `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
+      `nohup node ${APP_DIR}/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &`,
       { timeoutMs: 10_000 },
     );
     if (start.exitCode !== 0) throw new Error("Preview server did not start");

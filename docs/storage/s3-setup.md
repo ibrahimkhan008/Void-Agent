@@ -4,8 +4,8 @@ This app supports S3 for file uploads (dev/prod). Development can rely on presig
 
 ## Buckets
 - Pick a region (e.g., `us-east-2`)
-  - Dev/Test example: `flare-ai-dev` (public GET on `uploads/` only if needed)
-  - Prod example: `flare-ai-prod` (private)
+  - Dev/Test example: `void-agent-ai-dev` (public GET on `uploads/` only if needed)
+  - Prod example: `void-agent-ai-prod` (private)
 - Enable default encryption (SSE-S3) and versioning on both buckets.
 
 ## CORS
@@ -25,7 +25,7 @@ Grant public GET for the `uploads/` prefix on the dev bucket only if you need un
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::flare-ai-dev/uploads/*"
+      "Resource": "arn:aws:s3:::void-agent-ai-dev/uploads/*"
     }
   ]
 }
@@ -40,11 +40,11 @@ Least privilege for app role/user:
 - Dev/local:
   - `FILE_STORAGE_TYPE=s3`
   - `FILE_STORAGE_PREFIX=uploads`
-  - `FILE_STORAGE_S3_BUCKET=flare-ai-dev`
+  - `FILE_STORAGE_S3_BUCKET=void-agent-ai-dev`
   - `FILE_STORAGE_S3_REGION=us-east-2` (or set `AWS_REGION`)
   - Use AWS SSO/profile or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
 - Prod:
-  - `FILE_STORAGE_S3_BUCKET=flare-ai-prod`
+  - `FILE_STORAGE_S3_BUCKET=void-agent-ai-prod`
   - Prefer CloudFront; set `FILE_STORAGE_S3_PUBLIC_BASE_URL=https://<cdn-domain>`
 
 ## Verify locally
@@ -53,7 +53,7 @@ Least privilege for app role/user:
 ```
 AWS_PROFILE=<your_profile> \
 FILE_STORAGE_TYPE=s3 \
-FILE_STORAGE_S3_BUCKET=flare-ai-dev \
+FILE_STORAGE_S3_BUCKET=void-agent-ai-dev \
 FILE_STORAGE_S3_REGION=us-east-2 \
 pnpm tsx scripts/verify-s3-upload-url.ts
 ```

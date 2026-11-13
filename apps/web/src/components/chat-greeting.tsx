@@ -18,7 +18,7 @@ function getGreetingByTime() {
 }
 
 // Strong ease-out: the start of the entrance is the moment the eye is
-// tracking. The heading uses the Cognix display H1 spec (§3.4).
+// tracking. The heading uses the Void Agent display H1 spec (§3.4).
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 // Static second lines give the heading a hierarchy partner without
@@ -70,10 +70,10 @@ export const ChatGreeting = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.04, duration: 0.2, ease: EASE_OUT }}
           >
-            <Eyebrow>Void-Agent</Eyebrow>
+            <Eyebrow>Void Agent</Eyebrow>
           </motion.div>
 
-          {/* Cognix display H1 (§3.4): 400-weight, tracking-[-0.035em],
+          {/* Void Agent display H1 (§3.4): 400-weight, tracking-[-0.035em],
               leading-[1.04], text-balance; the user's name lands as the
               Instrument Serif accent word (§4.7). */}
           <motion.h1

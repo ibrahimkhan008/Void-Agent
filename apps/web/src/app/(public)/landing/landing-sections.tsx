@@ -81,7 +81,7 @@ const PARTNERS = [
   "Google",
   "Groq",
   "Z AI",
-  "Cloudflare",
+  "Cloudvoid-agent",
 ];
 
 export function PartnerStrip() {

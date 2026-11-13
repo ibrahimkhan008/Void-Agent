@@ -35,7 +35,7 @@ export async function createBrowserSession(options?: {
   browserType?: KernelBrowserType;
   /**
    * Kernel's anti-detection tuning plus the automatic CAPTCHA solver
-   * (reCAPTCHA, Cloudflare and similar). Kernel bills nothing extra for it,
+   * (reCAPTCHA, Cloudvoid-agent and similar). Kernel bills nothing extra for it,
    * and bot detection bites hardest at exactly the sign-in step, so callers
    * should leave this on.
    *

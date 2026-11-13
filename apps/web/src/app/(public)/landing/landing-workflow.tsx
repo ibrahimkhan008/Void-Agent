@@ -70,7 +70,7 @@ export function WorkflowSection() {
           </h2>
           <p className="mt-5 max-w-[60ch] text-lg/8 text-(--paper)/60">
             Drop in a trigger, connect your tools, give the AI Agent a model and
-            memory, and branch on the result. Void-Agent runs it on its own.
+            memory, and branch on the result. Void Agent runs it on its own.
           </p>
         </div>
 
@@ -87,7 +87,7 @@ export function WorkflowSection() {
                   Issue triage
                 </span>
                 <span className="hidden rounded-md bg-(--ink-2) px-1.5 py-0.5 font-mono text-[10px] text-(--paper)/55 sm:inline">
-                  void-agent
+                  Void Agent
                 </span>
               </div>
               <div className="hidden items-center gap-1 rounded-lg bg-(--ink-2) p-1 md:flex">
@@ -245,7 +245,7 @@ const PINS = [
     y: 30,
   },
   {
-    lab: "Void-Agent",
+    lab: "Void Agent",
     model: "Your workspace",
     place: "India",
     x: 66,
@@ -270,11 +270,11 @@ const NETWORK_POINTS = [
   },
   {
     title: "History that fits each model",
-    body: "When you switch, Void-Agent adapts the conversation and tool calls so the next model can read them.",
+    body: "When you switch, Void Agent adapts the conversation and tool calls so the next model can read them.",
   },
   {
     title: "Automatic fallback",
-    body: "If a model fails mid-reply, Void-Agent retries on a backup model so the task keeps moving.",
+    body: "If a model fails mid-reply, Void Agent retries on a backup model so the task keeps moving.",
   },
   {
     title: "The right model per task",
@@ -354,7 +354,7 @@ export function NetworkSection() {
 
           {/* Map subtitle */}
           <p className="absolute inset-x-6 bottom-6 max-w-md text-sm text-(--paper)/55 lg:bottom-8">
-            AI labs whose models run in Void-Agent, in the United States, the
+            AI labs whose models run in Void Agent, in the United States, the
             United Kingdom, India and China.
           </p>
         </div>

@@ -114,7 +114,7 @@ describe("deliverWebhook", () => {
     expect(options.headers["X-Webhook-Signature"]).toContain(
       baseInput.timestamp,
     );
-    expect(options.headers["User-Agent"]).toBe("flare-webhooks/1");
+    expect(options.headers["User-Agent"]).toBe("void-agent-webhooks/1");
     expect(options.agent).toBeDefined();
     expect(mocks.agentOptions).toEqual({ lookup: options.lookup });
     expect(mocks.agentDestroy).toHaveBeenCalledOnce();

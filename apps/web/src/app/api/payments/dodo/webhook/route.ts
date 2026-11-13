@@ -64,7 +64,7 @@ async function resolveOwner(
 ): Promise<string | null> {
   const meta = metadata(data);
   const metaOwner =
-    stringOrNull(meta.flareUserId) ?? stringOrNull(meta.user_id);
+    stringOrNull(meta.voidagentUserId) ?? stringOrNull(meta.user_id);
   const existing = subscriptionId
     ? await dodoPaymentsRepository.getSubscriptionByDodoId(subscriptionId)
     : null;

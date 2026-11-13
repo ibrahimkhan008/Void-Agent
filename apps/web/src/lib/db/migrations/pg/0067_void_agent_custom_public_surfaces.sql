@@ -1,4 +1,4 @@
--- Void-Agent destination-only public API, embed, webhook and connector data.
+-- Void Agent destination-only public API, embed, webhook and connector data.
 -- These tables are additive to upstream's schema. Upstream's Better Auth
 -- `apikey` table remains untouched; scoped REST keys use `api_key`.
 

@@ -14,21 +14,25 @@ const caps = {
   enabledToolkits: on,
   availableButOff: all.filter((i) => !on.includes(i)),
   supportsTools: true,
-  tier: "flare-enterprises-max",
+  tier: "voidagent-enterprises-max",
 };
 
 const main = async () => {
-  // 1. Plain chat (no agent) — the "main Flare agent".
+  // 1. Plain chat (no agent) — the "main Void Agent agent".
   const base = buildUserSystemPrompt(
     { id: "u", name: "Kety", email: "k@x.com" } as any,
     undefined,
     undefined,
-    { provider: "flare", model: "opus" },
+    { provider: "voidagent", model: "opus" },
     caps,
   );
   console.log("=== default chat assistant ===");
   console.log("prompt chars:", base.length);
-  for (const k of ["<capabilities>", "<flare_platform>", "<core_behaviour>"])
+  for (const k of [
+    "<capabilities>",
+    "<voidagent_platform>",
+    "<core_behaviour>",
+  ])
     console.log(`  has ${k}: ${base.includes(k)}`);
 
   // 2. Every agent: prompt assembles, and its tools actually resolve.
@@ -40,7 +44,7 @@ const main = async () => {
       { id: "u" } as any,
       undefined,
       a,
-      { provider: "flare", model: "opus" },
+      { provider: "voidagent", model: "opus" },
       caps,
     );
     const mentions = (a.instructions?.mentions ?? []) as any[];

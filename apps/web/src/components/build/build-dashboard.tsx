@@ -147,7 +147,7 @@ export function BuildDashboard({
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
-      {/* Cognix section header (§4.8): eyebrow → display heading → sub. */}
+      {/* Section header: eyebrow → display heading → sub. */}
       <header className="space-y-3">
         <Eyebrow>Build</Eyebrow>
         <div>

@@ -37,7 +37,7 @@ export async function downloadPublicTextUrl(raw: string) {
     method: "GET",
     headers: {
       Accept: "text/html, application/xhtml+xml, text/plain;q=0.9",
-      "User-Agent": "Void-Agent-Knowledge-Importer/1.0",
+      "User-Agent": "Void Agent-Knowledge-Importer/1.0",
     },
     timeout: REQUEST_TIMEOUT_MS,
     maxHeaderSize: 16 * 1024,

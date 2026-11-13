@@ -74,7 +74,7 @@ describe("GET /api/workflow/executions/[executionId]", () => {
   it("returns a bounded review view for the owner without raw checkpoint data", async () => {
     const response = await GET(
       new Request(
-        `https://void-agent.test/api/workflow/executions/${executionId}`,
+        `https://voidagent.test/api/workflow/executions/${executionId}`,
       ),
       context,
     );
@@ -106,7 +106,7 @@ describe("GET /api/workflow/executions/[executionId]", () => {
 
   it("allows the owner to inspect and reject a pending action after workflow access is revoked", async () => {
     mocks.requireExecutableWorkflow.mockRejectedValueOnce(new Error("revoked"));
-    const response = await GET(new Request("https://void-agent.test"), context);
+    const response = await GET(new Request("https://voidagent.test"), context);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       execution: {
@@ -130,7 +130,7 @@ describe("GET /api/workflow/executions/[executionId]", () => {
       createdAt: new Date("2026-11-08T00:00:00Z"),
       updatedAt: new Date("2026-11-08T00:01:00Z"),
     });
-    const response = await GET(new Request("https://void-agent.test"), context);
+    const response = await GET(new Request("https://voidagent.test"), context);
     const body = await response.json();
     expect(body.execution).toMatchObject({
       expired: true,
@@ -143,13 +143,13 @@ describe("GET /api/workflow/executions/[executionId]", () => {
 
   it("returns 404 for executions outside the caller's owner scope", async () => {
     mocks.getHistoryForUser.mockResolvedValueOnce(null);
-    const response = await GET(new Request("https://void-agent.test"), context);
+    const response = await GET(new Request("https://voidagent.test"), context);
     expect(response.status).toBe(404);
     expect(mocks.getActiveForUser).not.toHaveBeenCalled();
   });
 
   it("validates the execution ID and requires an authenticated owner", async () => {
-    const invalid = await GET(new Request("https://void-agent.test"), {
+    const invalid = await GET(new Request("https://voidagent.test"), {
       params: Promise.resolve({ executionId: "not-a-uuid" }),
     });
     expect(invalid.status).toBe(400);
@@ -157,7 +157,7 @@ describe("GET /api/workflow/executions/[executionId]", () => {
 
     mocks.session = null;
     expect(
-      (await GET(new Request("https://void-agent.test"), context)).status,
+      (await GET(new Request("https://voidagent.test"), context)).status,
     ).toBe(401);
   });
 });

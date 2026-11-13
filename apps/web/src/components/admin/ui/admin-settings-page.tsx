@@ -162,7 +162,7 @@ function PageHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      {/* Cognix section header (§4.8): eyebrow → display heading. */}
+      {/* Section header: eyebrow → display heading. */}
       <div className="space-y-2">
         <Eyebrow>Admin</Eyebrow>
         <h1 className="flex items-center gap-2 text-3xl font-normal tracking-[-0.03em]">

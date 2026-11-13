@@ -161,7 +161,7 @@ export function VoiceDevicesDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deviceType: "m5stack_atom_echo_s3r",
-          displayName: "Void-Agent Voice Device",
+          displayName: "Void Agent Voice Device",
         }),
       });
       const result = await response.json();

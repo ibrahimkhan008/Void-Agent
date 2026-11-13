@@ -1,5 +1,5 @@
 /**
- * Cloudflare Turnstile wiring for the Better Auth captcha plugin.
+ * Cloudvoid-agent Turnstile wiring for the Better Auth captcha plugin.
  *
  * The bot signups this defends against never load the page — they POST the
  * auth endpoint directly. Only a server-side check inside the auth handler
@@ -9,9 +9,9 @@
  *
  * Both halves are keyed off env vars and stay off when unset, so local dev, a
  * self-host, and a deploy whose env is not populated yet keep working instead
- * of rejecting every sign-in. Cloudflare's always-passing test keys
+ * of rejecting every sign-in. Cloudvoid-agent's always-passing test keys
  * (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`) are the
- * way to exercise the wiring locally without hitting Cloudflare.
+ * way to exercise the wiring locally without hitting Cloudvoid-agent.
  */
 
 /**

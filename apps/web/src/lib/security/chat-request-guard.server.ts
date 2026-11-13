@@ -155,7 +155,7 @@ const getExpectedOrigins = (request: Request): Set<string> => {
     const configuredOrigins = [
       process.env.NEXT_PUBLIC_BASE_URL,
       process.env.BETTER_AUTH_URL,
-      process.env.FLARE_AUTH_URL,
+      process.env.VOIDAGENT_AUTH_URL,
       ...(process.env.CHAT_GUARD_ALLOWED_ORIGINS?.split(",") ?? []),
     ];
     const productionOrigins = new Set<string>();
@@ -181,7 +181,7 @@ const getExpectedOrigins = (request: Request): Set<string> => {
     }
   };
 
-  addOrigin(process.env.FLARE_AUTH_URL);
+  addOrigin(process.env.VOIDAGENT_AUTH_URL);
   addOrigin(process.env.NEXT_PUBLIC_BASE_URL);
 
   try {
@@ -197,7 +197,7 @@ const getExpectedHostname = (request: Request): string | null => {
   const raw =
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.BETTER_AUTH_URL ||
-    process.env.FLARE_AUTH_URL ||
+    process.env.VOIDAGENT_AUTH_URL ||
     request.url;
 
   try {

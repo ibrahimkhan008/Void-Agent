@@ -23,7 +23,7 @@ describe("Dodo configuration", () => {
             dodo: {
               enabled: true,
               environment: "live_mode",
-              productIds: { "flare-pro": "prod_db" },
+              productIds: { "voidagent-pro": "prod_db" },
             },
           }
         : {
@@ -48,8 +48,8 @@ describe("Dodo configuration", () => {
       apiKeySource: "db",
       webhookSecretSource: "db",
     });
-    expect(await getDodoProductIdForTier("flare-pro")).toBe("prod_db");
-    expect(await getTierForDodoProductId("prod_db")).toBe("flare-pro");
+    expect(await getDodoProductIdForTier("voidagent-pro")).toBe("prod_db");
+    expect(await getTierForDodoProductId("prod_db")).toBe("voidagent-pro");
     expect(await getDodoProductIdForTier("free")).toBeNull();
   });
 
@@ -57,7 +57,7 @@ describe("Dodo configuration", () => {
     vi.stubEnv("DODO_PAYMENTS_API_KEY", "env-api");
     vi.stubEnv("DODO_WEBHOOK_SECRET", "env-hook");
     vi.stubEnv("DODO_ENVIRONMENT", "test_mode");
-    vi.stubEnv("DODO_PRODUCT_FLARE_PRO", "prod_env");
+    vi.stubEnv("DODO_PRODUCT_VOIDAGENT_PRO", "prod_env");
     const config = await getDodoConfig();
     expect(config).toMatchObject({
       apiKey: "env-api",
@@ -66,6 +66,6 @@ describe("Dodo configuration", () => {
       apiKeySource: "env",
       webhookSecretSource: "env",
     });
-    expect(await getDodoProductIdForTier("flare-pro")).toBe("prod_env");
+    expect(await getDodoProductIdForTier("voidagent-pro")).toBe("prod_env");
   });
 });

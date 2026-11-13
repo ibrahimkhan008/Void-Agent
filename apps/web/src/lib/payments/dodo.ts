@@ -97,7 +97,7 @@ export async function createCheckoutSession(
       return_url: input.successUrl,
       cancel_url: input.cancelUrl ?? input.successUrl,
       metadata: {
-        flareUserId: input.customer.userId,
+        voidagentUserId: input.customer.userId,
         ...(input.tier ? { tier: input.tier } : {}),
       },
       feature_flags: {

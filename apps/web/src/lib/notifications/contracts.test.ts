@@ -48,7 +48,7 @@ describe("notification contracts", () => {
     expect(safeNotificationHref("/line\nbreak")).toBeNull();
     expect(safeNotificationHref("https://evil.example")).toBeNull();
 
-    const origin = "https://void-agent.invalid";
+    const origin = "https://voidagent.invalid";
     const maliciousPath = "/\\\\evil.example";
     expect(new URL(maliciousPath, origin).origin).not.toBe(origin);
   });

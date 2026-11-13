@@ -8,9 +8,9 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { AccentSpan } from "@/components/ui/accent-span";
 
 export const metadata: Metadata = {
-  title: "About Void-Agent: AI Research and Product Company",
+  title: "About Void Agent: AI Research and Product Company",
   description:
-    "Learn about our mission, our approach, and what we build across the Void-Agent workspace, Cloud Agent, and research.",
+    "Learn about our mission, our approach, and what we build across the Void Agent workspace, Cloud Agent, and research.",
   alternates: { canonical: "/about" },
 };
 
@@ -20,13 +20,13 @@ const PARTNERS = [
   "Google",
   "Groq",
   "Z AI",
-  "Cloudflare",
+  "Cloudvoid-agent",
 ];
 
 const BUILD_CARDS = [
   {
     kicker: "Product",
-    title: "Void-Agent workspace",
+    title: "Void Agent workspace",
     body: "One place for chat, files, images, research and workflows. Pick from 30+ models by 12 AI labs and switch whenever you like, in the same thread.",
   },
   {
@@ -37,7 +37,7 @@ const BUILD_CARDS = [
   {
     kicker: "Research",
     title: "Labs",
-    body: "Our research team. New agent designs and models get tested here first, and only the ones that hold up make it into Void-Agent.",
+    body: "Our research team. New agent designs and models get tested here first, and only the ones that hold up make it into Void Agent.",
   },
 ];
 
@@ -84,12 +84,12 @@ export default function AboutPage() {
           />
         </div>
         <div className="mx-auto max-w-7xl px-6">
-          <Eyebrow>About Void-Agent</Eyebrow>
+          <Eyebrow>About Void Agent</Eyebrow>
           <h1 className="mt-6 max-w-[20ch] text-[44px] leading-[1.05] font-normal tracking-[-0.035em] text-balance text-(--paper) sm:text-6xl lg:text-[72px]">
             We Build The Place Where AI <AccentSpan>Gets Work Done.</AccentSpan>
           </h1>
           <p className="mt-7 max-w-[54ch] text-lg/[1.6] text-(--paper)/60">
-            Void-Agent started with a small annoyance. We had five AI tabs open,
+            Void Agent started with a small annoyance. We had five AI tabs open,
             three subscriptions, and still spent the day copying text between
             them. So we built one workspace where any model can pick up a task
             and actually finish it.
@@ -148,7 +148,7 @@ export default function AboutPage() {
           </div>
           <div className="mt-8 max-w-[70ch] space-y-6 text-[17px]/8 text-(--paper)/65">
             <p>
-              We founded Void-Agent in 2024 in India. We did not want to build
+              We founded Void Agent in 2024 in India. We did not want to build
               another chatbot. We wanted to stop treating AI like something you
               ask questions and start treating it like a teammate you hand work
               to.
@@ -162,7 +162,7 @@ export default function AboutPage() {
             <p>
               We also refuse to bet on a single model. Claude writes
               beautifully, GPT reasons well, Gemini is quick, and DeepSeek is
-              great with code and math. Void-Agent lets you use the right one
+              great with code and math. Void Agent lets you use the right one
               for each step, in the same conversation.
             </p>
           </div>

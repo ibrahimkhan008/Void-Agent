@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Scroll-spy "On this page" nav for the legal article layout.
  *
  * Tracks which section heading has most recently crossed the top band of the
- * viewport (matching cognixai.in): the active item gets a brand-glow segment
+ * viewport (matching void-agentai.in): the active item gets a brand-glow segment
  * on the continuous rail; every other item stays muted. Without JS the first
  * item renders as active, matching the static fallback.
  *
@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * trackH, deepening to /25 on group hover and /35 on thumb hover.
  *
  * Two wrappers render the same list: the desktop sticky rail (LegalToc) and
- * the mobile collapsible (LegalTocCollapsible, cognix §7.7's tray button with
+ * the mobile collapsible (LegalTocCollapsible, design system §7.7's tray button with
  * a rotating chevron above the article).
  */
 
@@ -43,7 +43,7 @@ function useTocState(sections: Array<{ id: string }>) {
     });
   }, []);
 
-  // The green rail segment slides to the active item (cognix style: one
+  // The green rail segment slides to the active item (void-agent style: one
   // continuous hairline behind the list, a brand-glow bar on the active one).
   const updateMarker = useCallback(() => {
     const scroller = listRef.current;
@@ -162,7 +162,7 @@ function TocList({
           );
         })}
       </div>
-      {/* Custom minimal scrollbar track (cognix §7.7 treatment) */}
+      {/* Custom minimal scrollbar track (design system §7.7 treatment) */}
       <div className="absolute inset-y-0 right-0 w-1">
         <div
           className="absolute inset-x-0 cursor-pointer rounded-full bg-(--paper)/15 transition-colors duration-150 group-hover/scroll:bg-(--paper)/25 hover:bg-(--paper)/35"
@@ -194,7 +194,7 @@ export function LegalToc({
 }
 
 /**
- * Mobile collapsible (cognix §7.7): a full-width tray button between the
+ * Mobile collapsible (design system §7.7): a full-width tray button between the
  * sibling pills and the article; expanding reveals the same scroll-spy list.
  * Closes on item navigation.
  */

@@ -29,11 +29,11 @@ export const DEFAULT_BUG_BOUNTY_PROGRAM: BugBountyProgramSettings = {
   enabled: true,
   heroTitle: "Bug Bounty Program",
   heroSubtitle:
-    "Help us keep Flare safe. Submit a valid security or product bug and earn a bounty.",
+    "Help us keep Void Agent safe. Submit a valid security or product bug and earn a bounty.",
   introMarkdown:
-    "Flare rewards researchers and power users who surface real bugs. Reports are triaged within 5 business days, and accepted reports are paid out according to the published severity tiers below.",
+    "Void Agent rewards researchers and power users who surface real bugs. Reports are triaged within 5 business days, and accepted reports are paid out according to the published severity tiers below.",
   inScope: [
-    "flareai.co and all *.flareai.co subdomains",
+    "voidagent.local and all *.voidagent.local subdomains",
     "Authenticated chat, agent, workflow, MCP, and Build flows",
     "Account, billing, and OAuth surfaces",
     "REST and streaming API endpoints under /api/*",
@@ -83,7 +83,7 @@ export const DEFAULT_BUG_BOUNTY_PROGRAM: BugBountyProgramSettings = {
     "- Be the first to report the issue. Duplicates are credited to the original reporter.\n- Provide a clear reproduction path and impact analysis.\n- Do not access or modify other users' data while testing.\n- Do not perform denial-of-service testing.\n- We may award a higher or lower bounty depending on impact, exploitability, and report quality.",
   disclosurePolicyMarkdown:
     "Please do not publicly disclose the issue until we have shipped a fix or 90 days have passed, whichever comes first. We will coordinate disclosure timing with the reporter.",
-  contactEmail: "security@flareai.co",
+  contactEmail: "security@voidagent.local",
 };
 
 export const getBugBountyProgram =

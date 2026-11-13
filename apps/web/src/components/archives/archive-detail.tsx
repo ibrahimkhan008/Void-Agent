@@ -78,7 +78,7 @@ export function ArchiveDetail({
       >
         <ArrowLeft className="size-4" /> All archives
       </Link>
-      {/* Cognix detail header (§4.8): eyebrow → display heading. */}
+      {/* Void Agent detail header (§4.8): eyebrow → display heading. */}
       <header className="flex flex-wrap items-start gap-3">
         <ArchiveIcon className="mt-9 size-6 text-muted-foreground" />
         <div className="min-w-0 flex-1 space-y-2">

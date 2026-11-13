@@ -1,4 +1,4 @@
--- Per-user Void-Agent MCP marketplace installs and private configuration.
+-- Per-user Void Agent MCP marketplace installs and private configuration.
 CREATE TABLE IF NOT EXISTS "mcp_server_install" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "user_id" uuid NOT NULL,

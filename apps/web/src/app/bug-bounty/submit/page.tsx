@@ -4,7 +4,7 @@ import { getSession } from "lib/auth/server";
 import { BugBountySubmitForm } from "@/components/bug-bounty/bug-bounty-submit-form";
 
 export const metadata = {
-  title: "Submit a bug report — Flare Bug Bounty",
+  title: "Submit a bug report — Void Agent Bug Bounty",
 };
 
 export const dynamic = "force-dynamic";

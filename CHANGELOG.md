@@ -1,7 +1,7 @@
 # Changelog
 
-Pre-sync Void-Agent release history is preserved at
-[`docs/upstream/void-agent-pre-sync-changelog.md`](docs/upstream/void-agent-pre-sync-changelog.md).
+Pre-sync Void Agent release history is preserved at
+[`docs/upstream/Void Agent-pre-sync-changelog.md`](docs/upstream/Void Agent-pre-sync-changelog.md).
 
 ## [2.0.0](https://github.com/keinsaasforever/better-chatbot/compare/v1.26.0...v2.0.0) (2026-11-04)
 

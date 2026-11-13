@@ -3,7 +3,7 @@
  *
  * Usage: node scripts/admin-reset.mjs
  *
- * Reads POSTGRES_URL from /etc/flare.env, hashes the new password
+ * Reads POSTGRES_URL from /etc/void-agent.env, hashes the new password
  * using Better Auth's scrypt (so the format matches the rest of the
  * user table), and updates the user + credential account.
  */
@@ -14,8 +14,8 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-// Load env from /etc/flare.env
-const envFile = readFileSync("/etc/flare.env", "utf8");
+// Load env from /etc/void-agent.env
+const envFile = readFileSync("/etc/void-agent.env", "utf8");
 for (const line of envFile.split("\n")) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith("#")) continue;
@@ -33,13 +33,13 @@ for (const line of envFile.split("\n")) {
   if (!process.env[key]) process.env[key] = value;
 }
 
-const NEW_EMAIL = "admin@flare.ai";
+const NEW_EMAIL = "admin@void-agent.ai";
 const NEW_PASSWORD = "zv123";
 
 // Use Better Auth's own hasher to keep the format identical.
-const { hashPassword } = require(
-  "/home/ubuntu/flare-main/node_modules/.pnpm/@better-auth+utils@0.4.0/node_modules/@better-auth/utils/dist/password.node.mjs",
-);
+const {
+  hashPassword,
+} = require("/home/ubuntu/void-agent-main/node_modules/.pnpm/@better-auth+utils@0.4.0/node_modules/@better-auth/utils/dist/password.node.mjs");
 
 const client = new Client({ connectionString: process.env.POSTGRES_URL });
 await client.connect();
@@ -54,7 +54,9 @@ try {
     process.exit(1);
   }
   const admin = userRes.rows[0];
-  console.log(`[admin] target user: id=${admin.id} email=${admin.email} role=${admin.role}`);
+  console.log(
+    `[admin] target user: id=${admin.id} email=${admin.email} role=${admin.role}`,
+  );
 
   // 2) Hash the new password
   const passwordHash = await hashPassword(NEW_PASSWORD);

@@ -127,7 +127,7 @@ export function App({ canvasId }: { canvasId: string }) {
 
   const modelId = canvasState.activeModelId;
   const modelOption = getModelOptionById(canvasState.models, modelId);
-  const providerName = modelOption?.providerLabel || "Void-Agent";
+  const providerName = modelOption?.providerLabel || "Void Agent";
   const modelLabel = modelOption?.label || modelId || "No model";
   const [chips, setChips] = useState<ChatChip[]>([]);
   const [iteration, setIteration] = useState(0);
@@ -261,7 +261,7 @@ export function App({ canvasId }: { canvasId: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `void-agent-canvas-${Date.now()}.json`;
+    a.download = `Void Agent-canvas-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
@@ -324,7 +324,7 @@ export function App({ canvasId }: { canvasId: string }) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `void-agent-canvas-${canvasId}.zip`;
+      link.download = `Void Agent-canvas-${canvasId}.zip`;
       link.click();
       URL.revokeObjectURL(url);
       setStatusMessage("ZIP downloaded");
@@ -364,7 +364,7 @@ export function App({ canvasId }: { canvasId: string }) {
         },
         body: JSON.stringify({
           canvasId,
-          title: `Void-Agent Canvas ${canvasId}`,
+          title: `Void Agent Canvas ${canvasId}`,
           html: lastHTML,
           scene,
           metadata: {

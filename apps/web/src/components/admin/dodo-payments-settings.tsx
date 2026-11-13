@@ -16,11 +16,11 @@ import { Label } from "ui/label";
 import { Switch } from "ui/switch";
 
 const TIERS = [
-  "flare-pro",
-  "flare-max",
-  "flare-enterprises",
-  "flare-enterprises-pro",
-  "flare-enterprises-max",
+  "voidagent-pro",
+  "voidagent-max",
+  "voidagent-enterprises",
+  "voidagent-enterprises-pro",
+  "voidagent-enterprises-max",
 ] as const;
 type Tier = (typeof TIERS)[number];
 type Status = {

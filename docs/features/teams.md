@@ -1,6 +1,6 @@
 # Teams and seats
 
-Flare has teams. A team is a group of users who share access to
+Void Agent has teams. A team is a group of users who share access to
 agents, MCP servers, workflows, collections, bookmarks, and chat
 threads. Every user has a personal team they own by default — the
 "personal scope" — and can create additional teams, invite members,
@@ -9,7 +9,7 @@ and switch the active team context from the header. Team plans
 count maps to a real subscription.
 
 The feature is built on the Better Auth `organization` plugin, with
-a thin Flare layer for the per-user personal team and the
+a thin Void Agent layer for the per-user personal team and the
 Stripe-side `subscription` table that backs the `user.tier` enum.
 
 ## What a team is
@@ -147,8 +147,8 @@ feature flags. The webhook handler
 Reading `user.tier` is O(1); reading the latest subscription is a
 query. The duplication is intentional so the hot path does not
 need a join. The Stripe helper maps Phase 4's billing tiers onto the
-existing Flare user-tier values: `free -> free`, `pro -> flare-pro`,
-`team -> flare-enterprises`, and `business -> flare-enterprises-max`.
+existing Void Agent user-tier values: `free -> free`, `pro -> voidagent-pro`,
+`team -> voidagent-enterprises`, and `business -> voidagent-enterprises-max`.
 
 ### The webhook
 
@@ -178,7 +178,7 @@ The handler is idempotent: the
 `stripeSubscriptionId` UNIQUE constraint makes
 `createSubscription` a no-op on redelivery, and
 `updateSubscription` is a patch — re-applying the same patch is
-a no-op. If a subscription event cannot be mapped back to a Flare
+a no-op. If a subscription event cannot be mapped back to a Void Agent
 user, the route logs and acknowledges the event so Stripe does not
 retry forever.
 

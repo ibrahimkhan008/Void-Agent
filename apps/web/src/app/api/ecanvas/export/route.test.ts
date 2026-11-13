@@ -28,8 +28,8 @@ const payload = {
   metadata: { providerName: "test" },
 };
 
-function request(body: unknown = payload, origin = "https://void-agent.test") {
-  return new Request("https://void-agent.test/api/ecanvas/export", {
+function request(body: unknown = payload, origin = "https://voidagent.test") {
+  return new Request("https://voidagent.test/api/ecanvas/export", {
     method: "POST",
     headers: { origin, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -93,17 +93,14 @@ describe("POST /api/ecanvas/export", () => {
     expect(
       (await POST(request({ ...payload, exporterId: "attacker" }))).status,
     ).toBe(400);
-    const malformed = new Request(
-      "https://void-agent.test/api/ecanvas/export",
-      {
-        method: "POST",
-        headers: {
-          origin: "https://void-agent.test",
-          "content-type": "application/json",
-        },
-        body: "{",
+    const malformed = new Request("https://voidagent.test/api/ecanvas/export", {
+      method: "POST",
+      headers: {
+        origin: "https://voidagent.test",
+        "content-type": "application/json",
       },
-    );
+      body: "{",
+    });
     expect((await POST(malformed)).status).toBe(400);
     expect(mocks.insert).not.toHaveBeenCalled();
   });

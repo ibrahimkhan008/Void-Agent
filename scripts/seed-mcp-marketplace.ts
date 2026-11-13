@@ -158,9 +158,9 @@ const CURATED_SERVERS: Array<{
     },
   },
   {
-    name: "Cloudflare MCP",
+    name: "Cloudvoid-agent MCP",
     description:
-      "Manage Cloudflare zones, DNS records, workers, KV namespaces, and R2 buckets through natural language commands.",
+      "Manage Cloudvoid-agent zones, DNS records, workers, KV namespaces, and R2 buckets through natural language commands.",
     category: "Infrastructure",
     homepageUrl: "https://github.com/cloudflare/workers-mcp",
     config: {

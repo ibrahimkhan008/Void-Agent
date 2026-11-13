@@ -5,16 +5,16 @@ import { Metadata } from "next";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Void-Agent",
+  title: "Privacy Policy - Void Agent",
   description:
-    "Learn how Void-Agent protects your privacy and handles your data. Our privacy policy explains what information we collect and how we use it.",
+    "Learn how Void Agent protects your privacy and handles your data. Our privacy policy explains what information we collect and how we use it.",
   alternates: {
     canonical: "/privacy-policy",
   },
   openGraph: {
-    title: "Privacy Policy - Void-Agent",
+    title: "Privacy Policy - Void Agent",
     description:
-      "Learn how Void-Agent protects your privacy and handles your data.",
+      "Learn how Void Agent protects your privacy and handles your data.",
     ...(siteUrl ? { url: `${siteUrl}/privacy-policy` } : {}),
     type: "website",
   },

@@ -114,7 +114,7 @@ const main = async () => {
     .filter(Boolean);
   const merged = [...new Set([...existing, ...ok.map((r) => r.id)])];
 
-  console.log("\nAdd (or update) this in .env, then restart Flare:\n");
+  console.log("\nAdd (or update) this in .env, then restart Void Agent:\n");
   console.log(`E2B_ENABLED_TEMPLATES=${merged.join(",")}`);
 
   process.exit(failed.length ? 1 : 0);

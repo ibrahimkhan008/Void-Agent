@@ -37,7 +37,7 @@ export default function RefundPolicyPage() {
           body: (
             <>
               <LegalP>
-                Void-Agent may offer paid subscriptions, one-time credit
+                Void Agent may offer paid subscriptions, one-time credit
                 purchases, upgrades or add-ons, and API usage-based billing.
               </LegalP>
               <LegalP>
@@ -157,8 +157,8 @@ export default function RefundPolicyPage() {
           body: (
             <LegalP>
               <LegalStrong>Email:</LegalStrong>{" "}
-              <LegalLink href="mailto:support@void-agent.local">
-                support@void-agent.local
+              <LegalLink href="mailto:support@Void Agent.local">
+                support@Void Agent.local
               </LegalLink>
             </LegalP>
           ),

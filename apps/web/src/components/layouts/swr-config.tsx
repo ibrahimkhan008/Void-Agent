@@ -30,7 +30,7 @@ export function SWRConfigProvider({
 
   useEffect(() => {
     console.log(
-      "%cVoid-Agent",
+      "%cVoid Agent",
       "color: #00d4ff; font-weight: bold; font-family: monospace; font-size: 16px; text-shadow: 0 0 10px #00d4ff;",
     );
   }, []);

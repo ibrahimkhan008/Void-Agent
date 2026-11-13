@@ -1,7 +1,7 @@
 # Production Deployment on a VPS
 
 Deploy the full Void-Agent stack (app + Postgres + Redis) on any Linux VPS with
-Docker — no Vercel. TLS comes from Cloudflare Tunnel (recommended: no open
+Docker — no Vercel. TLS comes from Cloudvoid-agent Tunnel (recommended: no open
 ports) or nginx + certbot.
 
 ---
@@ -53,7 +53,7 @@ docker compose -f docker/compose.production.yml --env-file .env.production up -d
 
 ## 5. Public access — pick ONE
 
-### Option A — Cloudflare Tunnel (recommended: no open ports, free TLS)
+### Option A — Cloudvoid-agent Tunnel (recommended: no open ports, free TLS)
 
 You already run cloudflared elsewhere, so on the VPS:
 
@@ -101,7 +101,7 @@ sudo certbot --nginx -d app.your-domain.com
 - **Google Cloud Console** → OAuth client → add
   `https://app.your-domain.com/api/auth/callback/google` to Authorized
   redirect URIs.
-- **Cloudflare Turnstile** → add the domain to the site key's hostnames.
+- **Cloudvoid-agent Turnstile** → add the domain to the site key's hostnames.
 - Both need the exact production domain — localhost values never work.
 
 ## 7. Updating
@@ -122,7 +122,7 @@ Migrations run automatically at container boot; data lives in the
 0 3 * * * docker exec docker-postgres-1 pg_dump -U voidagent void_agent | gzip > /root/backups/void_agent_$(date +\%F).sql.gz
 ```
 
-Store a copy off-VPS (rclone to Cloudflare R2/B2). Restoring:
+Store a copy off-VPS (rclone to Cloudvoid-agent R2/B2). Restoring:
 
 ```bash
 gunzip -c dump.sql.gz | docker exec -i docker-postgres-1 psql -U voidagent void_agent

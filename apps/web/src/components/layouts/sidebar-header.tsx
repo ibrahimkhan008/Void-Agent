@@ -91,7 +91,7 @@ export function SidebarHeaderShared({
                     >
                       <Image
                         src="/logo-512.webp"
-                        alt="Void-Agent"
+                        alt="Void Agent"
                         width={28}
                         height={28}
                         className="rounded-md transition-opacity group-hover/logo:opacity-0"
@@ -114,7 +114,7 @@ export function SidebarHeaderShared({
                     <div className="flex items-center gap-2">
                       <Image
                         src="/logo-192.webp"
-                        alt="Void-Agent logo"
+                        alt="Void Agent logo"
                         width={24}
                         height={24}
                         className="rounded-md object-contain"

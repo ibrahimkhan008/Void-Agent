@@ -1,7 +1,7 @@
 import { captcha as captchaPlugin } from "better-auth/plugins";
 
 /**
- * The endpoints Cloudflare Turnstile guards.
+ * The endpoints Cloudvoid-agent Turnstile guards.
  *
  * This happens to match the plugin's own default, and is spelled out because
  * the failure mode of an endpoint missing from the list is silent — it is

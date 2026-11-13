@@ -5,22 +5,22 @@ import { Bug } from "lucide-react";
 import { Button } from "ui/button";
 import { getSession } from "lib/auth/server";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://flareai.co";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://voidagent.local";
 
 export const metadata: Metadata = {
-  title: "Bug Bounty Program — Flare AI",
+  title: "Bug Bounty Program — Void Agent",
   description:
-    "Earn bounties by reporting valid security and product bugs in Flare AI. See reward tiers, scope, and submit a report.",
+    "Earn bounties by reporting valid security and product bugs in Void Agent. See reward tiers, scope, and submit a report.",
   keywords: [
-    "Flare AI bug bounty",
+    "Void Agent bug bounty",
     "security disclosure",
     "responsible disclosure",
-    "Flare AI rewards",
+    "Void Agent rewards",
   ],
   openGraph: {
-    title: "Bug Bounty Program — Flare AI",
+    title: "Bug Bounty Program — Void Agent",
     description:
-      "Earn bounties by reporting valid bugs in Flare AI. See the live reward tiers and top reporters.",
+      "Earn bounties by reporting valid bugs in Void Agent. See the live reward tiers and top reporters.",
     url: `${siteUrl}/bug-bounty`,
     type: "website",
   },
@@ -44,7 +44,7 @@ export default async function BugBountyLayout({
             className="flex items-center gap-2 text-base font-semibold"
           >
             <Bug className="size-5 text-primary" />
-            <span>Flare Bug Bounty</span>
+            <span>Void Agent Bug Bounty</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
@@ -74,8 +74,8 @@ export default async function BugBountyLayout({
       <footer className="border-t border-border/60 mt-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-sm text-muted-foreground flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <p>
-            © {new Date().getFullYear()} Flare Labs. Reports are governed by our
-            responsible disclosure policy.
+            © {new Date().getFullYear()} Void Agent Labs. Reports are governed
+            by our responsible disclosure policy.
           </p>
           <div className="flex items-center gap-4">
             <Link

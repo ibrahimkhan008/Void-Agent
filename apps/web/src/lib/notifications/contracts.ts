@@ -103,7 +103,7 @@ export const safeNotificationHref = (href: unknown): string | null => {
   }
 
   try {
-    const origin = "https://void-agent.invalid";
+    const origin = "https://voidagent.invalid";
     return new URL(href, origin).origin === origin ? href : null;
   } catch {
     return null;

@@ -101,7 +101,7 @@ export function EmbedChat({ agent, token }: Props) {
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-sm">{agent.name}</h1>
             <p className="truncate text-muted-foreground text-xs">
-              Powered by Flare
+              Powered by Void Agent
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
-# Contributing to Flare AI
+# Contributing to Void Agent
 
-Thank you for your interest in contributing to Flare AI! We welcome contributions from the community and truly appreciate your effort to improve the project.
+Thank you for your interest in contributing to Void Agent! We welcome contributions from the community and truly appreciate your effort to improve the project.
 
 ---
 
@@ -41,8 +41,8 @@ This helps us:
 2. **Clone your fork** locally:
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/flare-ai.git
-   cd flare-ai
+   git clone https://github.com/YOUR_USERNAME/void-agent-ai.git
+   cd void-agent-ai
    ```
 
 3. **Create a new branch** for your changes:
@@ -193,5 +193,5 @@ When submitting **Issues** or **Pull Requests**:
 
 ## Thank You
 
-We sincerely appreciate your contribution to Flare AI.
+We sincerely appreciate your contribution to Void Agent.
 Let’s build a powerful, well tested and lightweight AI experience together! 🚀

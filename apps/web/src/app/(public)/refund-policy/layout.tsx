@@ -5,15 +5,15 @@ import { Metadata } from "next";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Refund Policy - Void-Agent",
+  title: "Refund Policy - Void Agent",
   description:
-    "Read the Refund Policy for Void-Agent. Understand our refund process and eligibility criteria for subscription plans.",
+    "Read the Refund Policy for Void Agent. Understand our refund process and eligibility criteria for subscription plans.",
   alternates: {
     canonical: "/refund-policy",
   },
   openGraph: {
-    title: "Refund Policy - Void-Agent",
-    description: "Read the Refund Policy for Void-Agent.",
+    title: "Refund Policy - Void Agent",
+    description: "Read the Refund Policy for Void Agent.",
     ...(siteUrl ? { url: `${siteUrl}/refund-policy` } : {}),
     type: "website",
   },

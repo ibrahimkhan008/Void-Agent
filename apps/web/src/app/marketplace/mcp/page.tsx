@@ -25,9 +25,9 @@ import { MyInstallsPanel } from "@/components/marketplace/my-installs-panel";
 export const revalidate = 300;
 
 export const metadata = {
-  title: "MCP Server Marketplace — Void-Agent",
+  title: "MCP Server Marketplace — Void Agent",
   description:
-    "Discover curated Model Context Protocol (MCP) servers to extend Void-Agent with tools, integrations, and data sources.",
+    "Discover curated Model Context Protocol (MCP) servers to extend Void Agent with tools, integrations, and data sources.",
 };
 
 export default async function McpMarketplacePage() {

@@ -7,10 +7,10 @@ interface ChatModelsProvider {
   }[];
 }
 
-const STORAGE_KEY_BASE = "flare_canvas_state";
+const STORAGE_KEY_BASE = "voidagent_canvas_state";
 
 function formatProviderLabel(provider: string): string {
-  if (!provider) return "Void-Agent";
+  if (!provider) return "Void Agent";
   return provider
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());

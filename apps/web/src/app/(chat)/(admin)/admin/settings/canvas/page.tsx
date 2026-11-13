@@ -106,7 +106,7 @@ export default function CanvasPage() {
     <>
       <ShortcutHelpModal open={showHelp} onClose={() => setShowHelp(false)} />
       <div className="space-y-6">
-        {/* Cognix section header (§4.8): eyebrow → display heading. */}
+        {/* Section header: eyebrow → display heading. */}
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <Eyebrow>Admin</Eyebrow>
@@ -163,7 +163,7 @@ export default function CanvasPage() {
               Canvas Model
             </label>
             <ModelSelector
-              providerId="flare"
+              providerId="voidagent"
               value={config.model ?? "Claude Opus 4.6"}
               onChange={(v) => setConfig((c) => ({ ...c, model: v }))}
             />

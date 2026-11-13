@@ -164,7 +164,7 @@ describe("saved workflow review", () => {
     });
   });
 
-  it("enumerates built-in Void-Agent tool calls", () => {
+  it("enumerates built-in Void Agent tool calls", () => {
     expect(
       getWorkflowEffectReview([
         {
@@ -174,7 +174,7 @@ describe("saved workflow review", () => {
         },
       ]),
     ).toEqual({
-      effects: ["Search: call Void-Agent tool web_search with arguments {}"],
+      effects: ["Search: call Void Agent tool web_search with arguments {}"],
       issues: [],
       reviewable: true,
     });

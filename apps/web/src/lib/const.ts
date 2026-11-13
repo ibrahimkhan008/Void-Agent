@@ -29,7 +29,7 @@ export const COOKIE_KEY_SIDEBAR_STATE = "sidebar:state";
 export const COOKIE_KEY_LOCALE = "i18n:locale";
 
 export const BASE_URL = (() => {
-  if (process.env.FLARE_AUTH_URL) return process.env.FLARE_AUTH_URL;
+  if (process.env.VOIDAGENT_AUTH_URL) return process.env.VOIDAGENT_AUTH_URL;
   if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
 
@@ -48,7 +48,7 @@ export const BASE_URL = (() => {
 /** Resolve a configured public app origin for OAuth and share links. */
 export function getBaseUrl(): string {
   const candidates = [
-    process.env.FLARE_AUTH_URL,
+    process.env.VOIDAGENT_AUTH_URL,
     process.env.NEXT_PUBLIC_BASE_URL,
     process.env.BETTER_AUTH_URL,
     process.env.AUTH_URL,
@@ -88,7 +88,7 @@ export function getRequiredBaseUrl(featureName = "OAuth callback"): string {
   if (baseUrl) return baseUrl;
 
   throw new Error(
-    `${featureName} URL is not configured. Set FLARE_AUTH_URL to your public HTTPS app URL, for example https://www.flare-ai.com.`,
+    `${featureName} URL is not configured. Set VOIDAGENT_AUTH_URL to your public HTTPS app URL, for example https://www.app.voidagent.test.`,
   );
 }
 

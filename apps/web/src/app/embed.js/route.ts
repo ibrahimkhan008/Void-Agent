@@ -7,7 +7,7 @@ const script = `
 
   var agentId = currentScript.getAttribute("data-agent");
   if (!agentId) {
-    console.error("Flare embed: missing data-agent");
+    console.error("Void Agent embed: missing data-agent");
     return;
   }
 
@@ -15,13 +15,13 @@ const script = `
   var containerSelector = currentScript.getAttribute("data-container");
   var width = currentScript.getAttribute("data-width") || "100%";
   var height = currentScript.getAttribute("data-height") || "640px";
-  var title = currentScript.getAttribute("data-title") || "Flare chat";
+  var title = currentScript.getAttribute("data-title") || "Void Agent chat";
   var parent = currentScript.parentNode;
   if (containerSelector) {
     try {
       parent = document.querySelector(containerSelector) || parent;
     } catch (error) {
-      console.error("Flare embed: invalid data-container selector", error);
+      console.error("Void Agent embed: invalid data-container selector", error);
     }
   }
   if (!parent) parent = document.body;
@@ -36,7 +36,7 @@ const script = `
   frame.style.border = "0";
   frame.style.borderRadius = currentScript.getAttribute("data-radius") || "16px";
   frame.style.overflow = "hidden";
-  frame.setAttribute("data-flare-embed", agentId);
+  frame.setAttribute("data-voidagent-embed", agentId);
 
   parent.appendChild(frame);
 
@@ -57,7 +57,7 @@ const script = `
       frame.src = payload.iframeUrl;
     })
     .catch(function (error) {
-      console.error("Flare embed failed:", error);
+      console.error("Void Agent embed failed:", error);
       frame.remove();
     });
 })();

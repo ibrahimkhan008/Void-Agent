@@ -256,7 +256,7 @@ export function WebhooksDashboard() {
       <div>
         <h1 className="font-semibold text-3xl tracking-tight">Webhooks</h1>
         <p className="text-muted-foreground text-sm">
-          Send signed Flare events to your own HTTPS endpoint.
+          Send signed Void Agent events to your own HTTPS endpoint.
         </p>
       </div>
 
@@ -276,7 +276,7 @@ export function WebhooksDashboard() {
               {newSecret}
             </code>
             <p className="text-muted-foreground text-xs">
-              Store this secret now. Flare will not show it again.
+              Store this secret now. Void Agent will not show it again.
             </p>
           </CardContent>
         </Card>
@@ -289,7 +289,7 @@ export function WebhooksDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
-              placeholder="https://example.com/flare/webhook"
+              placeholder="https://example.com/voidagent/webhook"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
             />
@@ -397,7 +397,7 @@ export function WebhooksDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Input
-                  placeholder="https://example.com/flare/webhook"
+                  placeholder="https://example.com/voidagent/webhook"
                   value={editUrl}
                   onChange={(event) => setEditUrl(event.target.value)}
                 />

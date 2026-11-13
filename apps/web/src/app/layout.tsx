@@ -37,9 +37,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Void-Agent",
+  title: "Void Agent",
   description:
-    "Void-Agent is your AI workspace for conversations, agents, tools, and knowledge.",
+    "Void Agent is your AI workspace for conversations, agents, tools, and knowledge.",
   manifest: "/manifest.json",
 };
 

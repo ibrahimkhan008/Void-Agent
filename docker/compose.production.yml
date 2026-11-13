@@ -6,7 +6,7 @@
 # Differences from the dev compose:
 #   - Postgres is NOT exposed to the internet (no ports:) — only the app
 #     network can reach it. The app port is bound to 127.0.0.1 so TLS is
-#     terminated by your reverse proxy or Cloudflare Tunnel in front.
+#     terminated by your reverse proxy or Cloudvoid-agent Tunnel in front.
 #   - Postgres credentials come from the env file (set a strong password).
 #   - Healthchecks gate the app on a ready database.
 #   - Redis is included by default (resumable chat streams need it in

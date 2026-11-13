@@ -1,7 +1,7 @@
 // scripts/dodo-create-products.ts
 //
 // One-shot script that creates subscription products on Dodo Payments
-// for each Flare paid tier using the Dodo REST API (much more
+// for each Void Agent paid tier using the Dodo REST API (much more
 // reliable than automating the dashboard).
 //
 // Run with:
@@ -28,42 +28,41 @@ type Tier = {
 
 const TIERS: Tier[] = [
   {
-    slug: "flare-pro",
-    name: "Flare Pro",
+    slug: "voidagent-pro",
+    name: "Void Agent Pro",
     description:
-      "Higher daily limits and faster models for power users of Flare AI.",
-    envVar: "DODO_PRODUCT_FLARE_PRO",
+      "Higher daily limits and faster models for power users of Void Agent.",
+    envVar: "DODO_PRODUCT_VOIDAGENT_PRO",
     pricePaise: 79900, // ₹799
   },
   {
-    slug: "flare-max",
-    name: "Flare Max",
+    slug: "voidagent-max",
+    name: "Void Agent Max",
     description:
-      "Generous limits and priority access to premium models on Flare AI.",
-    envVar: "DODO_PRODUCT_FLARE_MAX",
+      "Generous limits and priority access to premium models on Void Agent.",
+    envVar: "DODO_PRODUCT_VOIDAGENT_MAX",
     pricePaise: 199900, // ₹1,999
   },
   {
-    slug: "flare-enterprises",
-    name: "Flare Enterprises",
-    description: "Team-grade Flare AI plan with deployment support.",
-    envVar: "DODO_PRODUCT_FLARE_ENTERPRISES",
+    slug: "voidagent-enterprises",
+    name: "Void Agent Enterprises",
+    description: "Team-grade Void Agent plan with deployment support.",
+    envVar: "DODO_PRODUCT_VOIDAGENT_ENTERPRISES",
     pricePaise: 399900, // ₹3,999
   },
   {
-    slug: "flare-enterprises-pro",
-    name: "Flare Enterprises Pro",
+    slug: "voidagent-enterprises-pro",
+    name: "Void Agent Enterprises Pro",
     description:
-      "Enterprise Flare AI plan with enhanced security and support.",
-    envVar: "DODO_PRODUCT_FLARE_ENTERPRISES_PRO",
+      "Enterprise Void Agent plan with enhanced security and support.",
+    envVar: "DODO_PRODUCT_VOIDAGENT_ENTERPRISES_PRO",
     pricePaise: 599900, // ₹5,999
   },
   {
-    slug: "flare-enterprises-max",
-    name: "Flare Enterprises Max",
-    description:
-      "Highest enterprise Flare AI tier with dedicated endpoints.",
-    envVar: "DODO_PRODUCT_FLARE_ENTERPRISES_MAX",
+    slug: "voidagent-enterprises-max",
+    name: "Void Agent Enterprises Max",
+    description: "Highest enterprise Void Agent tier with dedicated endpoints.",
+    envVar: "DODO_PRODUCT_VOIDAGENT_ENTERPRISES_MAX",
     pricePaise: 1099900, // ₹10,999
   },
 ];
@@ -110,7 +109,7 @@ async function createProduct(
         trial_period_days: 0,
       },
       metadata: {
-        flare_tier: tier.slug,
+        voidagent_tier: tier.slug,
       },
     }),
   });
@@ -216,11 +215,11 @@ async function main() {
   // edit the currency. The archive endpoint is best-effort; if it
   // 404s the user can clean up manually in the dashboard.
   const oldIds: string[] = [
-    "pdt_0Ng58igyMQ6Sr4wvzl9Fz", // flare-pro (USD)
-    "pdt_0Ng58ik3U7HoDWmw2fcNP", // flare-max (USD)
-    "pdt_0Ng58ilQrfzqSelYExO7N", // flare-enterprises (USD)
-    "pdt_0Ng58im2d1D0D77dt90oH", // flare-enterprises-pro (USD)
-    "pdt_0Ng58imcrz6FIzmvHRNFp", // flare-enterprises-max (USD)
+    "pdt_0Ng58igyMQ6Sr4wvzl9Fz", // voidagent-pro (USD)
+    "pdt_0Ng58ik3U7HoDWmw2fcNP", // voidagent-max (USD)
+    "pdt_0Ng58ilQrfzqSelYExO7N", // voidagent-enterprises (USD)
+    "pdt_0Ng58im2d1D0D77dt90oH", // voidagent-enterprises-pro (USD)
+    "pdt_0Ng58imcrz6FIzmvHRNFp", // voidagent-enterprises-max (USD)
   ];
   log("Attempting to archive old USD products (best effort)…");
   for (const oldId of oldIds) {

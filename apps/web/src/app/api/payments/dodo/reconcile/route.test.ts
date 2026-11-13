@@ -61,13 +61,13 @@ describe("Dodo subscription reconciliation", () => {
       previousBillingDate: null,
       nextBillingDate: null,
       cancelAtNextBillingDate: false,
-      metadata: { flareUserId: "owner" },
+      metadata: { voidagentUserId: "owner" },
     });
     mocks.getSub.mockResolvedValue(null);
-    mocks.list.mockResolvedValue([{ tier: "flare-pro", status: "active" }]);
+    mocks.list.mockResolvedValue([{ tier: "voidagent-pro", status: "active" }]);
     mocks.getUser.mockResolvedValue({ id: "owner" });
     mocks.upsert.mockResolvedValue({});
-    mocks.getTier.mockResolvedValue("flare-pro");
+    mocks.getTier.mockResolvedValue("voidagent-pro");
     mocks.getProduct.mockResolvedValue("prod_pro");
   });
   it("applies only an active subscription whose verified owner matches the session", async () => {
@@ -77,7 +77,7 @@ describe("Dodo subscription reconciliation", () => {
       expect.objectContaining({
         userId: "owner",
         dodoSubscriptionId: "sub_123",
-        tier: "flare-pro",
+        tier: "voidagent-pro",
         status: "active",
       }),
     );
@@ -85,7 +85,7 @@ describe("Dodo subscription reconciliation", () => {
   it("rejects a subscription bound to another user before changing tier", async () => {
     mocks.lookup.mockResolvedValueOnce({
       ...(await mocks.lookup()),
-      metadata: { flareUserId: "victim" },
+      metadata: { voidagentUserId: "victim" },
     });
     const response = await POST(request({ subscriptionId: "sub_123" }));
     expect(response.status).toBe(403);

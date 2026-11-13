@@ -139,7 +139,7 @@ describe("E2B app build lifecycle", () => {
     );
     expect(sandbox.commands.run).toHaveBeenNthCalledWith(
       2,
-      "nohup node /home/user/app/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &",
+      "nohup node /home/user/app/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &",
       { timeoutMs: 10_000 },
     );
     expect(mocks.upsert).toHaveBeenCalledWith(

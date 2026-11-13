@@ -28,9 +28,9 @@ import { ProjectDialog } from "../projects/project-dialog";
 import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 
 /**
- * Sidebar navigation menu items with the Cognix active-chip treatment:
+ * Sidebar navigation menu items with the Void Agent active-chip treatment:
  * the current route's item gets `isActive` → the shadcn primitive applies
- * the `data-[active=true]` pill. Hover states use the Cognix
+ * the `data-[active=true]` pill. Hover states use the Void Agent
  * `bg-black/[0.05]` fill rather than the shadcn default accent.
  */
 export function AppSidebarMenus({ user }: { user?: BasicUser }) {

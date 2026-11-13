@@ -12,7 +12,7 @@ const BASE_URL = "http://localhost:3000";
  * A throwaway Better Auth instance carrying the same captcha configuration the
  * app ships, on an in-memory store. No network is reached: every assertion
  * below exercises the "no token supplied" branch, which the plugin rejects
- * before it ever calls Cloudflare.
+ * before it ever calls Cloudvoid-agent.
  */
 function buildAuth(secretKey: string | undefined) {
   return betterAuth({

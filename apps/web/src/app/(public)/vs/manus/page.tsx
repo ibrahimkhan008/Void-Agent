@@ -7,11 +7,11 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { AccentSpan } from "@/components/ui/accent-span";
 
 export const metadata: Metadata = {
-  title: "Void-Agent vs Manus AI — Autonomous Agent Platform Comparison (2026)",
+  title: "Void Agent vs Manus AI — Autonomous Agent Platform Comparison (2026)",
   description:
-    "An honest, fact-grounded comparison of Void-Agent and Manus AI across architecture, model freedom, tool extensibility, and pricing.",
+    "An honest, fact-grounded comparison of Void Agent and Manus AI across architecture, model freedom, tool extensibility, and pricing.",
   alternates: { canonical: "/vs/manus" },
-  openGraph: { type: "article", title: "Void-Agent vs Manus AI" },
+  openGraph: { type: "article", title: "Void Agent vs Manus AI" },
 };
 
 const MATRIX_ROWS: {
@@ -78,15 +78,15 @@ const DEEP_DIVE = [
     icon: Cpu,
     kicker: "ARCHITECTURAL FLEXIBILITY",
     title: "Model Agnosticism vs. Single-Vendor Lock-In",
-    body: "The single biggest differentiator between Void-Agent and Manus is model freedom. Manus operates as a closed vertical stack: you delegate tasks to Manus's orchestrator, which relies on a fixed internal reasoning model. You cannot benchmark how Claude Sonnet would handle a code refactoring task versus GPT-4o or DeepSeek V3.",
+    body: "The single biggest differentiator between Void Agent and Manus is model freedom. Manus operates as a closed vertical stack: you delegate tasks to Manus's orchestrator, which relies on a fixed internal reasoning model. You cannot benchmark how Claude Sonnet would handle a code refactoring task versus GPT-4o or DeepSeek V3.",
     body2:
-      "Void-Agent gives you multi-model access inside the same conversation and agent loop. If an agent hits a subtle distributed systems issue, you can execute with Anthropic Claude Opus or switch to DeepSeek for high-accuracy reasoning — mid-task, with full history.",
+      "Void Agent gives you multi-model access inside the same conversation and agent loop. If an agent hits a subtle distributed systems issue, you can execute with Anthropic Claude Opus or switch to DeepSeek for high-accuracy reasoning — mid-task, with full history.",
   },
   {
     icon: Layers,
     kicker: "LINUX MICROVM EXECUTION",
     title: "Cloud Sandboxes, Live Preview URLs & Real 3D Games",
-    body: "Both platforms run work in isolated cloud sandboxes. Void-Agent's sandbox exposes a real dev environment: Node.js, Python, git, a live terminal with stdout/stderr streaming, error self-healing, and reverse-proxy preview URLs for the apps it builds — including WebGL 3D content rendered headlessly.",
+    body: "Both platforms run work in isolated cloud sandboxes. Void Agent's sandbox exposes a real dev environment: Node.js, Python, git, a live terminal with stdout/stderr streaming, error self-healing, and reverse-proxy preview URLs for the apps it builds — including WebGL 3D content rendered headlessly.",
     body2:
       "You watch every step, press Stop instantly, or hand off a new instruction while the task is still running.",
   },
@@ -120,18 +120,18 @@ export default function VsManusPage() {
         <div className="mx-auto max-w-6xl px-6">
           <p className="font-mono text-xs tracking-[0.14em] text-(--paper)/50 uppercase">
             <Link href="/" className="hover:text-(--paper)">
-              Void-Agent
+              Void Agent
             </Link>{" "}
             / Comparisons /{" "}
             <span className="font-bold text-(--paper)">vs Manus AI</span>
           </p>
           <Eyebrow>Competitive intelligence // 2026 benchmark</Eyebrow>
           <h1 className="mt-5 text-5xl leading-[1.05] font-normal tracking-[-0.035em] text-balance text-(--paper) sm:text-6xl">
-            Void-Agent vs Manus AI:{" "}
+            Void Agent vs Manus AI:{" "}
             <AccentSpan>The Autonomous Agent Breakdown.</AccentSpan>
           </h1>
           <p className="mt-6 max-w-[70ch] text-lg/8 text-pretty text-(--paper)/60">
-            Looking for an autonomous AI agent platform? Both Void-Agent and
+            Looking for an autonomous AI agent platform? Both Void Agent and
             Manus run multi-step tasks inside isolated cloud sandboxes, build
             full-stack web applications, and deliver finished outputs. Here is
             an honest, fact-grounded breakdown of how they compare in
@@ -166,7 +166,7 @@ export default function VsManusPage() {
             accessibility.
           </p>
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
-            {/* Choose Void-Agent */}
+            {/* Choose Void Agent */}
             <div className="rounded-[20px] bg-(--ink) p-1.5 shadow-[var(--bs-shadow-tray)]">
               <div className="rounded-[14px] bg-white p-6 sm:p-8">
                 <div className="flex items-center gap-3">
@@ -176,7 +176,7 @@ export default function VsManusPage() {
                   </span>
                 </div>
                 <h3 className="mt-4 text-xl font-medium text-(--paper)">
-                  Choose Void-Agent if:
+                  Choose Void Agent if:
                 </h3>
                 <ul className="mt-5 space-y-3.5">
                   {[
@@ -215,7 +215,7 @@ export default function VsManusPage() {
                   href="/sign-up"
                   className="mt-3 inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-medium text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] transition-colors hover:bg-(--ink-2)"
                 >
-                  Try Void-Agent Free
+                  Try Void Agent Free
                 </Link>
               </div>
             </div>
@@ -290,7 +290,7 @@ export default function VsManusPage() {
                     Capability
                   </th>
                   <th className="w-3/8 px-5 py-4 text-[13px] font-semibold text-(--brand)">
-                    Void-Agent
+                    Void Agent
                   </th>
                   <th className="w-3/8 px-5 py-4 text-[13px] font-semibold text-black/60">
                     Manus AI
@@ -374,7 +374,7 @@ export default function VsManusPage() {
                 Transparent quotas
               </span>
               <h3 className="mt-4 text-lg font-medium text-(--paper)">
-                Void-Agent
+                Void Agent
               </h3>
               <dl className="mt-5 divide-y divide-black/[0.06]">
                 {[
@@ -447,7 +447,7 @@ export default function VsManusPage() {
               <Eyebrow>Start building today</Eyebrow>
               <h2 className="mx-auto mt-5 max-w-[24ch] text-4xl font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-5xl">
                 Experience Autonomous Multi-Model Agents on{" "}
-                <AccentSpan>Void-Agent</AccentSpan>
+                <AccentSpan>Void Agent</AccentSpan>
               </h2>
               <p className="mx-auto mt-5 max-w-[60ch] text-lg/8 text-pretty text-(--paper)/60">
                 Get access to cloud Linux sandboxes, 30+ frontier models, and

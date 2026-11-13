@@ -88,8 +88,8 @@ export async function POST(request: Request) {
   }
 
   const metadataOwner =
-    typeof details.metadata.flareUserId === "string"
-      ? details.metadata.flareUserId
+    typeof details.metadata.voidagentUserId === "string"
+      ? details.metadata.voidagentUserId
       : typeof details.metadata.user_id === "string"
         ? details.metadata.user_id
         : null;

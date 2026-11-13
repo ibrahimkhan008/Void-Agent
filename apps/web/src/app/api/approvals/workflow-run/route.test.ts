@@ -39,8 +39,8 @@ const payload = {
   target: "u/team/deploy",
   payload: { version: "1.2" },
 };
-const request = (body: unknown = payload, origin = "https://void-agent.test") =>
-  new Request("https://void-agent.test/api/approvals/workflow-run", {
+const request = (body: unknown = payload, origin = "https://voidagent.test") =>
+  new Request("https://voidagent.test/api/approvals/workflow-run", {
     method: "POST",
     headers: { Origin: origin, "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -13,12 +13,12 @@ const p = buildUserSystemPrompt(
   { id: "u", name: "Kety", email: "k@example.com" } as any,
   undefined,
   undefined,
-  { provider: "flare", model: "opus" },
+  { provider: "voidagent", model: "opus" },
   {
     enabledToolkits: on,
     availableButOff: off,
     supportsTools: true,
-    tier: "flare-enterprises-max",
+    tier: "voidagent-enterprises-max",
   },
 );
 const i = p.indexOf("<capabilities>");

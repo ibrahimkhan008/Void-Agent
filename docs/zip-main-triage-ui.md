@@ -8,8 +8,8 @@ and the remaining `components/*` buckets (auth 3, canvas 2, chat 1, gallery 1, l
 payments 7, pwa 1, sandbox 1, tool-invocation 7, workflow 2).
 
 - ORIGINAL: zip-main @ `aa9fce0f545afb18b9a191724be092887f83630b` (read via `git show` only).
-- DESTINATION (reference): `Void-Agent` working tree `src/` — read-only.
-- STAGING (ports): `Void-Agent-integration-staging/apps/web/src` — additive files only.
+- DESTINATION (reference): `Void Agent` working tree `src/` — read-only.
+- STAGING (ports): `Void Agent-integration-staging/apps/web/src` — additive files only.
 - Method per path: staging symbol/filename/route search + consumer check + `feature-work-register.md`
   evidence (A15, C16, C17, C18, C39–C42) + original file inspection (imports, size, consumers).
 
@@ -26,9 +26,9 @@ PORTED-NOW list (staging paths; all additive, no existing staging file modified)
 
 | # | staging path | adaptation |
 |---|---|---|
-| 1 | `apps/web/src/app/(public)/privacy-policy/page.tsx` | POLICY_PATH `flare-privacy-policy.md` → committed `legal-consent/cognix-privacy-policy.md` (the flare-named file is committed in NO tree; the committed cognix-named file carries the current Flare-branded policy text in exactly the format the page parses) |
+| 1 | `apps/web/src/app/(public)/privacy-policy/page.tsx` | POLICY_PATH `void-agent-privacy-policy.md` → committed `legal-consent/void-agent-privacy-policy.md` (the void-agent-named file is committed in NO tree; the committed void-agent-named file carries the current Void Agent-branded policy text in exactly the format the page parses) |
 | 2 | `apps/web/src/app/(public)/privacy-policy/layout.tsx` | verbatim |
-| 3 | `apps/web/src/app/(public)/cookies-policy/page.tsx` | POLICY_PATH `flare-cookies-policy.md` → committed `legal-consent/cognix-cookies-policy.md` (same rationale) |
+| 3 | `apps/web/src/app/(public)/cookies-policy/page.tsx` | POLICY_PATH `void-agent-cookies-policy.md` → committed `legal-consent/void-agent-cookies-policy.md` (same rationale) |
 | 4 | `apps/web/src/app/(public)/cookies-policy/layout.tsx` | verbatim |
 | 5 | `apps/web/src/app/(public)/terms-of-service/page.tsx` | verbatim (self-contained JSX text) |
 | 6 | `apps/web/src/app/(public)/terms-of-service/layout.tsx` | verbatim |
@@ -54,7 +54,7 @@ Validation (from `apps/web`): `pnpm exec vitest run src/components/user/user-det
 → **Test Files 1 passed (1), Tests 22 passed (22)**, 546ms. Route ports are verbatim originals
 from a compiling tree plus the three recorded one-line adaptations; per task constraints no full
 typecheck/build was run. Legal routes need no new deps (staging already has `react-markdown` 10.1,
-`remark-gfm` 4.0.1, `lucide-react`, `next/image`; `public/flare-logo-192.webp` exists in staging;
+`remark-gfm` 4.0.1, `lucide-react`, `next/image`; `public/void-agent-logo-192.webp` exists in staging;
 `.prose` classes are unstyled in the destination too — no typography plugin in either tree, so
 fidelity is identical to the destination).
 
@@ -145,7 +145,7 @@ marketing/brand surfaces whose content components are excluded below.
 
 | zip-main path | disposition | evidence/staging path | justification |
 |---|---|---|---|
-| `src/app/(public)/privacy-policy/page.tsx` | PORTED-NOW | `app/(public)/privacy-policy/page.tsx` | staging had no privacy route; content is markdown text rendered via react-markdown; POLICY_PATH adapted to the committed `legal-consent/cognix-privacy-policy.md` (the referenced `flare-privacy-policy.md` exists in no tree — destination latent bug) |
+| `src/app/(public)/privacy-policy/page.tsx` | PORTED-NOW | `app/(public)/privacy-policy/page.tsx` | staging had no privacy route; content is markdown text rendered via react-markdown; POLICY_PATH adapted to the committed `legal-consent/void-agent-privacy-policy.md` (the referenced `void-agent-privacy-policy.md` exists in no tree — destination latent bug) |
 | `src/app/(public)/privacy-policy/layout.tsx` | PORTED-NOW | `app/(public)/privacy-policy/layout.tsx` | SEO metadata wrapper, verbatim |
 | `src/app/(public)/cookies-policy/page.tsx` | PORTED-NOW | `app/(public)/cookies-policy/page.tsx` | same as privacy; parser regex (`# Cookies Policy`) matches the committed md |
 | `src/app/(public)/cookies-policy/layout.tsx` | PORTED-NOW | `app/(public)/cookies-policy/layout.tsx` | verbatim |
@@ -308,7 +308,7 @@ detail route + `user-sessions.tsx` should be triaged together in a follow-up.
 | `src/app/favicon-96x96.png` | EXCLUDED | no staging reference | unreferenced size in staging's set |
 | `src/app/favicon-96x96.webp` | EXCLUDED | no staging reference | unreferenced size/format |
 | `src/app/favicon.svg` | EXCLUDED | staging uses ico/png set | not referenced by staging metadata |
-| `src/app/web-app-manifest-192x192.png` | EXCLUDED | `public/manifest.json` icons = `/flare-logo-192.webp`, `/flare-logo-512.webp` (present in staging public/) | manifest already satisfied by existing assets |
+| `src/app/web-app-manifest-192x192.png` | EXCLUDED | `public/manifest.json` icons = `/void-agent-logo-192.webp`, `/void-agent-logo-512.webp` (present in staging public/) | manifest already satisfied by existing assets |
 | `src/app/web-app-manifest-192x192.webp` | EXCLUDED | same | duplicate-format asset |
 | `src/app/web-app-manifest-512x512.png` | EXCLUDED | same | duplicate-format asset |
 | `src/app/web-app-manifest-512x512.webp` | EXCLUDED | same | duplicate-format asset |
@@ -400,9 +400,9 @@ detail route + `user-sessions.tsx` should be triaged together in a follow-up.
    which 404s until the detail route is triaged. Recommend re-triaging those two paths plus
    `user-sessions.tsx` together.
 2. **Destination latent bug recorded:** `app/(public)/privacy-policy/page.tsx` and
-   `cookies-policy/page.tsx` reference `legal-consent/flare-*.md`, which is committed in no tree
-   (zip-main, destination, staging). The committed `legal-consent/cognix-*.md` files carry the
-   current Flare-branded text and the exact format the pages parse; the staging port points at
+   `cookies-policy/page.tsx` reference `legal-consent/void-agent-*.md`, which is committed in no tree
+   (zip-main, destination, staging). The committed `legal-consent/void-agent-*.md` files carry the
+   current Void Agent-branded text and the exact format the pages parse; the staging port points at
    them. Consider fixing the destination paths separately.
 3. **Staging site_config admin UI is absent while the backend exists**
    (`site-config-repository.pg.ts` wired into `lib/ai/models.ts` / `lib/db/repository.ts`). The

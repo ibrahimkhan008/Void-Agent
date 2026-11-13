@@ -84,7 +84,7 @@ export function CollectionDetail({ id }: { id: string }) {
         <ArrowLeft className="size-4" />
         All collections
       </Link>
-      {/* Cognix detail header (§4.8): eyebrow → display heading. */}
+      {/* Void Agent detail header (§4.8): eyebrow → display heading. */}
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <Eyebrow>Knowledge</Eyebrow>

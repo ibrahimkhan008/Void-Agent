@@ -1,5 +1,5 @@
 /**
- * Request metadata captured from Cloudflare / Vercel headers.
+ * Request metadata captured from Cloudvoid-agent / Vercel headers.
  */
 export type RequestMetadata = {
   ip: string;

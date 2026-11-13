@@ -14,8 +14,8 @@ Docker provides a streamlined and efficient method for managing containerized ap
     Navigate to the desired directory in your terminal and clone the project repository. If you're not already in the project directory after cloning, change into it:
 
     ```sh
-    git clone https://github.com/Flare-Labs/flare-ai
-    cd flare-ai
+    git clone https://github.com/ibrahimkhan008/Void-Agent
+    cd void-agent-ai
     ```
 
 2.  **Set up Environment Variables:**

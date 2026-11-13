@@ -25,7 +25,7 @@ const SIDEBAR = [
       { label: "Use tools in chat", href: "/docs/mcp#use" },
       { label: "Use tools in Cloud Agent", href: "/docs/mcp#cloud-agent-mcp" },
       { label: "Customize tools", href: "/docs/mcp#customize" },
-      { label: "Void-Agent MCP server", href: "/docs/mcp#voidagent-server" },
+      { label: "Void Agent MCP server", href: "/docs/mcp#voidagent-server" },
       { label: "Safety", href: "/docs/mcp#safety" },
     ],
   },

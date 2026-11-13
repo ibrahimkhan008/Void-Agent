@@ -203,11 +203,14 @@ function authorizeRoute(p) {
     authUrlExpr = `"${p.authorizeUrl}"`;
   }
   const baseSetup = p.isTemplate
-    ? (p.name === "teams" ? "" : `  const baseUrl = ${baseUrlExpr};\n`)
+    ? p.name === "teams"
+      ? ""
+      : `  const baseUrl = ${baseUrlExpr};\n`
     : "";
-  const tenantSetup = p.name === "teams"
-    ? `  const tenant = process.env.MICROSOFT_TENANT_ID || "common";\n`
-    : "";
+  const tenantSetup =
+    p.name === "teams"
+      ? `  const tenant = process.env.MICROSOFT_TENANT_ID || "common";\n`
+      : "";
   return `import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "auth/server";
 import { getConnectorCredentials } from "lib/connectors/credentials";
@@ -215,8 +218,8 @@ import { getConnectorCredentials } from "lib/connectors/credentials";
 const SCOPES = ${JSON.stringify(scopeStr)};
 
 function getRedirectUri(request: NextRequest): string {
-  if (process.env.FLARE_AUTH_URL) {
-    const baseUrl = process.env.FLARE_AUTH_URL.replace(/\\/+$/, "");
+  if (process.env.VOIDAGENT_AUTH_URL) {
+    const baseUrl = process.env.VOIDAGENT_AUTH_URL.replace(/\\/+$/, "");
     return \`\${baseUrl}/api/connectors/${p.name}/callback\`;
   }
   const url = new URL(request.url);
@@ -273,7 +276,9 @@ async function main() {
     await writeFile(join(authDir, "route.ts"), authorizeRoute(p));
     console.log(`Wrote ${p.name}/authorize/route.ts`);
   }
-  console.log("Done. Note: callback routes for these providers must be hand-written — they vary in identity-fetch logic.");
+  console.log(
+    "Done. Note: callback routes for these providers must be hand-written — they vary in identity-fetch logic.",
+  );
 }
 
 await main();

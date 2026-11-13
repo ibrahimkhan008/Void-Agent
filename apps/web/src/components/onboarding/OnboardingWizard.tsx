@@ -28,11 +28,11 @@ const connectAppsCopy = {
   loadingMore: "Loading...",
   loadMore: "Load more",
   skip: "Skip for now",
-  primaryWithApps: "Start using Void-Agent",
+  primaryWithApps: "Start using Void Agent",
   primaryWithoutApps: "Go to app",
   continueError: "Failed to continue",
   notConfigured:
-    "App connections are not set up on this instance yet. An admin can turn them on with a Composio key (COMPOSIO_API_KEY). Void-Agent works without them.",
+    "App connections are not set up on this instance yet. An admin can turn them on with a Composio key (COMPOSIO_API_KEY). Void Agent works without them.",
 } as {
   connectedLabel: string;
   connectLabel: string;
@@ -283,14 +283,14 @@ function ConnectAppsStep({
         <div className="flex items-center justify-center gap-2 mb-1">
           <Image
             src="/images/logo-va-128.webp"
-            alt="Void-Agent"
+            alt="Void Agent"
             width={40}
             height={40}
             priority
             className="shrink-0"
           />
           <span className="text-lg font-semibold tracking-tight">
-            Void-Agent
+            Void Agent
           </span>
         </div>
         <h2 className="text-2xl font-bold">{copy.heading}</h2>

@@ -1,7 +1,7 @@
 # Webhook subscriptions
 
 Webhook subscriptions let external services receive a push notification
-when something happens in a user's Flare account — a thread is created,
+when something happens in a user's Void Agent account — a thread is created,
 a message is posted, a scheduled agent run completes, an agent is
 published, or an inbound trigger fires. Each subscription is a URL +
 event-type list + signing secret. The outbox worker delivers events with
@@ -33,7 +33,7 @@ directly via the repository:
 ```
 webhookRepository.createWebhookSubscription({
   userId: "<user>",
-  url: "https://example.com/hooks/flare",
+  url: "https://example.com/hooks/void-agent",
   eventTypes: ["thread.created", "message.created"],
   signingSecret: "whsec_<at-least-32-chars>",  // plaintext, see Risks
   description: "Prod mirror",
@@ -114,7 +114,7 @@ The tick per event:
    `getWebhookSubscriptionSigningSecret(id, userId)` fetches the plaintext
    secret, then `deliverWebhook({url, payload, signingSecret})` performs
    the `POST` with `Content-Type: application/json`,
-   `User-Agent: flare-webhooks/1`, the signature header, and a 10-second
+   `User-Agent: void-agent-webhooks/1`, the signature header, and a 10-second
    `AbortController` timeout.
 4. **Record deliveries.** A `webhook_delivery` row per (event, subscription)
    is inserted with `status='delivered'` on 2xx, `status='failed'` on

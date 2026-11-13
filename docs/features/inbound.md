@@ -1,6 +1,6 @@
 # Inbound triggers
 
-An inbound trigger is a public URL that lets an external system start a Flare
+An inbound trigger is a public URL that lets an external system start a Void Agent
 chat. You point SendGrid, Mailgun, AWS SES, Slack, or any HTTP client at it;
 the request lands on `/api/inbound/[token]`, gets normalised into a chat
 message, and is enqueued for the outbox worker to run on the agent you

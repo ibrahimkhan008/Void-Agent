@@ -61,7 +61,7 @@ export function UserDetail({
       className="min-h-full p-4 md:p-6 space-y-6"
       data-testid="user-detail-content"
     >
-      {/* Hero Section — Cognix detail header (§4.8) */}
+      {/* Hero Section — Void Agent detail header (§4.8) */}
       <div className="space-y-2">
         <Eyebrow>Admin</Eyebrow>
         <h1 className="text-3xl font-normal tracking-[-0.03em]">

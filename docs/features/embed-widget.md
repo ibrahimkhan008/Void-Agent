@@ -1,29 +1,29 @@
 # Embeddable widget
 
-The embeddable widget lets a published Flare agent run inside another site as
+The embeddable widget lets a published Void Agent agent run inside another site as
 an anonymous iframe chat. The host page loads `/embed.js`, the script mints a
 short-lived embed session through `/api/embed/session`, and the iframe renders
-`/embed/[agentId]` without requiring the visitor to sign in to Flare.
+`/embed/[agentId]` without requiring the visitor to sign in to Void Agent.
 
 This is the Phase 5 external-support surface for public agents: support bots,
 lead-capture assistants, documentation helpers, and partner pages where the
-visitor should not get a full Flare account session.
+visitor should not get a full Void Agent account session.
 
 ## Setup snippet
 
 Add the script once on the host page where the chat should appear:
 
 ```html
-<div id="flare-chat"></div>
+<div id="void-agent-chat"></div>
 <script
   async
-  src="https://app.flare.ai/embed.js"
+  src="https://app.void-agent.ai/embed.js"
   data-agent="agent_123"
-  data-container="#flare-chat"
+  data-container="#void-agent-chat"
   data-width="100%"
   data-height="640px"
   data-radius="16px"
-  data-title="Flare support chat"
+  data-title="Void Agent support chat"
 ></script>
 ```
 
@@ -37,9 +37,9 @@ next to the script tag when no container is provided.
 | `data-width` | No | iframe width. Defaults to `100%`. |
 | `data-height` | No | iframe height. Defaults to `640px`. |
 | `data-radius` | No | iframe border radius. Defaults to `16px`. |
-| `data-title` | No | iframe title for accessibility. Defaults to `Flare chat`. |
+| `data-title` | No | iframe title for accessibility. Defaults to `Void Agent chat`. |
 
-The script should never include a Flare secret. It is safe to place in public
+The script should never include a Void Agent secret. It is safe to place in public
 HTML because the server decides whether the agent is published before returning
 an embed token.
 
@@ -150,7 +150,7 @@ server-side token/session checks.
 
 ## CSP and frame restrictions
 
-Flare keeps strict frame protections on the main app and only loosens embed
+Void Agent keeps strict frame protections on the main app and only loosens embed
 routes.
 
 Main app default headers:
@@ -171,7 +171,7 @@ Rules for production hardening:
 
 - **Keep the exception route-scoped.** Only `/embed/:path*` and `/embed.js`
   should be frameable.
-- **Do not loosen the main app.** Signed-in Flare routes should keep
+- **Do not loosen the main app.** Signed-in Void Agent routes should keep
   `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`.
 - **Prefer explicit origins.** The current implementation uses
   `frame-ancestors *` for broad compatibility. Customer deployments should move

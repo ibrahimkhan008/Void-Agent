@@ -42,7 +42,7 @@ const createCache = () => {
     return new UpstashRestCache({
       restUrl: upstashRestUrl,
       restToken: upstashRestToken,
-      keyPrefix: "flare:",
+      keyPrefix: "voidagent:",
     });
   }
 

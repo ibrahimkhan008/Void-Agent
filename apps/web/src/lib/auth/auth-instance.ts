@@ -264,7 +264,7 @@ async function onMemberJoined(member: {
 const trustedOrigins = buildBetterAuthTrustedOrigins();
 
 /**
- * Cloudflare Turnstile, off unless a secret is configured. Every public
+ * Cloudvoid-agent Turnstile, off unless a secret is configured. Every public
  * sign-up/sign-in path has to reach Better Auth over the HTTP handler to be
  * covered — see `./captcha-plugin`.
  *

@@ -6,7 +6,7 @@
 
 ---
 
-> Please read these Terms of Service ("Terms", "Agreement") carefully before using Void-Agent. By accessing or using our platform, you agree to be legally bound by these Terms. If you do not agree, do not use Void-Agent.
+> Please read these Terms of Service ("Terms", "Agreement") carefully before using Void Agent. By accessing or using our platform, you agree to be legally bound by these Terms. If you do not agree, do not use Void Agent.
 
 ---
 
@@ -46,41 +46,41 @@
 
 ## 1. Introduction
 
-Welcome to **Void-Agent** ("Void-Agent", "we", "us", "our") — an AI-powered chat and productivity platform that brings together multiple state-of-the-art AI models, image generation and editing tools, voice interaction, and web-aware AI assistance in a single unified interface.
+Welcome to **Void Agent** ("Void Agent", "we", "us", "our") — an AI-powered chat and productivity platform that brings together multiple state-of-the-art AI models, image generation and editing tools, voice interaction, and web-aware AI assistance in a single unified interface.
 
-Void-Agent is designed for students, developers, creators, researchers, and professionals who want a smarter, more versatile AI workspace — similar in spirit to platforms like ChatGPT, Claude, and Perplexity, but built with a focus on multi-model flexibility and an all-in-one experience.
+Void Agent is designed for students, developers, creators, researchers, and professionals who want a smarter, more versatile AI workspace — similar in spirit to platforms like ChatGPT, Claude, and Perplexity, but built with a focus on multi-model flexibility and an all-in-one experience.
 
 These Terms of Service govern your access to and use of:
-- The Void-Agent web application at [the Void-Agent website](/)
-- Any Void-Agent mobile applications (current or future)
-- Any APIs or developer tools offered by Void-Agent
-- All features, content, and services provided under the Void-Agent brand
+- The Void Agent web application at [the Void Agent website](/)
+- Any Void Agent mobile applications (current or future)
+- Any APIs or developer tools offered by Void Agent
+- All features, content, and services provided under the Void Agent brand
 
-By accessing or using any part of Void-Agent, you confirm that you have read, understood, and agree to be bound by these Terms, our [Privacy Policy](/privacy-policy), and any additional guidelines or policies we may publish.
+By accessing or using any part of Void Agent, you confirm that you have read, understood, and agree to be bound by these Terms, our [Privacy Policy](/privacy-policy), and any additional guidelines or policies we may publish.
 
 ---
 
 ## 2. Acceptance of Terms
 
-Your use of Void-Agent constitutes your agreement to these Terms. This agreement is effective from the date you first access or use Void-Agent.
+Your use of Void Agent constitutes your agreement to these Terms. This agreement is effective from the date you first access or use Void Agent.
 
-If you are using Void-Agent on behalf of a company, organization, or other legal entity, you represent that you have the authority to bind that entity to these Terms. In that case, "you" refers to that entity.
+If you are using Void Agent on behalf of a company, organization, or other legal entity, you represent that you have the authority to bind that entity to these Terms. In that case, "you" refers to that entity.
 
-If you do not agree with any part of these Terms, you must immediately stop using Void-Agent.
+If you do not agree with any part of these Terms, you must immediately stop using Void Agent.
 
 ---
 
 ## 3. Eligibility
 
-To use Void-Agent, you must meet the following requirements:
+To use Void Agent, you must meet the following requirements:
 
 - You must be at least **13 years of age**
-- If you are between 13 and 18, you must have parental or guardian consent to use Void-Agent
+- If you are between 13 and 18, you must have parental or guardian consent to use Void Agent
 - You must have the legal capacity to enter into a binding contract in your jurisdiction
-- You must not be prohibited from using Void-Agent under the laws of your country or region
-- You must not have had a Void-Agent account previously terminated due to a violation of these Terms
+- You must not be prohibited from using Void Agent under the laws of your country or region
+- You must not have had a Void Agent account previously terminated due to a violation of these Terms
 
-By creating an account or using Void-Agent, you represent and warrant that all of the above conditions are met.
+By creating an account or using Void Agent, you represent and warrant that all of the above conditions are met.
 
 ### 3.1 Age Verification
 We do not currently have automated age verification systems in place. If we become aware that a user is under 13 years of age, we will immediately suspend that account and delete any associated personal data in compliance with applicable law.
@@ -89,7 +89,7 @@ We do not currently have automated age verification systems in place. If we beco
 
 ## 4. Description of Services
 
-Void-Agent provides the following core features and services:
+Void Agent provides the following core features and services:
 
 ### 4.1 Multi-Model AI Chat
 Access and interact with multiple large language models (LLMs) from a single interface, including:
@@ -97,7 +97,7 @@ Access and interact with multiple large language models (LLMs) from a single int
 - **GPT models** (by OpenAI) — GPT-4o, GPT-4 Turbo, and others
 - **Gemini** (by Google via GCP) — Gemini 1.5 Pro, Gemini Flash, and others
 - **Open-source models** (via Groq) — DeepSeek, LLaMA, Mixtral, and others
-- **Void-Agent proprietary models** — including proprietary reasoning and web-enabled models developed internally
+- **Void Agent proprietary models** — including proprietary reasoning and web-enabled models developed internally
 
 ### 4.2 AI Image Generation & Editing
 Generate and edit images using state-of-the-art image AI models via our integrated A4F API. You can create original images from text prompts, edit existing images, and explore creative visual outputs.
@@ -106,7 +106,7 @@ Generate and edit images using state-of-the-art image AI models via our integrat
 Use your microphone to speak with AI models directly. Voice input is transcribed in real-time and responses can be played back via text-to-speech. Voice Mode features an animated orb interface with state-based visual feedback.
 
 ### 4.4 Web-Aware AI (Search-Enabled Models)
-Some Void-Agent models have access to real-time web search, allowing them to retrieve and synthesize up-to-date information beyond their training data cutoff.
+Some Void Agent models have access to real-time web search, allowing them to retrieve and synthesize up-to-date information beyond their training data cutoff.
 
 ### 4.5 Conversation History & Management
 All your conversations are saved to your account so you can revisit, continue, or delete them at any time.
@@ -121,46 +121,46 @@ We reserve the right to modify, add, or remove features at any time. We will try
 ## 5. Account Registration & Security
 
 ### 5.1 Creating an Account
-To access most features of Void-Agent, you must register for an account. You agree to:
+To access most features of Void Agent, you must register for an account. You agree to:
 - Provide accurate, complete, and current registration information
 - Maintain and promptly update your account information as needed
 - Use a real email address that you own and have access to
 
 ### 5.2 Account Security
 You are responsible for maintaining the confidentiality of your login credentials. You agree to:
-- Choose a strong, unique password for your Void-Agent account
+- Choose a strong, unique password for your Void Agent account
 - Not share your password or login credentials with anyone
 - Log out of your account when using shared or public devices
-- Notify us immediately at **support@void-agent.local** if you suspect unauthorized access to your account
+- Notify us immediately at **support@Void Agent.local** if you suspect unauthorized access to your account
 
 ### 5.3 Account Responsibility
-You are fully responsible for all activities that occur under your account, whether or not you authorized them. Void-Agent is not liable for any loss or damage resulting from unauthorized access due to your failure to keep your credentials secure.
+You are fully responsible for all activities that occur under your account, whether or not you authorized them. Void Agent is not liable for any loss or damage resulting from unauthorized access due to your failure to keep your credentials secure.
 
 ### 5.4 One Account Per User
-Each user may maintain only one account unless explicitly permitted by Void-Agent. Creating multiple accounts to circumvent bans, usage limits, or free tier restrictions is prohibited.
+Each user may maintain only one account unless explicitly permitted by Void Agent. Creating multiple accounts to circumvent bans, usage limits, or free tier restrictions is prohibited.
 
 ### 5.5 Third-Party Sign-In
-If you sign in using a third-party provider (e.g., Google, GitHub), you authorize Void-Agent to access and store the basic profile information provided by that service (typically name, email, and profile photo). Your use of third-party sign-in is also governed by that provider's terms.
+If you sign in using a third-party provider (e.g., Google, GitHub), you authorize Void Agent to access and store the basic profile information provided by that service (typically name, email, and profile photo). Your use of third-party sign-in is also governed by that provider's terms.
 
 ---
 
 ## 6. Subscription Plans & Billing
 
 ### 6.1 Free and Paid Tiers
-Void-Agent offers both a free tier and paid subscription plans. The specific features, limits, and pricing of each plan are described on our [Pricing page](/pricing) and may change over time.
+Void Agent offers both a free tier and paid subscription plans. The specific features, limits, and pricing of each plan are described on our [Pricing page](/pricing) and may change over time.
 
 ### 6.2 Billing & Payment
 - Paid subscriptions are billed on a recurring basis (monthly or annually, depending on your plan)
 - Payment is processed through a third-party provider (e.g., Stripe or Razorpay)
-- By providing payment information, you authorize Void-Agent to charge your payment method on a recurring basis
+- By providing payment information, you authorize Void Agent to charge your payment method on a recurring basis
 - All prices are listed in the applicable currency and are inclusive or exclusive of taxes as stated at checkout
 
 ### 6.3 Taxes
-You are responsible for any applicable taxes, levies, or duties imposed by tax authorities in your jurisdiction. Where required by law, Void-Agent may collect and remit taxes on your behalf.
+You are responsible for any applicable taxes, levies, or duties imposed by tax authorities in your jurisdiction. Where required by law, Void Agent may collect and remit taxes on your behalf.
 
 ### 6.4 Refund Policy
 - Subscription fees are **non-refundable** except where required by applicable law or at our sole discretion
-- If you believe you were charged in error, contact us at **support@void-agent.local** within **7 days** of the charge
+- If you believe you were charged in error, contact us at **support@Void Agent.local** within **7 days** of the charge
 
 ### 6.5 Plan Changes & Cancellation
 - You may upgrade, downgrade, or cancel your subscription at any time from your account settings
@@ -175,7 +175,7 @@ We reserve the right to change subscription pricing. We will notify existing sub
 ## 7. Free Tier & Usage Limits
 
 ### 7.1 Free Tier Availability
-Void-Agent offers a free tier with access to a subset of features and models. Free tier availability, feature access, and usage limits are subject to change at our discretion.
+Void Agent offers a free tier with access to a subset of features and models. Free tier availability, feature access, and usage limits are subject to change at our discretion.
 
 ### 7.2 Usage Quotas
 All plans, including paid plans, are subject to usage limits (e.g., message limits, image generation credits, API call limits). Specific limits are described in your plan details.
@@ -190,22 +190,22 @@ Free tier features may be modified or discontinued without notice. We do not gua
 
 ## 8. Acceptable Use Policy
 
-You agree to use Void-Agent only for lawful purposes and in a manner consistent with these Terms. Void-Agent is intended to be a helpful, productive, and trustworthy AI platform. We expect all users to use it responsibly.
+You agree to use Void Agent only for lawful purposes and in a manner consistent with these Terms. Void Agent is intended to be a helpful, productive, and trustworthy AI platform. We expect all users to use it responsibly.
 
 ### 8.1 Permitted Uses
-You may use Void-Agent to:
+You may use Void Agent to:
 - Ask questions, research topics, and get AI-generated explanations
 - Write, edit, summarize, and brainstorm content
 - Generate and edit images from text prompts
 - Write, debug, and review code
 - Conduct legitimate academic, professional, or personal research
 - Interact with AI using voice input
-- Build applications using Void-Agent's API (subject to API terms)
+- Build applications using Void Agent's API (subject to API terms)
 
 ### 8.2 General Standards
-You agree not to use Void-Agent in any way that:
+You agree not to use Void Agent in any way that:
 - Violates any applicable local, national, or international law or regulation
-- Infringes the intellectual property rights of Void-Agent or any third party
+- Infringes the intellectual property rights of Void Agent or any third party
 - Harms, exploits, or endangers any person
 - Undermines the security, integrity, or availability of the platform
 - Violates the terms of the underlying AI model providers
@@ -214,10 +214,10 @@ You agree not to use Void-Agent in any way that:
 
 ## 9. Prohibited Conduct
 
-The following are strictly prohibited on Void-Agent. Violations may result in immediate account suspension or termination.
+The following are strictly prohibited on Void Agent. Violations may result in immediate account suspension or termination.
 
 ### 9.1 Illegal & Harmful Content
-You may not use Void-Agent to generate, distribute, or facilitate:
+You may not use Void Agent to generate, distribute, or facilitate:
 - Child sexual abuse material (CSAM) or any content that sexually exploits minors
 - Content that incites, promotes, or facilitates violence against any person or group
 - Hate speech targeting individuals or groups based on race, religion, gender, sexual orientation, nationality, disability, or other protected characteristics
@@ -225,37 +225,37 @@ You may not use Void-Agent to generate, distribute, or facilitate:
 - Content that facilitates human trafficking, exploitation, or abuse
 
 ### 9.2 Deception & Fraud
-You may not use Void-Agent to:
+You may not use Void Agent to:
 - Create deepfakes, synthetic media, or impersonations intended to deceive or defraud
 - Generate phishing content, scam messages, or fraudulent communications
-- Impersonate any person, company, or entity — including Void-Agent staff or support
+- Impersonate any person, company, or entity — including Void Agent staff or support
 - Spread deliberate misinformation or disinformation at scale
 - Generate fake reviews, testimonials, or endorsements
 
 ### 9.3 Security & System Abuse
 You may not:
-- Attempt to hack, reverse engineer, or exploit Void-Agent's systems or APIs
-- Use automated scripts, bots, or scrapers to access Void-Agent at scale without authorization
-- Attempt to extract training data or model weights from Void-Agent or its AI providers
+- Attempt to hack, reverse engineer, or exploit Void Agent's systems or APIs
+- Use automated scripts, bots, or scrapers to access Void Agent at scale without authorization
+- Attempt to extract training data or model weights from Void Agent or its AI providers
 - Launch denial-of-service (DoS) attacks or otherwise attempt to disrupt the platform
-- Probe or test the security of Void-Agent without explicit written permission
-- Use Void-Agent to generate malware, exploits, ransomware, or any malicious code
+- Probe or test the security of Void Agent without explicit written permission
+- Use Void Agent to generate malware, exploits, ransomware, or any malicious code
 
 ### 9.4 Privacy Violations
-You may not use Void-Agent to:
+You may not use Void Agent to:
 - Collect, harvest, or aggregate personal data about other users or third parties
 - Generate content that doxxes, stalks, or harasses individuals
 - Attempt to identify anonymous users or bypass anonymization
 - Share other people's private information without their consent
 
 ### 9.5 Intellectual Property Violations
-You may not use Void-Agent to:
+You may not use Void Agent to:
 - Reproduce or distribute copyrighted content in a way that infringes on rights holders
 - Generate content that plagiarizes or falsely attributes works to others
 - Circumvent digital rights management (DRM) or access controls
 
 ### 9.6 Commercial Spam & Manipulation
-You may not use Void-Agent to:
+You may not use Void Agent to:
 - Generate unsolicited bulk commercial messages (spam)
 - Artificially manipulate search rankings, social media engagement, or ad systems
 - Create content farms or SEO manipulation schemes at scale
@@ -263,9 +263,9 @@ You may not use Void-Agent to:
 ### 9.7 Platform Integrity
 You may not:
 - Circumvent usage limits, paywalls, or access controls
-- Resell or sublicense access to Void-Agent without written permission
+- Resell or sublicense access to Void Agent without written permission
 - Create accounts for others without their knowledge
-- Use Void-Agent to compete with or replicate Void-Agent's core product
+- Use Void Agent to compete with or replicate Void Agent's core product
 
 ---
 
@@ -274,7 +274,7 @@ You may not:
 We believe that your privacy matters. This section summarizes how we handle your data. For full details, please read our [Privacy Policy](/privacy-policy).
 
 ### 10.1 What We Collect
-When you use Void-Agent, we collect:
+When you use Void Agent, we collect:
 - **Account data** — name, email address, hashed password, profile photo
 - **Conversation data** — your messages, AI responses, and chat history
 - **Usage data** — features used, session duration, model selections
@@ -284,7 +284,7 @@ When you use Void-Agent, we collect:
 - **Payment data** — billing status and tokenized payment references (via third-party processors; we never store raw card details)
 
 ### 10.2 Why We Collect It
-We collect data **only to serve you** — to provide, maintain, and improve Void-Agent. We do not collect data for advertising or to sell to third parties.
+We collect data **only to serve you** — to provide, maintain, and improve Void Agent. We do not collect data for advertising or to sell to third parties.
 
 Specifically, we use your data to:
 - Deliver AI responses and maintain your conversation history
@@ -294,7 +294,7 @@ Specifically, we use your data to:
 - Comply with legal obligations
 
 ### 10.3 Consent to Data Collection
-By creating an account and using Void-Agent, you consent to the collection and use of your data as described in these Terms and our [Privacy Policy](/privacy-policy).
+By creating an account and using Void Agent, you consent to the collection and use of your data as described in these Terms and our [Privacy Policy](/privacy-policy).
 
 You may withdraw consent at any time by deleting your account. This will trigger the deletion of your personal data from our active systems within 30 days.
 
@@ -321,10 +321,10 @@ We retain your data for as long as your account is active or as needed to provid
 | Server logs | Up to 90 days |
 
 ### 11.3 Access Controls
-Access to user data is restricted to authorized Void-Agent personnel on a strict need-to-know basis. Administrative systems require multi-factor authentication (MFA). We do not allow third parties to browse or access your personal conversations.
+Access to user data is restricted to authorized Void Agent personnel on a strict need-to-know basis. Administrative systems require multi-factor authentication (MFA). We do not allow third parties to browse or access your personal conversations.
 
 ### 11.4 Data Portability & Deletion
-You can request a copy of your data or request its deletion at any time by contacting **support@void-agent.local**. We will fulfill requests within 30 days.
+You can request a copy of your data or request its deletion at any time by contacting **support@Void Agent.local**. We will fulfill requests within 30 days.
 
 ---
 
@@ -332,7 +332,7 @@ You can request a copy of your data or request its deletion at any time by conta
 
 To be completely clear:
 
-> **Void-Agent does not sell, rent, trade, or share your personal data with any third party for commercial, marketing, or advertising purposes.**
+> **Void Agent does not sell, rent, trade, or share your personal data with any third party for commercial, marketing, or advertising purposes.**
 
 - We do not sell your email address or usage patterns to advertisers
 - We do not participate in data broker networks
@@ -346,14 +346,14 @@ Our revenue comes from user subscriptions — not from monetizing your personal 
 ## 13. AI Conversations & Generated Content
 
 ### 13.1 Nature of AI Responses
-Void-Agent provides access to AI language models that generate responses based on your inputs. You acknowledge that:
+Void Agent provides access to AI language models that generate responses based on your inputs. You acknowledge that:
 - AI responses are **generated automatically** and may not always be accurate, complete, or appropriate
 - AI responses do **not constitute professional advice** — not legal, medical, financial, psychological, or otherwise
 - You should independently verify any AI-generated information before relying on it for important decisions
 - AI models may occasionally produce outputs that are incorrect, biased, or unexpected
 
 ### 13.2 No Professional Reliance
-Void-Agent is not a licensed professional service. Nothing on Void-Agent should be treated as:
+Void Agent is not a licensed professional service. Nothing on Void Agent should be treated as:
 - Legal advice or a substitute for consulting a licensed attorney
 - Medical advice or a substitute for consulting a licensed healthcare provider
 - Financial advice or a substitute for consulting a licensed financial advisor
@@ -362,16 +362,16 @@ Void-Agent is not a licensed professional service. Nothing on Void-Agent should 
 Always seek qualified professional advice for matters that require it.
 
 ### 13.3 Content Responsibility
-You are solely responsible for how you use AI-generated content. Void-Agent is not liable for any decisions you make, actions you take, or outcomes that result from your use of AI-generated outputs.
+You are solely responsible for how you use AI-generated content. Void Agent is not liable for any decisions you make, actions you take, or outcomes that result from your use of AI-generated outputs.
 
 ### 13.4 Accuracy & Hallucinations
-AI models can produce "hallucinations" — confidently stated but factually incorrect information. We do not guarantee the accuracy or reliability of any AI-generated content on Void-Agent.
+AI models can produce "hallucinations" — confidently stated but factually incorrect information. We do not guarantee the accuracy or reliability of any AI-generated content on Void Agent.
 
 ---
 
 ## 14. Third-Party AI Providers
 
-Void-Agent routes your messages to external AI model APIs to generate responses. By using Void-Agent, you acknowledge and agree that:
+Void Agent routes your messages to external AI model APIs to generate responses. By using Void Agent, you acknowledge and agree that:
 
 - Your inputs are transmitted to third-party AI providers including **Anthropic, OpenAI, Google, and Groq**
 - These providers process your data according to their own privacy policies and terms of service
@@ -393,9 +393,9 @@ We are not responsible for third-party service outages, rate limits, or changes 
 
 ## 15. Integrations, MCP & Connectors
 
-Void-Agent allows you to connect external data sources and applications through Google Connectors and the Model Context Protocol (MCP). By using these integrations, you agree that:
+Void Agent allows you to connect external data sources and applications through Google Connectors and the Model Context Protocol (MCP). By using these integrations, you agree that:
 
-- **Authorization**: You authorize Void-Agent to access, view, and interact with the data in your connected accounts (e.g., Google Drive, connected MCP servers) based on the permissions you grant during the authorization process.
+- **Authorization**: You authorize Void Agent to access, view, and interact with the data in your connected accounts (e.g., Google Drive, connected MCP servers) based on the permissions you grant during the authorization process.
 - **Secure Handling of Tokens**: We securely store integration tokens (such as OAuth tokens for Google or connection strings for MCP) using industry-standard encryption at rest and in transit. These tokens are used exclusively to facilitate your active requests.
 - **Your Responsibility**: You are responsible for ensuring you have the right to access and connect these external data sources. You must not connect sources containing data you do not have permission to process.
 - **Revocation**: You may disconnect any connector or MCP server at any time from your account settings. Upon disconnection, we promptly delete the associated access tokens. We are not responsible for data already processed or synthesized into your conversation history prior to disconnection.
@@ -404,27 +404,27 @@ Void-Agent allows you to connect external data sources and applications through 
 
 ## 16. Intellectual Property
 
-### 15.1 Void-Agent's Intellectual Property
-All content, features, code, design, branding, and technology that make up Void-Agent — including but not limited to the Void-Agent name, logo, interface, models, and software — are the intellectual property of Void-Agent and are protected by applicable copyright, trademark, and other laws.
+### 15.1 Void Agent's Intellectual Property
+All content, features, code, design, branding, and technology that make up Void Agent — including but not limited to the Void Agent name, logo, interface, models, and software — are the intellectual property of Void Agent and are protected by applicable copyright, trademark, and other laws.
 
 You may not:
-- Copy, reproduce, or distribute any part of Void-Agent without written permission
-- Reverse engineer or decompile any part of the Void-Agent platform
-- Use the Void-Agent name, logo, or branding without our prior written consent
-- Create derivative works based on Void-Agent's proprietary systems
+- Copy, reproduce, or distribute any part of Void Agent without written permission
+- Reverse engineer or decompile any part of the Void Agent platform
+- Use the Void Agent name, logo, or branding without our prior written consent
+- Create derivative works based on Void Agent's proprietary systems
 
 ### 15.2 Feedback & Suggestions
-If you provide feedback, ideas, or suggestions about Void-Agent, you grant us a non-exclusive, royalty-free, perpetual license to use that feedback for any purpose without compensation to you.
+If you provide feedback, ideas, or suggestions about Void Agent, you grant us a non-exclusive, royalty-free, perpetual license to use that feedback for any purpose without compensation to you.
 
 ---
 
 ## 17. Your Content & Ownership
 
 ### 16.1 You Own Your Inputs
-You retain full ownership of the prompts, messages, files, and other content you submit to Void-Agent ("Your Content"). We do not claim ownership over your inputs.
+You retain full ownership of the prompts, messages, files, and other content you submit to Void Agent ("Your Content"). We do not claim ownership over your inputs.
 
-### 16.2 License You Grant to Void-Agent
-By submitting content to Void-Agent, you grant us a limited, non-exclusive, worldwide, royalty-free license to:
+### 16.2 License You Grant to Void Agent
+By submitting content to Void Agent, you grant us a limited, non-exclusive, worldwide, royalty-free license to:
 - Process and transmit your content to AI providers to generate responses
 - Store your content to maintain your conversation history
 - Use aggregated, anonymized data derived from your content to improve our services
@@ -440,7 +440,7 @@ The outputs generated by AI models in response to your prompts are provided to y
 Ownership of AI-generated content may vary based on jurisdiction and the specific circumstances of generation. We encourage you to understand the relevant laws in your region.
 
 ### 16.4 Responsibility for Your Content
-You are solely responsible for the content you submit to Void-Agent. You represent and warrant that:
+You are solely responsible for the content you submit to Void Agent. You represent and warrant that:
 - You own or have the necessary rights to submit your content
 - Your content does not violate any third-party rights
 - Your content complies with these Terms and applicable laws
@@ -450,7 +450,7 @@ You are solely responsible for the content you submit to Void-Agent. You represe
 ## 18. Image Generation & Editing
 
 ### 17.1 Usage
-Void-Agent's image generation and editing tools are powered by third-party image AI APIs (currently A4F API). By using these features, you agree to:
+Void Agent's image generation and editing tools are powered by third-party image AI APIs (currently A4F API). By using these features, you agree to:
 - Use generated images only for lawful purposes
 - Not generate images that depict real, identifiable individuals in misleading or harmful contexts
 - Not generate sexually explicit images of any person
@@ -461,14 +461,14 @@ Void-Agent's image generation and editing tools are powered by third-party image
 We reserve the right to block, remove, or restrict image generation requests that violate our Acceptable Use Policy. Repeated violations may result in account suspension.
 
 ### 17.3 Ownership of Generated Images
-Images generated using Void-Agent tools are provided to you for your use, subject to the terms above. We do not claim ownership over images you generate, but we also do not guarantee your exclusive rights to them, as other users may generate similar outputs from similar prompts.
+Images generated using Void Agent tools are provided to you for your use, subject to the terms above. We do not claim ownership over images you generate, but we also do not guarantee your exclusive rights to them, as other users may generate similar outputs from similar prompts.
 
 ---
 
 ## 19. Voice Mode
 
 ### 18.1 Microphone Access
-Using Voice Mode requires granting Void-Agent access to your device's microphone. You may revoke this access at any time through your device or browser settings.
+Using Voice Mode requires granting Void Agent access to your device's microphone. You may revoke this access at any time through your device or browser settings.
 
 ### 18.2 Audio Processing
 - Audio captured during Voice Mode is transcribed to text in real-time
@@ -482,13 +482,13 @@ By using Voice Mode, you consent to the real-time capture and transcription of y
 
 ## 20. Disclaimer of Warranties
 
-**TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, VOID-AGENT IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.**
+**TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, Void Agent IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.**
 
 We specifically disclaim:
-- Any warranty that Void-Agent will be uninterrupted, error-free, or secure
+- Any warranty that Void Agent will be uninterrupted, error-free, or secure
 - Any warranty of accuracy, completeness, or reliability of AI-generated content
 - Any implied warranties of merchantability, fitness for a particular purpose, or non-infringement
-- Any warranty that Void-Agent will meet your specific requirements or expectations
+- Any warranty that Void Agent will meet your specific requirements or expectations
 
 We do not warrant that:
 - AI responses will be accurate, up-to-date, or appropriate for your use case
@@ -496,21 +496,21 @@ We do not warrant that:
 - Any errors or bugs will be corrected
 - The platform is free from viruses or other harmful components
 
-Use of Void-Agent is at your own risk.
+Use of Void Agent is at your own risk.
 
 ---
 
 ## 21. Limitation of Liability
 
-**TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, VOID-AGENT AND ITS FOUNDERS, EMPLOYEES, CONTRACTORS, AND AFFILIATES SHALL NOT BE LIABLE FOR:**
+**TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, Void Agent AND ITS FOUNDERS, EMPLOYEES, CONTRACTORS, AND AFFILIATES SHALL NOT BE LIABLE FOR:**
 
 - Any indirect, incidental, special, consequential, or punitive damages
 - Loss of profits, data, business, or goodwill
 - Damages resulting from your reliance on AI-generated content
 - Damages resulting from unauthorized access to your account
-- Any damages exceeding the amount you paid to Void-Agent in the 3 months preceding the claim (or $10 USD if you are on the free tier)
+- Any damages exceeding the amount you paid to Void Agent in the 3 months preceding the claim (or $10 USD if you are on the free tier)
 
-This limitation applies regardless of the legal theory under which the claim is brought and even if Void-Agent has been advised of the possibility of such damages.
+This limitation applies regardless of the legal theory under which the claim is brought and even if Void Agent has been advised of the possibility of such damages.
 
 Some jurisdictions do not allow the exclusion of certain warranties or the limitation of liability for certain damages. In such jurisdictions, our liability is limited to the maximum extent permitted by law.
 
@@ -518,12 +518,12 @@ Some jurisdictions do not allow the exclusion of certain warranties or the limit
 
 ## 22. Indemnification
 
-You agree to defend, indemnify, and hold harmless Void-Agent and its founders, employees, contractors, and affiliates from and against any claims, liabilities, damages, losses, and expenses (including legal fees) arising out of or in connection with:
+You agree to defend, indemnify, and hold harmless Void Agent and its founders, employees, contractors, and affiliates from and against any claims, liabilities, damages, losses, and expenses (including legal fees) arising out of or in connection with:
 
-- Your use of or access to Void-Agent
+- Your use of or access to Void Agent
 - Your violation of these Terms
 - Your violation of any third-party rights, including intellectual property or privacy rights
-- Any content you submit to Void-Agent
+- Any content you submit to Void Agent
 - Your violation of any applicable law or regulation
 
 ---
@@ -531,12 +531,12 @@ You agree to defend, indemnify, and hold harmless Void-Agent and its founders, e
 ## 23. Termination & Suspension
 
 ### 22.1 Termination by You
-You may close your Void-Agent account at any time through your account settings. Upon account closure:
-- Your access to Void-Agent is immediately revoked
+You may close your Void Agent account at any time through your account settings. Upon account closure:
+- Your access to Void Agent is immediately revoked
 - Your personal data will be deleted from active systems within 30 days
 - Any unused subscription time is forfeited and non-refundable (except where required by law)
 
-### 22.2 Suspension or Termination by Void-Agent
+### 22.2 Suspension or Termination by Void Agent
 We reserve the right to suspend or permanently terminate your account at any time if:
 - You violate these Terms or our Acceptable Use Policy
 - Your account is involved in fraudulent, abusive, or illegal activity
@@ -547,22 +547,22 @@ In cases of serious violations (e.g., CSAM, illegal activity), termination will 
 
 ### 22.3 Effect of Termination
 Upon termination:
-- Your right to access Void-Agent ceases immediately
+- Your right to access Void Agent ceases immediately
 - All licenses granted to you under these Terms are revoked
 - We may retain data as required by law or for legitimate business purposes (see our Privacy Policy)
 
 ### 22.4 Appeals
-If you believe your account was suspended or terminated in error, you may appeal by contacting us at **support@void-agent.local** with the subject line: *"Account Termination Appeal."*
+If you believe your account was suspended or terminated in error, you may appeal by contacting us at **support@Void Agent.local** with the subject line: *"Account Termination Appeal."*
 
 ---
 
 ## 24. Dispute Resolution
 
 ### 23.1 Informal Resolution First
-Before pursuing formal legal action, you agree to first try to resolve any dispute informally by contacting us at **support@void-agent.local**. We will make a good-faith effort to resolve the dispute within **30 days**.
+Before pursuing formal legal action, you agree to first try to resolve any dispute informally by contacting us at **support@Void Agent.local**. We will make a good-faith effort to resolve the dispute within **30 days**.
 
 ### 23.2 Arbitration
-If informal resolution fails, disputes will be resolved through binding arbitration, except where prohibited by law. You agree to waive the right to participate in a class action lawsuit or class-wide arbitration against Void-Agent.
+If informal resolution fails, disputes will be resolved through binding arbitration, except where prohibited by law. You agree to waive the right to participate in a class action lawsuit or class-wide arbitration against Void Agent.
 
 ### 23.3 Exceptions
 Notwithstanding the above, either party may seek emergency injunctive or other equitable relief in a court of competent jurisdiction to prevent irreparable harm.
@@ -575,7 +575,7 @@ These Terms are governed by and construed in accordance with the laws of **India
 
 Any disputes that are not resolved through arbitration will be subject to the exclusive jurisdiction of the courts located in **India**.
 
-If you are accessing Void-Agent from outside India, you are responsible for compliance with local laws applicable to your use of the platform.
+If you are accessing Void Agent from outside India, you are responsible for compliance with local laws applicable to your use of the platform.
 
 ---
 
@@ -591,7 +591,7 @@ When we make changes:
 - For **significant changes**, we will notify you via email and/or an in-app notice at least **14 days** before the changes take effect
 - For **minor changes** (e.g., clarifications, typo fixes), we may update without active notification
 
-Your continued use of Void-Agent after changes take effect constitutes your acceptance of the updated Terms. If you do not agree with the changes, you should stop using Void-Agent and delete your account before the effective date.
+Your continued use of Void Agent after changes take effect constitutes your acceptance of the updated Terms. If you do not agree with the changes, you should stop using Void Agent and delete your account before the effective date.
 
 Previous versions of these Terms are available upon request.
 
@@ -605,7 +605,7 @@ If any provision of these Terms is found to be invalid, illegal, or unenforceabl
 
 ## 28. Entire Agreement
 
-These Terms, together with our [Privacy Policy](/privacy-policy) and any other policies or guidelines referenced herein, constitute the entire agreement between you and Void-Agent regarding your use of the platform. They supersede all prior agreements, representations, and understandings — whether written or oral — relating to the same subject matter.
+These Terms, together with our [Privacy Policy](/privacy-policy) and any other policies or guidelines referenced herein, constitute the entire agreement between you and Void Agent regarding your use of the platform. They supersede all prior agreements, representations, and understandings — whether written or oral — relating to the same subject matter.
 
 No waiver of any provision of these Terms shall be deemed a further or continuing waiver of such provision or any other provision.
 
@@ -615,16 +615,16 @@ No waiver of any provision of these Terms shall be deemed a further or continuin
 
 If you have any questions, concerns, or feedback about these Terms, please reach out:
 
-**Void-Agent**
-📧 **General:** support@void-agent.local
-📧 **Legal & Terms:** support@void-agent.local
-📧 **Privacy & Data:** support@void-agent.local
-📧 **Security:** support@void-agent.local
-📧 **Billing:** support@void-agent.local
-🌐 **Website:** [the Void-Agent website](/)
+**Void Agent**
+📧 **General:** support@Void Agent.local
+📧 **Legal & Terms:** support@Void Agent.local
+📧 **Privacy & Data:** support@Void Agent.local
+📧 **Security:** support@Void Agent.local
+📧 **Billing:** support@Void Agent.local
+🌐 **Website:** [the Void Agent website](/)
 
 ---
 
 *Last Updated: March 5, 2026 | Version 2.0*
 
-*Void-Agent is built on trust. These Terms exist to protect you, protect us, and keep the platform a safe and productive space for everyone.*
+*Void Agent is built on trust. These Terms exist to protect you, protect us, and keep the platform a safe and productive space for everyone.*

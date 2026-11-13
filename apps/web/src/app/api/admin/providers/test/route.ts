@@ -22,9 +22,9 @@ const requestSchema = z
 
 type ProviderConfig = { baseURL: string; authKey: string; header: string };
 const staticProviders: Record<string, ProviderConfig> = {
-  flare: {
-    baseURL: "https://api.flare-sh.tech/v1",
-    authKey: process.env.FLARE_API_KEY || process.env.KORE_API_KEY || "",
+  voidagent: {
+    baseURL: "https://api.app.voidagent.test/v1",
+    authKey: process.env.VOIDAGENT_API_KEY || process.env.KORE_API_KEY || "",
     header: "Authorization",
   },
   groq: {
@@ -121,9 +121,10 @@ async function testStaticProvider(config: ProviderConfig) {
       : config.authKey;
   if (
     config.header === "Authorization" &&
-    endpoint.hostname === "api.flare-sh.tech"
+    endpoint.hostname === "api.app.voidagent.test"
   ) {
-    headers.Origin = process.env.FLARE_ORIGIN || "https://api.flare-sh.tech";
+    headers.Origin =
+      process.env.VOIDAGENT_ORIGIN || "https://api.app.voidagent.test";
   }
   if (endpoint.hostname === "generativelanguage.googleapis.com") {
     endpoint.searchParams.set("pageSize", "1");

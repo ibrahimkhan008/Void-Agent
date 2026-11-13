@@ -117,7 +117,7 @@ const validRequestBody = {
 };
 
 function makeRequest(body: unknown = validRequestBody) {
-  return new Request("https://void-agent.test/api/chat", {
+  return new Request("https://voidagent.test/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

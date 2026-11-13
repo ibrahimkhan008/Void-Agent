@@ -21,37 +21,37 @@ const TOPICS = [
     id: "Support",
     label: "Product & Account Support",
     sla: "1-2 business days",
-    mailbox: "support@void-agent.local",
+    mailbox: "support@Void Agent.local",
   },
   {
     id: "Sales",
     label: "Enterprise & Sales",
     sla: "1-2 business days",
-    mailbox: "sales@void-agent.local",
+    mailbox: "sales@Void Agent.local",
   },
   {
     id: "Security",
     label: "Security & Vulnerability",
     sla: "3 business days",
-    mailbox: "security@void-agent.local",
+    mailbox: "security@Void Agent.local",
   },
   {
     id: "Data Request",
     label: "Privacy & Data Rights",
     sla: "7 days acknowledgment",
-    mailbox: "privacy@void-agent.local",
+    mailbox: "privacy@Void Agent.local",
   },
   {
     id: "Billing",
     label: "Billing & Invoicing",
     sla: "48 hours",
-    mailbox: "support@void-agent.local",
+    mailbox: "support@Void Agent.local",
   },
   {
     id: "Partnerships",
     label: "Partnerships & Media",
     sla: "2-3 business days",
-    mailbox: "support@void-agent.local",
+    mailbox: "support@Void Agent.local",
   },
 ];
 
@@ -61,7 +61,7 @@ const EMAIL_CARDS = [
     title: "Product & Account Support",
     sla: "SLA: 1-2 business days",
     body: "Assistance with workspace accounts, bug reports, model behaviors, and features.",
-    email: "support@void-agent.local",
+    email: "support@Void Agent.local",
     subject: "[Support]",
   },
   {
@@ -69,7 +69,7 @@ const EMAIL_CARDS = [
     title: "Enterprise & Sales",
     sla: "SLA: 1-2 business days",
     body: "Custom volume quotas, dedicated microVM clusters, invoicing, and procurement paperwork.",
-    email: "sales@void-agent.local",
+    email: "sales@Void Agent.local",
     subject: "[Sales]",
   },
   {
@@ -77,7 +77,7 @@ const EMAIL_CARDS = [
     title: "Security & Vulnerability",
     sla: "SLA: 3 business days",
     body: "Coordinated vulnerability disclosure, penetration testing inquiries, and compliance reports.",
-    email: "security@void-agent.local",
+    email: "security@Void Agent.local",
     subject: "[Security]",
   },
   {
@@ -85,7 +85,7 @@ const EMAIL_CARDS = [
     title: "Privacy & Data Rights",
     sla: "SLA: 7 days acknowledgment",
     body: "Data access, correction, deletion, and India DPDP Act compliance requests.",
-    email: "privacy@void-agent.local",
+    email: "privacy@Void Agent.local",
     subject: "[Data Request]",
   },
   {
@@ -93,7 +93,7 @@ const EMAIL_CARDS = [
     title: "Billing & Invoicing",
     sla: "SLA: 48 hours",
     body: "Subscription upgrades, payment method issues, invoice receipts, and refund claims.",
-    email: "support@void-agent.local",
+    email: "support@Void Agent.local",
     subject: "[Billing]",
   },
 ];
@@ -331,7 +331,7 @@ export function ContactForm() {
               STATUTORY & GRIEVANCE REDRESSAL
             </h3>
             <p className="mt-3 text-sm/6 text-(--paper)/60">
-              Void-Agent operates in full compliance with the Digital Personal
+              Void Agent operates in full compliance with the Digital Personal
               Data Protection (DPDP) Act, 2023. For grievance escalation or
               statutory rights, refer to our legal center:
             </p>
@@ -369,7 +369,7 @@ export function ContactForm() {
                 ],
                 [
                   "GitHub Repository",
-                  "Void-Agent ↗",
+                  "Void Agent ↗",
                   "https://github.com/ibrahimkhan008",
                 ],
               ].map(([label, display, href]) => (

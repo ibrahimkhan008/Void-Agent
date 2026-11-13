@@ -7,7 +7,7 @@ import { isEncryptionAvailable } from "lib/security/encryption";
 const N8N_BASE_URL = process.env.N8N_BASE_URL ?? "http://127.0.0.1:5678";
 
 function randomPassword(): string {
-  return `Flare!${randomBytes(12).toString("base64url")}`;
+  return `Void Agent!${randomBytes(12).toString("base64url")}`;
 }
 
 async function acceptInvite(token: string, password: string) {
@@ -16,7 +16,7 @@ async function acceptInvite(token: string, password: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       token,
-      firstName: "Flare",
+      firstName: "Void Agent",
       lastName: "User",
       password,
     }),
@@ -41,7 +41,7 @@ export async function ensureN8nUser(
     return existing;
   }
 
-  const email = session.user.email ?? `${session.user.id}@flare.local`;
+  const email = session.user.email ?? `${session.user.id}@voidagent.local`;
   const adminClient = createAdminClient();
 
   const created = await adminClient.createUser(email);

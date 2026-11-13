@@ -4,7 +4,7 @@ import { MarkdownLegalPage } from "@/components/legal/markdown-legal-page";
 
 export const metadata = legalMetadata(
   "Privacy Policy",
-  "How Void-Agent collects, uses, stores, protects, and shares your information.",
+  "How Void Agent collects, uses, stores, protects, and shares your information.",
   "/privacy-policy",
 );
 
@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
       eyebrow="Legal"
       title="Privacy"
       accentTitle="Policy"
-      description="How Void-Agent collects, uses, stores, protects, and shares your information across our platform, products, and services."
+      description="How Void Agent collects, uses, stores, protects, and shares your information across our platform, products, and services."
       version="v2.0"
       effective="2026-03-05"
       siblings={[

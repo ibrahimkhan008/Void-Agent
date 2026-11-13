@@ -93,7 +93,7 @@ export function ConnectorSettings() {
     setNotice("");
     const popup = window.open(
       "about:blank",
-      "void-agent-connector",
+      "Void Agent-connector",
       "popup,width=620,height=760",
     );
     if (!popup) {
@@ -266,7 +266,7 @@ export function ConnectorSettings() {
           Connected accounts
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Connect accounts to use their data with Void-Agent. Provider
+          Connect accounts to use their data with Void Agent. Provider
           credentials are stored encrypted and scoped to your account.
         </p>
       </header>

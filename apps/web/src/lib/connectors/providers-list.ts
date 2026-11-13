@@ -1,4 +1,4 @@
-/** Provider ids retained from the original Void-Agent connector catalog. */
+/** Provider ids retained from the original Void Agent connector catalog. */
 export const BASE_OAUTH_PROVIDERS = [
   "gmail",
   "google-drive",

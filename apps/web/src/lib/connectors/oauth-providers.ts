@@ -220,7 +220,7 @@ const github: OAuthProviderConfig = {
   identityHeaders: (token: string) => ({
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
-    "User-Agent": "Void-Agent-connector",
+    "User-Agent": "Void Agent-connector",
   }),
   identityEmail: (body) =>
     typeof body.email === "string" ? body.email : undefined,

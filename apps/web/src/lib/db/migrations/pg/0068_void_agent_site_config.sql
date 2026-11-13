@@ -1,4 +1,4 @@
--- Void-Agent admin configuration required by dynamic providers and API keys.
+-- Void Agent admin configuration required by dynamic providers and API keys.
 -- These tables do not exist in the upstream schema. IF NOT EXISTS preserves
 -- destination data when this additive migration is run on an existing DB.
 CREATE TABLE IF NOT EXISTS "site_config" (
@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS "site_config_audit" (
 CREATE INDEX IF NOT EXISTS "site_config_audit_key_idx"
   ON "site_config_audit" USING btree ("key");
 
--- Void-Agent account metadata used by subscription/admin workflows.
+-- Void Agent account metadata used by subscription/admin workflows.
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "tier" varchar DEFAULT 'free' NOT NULL;
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "created_ip" text;
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "last_ip" text;
 
--- Void-Agent MCP gallery metadata and agent-install persistence.
+-- Void Agent MCP gallery metadata and agent-install persistence.
 ALTER TABLE "mcp_server" ADD COLUMN IF NOT EXISTS "curated" boolean DEFAULT false NOT NULL;
 ALTER TABLE "mcp_server" ADD COLUMN IF NOT EXISTS "category" varchar(64);
 ALTER TABLE "mcp_server" ADD COLUMN IF NOT EXISTS "install_count" integer DEFAULT 0 NOT NULL;

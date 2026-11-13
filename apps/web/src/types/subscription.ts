@@ -1,10 +1,10 @@
 export const SUBSCRIPTION_TIERS = {
   FREE: "free",
-  FLARE_FLARE_PRO: "flare-pro",
-  FLARE_FLARE_MAX: "flare-max",
-  FLARE_ENTERPRISES: "flare-enterprises",
-  FLARE_ENTERPRISES_PRO: "flare-enterprises-pro",
-  FLARE_ENTERPRISES_MAX: "flare-enterprises-max",
+  VOIDAGENT_VOIDAGENT_PRO: "voidagent-pro",
+  VOIDAGENT_VOIDAGENT_MAX: "voidagent-max",
+  VOIDAGENT_ENTERPRISES: "voidagent-enterprises",
+  VOIDAGENT_ENTERPRISES_PRO: "voidagent-enterprises-pro",
+  VOIDAGENT_ENTERPRISES_MAX: "voidagent-enterprises-max",
 } as const;
 
 export type SubscriptionTierName =
@@ -26,28 +26,28 @@ export const subscriptionTiersInfo: Record<
     pricePerMonthInr: 0,
     description: "Default free plan for all users.",
   },
-  "flare-pro": {
-    label: "Flare Pro",
+  "voidagent-pro": {
+    label: "Void Agent Pro",
     pricePerMonthInr: 799,
     description: "Higher daily limits and faster models for power users.",
   },
-  "flare-max": {
-    label: "Flare Max",
+  "voidagent-max": {
+    label: "Void Agent Max",
     pricePerMonthInr: 1999,
     description: "Generous limits and priority access to premium models.",
   },
-  "flare-enterprises": {
-    label: "Flare Enterprises",
+  "voidagent-enterprises": {
+    label: "Void Agent Enterprises",
     pricePerMonthInr: 3999,
     description: "Team-grade plan with deployment support.",
   },
-  "flare-enterprises-pro": {
-    label: "Flare Enterprises Pro",
+  "voidagent-enterprises-pro": {
+    label: "Void Agent Enterprises Pro",
     pricePerMonthInr: 5999,
     description: "Enterprise plan with enhanced security and support.",
   },
-  "flare-enterprises-max": {
-    label: "Flare Enterprises Max",
+  "voidagent-enterprises-max": {
+    label: "Void Agent Enterprises Max",
     pricePerMonthInr: 10999,
     description: "Highest enterprise tier with dedicated endpoints.",
   },

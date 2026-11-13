@@ -3,7 +3,7 @@
 Date: 2026-11-11. Feeds the PROMOTION GATE defined in `docs/zip-main-parity-map.md`.
 
 - ORIGINAL: zip-main @ `aa9fce0f545afb18b9a191724be092887f83630b` (read via `git show` / `git ls-tree`; no repo mutations).
-- STAGING: `Void-Agent-integration-staging/apps/web` (working tree; small ports written, nothing committed).
+- STAGING: `Void Agent-integration-staging/apps/web` (working tree; small ports written, nothing committed).
 - Method: for every assigned unmatched path, located the staging equivalent by capability (repository/table/route/tool) and read both sides. Dispositions: `EQUIVALENT-AT` (staging path covers the capability), `PORTED-NOW` (ported this session), `EXCLUDED` (justification; `EXCLUDED-FOR-NOW` = excluded pending a spelled-out migration/effort).
 - Constraints honored: no edits to `lib/security/**`, `app/api/chat/**`, `app/api/bug-bounty/**`, app-builder files, `lib/ai/tools/connectors/*` (WP4's directory — productboard/zulip files untouched), `messages/*.json`, `package.json`, `schema.pg.ts`, migrations. Read-only `git show`/`ls-tree` only. No `.env` reads.
 
@@ -200,7 +200,7 @@ EXCLUDED (28) — with the shared gating facts first:
 | `app/api/archive/actions.ts` | EQUIVALENT-AT | staging-native archives (C40, 0078): `app/api/archive/route.ts` + `[id]/items` |
 | `app/api/chat/export/actions.ts` | EQUIVALENT-AT | comment-creation server action → staging REST `app/api/export/[id]/comments/route.ts` (`chatExportRepository.insertComment`) |
 | `app/api/cron/tick/route.ts` | EXCLUDED | superseded — see §2 |
-| `app/api/export/[id]/og-image/route.ts` + `template.tsx` | PORTED-NOW | staging serves public exports (`app/(public)/export/[id]` with `isExpired`) but had no OG preview; `next/og` is built into Next; `chatExportRepository.selectByIdWithUser/isExpired` already exist; branding aligned to Void-Agent |
+| `app/api/export/[id]/og-image/route.ts` + `template.tsx` | PORTED-NOW | staging serves public exports (`app/(public)/export/[id]` with `isExpired`) but had no OG preview; `next/og` is built into Next; `chatExportRepository.selectByIdWithUser/isExpired` already exist; branding aligned to Void Agent |
 | `app/api/files/[...path]/route.ts` | EXCLUDED-FOR-NOW | zip route is an unauthenticated public file read — incompatible with staging storage-ownership model; port only together with a security-reviewed local-storage serving design (§4) |
 | `app/api/health/route.ts` | EXCLUDED-FOR-NOW | trivial diagnostics (59 lines); no admin console to surface it; port if ops dashboards land |
 | `app/api/mcp/composio/route.ts` | EQUIVALENT-AT | staging `lib/composio/{client,config,scoped-tools,toolkit-catalog,toolkit-connections}.ts` + `app/api/mcp/*` supersede the zip route |
@@ -248,7 +248,7 @@ EXCLUDED (28) — with the shared gating facts first:
 3. `apps/web/src/lib/db/pg/repositories/webhook-repository.pg.ts` — added `failOutboxEvent(eventId, error, nextAttemptAt | null, attempts?)` (terminal `failed` vs pending-with-backoff; the schema's status check already allows `'failed'`).
 4. `apps/web/src/app/api/user/memory/route.ts` — GET/POST/PUT/DELETE memory CRUD (zip route ported to staging `withAuth` + `memoryRepository`; content/category bounds added). Fixes staging's memory settings card calling a dead endpoint.
 5. `apps/web/src/lib/ai/memory/memory-source.ts` — `enrichMemoriesWithSource` (owner-scoped batched join memory → source message; `MemoryWithSource` shape the UI mirrors).
-6. `apps/web/src/app/api/export/[id]/og-image/route.ts` + `template.tsx` — OG share image for public exports (built-in `next/og`, existing repo methods, Void-Agent branding).
+6. `apps/web/src/app/api/export/[id]/og-image/route.ts` + `template.tsx` — OG share image for public exports (built-in `next/og`, existing repo methods, Void Agent branding).
 7. `apps/web/src/lib/const.ts` — added zip's `getRequiredBaseUrl(featureName)`.
 8. Test ports: `apps/web/src/lib/file-storage/storage-utils.test.ts` (verbatim), `apps/web/src/lib/cache/upstash-rest-cache.test.ts` (verbatim), `apps/web/src/lib/const.test.ts` (verbatim).
 9. New tests: `apps/web/src/lib/inngest/functions/webhook-outbox.test.ts`, `apps/web/src/app/api/user/memory/route.test.ts`, `apps/web/src/app/api/export/[id]/og-image/route.test.ts`.

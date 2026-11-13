@@ -9,7 +9,7 @@ import logger from "logger";
 // ---------------------------------------------------------------------------
 // P3.3 — API key issue / verify / scope helpers (#24 Public REST)
 // ---------------------------------------------------------------------------
-// Flare issues per-user API keys so external systems can call the public
+// Void Agent issues per-user API keys so external systems can call the public
 // `/api/v1/...` REST surface without a Better Auth session. The keys are
 // stored hashed (sha-256 hex) in the `api_key` table; only the caller ever
 // sees the plaintext — and only at creation time.

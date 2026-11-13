@@ -122,7 +122,7 @@ describe("Google Drive connector tool", () => {
     ]);
     expect(options.method).toBe("POST");
     expect(options.contentType).toMatch(
-      /^multipart\/related; boundary=void-agent-/u,
+      /^multipart\/related; boundary=Void Agent-/u,
     );
     expect(options.rawBody).toContain(
       '"name":"Notes.txt","mimeType":"text/plain"',

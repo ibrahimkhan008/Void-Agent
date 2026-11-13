@@ -315,14 +315,14 @@ export function CommunityPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
-      {/* Cognix section header (§4.8): eyebrow → display heading. */}
+      {/* Section header: eyebrow → display heading. */}
       <header className="mb-7 space-y-2">
         <Eyebrow>Community</Eyebrow>
         <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance sm:text-4xl">
           Community
         </h1>
         <p className="text-sm text-muted-foreground">
-          Share ideas and learn with other Void-Agent users.
+          Share ideas and learn with other Void Agent users.
         </p>
       </header>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
