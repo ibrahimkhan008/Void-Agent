@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const COLUMNS: { title: string; links: { label: string; href: string; newPill?: boolean }[] }[] = [
+const COLUMNS: { title: string; links: { label: string; href: string; newPill?: boolean; newTab?: boolean }[] }[] = [
   {
     title: "Product",
     links: [
@@ -17,12 +17,17 @@ const COLUMNS: { title: string; links: { label: string; href: string; newPill?: 
     links: [
       { label: "Docs", href: "/docs" },
       { label: "MCP guide", href: "/docs/mcp" },
+      { label: "MCP server", href: "/.well-known/mcp.json", newTab: true },
+      { label: "llms.txt", href: "/llms.txt", newTab: true },
+      { label: "design.md", href: "/design.md", newTab: true },
     ],
   },
   {
     title: "Company",
     links: [
       { label: "About", href: "/about" },
+      { label: "Index", href: "/updates", newPill: true },
+      { label: "Brand kit", href: "/branding" },
       { label: "Void Agent vs Manus", href: "/vs/manus" },
       { label: "Contact", href: "/contact" },
       { label: "Contact sales", href: "/contact-sales" },
@@ -85,6 +90,9 @@ export function PublicFooter() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
+                      {...(link.newTab
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
                       className="inline-flex items-center gap-1.5 text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper)"
                     >
                       {link.label}

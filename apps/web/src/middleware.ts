@@ -15,8 +15,10 @@ const PUBLIC_FILE_EXTENSIONS = [
   ".jpeg",
   ".ico",
   ".webp",
+  ".md",
   ".txt",
   ".html",
+  ".md",
   ".woff",
   ".woff2",
   ".ttf",
@@ -67,6 +69,8 @@ function isPublicDestinationPage(pathname: string): boolean {
 
 function isTokenAuthenticatedPublicEndpoint(pathname: string): boolean {
   return (
+    pathname === "/api/mcp/server" ||
+    pathname === "/.well-known/mcp.json" ||
     pathname === "/api/navigator-mcp" ||
     pathname === "/api/_boot" ||
     pathname === "/api/embed/session" ||
