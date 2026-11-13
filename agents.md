@@ -18,11 +18,13 @@ Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ub
 
 ## Deployment
 
-- **DO NOT use Docker** for this project — deployment is via `void-agent.service` (systemd) on port 4000.
-- Service env file: `/etc/void-agent.env` (separate from `.env` in the repo root).
-- Deploy: `sudo systemctl restart void-agent.service`
-- Check: `sudo journalctl -u void-agent.service --no-pager -n 50`
-- The site runs behind Cloudvoid-agent Tunnel (`cloudflared-tunnel.service`) serving `app.void-agent.test` → `localhost:4000`.
+- Production deploys as a **Docker stack on a VPS** — no systemd, no Vercel.
+  Runbook: `DEPLOY-VPS.md` (compose file: `docker/compose.production.yml`).
+  The stack is the app + Postgres (pgvector) + Redis, data in named volumes,
+  migrations applied automatically at container boot.
+- Local dev: `pnpm --filter web dev` with the Postgres container from
+  `docker compose -f docker/compose.yml up -d postgres` (Docker Desktop must
+  be running; the dev server dies if the database is unreachable).
 
 ## Admin Panel Patterns
 
@@ -89,7 +91,7 @@ This ensures that when no config exists in the DB, the merge `mergeWithDefaults(
 
 ## Environment Variables Reference
 
-Key production vars in `/etc/void-agent.env`:
+Key production vars in `.env.production` (see `docker/.env.production.example`):
 - `ENCRYPTION_MASTER_KEY` — 32-char key for AES-256-GCM API key encryption
 - `FIRECRAWL_API_KEY` — for browser agent sandbox
 - `VOIDAGENT_API_KEY` / `KORE_API_KEY` — for Void Agent LLM provider

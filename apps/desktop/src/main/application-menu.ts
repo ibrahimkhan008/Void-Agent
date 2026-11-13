@@ -22,7 +22,7 @@ export type DesktopApplicationMenuOptions = {
 /**
  * Pure, cross-platform application menu template for the desktop shell.
  *
- * Ported from the Void-Agent destination desktop (its application-menu.ts):
+ * Ported from the Void Agent destination desktop (its application-menu.ts):
  * unlike the imperative menu it replaces, this returns a plain template so
  * the whole menu — server switching, editing, viewing and updates — is
  * unit-testable without Electron. The app menu exists on every platform, so

@@ -115,3 +115,6 @@ apps/gateway/dist/
 .env.*
 !.env.example
 !docker/.env.production.example
+buildathon/
+cognixai-app-spec.md
+cognixai-rebuild-spec.md

@@ -1,7 +1,7 @@
 /**
  * Pure helpers for the browser → desktop sign-in handoff.
  *
- * Ported from the Void-Agent destination desktop (its `desktop-handoff.ts`,
+ * Ported from the Void Agent destination desktop (its `desktop-handoff.ts`,
  * which itself mirrors the web app's `lib/auth/desktop-handoff.ts`) and
  * adapted to this shell: the protocol constants and the deep-link grammar
  * live in ./deep-link.ts, the pending sign-in state machine in

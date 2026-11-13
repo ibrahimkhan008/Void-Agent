@@ -110,8 +110,8 @@ async function confirmConfig(
       ? "Allow a remote MCP server?"
       : "Allow a local MCP process?",
     message: isRemote
-      ? "Void-Agent wants to connect to a remote MCP service from this computer."
-      : "Void-Agent wants to start a program on this computer.",
+      ? "Void Agent wants to connect to a remote MCP service from this computer."
+      : "Void Agent wants to start a program on this computer.",
     detail: isRemote
       ? `HTTPS origin: ${target}\nCredential header names: ${credentialNames}\n\nThe server receives approved read-style tool arguments and returns untrusted content. DNS addresses are checked and pinned for every request, redirects are blocked, and each invocation needs separate approval.`
       : `Program and arguments: ${target}\nEnvironment variable names: ${credentialNames}\n\nThe process can access files and services available to your account. Tool names do not prove that a server is safe. Each invocation needs separate approval.`,
