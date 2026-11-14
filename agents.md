@@ -22,18 +22,12 @@ Two memory layers; neither lives in this repo:
 
 ## Deployment
 
-- **Production is LIVE on the VPS as a native (no-Docker) systemd stack**:
-  `app.voidagent.space` (Cloudflare Tunnel `void-agent` → `127.0.0.1:3000`),
-  apt-native PostgreSQL 16 + pgvector and Redis 7, Node 22 + pnpm 10,
-  `void-agent.service` running `next start` from `/home/ubuntu/void-agent`.
-  Env lives at `apps/web/.env.production` (600) with a root symlink; build
-  with `NODE_OPTIONS=--max-old-space-size=8192`; migrate with
-  `NODE_ENV=production pnpm db:migrate`; nightly `pg_dump` in
-  `/home/ubuntu/backups` (14-day retention). As-deployed runbook:
-  `docs/deploy-vps-native.md`. The Docker runbook (`DEPLOY-VPS.md`, compose
-  file `docker/compose.production.yml`) remains the recipe for any other
-  host; migrations there run at container boot, on the native host they are
-  an explicit update step.
+- Production deploys as a **Docker stack on a VPS** — no systemd, no Vercel.
+  Runbook: `DEPLOY-VPS.md` (compose file: `docker/compose.production.yml`).
+  The stack is the app + Postgres (pgvector) + Redis, plus the optional
+  browser stack (`steel` + `steel-executor` for the free self-hosted browser
+  provider), data in named volumes, migrations applied automatically at
+  container boot.
 - Local dev: `pnpm --filter web dev` with the Postgres container from
   `docker compose -f docker/compose.yml up -d postgres` (Docker Desktop must
   be running; the dev server dies if the database is unreachable).
