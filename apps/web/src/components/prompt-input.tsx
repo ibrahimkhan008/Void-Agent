@@ -4,8 +4,8 @@ import { UploadedFile, appStore } from "@/app/store";
 import { UIMessage, UseChatHelpers } from "@ai-sdk/react";
 import { ChatMention, ChatModel } from "app-types/chat";
 import {
+  ArrowUp,
   ChevronDown,
-  CornerRightUp,
   FileIcon,
   FileTextIcon,
   ImagesIcon,
@@ -1061,12 +1061,12 @@ export default function PromptInput({
                       disabled={input.trim().length === 0}
                       aria-label={t("sendMessage")}
                       className={cn(
-                        "rounded-full flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200",
+                        "rounded-full flex-shrink-0 bg-brand text-white hover:bg-brand/90 transition-all duration-200",
                         "disabled:opacity-40 disabled:cursor-not-allowed",
                         toolbarCompact ? "size-11" : "size-9",
                       )}
                     >
-                      <CornerRightUp
+                      <ArrowUp
                         className={toolbarCompact ? "size-5" : "size-4"}
                       />
                     </Button>

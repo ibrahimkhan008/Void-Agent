@@ -5,6 +5,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* The brand Blue (design.md): theme-independent accent for controls that
+     must stay brand-colored in both light and dark (composer send button). */
+  --color-brand: #2537d5;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
