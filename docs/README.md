@@ -24,6 +24,8 @@ Living documentation for Void Agent. Migration-era audit reports live in
 ## Product docs that live elsewhere
 
 - Root: `README.md` (capabilities + pointers), `AGENTS.md` (agent guidance),
-  `DEPLOY-VPS.md` (production runbook), `CLAUDE.md` (agent overview).
+  `DEPLOY-VPS.md` (Docker production runbook), `CLAUDE.md` (agent overview).
+- `deploy-vps-native.md` — the as-deployed native (no-Docker) production
+  runbook for the live VPS (`app.voidagent.space`).
 - Product changelog: the in-app `/index` hub (`apps/web/src/app/(public)/index/`).
 - System skills convention: `apps/web/skills/README.md`.

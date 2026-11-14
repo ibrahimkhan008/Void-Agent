@@ -4,6 +4,13 @@ Deploy the full Void-Agent stack (app + Postgres + Redis) on any Linux VPS with
 Docker — no Vercel. TLS comes from Cloudvoid-agent Tunnel (recommended: no open
 ports) or nginx + certbot.
 
+> **Native path (the current production host):** the live VPS runs this stack
+> **without Docker** — apt-native PostgreSQL 16 + pgvector, Redis 7, Node 22,
+> a `void-agent` systemd unit, and a Cloudflare Tunnel publishing
+> `app.voidagent.space`. As-deployed runbook with the verified commands:
+> `docs/deploy-vps-native.md`. Everything below remains the Docker recipe for
+> any other host.
+
 ---
 
 ## 1. Server prerequisites (Ubuntu 22/24, once)
