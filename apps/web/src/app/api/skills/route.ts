@@ -44,23 +44,30 @@ export const GET = withAuth(async (request, session) => {
 export const POST = withAuth(async (request, session) => {
   try {
     const body = await request.json();
-    const data = SkillSaveSchema.parse(body);
+    const data = SkillSaveSchema.extend({
+      content: z.string().optional(),
+    }).parse(body);
 
-    // Resolve + fetch the SKILL.md content server-side before persisting.
+    // Resolve + fetch the SKILL.md content server-side before persisting —
+    // unless the caller already supplied the content (file/URL import path).
     let content: string;
     let fetchedDescription: string | undefined;
-    try {
-      const fetched = await fetchSkillContent(data.source, data.slug);
-      content = fetched.content;
-      fetchedDescription = fetched.description;
-    } catch (error) {
-      if (error instanceof SkillContentNotFoundError) {
-        return Response.json(
-          { error: "Could not import this skill — no SKILL.md found." },
-          { status: 422 },
-        );
+    if (typeof body.content === "string" && body.content.trim()) {
+      content = body.content;
+    } else {
+      try {
+        const fetched = await fetchSkillContent(data.source, data.slug);
+        content = fetched.content;
+        fetchedDescription = fetched.description;
+      } catch (error) {
+        if (error instanceof SkillContentNotFoundError) {
+          return Response.json(
+            { error: "Could not import this skill — no SKILL.md found." },
+            { status: 422 },
+          );
+        }
+        throw error;
       }
-      throw error;
     }
 
     const skill = await skillRepository.insertSkill({

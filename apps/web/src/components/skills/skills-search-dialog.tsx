@@ -79,6 +79,9 @@ export function SkillsSearchDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
+  const [importingFile, setImportingFile] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedSources = new Set(
@@ -106,6 +109,76 @@ export function SkillsSearchDialog({
       setIsLoading(false);
     }
   }, []);
+
+  const importFromUrl = async () => {
+    const url = importUrl.trim();
+    if (!url) return;
+    setImportingUrl(true);
+    try {
+      const res = await fetch("/api/skills/import-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Could not fetch that URL.");
+      }
+      const name = payload.name || url.split("/").pop() || "imported-skill";
+      await saveImported(
+        name,
+        url.replace(/https?:\/\//, "").slice(0, 180),
+        payload.content,
+        payload.description,
+      );
+      setImportUrl("");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import from that URL.",
+      );
+    } finally {
+      setImportingUrl(false);
+    }
+  };
+
+  const importFromFile = async (file: File) => {
+    setImportingFile(true);
+    try {
+      const content = await file.text();
+      if (content.length > 200_000) {
+        throw new Error("That file is too large (200 KB max).");
+      }
+      const name = file.name.replace(/\.md$/i, "").replace(/[^\w.-]+/g, "-");
+      await saveImported(name, name, content);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import that file.",
+      );
+    } finally {
+      setImportingFile(false);
+    }
+  };
+
+  const saveImported = async (
+    name: string,
+    source: string,
+    content: string,
+    description?: string,
+  ) => {
+    const res = await fetch("/api/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, slug: name, source, content, description }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(payload?.error ?? "Failed to save skill");
+    }
+    toast.success(`Imported "${name}".`);
+    void mutate(
+      (key) => typeof key === "string" && key.startsWith("/api/skills"),
+    );
+  };
 
   const onSearchChange = (value: string) => {
     setSearch(value);
@@ -172,6 +245,56 @@ export function SkillsSearchDialog({
             placeholder="Search skills…"
             className="pl-9"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Input
+            value={importUrl}
+            onChange={(e) => setImportUrl(e.target.value)}
+            placeholder="Import from a raw SKILL.md URL…"
+            className="h-9 text-xs"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!importUrl.trim() || importingUrl}
+            onClick={importFromUrl}
+          >
+            {importingUrl ? (
+              <Loader className="size-3.5 animate-spin" />
+            ) : (
+              "Import"
+            )}
+          </Button>
+          <label className="inline-flex">
+            <input
+              type="file"
+              accept=".md,text/markdown"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importFromFile(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={importingFile}
+              onClick={(e) => {
+                e.preventDefault();
+                e.currentTarget.previousElementSibling
+                  ?.querySelector("input")
+                  ?.click();
+              }}
+            >
+              {importingFile ? (
+                <Loader className="size-3.5 animate-spin" />
+              ) : (
+                "Upload .md"
+              )}
+            </Button>
+          </label>
         </div>
 
         <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto py-1">

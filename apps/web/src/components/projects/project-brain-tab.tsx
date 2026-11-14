@@ -12,6 +12,7 @@ import { ProjectAddSourceDialog } from "./project-add-source-dialog";
 import { ProjectAddToolDialog } from "./project-add-tool-dialog";
 import { ProjectContradictionsCard } from "./project-contradictions-card";
 import { ProjectRecordsCard } from "./project-records-card";
+import { ProjectSkillRecommendationsCard } from "./project-skill-recommendations-card";
 import {
   type ProjectDocumentForGrid,
   ProjectDocumentsGrid,
@@ -258,6 +259,11 @@ export function ProjectBrainTab({
       <ProjectContradictionsCard projectId={projectId} canEdit={canEdit} />
 
       <ProjectRecordsCard projectId={projectId} canEdit={canEdit} />
+
+      <ProjectSkillRecommendationsCard
+        projectId={projectId}
+        canEdit={canEdit}
+      />
 
       <Card className="lg:col-span-2">
         <CardHeader>
