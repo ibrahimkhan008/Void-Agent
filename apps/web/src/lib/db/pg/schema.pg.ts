@@ -2208,6 +2208,40 @@ export const ProjectBrainPageTable = pgTable(
   ],
 );
 
+export const ProjectBrainRevisionTable = pgTable(
+  "project_brain_revision",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => ProjectTable.id, { onDelete: "cascade" }),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => ProjectBrainPageTable.id, { onDelete: "cascade" }),
+    // 1-based, per page. Every save appends the next revision; restores
+    // append the restored content as a NEW revision (history never rewrites).
+    revision: integer("revision").notNull(),
+    content: text("content").notNull(),
+    changeNote: text("change_note"),
+    userId: uuid("user_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("project_brain_revision_page_rev_unique").on(
+      table.pageId,
+      table.revision,
+    ),
+    index("project_brain_revision_page_idx").on(table.pageId, table.revision),
+  ],
+);
+
+export type ProjectBrainRevisionEntity =
+  typeof ProjectBrainRevisionTable.$inferSelect;
+
 export const ProjectBrainContradictionTable = pgTable(
   "project_brain_contradiction",
   {
