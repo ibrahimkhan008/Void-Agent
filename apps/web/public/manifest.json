@@ -19,13 +19,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/logo-va-192.webp?v=2",
+      "src": "/logo-va-192.webp?v=3",
       "sizes": "192x192",
       "type": "image/webp",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo-va-512.webp?v=2",
+      "src": "/logo-va-512.webp?v=3",
       "sizes": "512x512",
       "type": "image/webp",
       "purpose": "any maskable"
@@ -40,7 +40,7 @@
       "url": "/",
       "icons": [
         {
-          "src": "/logo-va-192.webp?v=2",
+          "src": "/logo-va-192.webp?v=3",
           "sizes": "192x192"
         }
       ]
