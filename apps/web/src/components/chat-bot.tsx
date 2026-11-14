@@ -1433,7 +1433,7 @@ function ChatBotInner({
               )}
             >
               {emptyMessage && isHomeScreen && !embedded && (
-                <div className="mb-3 flex justify-center">
+                <div className="mb-3 flex w-full justify-end pr-[17px]">
                   <WorkspaceModeToggle />
                 </div>
               )}
