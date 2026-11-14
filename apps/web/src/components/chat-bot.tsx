@@ -1323,16 +1323,17 @@ function ChatBotInner({
           {emptyMessage ? (
             embedded ? null : (
               <>
-                <ChatGreeting />
                 {/* Work | Cockpit switch: home screen only, never in a thread.
-                    Centered between the greeting and the composer (ChatGPT-
-                    style) so it reads as part of the composer area rather
-                    than a pinned navigation element. */}
+                    Top-right of the main area — the row shares the composer's
+                    max-w-3xl centered container and justifies to its end, so
+                    the toggle's right edge aligns exactly with the composer's
+                    right boundary (Cognix reference). */}
                 {isHomeScreen && (
-                  <div className="relative z-10 mb-8 flex justify-center px-4">
+                  <div className="relative z-10 mx-auto flex w-full max-w-3xl justify-end pt-2">
                     <WorkspaceModeToggle />
                   </div>
                 )}
+                <ChatGreeting />
               </>
             )
           ) : (
