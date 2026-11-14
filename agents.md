@@ -11,20 +11,50 @@ Before making any code, config, or docs change:
 
 ## Session Memory System
 
-Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ubuntu-Void Agent-main/memory/`. After every session:
-- Save key user preferences, feedback, project facts, and reference pointers to the memory directory.
-- Update `MEMORY.md` index with new entries.
-- Load relevant memories at the start of each session.
+Two memory layers; neither lives in this repo:
+- **`context.md`** (repo root, gitignored) is the in-repo working record — prior
+  decisions, constraints and recent diffs. It is the authoritative continuity
+  surface and is required reading before any change (see Critical Workflow).
+- The coding agent's own persistent memory (project memory directory +
+  `MEMORY.md` index) stores user preferences, feedback, product facts and
+  reference pointers across sessions. Update it after meaningful sessions; it
+  supplements `context.md`, never replaces it.
 
 ## Deployment
 
 - Production deploys as a **Docker stack on a VPS** — no systemd, no Vercel.
   Runbook: `DEPLOY-VPS.md` (compose file: `docker/compose.production.yml`).
-  The stack is the app + Postgres (pgvector) + Redis, data in named volumes,
-  migrations applied automatically at container boot.
+  The stack is the app + Postgres (pgvector) + Redis, plus the optional
+  browser stack (`steel` + `steel-executor` for the free self-hosted browser
+  provider), data in named volumes, migrations applied automatically at
+  container boot.
 - Local dev: `pnpm --filter web dev` with the Postgres container from
   `docker compose -f docker/compose.yml up -d postgres` (Docker Desktop must
   be running; the dev server dies if the database is unreachable).
+
+## Browser Automation Providers
+
+One tool (`browserAutomation`), three swappable providers, chosen at bind
+time in `apps/web/src/app/api/chat/route.ts`:
+
+1. **Kernel** (cloud, metered) — when `KERNEL_API_KEY` is set. Live view,
+   credential vault + profile cookie persistence, CAPTCHA solving, per-second
+   browser billing. The only provider voice mode uses (it needs the live view).
+2. **Steel** (self-hosted, free, Apache-2.0) — when `STEEL_BASE_URL` +
+   `STEEL_EXECUTOR_URL` are set. One active session; live view at `/ui`;
+   the model's Playwright code runs in the `steel-executor` sidecar (docker/
+   steel-executor), never inside the app server. The app-side credential
+   vault still applies (placeholder substitution is provider-agnostic);
+   Kernel-style profile writeback does not. Steel's ports have no auth —
+   keep them on the internal network.
+3. **agent-browser CLI** (free, local) — Vercel Labs' open-source CLI
+   (Apache-2.0), used when neither service is configured. One whitelisted
+   CLI command per step (snapshot -> act on refs); no credential vault.
+
+All three sit behind the same fail-closed gates: `BROWSER_EGRESS_ISOLATION_ENABLED`
+(B20) and the org policy. Gate ordering/reasons live in
+`apps/web/src/lib/chat/browser-tool-gate.ts`; the provider seam is the
+`BrowserProvider` interface on `createBrowserAutomationTool`.
 
 ## Admin Panel Patterns
 
@@ -41,7 +71,8 @@ Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ub
 
 ### Encryption
 - API keys are encrypted with AES-256-GCM via `lib/security/encryption.ts`.
-- `ENCRYPTION_MASTER_KEY` env var (32 chars) must be set in `/etc/void-agent.env`.
+- `ENCRYPTION_MASTER_KEY` env var (32 chars) — set it in `.env.production`
+  (Docker stack) or the app's env file locally.
 - `isEncryptionAvailable()` checks if the key is configured before attempting encryption.
 
 ### Provider Test Connection
@@ -54,9 +85,10 @@ Claude has a persistent memory system at `/home/ubuntu/.claude/projects/-home-ub
 - Fallback model is stored as `"provider/model"` string (e.g., "groq/Llama 4 17b Scout").
 - `updateProviderModel` in the admin models page handles both formats: string for defaultModel, `{ provider, model }` for fallbackModel.
 
-## Known Issues (2026-05-31)
+## Model Catalog Notes (verified behavior, re-verified 2026-11-14)
 
-- Duplicate dynamic provider block in `models.ts` was removed — only one definition at line ~487.
+- `models.ts` carries a single dynamic-provider definition; the historical
+  duplicate block is long gone.
 - `ModelSelector` provider filter uses lowercase ID matching. API returns provider names like "Void Agent" → transformed to "voidagent" via `.toLowerCase().replace(/\s+/g, "-")`. This matches the `providerId` prop used in admin cards.
 - Dynamic provider models in the chat UI need to be registered via `registerDynamicProvider()` in `models.ts` at runtime — currently the models are fetched from discovery but the runtime model resolution may not include them unless the provider is added to `allModels`.
 - `Void Agent`/`void-agent` duplicate: Both static `void-agent` provider and dynamic `void-agent` entry produce the same slug. Deduplication in `modelsInfo` prefers the static `void-agent` provider. Dynamic providers with the same slug as a static provider are filtered out to prevent duplicate model entries.
@@ -93,22 +125,41 @@ This ensures that when no config exists in the DB, the merge `mergeWithDefaults(
 
 Key production vars in `.env.production` (see `docker/.env.production.example`):
 - `ENCRYPTION_MASTER_KEY` — 32-char key for AES-256-GCM API key encryption
-- `FIRECRAWL_API_KEY` — for browser agent sandbox
 - `VOIDAGENT_API_KEY` / `KORE_API_KEY` — for Void Agent LLM provider
 - `GROQ_API_KEY`, `GROQ_BASE_URL` — for Groq provider
 - `ZAI_API_KEY`, `ZAI_BASE_URL` — for Z AI (GLM) provider
 - `POSTGRES_URL` — database connection
 - `BETTER_AUTH_SECRET` — auth session secret
 - `NEXT_PUBLIC_BASE_URL` — public URL for OAuth callbacks
+- `KERNEL_API_KEY` — optional; enables the Kernel cloud browser provider
+- `STEEL_BASE_URL`, `STEEL_EXECUTOR_URL`, `STEEL_PUBLIC_BASE_URL` — optional;
+  enable the free self-hosted Steel browser provider (see compose services)
+- `AGENT_BROWSER_BIN` — optional; explicit path to the agent-browser CLI
+  binary (auto-resolved from PATH otherwise)
+- `E2B_API_KEY` — optional; enables the E2B code-sandbox tool + PDF rendering
+- `GOOGLE_GENERATIVE_AI_API_KEY` — optional; enables chat-native video
+  generation (Veo) and Gemini image generation
 
-## Before Opening PR
+## Before Opening PR / Merging
 
-1. `pnpm check` — lint + types + unit tests must pass
-2. `pnpm build` — production build must succeed
-3. `sudo systemctl restart void-agent.service` — deploy and verify
-4. Check `curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/` returns 200
+1. `pnpm --filter web typecheck` — types must pass (run it ALONE; never chain
+   typecheck+commit — the pre-commit hook runs biome, not tsc)
+2. `pnpm --filter web test` — full unit suite must pass
+3. `pnpm exec biome check` on the touched files — format + lint
+4. Secret-scan the diff and verify the staged file list before committing
+   (never `git add -A` — it once swept private files into a push)
 5. Update `context.md` with a timestamped entry of all changes made
+6. Verify `git ls-remote origin main` matches the pushed HEAD
 
 ## Current migration handoff
 
-2026-11-11: the migration was PROMOTED and validated — the destination is now the integrated monorepo (`apps/web` + `apps/desktop` + `packages/*`), with web 498 files/3,361 tests, desktop 22 files/132 tests, and typecheck/lint/db:check/build all PASS (docs/testing-report.md, "Controller session" section; docs/MIGRATION-STATUS-REPORT.md §16 has the remaining-work list). Status of record: docs/MIGRATION-STATUS-REPORT.md; ordered history: docs/migration-handoff.md; parity dispositions: docs/zip-main-parity-map.md + docs/zip-main-triage-{ai,ui,api}.md; upstream diff classifications: docs/upstream-diff-classification.md. Verified-restorable backup incl. the pre-promotion working tree: C:\Users\Ikra\Desktop\Void Agent-backup-20261111. The earlier 44% weighted estimate is a historical 2026-11-11 01:05 audit value, superseded by the promotion. Standing restrictions unchanged: do not modify upstream or zip-main; no commit, push, deploy, or production migrations; never read/copy staging .env (staging is now a historical snapshot); keep browser execution disabled while B20 is blocked (B20 remains MISSING).
+> **Supersession (2026-11-14):** the migration is long since complete and the
+> repo is PUBLISHED — per-task commits and pushes to `origin/main` are the
+> standing workflow (the "no commit, push, deploy" restriction below applied
+> only to the migration-audit window). The pre-promotion backup referenced
+> below was deleted by user decision ("published = no backup needed"). Do not
+> modify upstream or zip-main sources; never read/copy staging .env. The
+> browser-execution restriction is now provider-agnostic and fail-closed via
+> `BROWSER_EGRESS_ISOLATION_ENABLED` (see Browser Automation Providers).
+
+**Historical record (2026-11-11):** the migration was PROMOTED and validated — the destination is now the integrated monorepo (`apps/web` + `apps/desktop` + `packages/*`), with web 498 files/3,361 tests, desktop 22 files/132 tests, and typecheck/lint/db:check/build all PASS (docs/testing-report.md, "Controller session" section; docs/MIGRATION-STATUS-REPORT.md §16 has the remaining-work list). Status of record: docs/MIGRATION-STATUS-REPORT.md; ordered history: docs/migration-handoff.md; parity dispositions: docs/zip-main-parity-map.md + docs/zip-main-triage-{ai,ui,api}.md; upstream diff classifications: docs/upstream-diff-classification.md. Verified-restorable backup incl. the pre-promotion working tree: C:\Users\Ikra\Desktop\Void Agent-backup-20261111. The earlier 44% weighted estimate is a historical 2026-11-11 01:05 audit value, superseded by the promotion. Standing restrictions unchanged: do not modify upstream or zip-main; no commit, push, deploy, or production migrations; never read/copy staging .env (staging is now a historical snapshot); keep browser execution disabled while B20 is blocked (B20 remains MISSING).

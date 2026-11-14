@@ -41,6 +41,9 @@ Key values:
 - `BETTER_AUTH_URL` / `NEXT_PUBLIC_BASE_URL` — your public URL (decide the
   domain NOW, see step 5)
 - Model provider keys — copy from your local `apps/web/.env`
+- Optional feature keys (see §9): `KERNEL_API_KEY`, `STEEL_BASE_URL`,
+  `STEEL_EXECUTOR_URL`, `STEEL_PUBLIC_BASE_URL`, `E2B_API_KEY`,
+  `GOOGLE_GENERATIVE_AI_API_KEY`
 
 ## 4. Boot
 
@@ -127,6 +130,35 @@ Store a copy off-VPS (rclone to Cloudvoid-agent R2/B2). Restoring:
 ```bash
 gunzip -c dump.sql.gz | docker exec -i docker-postgres-1 psql -U voidagent void_agent
 ```
+
+## 9. Optional browser stack (free browser automation)
+
+The compose file already ships two extra services: `steel` (self-hosted
+Steel Browser, Apache-2.0 — session API + live-view UI + CDP) and
+`steel-executor` (an isolated sidecar that runs the agent's Playwright code
+against the Steel session, so agent code never executes inside the app
+server). Both sit on the internal Docker network only — **Steel's ports have
+no authentication**, so they are never exposed directly.
+
+To activate the provider, set in `.env.production`:
+
+```bash
+STEEL_BASE_URL=http://steel:3000            # app + executor → Steel (internal)
+STEEL_EXECUTOR_URL=http://steel-executor:8080
+STEEL_PUBLIC_BASE_URL=https://browser.your-domain.com   # what the USER's browser loads
+```
+
+- `STEEL_PUBLIC_BASE_URL` needs a public route for the live view: add a
+  tunnel hostname (Option A) or an nginx server block (Option B) proxying to
+  `http://127.0.0.1:3001` after publishing the steel UI port as
+  `127.0.0.1:3001:3000` — and put it behind Cloudflare Access or an
+  authenticated reverse proxy. Never leave it open: Steel has no auth.
+- Without any browser env vars the app falls back to the local
+  `agent-browser` CLI (install with `npm i -g agent-browser && agent-browser
+  install`), and with `KERNEL_API_KEY` it uses the Kernel cloud browser.
+  Preference order: Kernel → Steel → agent-browser CLI.
+- All browser execution stays fail-closed until runtime-level egress
+  isolation is enabled (`BROWSER_EGRESS_ISOLATION_ENABLED`).
 
 ---
 
