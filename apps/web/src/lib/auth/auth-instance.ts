@@ -94,6 +94,10 @@ function buildBetterAuthTrustedOrigins(): string[] {
 
   add(process.env.BETTER_AUTH_URL);
   add(process.env.NEXT_PUBLIC_BASE_URL);
+  // The standalone marketing site (apps/marketing, voidagent.space) posts the
+  // checkout and hands users through sign-in with an absolute callbackUrl —
+  // better-auth must trust its exact origin.
+  add(process.env.NEXT_PUBLIC_MARKETING_URL);
   for (const part of process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(",") ??
     []) {
     add(part.trim());

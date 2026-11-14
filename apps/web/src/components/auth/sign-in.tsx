@@ -89,6 +89,12 @@ export default function SignIn({
                 email: ctx.data.user.email,
               });
             }
+            // Absolute callbacks (the marketing site's post-sign-in return to
+            // the pricing page) need a hard navigation — better-auth's email
+            // sign-in doesn't auto-navigate to cross-origin callbackURLs.
+            if (/^https?:\/\//i.test(redirectTo)) {
+              window.location.href = redirectTo;
+            }
           },
           onError(ctx) {
             toast.error(ctx.error.message || ctx.error.statusText);

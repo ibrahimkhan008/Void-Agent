@@ -6,6 +6,7 @@ import {
   isValidReferralCode,
 } from "@/lib/referral/constants";
 import { getSessionCookie } from "better-auth/cookies";
+import { getMarketingUrl } from "lib/marketing-url";
 import { type NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_FILE_EXTENSIONS = [
@@ -34,28 +35,41 @@ function isPublicStaticAsset(pathname: string): boolean {
   );
 }
 
+/**
+ * The marketing pages moved to the standalone apps/marketing site
+ * (voidagent.space). The app domain must never serve or index them: every
+ * former public URL 308s to its marketing URL, preserving the query string.
+ * Checked BEFORE every other gate (including the static-extension bypass —
+ * /design.md and /llms.txt end in file extensions and would otherwise 404).
+ */
+const MARKETING_REDIRECTS = new Map<string, string>([
+  ["/landing", "/"],
+  ["/updates", "/index"],
+  ["/pricing", "/pricing"],
+  ["/about", "/about"],
+  ["/docs", "/docs"],
+  ["/docs/mcp", "/docs/mcp"],
+  ["/contact", "/contact"],
+  ["/contact-sales", "/contact-sales"],
+  ["/vs/manus", "/vs/manus"],
+  ["/index", "/index"],
+  ["/branding", "/branding"],
+  ["/privacy-policy", "/privacy-policy"],
+  ["/terms-of-service", "/terms-of-service"],
+  ["/cookies-policy", "/cookies-policy"],
+  ["/refund-policy", "/refund-policy"],
+  ["/grievance-redressal", "/grievance-redressal"],
+  ["/llms.txt", "/llms.txt"],
+  ["/design.md", "/design.md"],
+]);
+
 const PUBLIC_DESTINATION_PAGES = new Set([
   "/manifest.json",
   "/manifest.webmanifest",
   "/sw.js",
-  "/terms-of-service",
-  "/privacy-policy",
-  "/refund-policy",
-  "/cookies-policy",
-  "/grievance-redressal",
-  "/about",
-  "/landing",
-  "/docs",
-  "/docs/mcp",
-  "/vs/manus",
-  "/index",
-  "/contact",
-  "/contact-sales",
-  "/branding",
-  "/pricing",
+  "/marketplace/mcp",
   "/plans",
   "/gallery/agents",
-  "/marketplace/mcp",
   "/team-invitations/accept",
 ]);
 
@@ -236,10 +250,11 @@ export async function middleware(request: NextRequest) {
   const redirect = (
     destination: string,
     sessionCookiePresent: boolean | null,
+    status: 307 | 308 = 307,
   ) =>
     captureReferralCode(
       finishDocumentResponse(
-        NextResponse.redirect(new URL(destination, request.url)),
+        NextResponse.redirect(new URL(destination, request.url), status),
         request,
         boot,
         "redirect",
@@ -255,6 +270,16 @@ export async function middleware(request: NextRequest) {
    */
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
+  }
+
+  // Former marketing URLs → the standalone marketing site. Runs for anonymous
+  // AND signed-in traffic: the routes no longer exist on this origin. 308 so
+  // search engines transfer the old URLs' history to the new domain.
+  const marketingPath = MARKETING_REDIRECTS.get(pathname);
+  if (marketingPath !== undefined) {
+    const target = new URL(marketingPath, getMarketingUrl());
+    target.search = request.nextUrl.search;
+    return redirect(target.toString(), null, 308);
   }
 
   // Embed pages/scripts and public files are intentionally reachable without
@@ -300,6 +325,26 @@ export async function middleware(request: NextRequest) {
     return next();
   }
 
+  // CORS preflights carry no credentials and are harmless: the route's own
+  // OPTIONS handler answers them (and only for the allowlisted marketing
+  // origin — lib/security/cors.ts). Without this the cookie gate below would
+  // 307 the preflight and the browser would block the actual request.
+  if (request.method === "OPTIONS" && pathname.startsWith("/api/")) {
+    return next();
+  }
+
+  // The marketing site's cross-origin checkout POST must reach the route
+  // handler so an unauthenticated visitor gets the handler's structured 401
+  // (+ CORS headers) instead of this middleware's redirect to /sign-in on an
+  // API path. Origin is not a security boundary — the handler keeps its full
+  // session, allowlist and rate-limit checks; this only fixes the redirect UX.
+  if (
+    pathname === "/api/payments/dodo/checkout" &&
+    request.headers.get("origin") === getMarketingUrl()
+  ) {
+    return next();
+  }
+
   const sessionCookie = getSessionCookie(request, {
     cookiePrefix: process.env.AUTH_COOKIE_PREFIX || "better-auth",
   });
@@ -312,11 +357,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!sessionCookie) {
-    // Anonymous visitors to the bare root see the public marketing homepage
-    // (served from /landing via a rewrite so the URL stays "/"). Signed-in
-    // users keep the chat workspace at "/".
+    // The marketing homepage moved to the standalone marketing site;
+    // anonymous visitors to the bare root continue there. 307, not 308:
+    // signed-in users still get the chat workspace at "/" below, so this
+    // redirect must never be cached by a browser.
     if (pathname === "/") {
-      return NextResponse.rewrite(new URL("/landing", request.url));
+      return redirect(`${getMarketingUrl()}/`, false);
     }
     // Carry the requested page as `callbackUrl` instead of dropping it. An
     // invited user opening /accept-invitation/:id signs in (or signs up) and

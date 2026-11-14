@@ -65,9 +65,6 @@ describe("destination public surfaces remain narrowly authenticated", () => {
 
 describe("public product pages use the public auth boundary", () => {
   it.each([
-    "/terms-of-service",
-    "/privacy-policy",
-    "/about",
     "/plans",
     "/gallery/agents",
     "/gallery/agents/some-agent",
@@ -84,9 +81,109 @@ describe("public product pages use the public auth boundary", () => {
 
   it("does not allow public page prefix lookalikes", async () => {
     const response = await middleware(
-      new NextRequest("http://localhost/terms-of-service-evil"),
+      new NextRequest("http://localhost/marketplace-mcp-evil"),
     );
     expect(response.status).toBe(307);
+  });
+});
+
+describe("marketing site redirects", () => {
+  it.each([
+    "/landing",
+    "/pricing",
+    "/about",
+    "/docs",
+    "/docs/mcp",
+    "/contact",
+    "/contact-sales",
+    "/vs/manus",
+    "/index",
+    "/updates",
+    "/branding",
+    "/privacy-policy",
+    "/terms-of-service",
+    "/cookies-policy",
+    "/refund-policy",
+    "/grievance-redressal",
+    "/llms.txt",
+    "/design.md",
+  ])(
+    "permanently redirects former marketing page %s to the marketing site",
+    async (path) => {
+      vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://voidagent.space");
+      try {
+        const response = await middleware(
+          new NextRequest(`http://localhost${path}`),
+        );
+        expect(response.status).toBe(308);
+        expect(response.headers.get("location")).toBe(
+          `https://voidagent.space${path === "/landing" ? "/" : path === "/updates" ? "/index" : path}`,
+        );
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
+  it("preserves the query string across the marketing redirect", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://voidagent.space");
+    try {
+      const response = await middleware(
+        new NextRequest("http://localhost/pricing?ref=launch"),
+      );
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(
+        "https://voidagent.space/pricing?ref=launch",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("redirects anonymous visitors from / to the marketing homepage without caching", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://voidagent.space");
+    try {
+      const response = await middleware(new NextRequest("http://localhost/"));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("https://voidagent.space/");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("keeps signed-in users on the chat workspace at /", async () => {
+    const response = await middleware(
+      new NextRequest("http://localhost/", {
+        headers: { cookie: "better-auth.session_token=valid" },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("still redirects marketing paths for signed-in users — the routes are gone", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://voidagent.space");
+    try {
+      const response = await middleware(
+        new NextRequest("http://localhost/pricing", {
+          headers: { cookie: "better-auth.session_token=valid" },
+        }),
+      );
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(
+        "https://voidagent.space/pricing",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("does not redirect marketing path lookalikes — they fall through to the auth gate", async () => {
+    const response = await middleware(
+      new NextRequest("http://localhost/pricing-evil"),
+    );
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/sign-in");
   });
 });
 

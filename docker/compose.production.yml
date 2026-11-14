@@ -38,6 +38,29 @@ services:
       retries: 5
       start_period: 40s
 
+  # Standalone marketing site (apps/marketing, voidagent.space). Optional:
+  # the VPS-native production stack runs it as void-agent-marketing.service
+  # instead (see docs/deploy-vps-native.md). It needs only the two
+  # NEXT_PUBLIC_* URLs — put them in this env file or a separate one.
+  marketing:
+    build:
+      context: ..
+      dockerfile: ./docker/marketing.Dockerfile
+    ports:
+      - '127.0.0.1:3100:3000'
+    environment:
+      - NEXT_PUBLIC_MARKETING_URL=${NEXT_PUBLIC_MARKETING_URL:-https://voidagent.space}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://app.voidagent.space}
+    networks:
+      - void-agent
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
   postgres:
     image: pgvector/pgvector:pg17
     environment:
