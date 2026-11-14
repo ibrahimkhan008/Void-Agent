@@ -105,6 +105,17 @@ sudo systemctl restart void-agent-marketing
 
 ## Marketing site (apps/marketing → voidagent.space)
 
+> **DEPLOYED 2026-11-15** (repo state 001a0c7): `void-agent-marketing.service`
+> on 127.0.0.1:3100, ingress `voidagent.space` + `www.voidagent.space` →
+> :3100 and `app.voidagent.space` → :3000. The stale apex A records (CF 525
+> dead origin) were replaced via `cloudflared tunnel route dns
+> --overwrite-dns` — no dashboard deletion needed. All documented hostname
+> tests verified live: apex 200, www 308→apex, app auth ok, `/pricing` on
+> app 308→marketing, `/updates` 308→`/index`, legal pages 200. The catch-all
+> 404 rule is only reachable for hostnames that resolve (no wildcard record
+> exists — unknown subdomains fail at DNS, which is fine). Tunnel-config
+> backup: `~/backups/cloudflared-config-20261115-*.yml`.
+
 The public marketing pages live in their own Next.js app (`apps/marketing`)
 since the marketing-site extraction. It has **no database, no auth and no
 secrets** — only two public build-time vars:
