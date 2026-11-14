@@ -1018,6 +1018,9 @@ export const PublishedPageTable = pgTable(
       .default(sql`CURRENT_TIMESTAMP`),
     expiresAt: timestamp("expires_at"),
     revokedAt: timestamp("revoked_at"),
+    // Aggregated per row (each published version). The public /p/[slug]
+    // render increments it fire-and-forget — never on the critical path.
+    viewCount: integer("view_count").notNull().default(0),
   },
   (table) => [
     unique("published_page_slug_version_unique").on(table.slug, table.version),

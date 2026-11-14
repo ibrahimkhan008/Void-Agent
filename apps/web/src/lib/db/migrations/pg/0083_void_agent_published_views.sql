@@ -1,0 +1,1 @@
+ALTER TABLE "published_page" ADD COLUMN "view_count" integer NOT NULL DEFAULT 0;

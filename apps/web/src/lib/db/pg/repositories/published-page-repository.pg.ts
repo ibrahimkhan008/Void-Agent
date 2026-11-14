@@ -112,4 +112,18 @@ export const pgPublishedPageRepository = {
       .where(eq(PublishedPageTable.ownerId, ownerId))
       .orderBy(desc(PublishedPageTable.publishedAt));
   },
+
+  // Fire-and-forget from the public /p/[slug] render: failure must never
+  // break the visit, so callers wrap this in a catch.
+  incrementViewBySlug: async (slug: string): Promise<void> => {
+    await pgDb
+      .update(PublishedPageTable)
+      .set({ viewCount: sql`${PublishedPageTable.viewCount} + 1` })
+      .where(
+        and(
+          eq(PublishedPageTable.slug, slug),
+          isNull(PublishedPageTable.revokedAt),
+        ),
+      );
+  },
 };

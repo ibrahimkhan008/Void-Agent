@@ -33,6 +33,10 @@ export default async function PublishedPage({ params }: Props) {
   // response must not reveal which of the three it was.
   if (!page) notFound();
 
+  // Count the visit off the critical path — analytics must never break a
+  // public render.
+  void publishedPageRepository.incrementViewBySlug(slug).catch(() => undefined);
+
   return (
     <iframe
       // The published HTML is model-generated and must not run with access to

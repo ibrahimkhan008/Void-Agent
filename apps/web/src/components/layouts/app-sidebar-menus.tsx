@@ -16,6 +16,7 @@ import {
   PlusIcon,
   Rocket,
   Waypoints,
+  Globe,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -147,6 +148,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 >
                   <Rocket className="size-4" />
                   App Builder
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/deploy" onClick={() => setOpenMobile(false)}>
+                <SidebarMenuButton
+                  isActive={isActive("/deploy")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
+                  <Globe className="size-4" />
+                  Void Deploy
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

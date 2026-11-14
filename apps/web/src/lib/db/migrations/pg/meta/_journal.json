@@ -589,6 +589,13 @@
       "when": 1794287400000,
       "tag": "0082_void_agent_brain_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794373800000,
+      "tag": "0083_void_agent_published_views",
+      "breakpoints": true
     }
   ]
 }
