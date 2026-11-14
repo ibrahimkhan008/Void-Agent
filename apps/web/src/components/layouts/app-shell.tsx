@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/layouts/app-header";
 import { AppSidebar } from "@/components/layouts/app-sidebar";
+import { SidebarCollapsedRail } from "@/components/layouts/sidebar-collapsed-rail";
 import { ViewportSync } from "@/components/layouts/viewport-sync";
 import { cookies } from "next/headers";
 import { SidebarProvider } from "ui/sidebar";
@@ -46,6 +47,10 @@ export async function AppShell({
         {syncOnboardingCookie && <OnboardingCookieSync />}
         <AppPopupProvider />
         <AppSidebar user={user} />
+        {/* ChatGPT-style collapsed rail: the logo column that appears when
+              the sidebar is closed — clicking its logo reopens. Desktop only;
+              mobile keeps the Sheet flow. */}
+        <SidebarCollapsedRail />
         {/* Sizes the shell to the visual viewport and locks document scrolling
               — see `viewport-sync.tsx`. */}
         <ViewportSync />
