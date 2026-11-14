@@ -128,8 +128,14 @@ export default function EmailSignUp({
 
       // When the sign-up was started from an invite link (or any other
       // callbackUrl), return the user there so they can immediately accept the
-      // invitation instead of being dropped into onboarding.
-      router.push(callbackUrl || "/onboarding");
+      // invitation instead of being dropped into onboarding. Absolute
+      // callbacks (the marketing site's post-signup return) need a hard
+      // navigation — App Router's router.push doesn't own external URLs.
+      if (callbackUrl && /^https?:\/\//i.test(callbackUrl)) {
+        window.location.href = callbackUrl;
+      } else {
+        router.push(callbackUrl || "/onboarding");
+      }
     } else {
       toast.error(error.message || error.statusText);
     }

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo run dev --filter=web",
     "dev:web": "turbo run dev --filter=web",
+    "dev:marketing": "pnpm --filter marketing dev",
     "dev:desktop": "turbo run dev --filter=desktop",
     "void:desktop:dev": "pnpm --filter desktop dev",
     "void:desktop:build": "pnpm --filter desktop build",
@@ -22,6 +23,9 @@
     "voice:bridge": "tsx scripts/voice-device-bridge.ts",
     "build": "turbo run build --filter=web",
     "build:web": "turbo run build --filter=web...",
+    "build:marketing": "pnpm --filter marketing build",
+    "build:marketing:check": "pnpm --filter marketing typecheck",
+    "start:marketing": "pnpm --filter marketing start",
     "build:desktop": "turbo run build --filter=desktop",
     "dist:desktop:mac": "pnpm --filter desktop dist:mac",
     "dist:desktop:win": "pnpm --filter desktop dist:win",

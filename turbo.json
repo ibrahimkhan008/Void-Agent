@@ -45,6 +45,11 @@
         "FILE_BASED_MCP_CONFIG"
       ]
     },
+    "marketing#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": ["NEXT_PUBLIC_*", "NEXT_STANDALONE_OUTPUT", "NO_HTTPS"]
+    },
     "desktop#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "out/**"]

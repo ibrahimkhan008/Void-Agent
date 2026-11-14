@@ -5,6 +5,7 @@ import { Sidebar, SidebarContent, SidebarFooter } from "ui/sidebar";
 import { AppSidebarAgents } from "./app-sidebar-agents";
 import { AppSidebarArchives } from "./app-sidebar-archives";
 import { AppSidebarMenus } from "./app-sidebar-menus";
+import { AppSidebarResources } from "./app-sidebar-resources";
 import { AppSidebarThreads } from "./app-sidebar-threads";
 import { SidebarHeaderShared } from "./sidebar-header";
 
@@ -51,6 +52,7 @@ export function AppSidebar({
           <AppSidebarAgents userRole={userRole} />
           <AppSidebarArchives />
           <AppSidebarThreads />
+          <AppSidebarResources />
         </div>
       </SidebarContent>
       <SidebarFooter className="flex flex-col items-stretch space-y-2">
