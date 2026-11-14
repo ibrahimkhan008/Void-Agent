@@ -1,3 +1,4 @@
+import { VoidHooksDashboard } from "@/components/webhooks/void-hooks-dashboard";
 import { WebhooksDashboard } from "@/components/webhooks/webhooks-dashboard";
 import { getSession } from "auth/server";
 import { redirect } from "next/navigation";
@@ -10,5 +11,10 @@ export default async function Page() {
     return redirect("/sign-in");
   }
 
-  return <WebhooksDashboard />;
+  return (
+    <div className="flex flex-col gap-6">
+      <VoidHooksDashboard />
+      <WebhooksDashboard />
+    </div>
+  );
 }

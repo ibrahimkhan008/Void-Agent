@@ -39,6 +39,8 @@ export interface CreateInboundEndpointInput {
 }
 
 export interface UpdateInboundEndpointInput {
+  /** Void Hooks: rebind which agent this hook drives. */
+  agentId?: string;
   secretHash?: string | null;
   kind?: "webhook" | "email" | "slack";
   threadTemplate?: Record<string, unknown>;
@@ -111,6 +113,7 @@ export const inboundRepository = {
     const [row] = await db
       .update(InboundEndpointTable)
       .set({
+        ...(patch.agentId !== undefined ? { agentId: patch.agentId } : {}),
         ...(patch.secretHash !== undefined
           ? { secretHash: patch.secretHash }
           : {}),

@@ -2,6 +2,10 @@ import { inngest } from "../client";
 import logger from "logger";
 import { webhookRepository } from "lib/db/pg/repositories/webhook-repository.pg";
 import { computeBackoffMs, deliverWebhook, signPayload } from "lib/webhooks";
+import {
+  HOOK_AGENT_RUN_EVENT,
+  dispatchInboundHook,
+} from "lib/hooks/executor";
 
 // ---------------------------------------------------------------------------
 // Webhook outbox delivery tick (ported from zip-main
@@ -47,6 +51,7 @@ export interface WebhookOutboxTickResult {
   delivered: number;
   failed: number;
   retried: number;
+  hooksDispatched: number;
 }
 
 const extractUserId = (payload: Record<string, unknown>): string | null => {
@@ -65,6 +70,7 @@ export const runWebhookOutboxTick =
       delivered: 0,
       failed: 0,
       retried: 0,
+      hooksDispatched: 0,
     };
 
     for (const event of events) {
@@ -77,6 +83,30 @@ export const runWebhookOutboxTick =
         );
         result.failed += 1;
         continue;
+      }
+
+      // Void Hooks (master prompt §3.5): inbound events execute the endpoint's
+      // bound agent. Idempotent via the hook_run UNIQUE (event_id) — a
+      // re-claimed event does nothing here. The event then continues through
+      // the normal subscription-delivery path below (both may apply).
+      if (event.kind === "inbound") {
+        try {
+          const dispatch = await dispatchInboundHook({
+            eventId: event.id,
+            payload: event.payload,
+            enqueue: (data) =>
+              inngest.send({
+                name: HOOK_AGENT_RUN_EVENT,
+                data,
+              }),
+          });
+          if (dispatch.dispatched) result.hooksDispatched += 1;
+        } catch (error) {
+          logger.error(
+            `[webhook-outbox] inbound hook dispatch failed for ${event.id}`,
+            error instanceof Error ? error.message : error,
+          );
+        }
       }
 
       const subscriptions = await webhookRepository.listWebhookSubscriptions(

@@ -3915,6 +3915,16 @@ export const InboundEndpointTable = pgTable(
       .notNull()
       .default({}),
     enabled: boolean("enabled").notNull().default(true),
+    // Void Hooks (master prompt §3.5): per-hook tuning — prompt template,
+    // loop-prevention cooldown and daily cap. Parsed by lib/hooks/executor.
+    hookConfig: jsonb("hook_config")
+      .$type<{
+        promptTemplate?: string;
+        cooldownSeconds?: number;
+        maxRunsPerDay?: number;
+      }>()
+      .notNull()
+      .default({}),
     createdAt: timestamp("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
@@ -3924,6 +3934,53 @@ export const InboundEndpointTable = pgTable(
     index("inbound_endpoint_kind_enabled_idx").on(table.kind, table.enabled),
   ],
 );
+
+/**
+ * Void Hooks audit + idempotency record (master prompt §3.5): one row per
+ * claimed `inbound.received` outbox event. UNIQUE on event_id guarantees a
+ * re-claimed event can never double-run. Status flows queued → running →
+ * succeeded/failed/skipped (skipped = loop-prevention gate fired).
+ */
+export const HookRunTable = pgTable(
+  "hook_run",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    eventId: text("event_id").notNull(),
+    inboundEndpointId: uuid("inbound_endpoint_id")
+      .notNull()
+      .references(() => InboundEndpointTable.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => AgentTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    status: varchar("status", {
+      enum: ["queued", "running", "succeeded", "failed", "skipped"],
+    })
+      .notNull()
+      .default("queued"),
+    threadId: uuid("thread_id"),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    // Idempotency: one hook run per outbox event, ever.
+    uniqueIndex("hook_run_event_id_unique").on(table.eventId),
+    index("hook_run_user_created_idx").on(table.userId, table.createdAt),
+    index("hook_run_endpoint_created_idx").on(
+      table.inboundEndpointId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export type HookRun = typeof HookRunTable.$inferSelect;
+export type NewHookRun = typeof HookRunTable.$inferInsert;
 
 export type InboundEndpoint = typeof InboundEndpointTable.$inferSelect;
 export type NewInboundEndpoint = typeof InboundEndpointTable.$inferInsert;

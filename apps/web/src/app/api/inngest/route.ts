@@ -12,6 +12,7 @@ import {
   scheduledTaskCronChecker,
 } from "@/lib/inngest/functions/scheduled-tasks";
 import { webhookOutboxTick } from "@/lib/inngest/functions/webhook-outbox";
+import { hookAgentRun } from "@/lib/inngest/functions/hooks";
 import { serve } from "inngest/next";
 
 // The execute-scheduled-task step holds this function open while the loopback
@@ -29,6 +30,7 @@ export const { GET, POST, PUT } = serve({
     projectBrainIngestRun,
     reapIdleSandboxes,
     webhookOutboxTick,
+    hookAgentRun,
     ...cloudInngestFunctions,
   ],
 });
