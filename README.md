@@ -1,4 +1,4 @@
-﻿# Void Agent
+# Void Agent
 
 Void Agent is an independently branded AI assistant built on the complete Better Chatbot upstream snapshot at commit [`6f4183566bc48616303cb84055f11f79578c82fe`](https://github.com/keinsaasforever/better-chatbot/commit/6f4183566bc48616303cb84055f11f79578c82fe), with Void Agent-specific integrations, UI, security controls, and database extensions layered on top.
 

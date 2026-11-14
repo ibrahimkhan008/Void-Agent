@@ -27,19 +27,19 @@ const TOPICS = [
     id: "Sales",
     label: "Enterprise & Sales",
     sla: "1-2 business days",
-    mailbox: "sales@Void Agent.local",
+    mailbox: "sales@voidagent.space",
   },
   {
     id: "Security",
     label: "Security & Vulnerability",
     sla: "3 business days",
-    mailbox: "security@Void Agent.local",
+    mailbox: "security@voidagent.space",
   },
   {
     id: "Data Request",
     label: "Privacy & Data Rights",
     sla: "7 days acknowledgment",
-    mailbox: "privacy@Void Agent.local",
+    mailbox: "privacy@voidagent.space",
   },
   {
     id: "Billing",
@@ -69,7 +69,7 @@ const EMAIL_CARDS = [
     title: "Enterprise & Sales",
     sla: "SLA: 1-2 business days",
     body: "Custom volume quotas, dedicated microVM clusters, invoicing, and procurement paperwork.",
-    email: "sales@Void Agent.local",
+    email: "sales@voidagent.space",
     subject: "[Sales]",
   },
   {
@@ -77,7 +77,7 @@ const EMAIL_CARDS = [
     title: "Security & Vulnerability",
     sla: "SLA: 3 business days",
     body: "Coordinated vulnerability disclosure, penetration testing inquiries, and compliance reports.",
-    email: "security@Void Agent.local",
+    email: "security@voidagent.space",
     subject: "[Security]",
   },
   {
@@ -85,7 +85,7 @@ const EMAIL_CARDS = [
     title: "Privacy & Data Rights",
     sla: "SLA: 7 days acknowledgment",
     body: "Data access, correction, deletion, and India DPDP Act compliance requests.",
-    email: "privacy@Void Agent.local",
+    email: "privacy@voidagent.space",
     subject: "[Data Request]",
   },
   {

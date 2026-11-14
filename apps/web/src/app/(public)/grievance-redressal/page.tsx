@@ -52,7 +52,7 @@ export default function GrievanceRedressalPage() {
                 headers={["Detail", "Information"]}
                 rows={[
                   ["Name", "Founder & CEO, Void Agent"],
-                  ["Email", "support@Void Agent.local"],
+                  ["Email", "support@voidagent.space"],
                   ["Postal address", "Void Agent, India"],
                   [
                     "Working hours",
@@ -118,8 +118,8 @@ export default function GrievanceRedressalPage() {
             <>
               <LegalP>
                 Email{" "}
-                <LegalLink href="mailto:support@Void Agent.local">
-                  support@Void Agent.local
+                <LegalLink href="mailto:support@voidagent.space">
+                  support@voidagent.space
                 </LegalLink>{" "}
                 from the email address registered to your Void Agent account.
               </LegalP>
@@ -240,8 +240,8 @@ export default function GrievanceRedressalPage() {
               <LegalP>
                 To report a suspected security vulnerability, or a breach
                 involving Void Agent, write to{" "}
-                <LegalLink href="mailto:security@Void Agent.local">
-                  security@Void Agent.local
+                <LegalLink href="mailto:security@voidagent.space">
+                  security@voidagent.space
                 </LegalLink>
                 .
               </LegalP>

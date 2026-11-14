@@ -160,7 +160,7 @@ export default function ContactSalesPage() {
                 closest current plan and clearly scope any custom work.
               </p>
               <a
-                href="mailto:support@Void Agent.local?subject=Void Agent%20sales%20inquiry"
+                href="mailto:support@voidagent.space?subject=Void Agent%20sales%20inquiry"
                 className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#7e89e6] px-5 font-semibold text-black transition-colors hover:bg-[#919bf0]"
               >
                 <Mail className="size-4" />
@@ -182,7 +182,7 @@ export default function ContactSalesPage() {
                   GitHub
                 </a>
                 <a
-                  href="mailto:support@Void Agent.local"
+                  href="mailto:support@voidagent.space"
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 text-sm font-medium text-white transition-colors hover:bg-zinc-900"
                 >
                   <MessageCircle className="size-4" />

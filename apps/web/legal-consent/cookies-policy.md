@@ -311,7 +311,7 @@ We strongly recommend keeping Essential and Security cookies enabled for the bes
 
 Void Agent does not knowingly set cookies or use tracking technologies for users under the age of 13.
 
-If you believe a child under 13 has used Void Agent and cookies have been set on their device, please contact us at **support@Void Agent.local** and we will take appropriate steps to delete any associated data.
+If you believe a child under 13 has used Void Agent and cookies have been set on their device, please contact us at **support@voidagent.space** and we will take appropriate steps to delete any associated data.
 
 For users between 13 and 18, we recommend that parents or guardians review this policy and help configure appropriate browser cookie settings if needed.
 
@@ -360,7 +360,7 @@ The latest version of this policy is always available at [/cookies-policy](/cook
 If you have any questions about our use of cookies or this policy, feel free to reach out:
 
 **Void Agent**
-📧 **Support:** support@Void Agent.local
+📧 **Support:** support@voidagent.space
 🌐 **Website:** [the Void Agent website](/)
 
 ---

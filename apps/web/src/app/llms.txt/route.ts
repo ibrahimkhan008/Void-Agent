@@ -28,7 +28,7 @@ Public pages (readable as Markdown):
 - [Design](https://void-agent.dev/design.md): The Void-Agent design system, as Markdown.
 - [MCP discovery](https://void-agent.dev/.well-known/mcp.json): This deployment's public, read-only MCP server.
 
-Contact: support@void-agent.local
+Contact: support@voidagent.space
 `;
   return new NextResponse(body, {
     status: 200,

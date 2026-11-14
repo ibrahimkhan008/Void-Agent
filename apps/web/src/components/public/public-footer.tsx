@@ -75,10 +75,10 @@ export function PublicFooter() {
               coding agents, on any model.
             </p>
             <a
-              href="mailto:support@Void Agent.local"
+              href="mailto:support@voidagent.space"
               className="mt-3 inline-block text-sm text-(--paper)/55 underline decoration-(--paper)/20 underline-offset-4 hover:text-(--paper)"
             >
-              support@Void Agent.local
+              support@voidagent.space
             </a>
           </div>
 

@@ -157,8 +157,8 @@ export default function RefundPolicyPage() {
           body: (
             <LegalP>
               <LegalStrong>Email:</LegalStrong>{" "}
-              <LegalLink href="mailto:support@Void Agent.local">
-                support@Void Agent.local
+              <LegalLink href="mailto:support@voidagent.space">
+                support@voidagent.space
               </LegalLink>
             </LegalP>
           ),

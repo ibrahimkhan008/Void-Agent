@@ -131,7 +131,7 @@ You are responsible for maintaining the confidentiality of your login credential
 - Choose a strong, unique password for your Void Agent account
 - Not share your password or login credentials with anyone
 - Log out of your account when using shared or public devices
-- Notify us immediately at **support@Void Agent.local** if you suspect unauthorized access to your account
+- Notify us immediately at **support@voidagent.space** if you suspect unauthorized access to your account
 
 ### 5.3 Account Responsibility
 You are fully responsible for all activities that occur under your account, whether or not you authorized them. Void Agent is not liable for any loss or damage resulting from unauthorized access due to your failure to keep your credentials secure.
@@ -160,7 +160,7 @@ You are responsible for any applicable taxes, levies, or duties imposed by tax a
 
 ### 6.4 Refund Policy
 - Subscription fees are **non-refundable** except where required by applicable law or at our sole discretion
-- If you believe you were charged in error, contact us at **support@Void Agent.local** within **7 days** of the charge
+- If you believe you were charged in error, contact us at **support@voidagent.space** within **7 days** of the charge
 
 ### 6.5 Plan Changes & Cancellation
 - You may upgrade, downgrade, or cancel your subscription at any time from your account settings
@@ -324,7 +324,7 @@ We retain your data for as long as your account is active or as needed to provid
 Access to user data is restricted to authorized Void Agent personnel on a strict need-to-know basis. Administrative systems require multi-factor authentication (MFA). We do not allow third parties to browse or access your personal conversations.
 
 ### 11.4 Data Portability & Deletion
-You can request a copy of your data or request its deletion at any time by contacting **support@Void Agent.local**. We will fulfill requests within 30 days.
+You can request a copy of your data or request its deletion at any time by contacting **support@voidagent.space**. We will fulfill requests within 30 days.
 
 ---
 
@@ -552,14 +552,14 @@ Upon termination:
 - We may retain data as required by law or for legitimate business purposes (see our Privacy Policy)
 
 ### 22.4 Appeals
-If you believe your account was suspended or terminated in error, you may appeal by contacting us at **support@Void Agent.local** with the subject line: *"Account Termination Appeal."*
+If you believe your account was suspended or terminated in error, you may appeal by contacting us at **support@voidagent.space** with the subject line: *"Account Termination Appeal."*
 
 ---
 
 ## 24. Dispute Resolution
 
 ### 23.1 Informal Resolution First
-Before pursuing formal legal action, you agree to first try to resolve any dispute informally by contacting us at **support@Void Agent.local**. We will make a good-faith effort to resolve the dispute within **30 days**.
+Before pursuing formal legal action, you agree to first try to resolve any dispute informally by contacting us at **support@voidagent.space**. We will make a good-faith effort to resolve the dispute within **30 days**.
 
 ### 23.2 Arbitration
 If informal resolution fails, disputes will be resolved through binding arbitration, except where prohibited by law. You agree to waive the right to participate in a class action lawsuit or class-wide arbitration against Void Agent.
@@ -616,11 +616,11 @@ No waiver of any provision of these Terms shall be deemed a further or continuin
 If you have any questions, concerns, or feedback about these Terms, please reach out:
 
 **Void Agent**
-📧 **General:** support@Void Agent.local
-📧 **Legal & Terms:** support@Void Agent.local
-📧 **Privacy & Data:** support@Void Agent.local
-📧 **Security:** support@Void Agent.local
-📧 **Billing:** support@Void Agent.local
+📧 **General:** support@voidagent.space
+📧 **Legal & Terms:** support@voidagent.space
+📧 **Privacy & Data:** support@voidagent.space
+📧 **Security:** support@voidagent.space
+📧 **Billing:** support@voidagent.space
 🌐 **Website:** [the Void Agent website](/)
 
 ---

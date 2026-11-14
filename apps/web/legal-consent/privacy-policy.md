@@ -74,7 +74,7 @@ Void Agent is an AI chat and productivity startup building the next generation o
 We are committed to responsible AI development and user-first product design.
 
 **Business Contact:**
-📧 support@Void Agent.local
+📧 support@voidagent.space
 🌐 [the Void Agent website](/)
 
 ---
@@ -392,7 +392,7 @@ Void Agent is intended for users who are **13 years of age or older**. We do not
 
 If you are under 13, please do not use Void Agent or provide us with any personal information.
 
-If you are a parent or guardian and believe your child has provided personal information to Void Agent without your consent, please contact us immediately at **support@Void Agent.local**. We will promptly investigate and delete the information if confirmed.
+If you are a parent or guardian and believe your child has provided personal information to Void Agent without your consent, please contact us immediately at **support@voidagent.space**. We will promptly investigate and delete the information if confirmed.
 
 For users between **13 and 18 years old**, we recommend using Void Agent with parental awareness. Some features may be restricted for minor users depending on your region's laws.
 
@@ -448,7 +448,7 @@ We process your personal data under the following lawful bases:
 | Product analytics (anonymized) | **Legitimate interests** |
 
 ### Data Protection Officer (DPO)
-You may contact our data protection point of contact at: **support@Void Agent.local**
+You may contact our data protection point of contact at: **support@voidagent.space**
 
 ### Right to Lodge a Complaint
 If you believe we have violated your GDPR rights, you have the right to lodge a complaint with your local **Data Protection Authority (DPA)**. A list of EU DPAs is available at [edpb.europa.eu](https://edpb.europa.eu/about-edpb/about-edpb/members_en).
@@ -465,7 +465,7 @@ If you are a **California resident**, you have rights under the **California Con
 - **Right to Opt-Out of Sale** — We do **not** sell personal information. This right is therefore automatically honored.
 - **Right to Non-Discrimination** — We will not discriminate against you for exercising any of these rights.
 
-To exercise your CCPA rights, contact us at **support@Void Agent.local** with the subject line: *"CCPA Rights Request."*
+To exercise your CCPA rights, contact us at **support@voidagent.space** with the subject line: *"CCPA Rights Request."*
 
 ---
 
@@ -569,7 +569,7 @@ Previous versions of this policy are available upon request.
 
 To exercise any of your privacy rights described in this policy — including data access, correction, deletion, or export — you can:
 
-1. **Email us** at: **support@Void Agent.local**
+1. **Email us** at: **support@voidagent.space**
    - Subject line: *"Privacy Rights Request – [Your Request Type]"*
    - Include: your registered email address and a brief description of your request
 2. **Account Settings**: Delete your account or manage conversation history directly in the Void Agent dashboard
@@ -585,8 +585,8 @@ To exercise any of your privacy rights described in this policy — including da
 If you have any questions, concerns, complaints, or requests regarding this Privacy Policy or our data practices, please get in touch:
 
 **Void Agent**
-📧 **General:** support@Void Agent.local
-📧 **Privacy & Data:** support@Void Agent.local
+📧 **General:** support@voidagent.space
+📧 **Privacy & Data:** support@voidagent.space
 🌐 **Website:** [the Void Agent website](/)
 
 We take all privacy inquiries seriously and will do our best to respond promptly and helpfully.

@@ -1,4 +1,4 @@
-﻿# Current Source Roles and Integration State
+# Current Source Roles and Integration State
 
 Last verified: 2026-11-11 (Asia/Kolkata) — post-promotion
 
