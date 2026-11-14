@@ -46,7 +46,7 @@ export function WorkspaceModeToggle({
           "h-9 rounded-full p-1 ring-1",
           cockpit
             ? "bg-[#101215] ring-black"
-            : "bg-black/[0.03] ring-black/[0.06]",
+            : "bg-black/[0.03] ring-black/[0.06] dark:bg-white/[0.06] dark:ring-white/[0.08]",
         )}
       >
         {MODES.map(({ mode, href }) => (
@@ -57,7 +57,7 @@ export function WorkspaceModeToggle({
             className={cn(
               "h-7 rounded-full px-4 text-sm font-medium relative",
               !cockpit &&
-                "text-foreground/50 hover:text-foreground/80 data-[state=active]:text-foreground",
+                "text-foreground/50 hover:text-foreground/80 data-[state=active]:text-foreground dark:data-[state=active]:text-black",
               cockpit &&
                 "border-0 text-[#8592a0] hover:text-[#e8eef2] data-[state=active]:bg-[#22262c] data-[state=active]:text-[#e8eef2] dark:data-[state=active]:bg-[#22262c] dark:data-[state=active]:text-[#e8eef2] dark:text-[#8592a0]",
             )}
