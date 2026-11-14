@@ -1,14 +1,14 @@
 "use client";
 
 import { appStore } from "@/app/store";
-import { useThemeStyle } from "@/hooks/use-theme-style";
-import { BasicUser } from "app-types/user";
 import {
   BillingMenuItem,
   WorkspaceMenuSection,
   useReferralEnabled,
 } from "@/components/gate";
+import { useThemeStyle } from "@/hooks/use-theme-style";
 import { IS_CLOUD_EDITION } from "@/lib/edition";
+import { BasicUser } from "app-types/user";
 import { authClient } from "auth/client";
 import { BASE_THEMES } from "lib/const";
 import { getUserAvatar } from "lib/user/utils";
@@ -52,6 +52,8 @@ import { Skeleton } from "ui/skeleton";
 
 export function AppSidebarUserInner(props: {
   user?: BasicUser;
+  /** "compact" renders an avatar-only trigger for the collapsed rail. */
+  variant?: "full" | "compact";
 }) {
   const { data: user } = useSWR<BasicUser>(`/api/user/details`, fetcher, {
     fallbackData: props.user,
@@ -72,6 +74,159 @@ export function AppSidebarUserInner(props: {
   };
 
   if (!user) return null;
+
+  const menuContent = (
+    <DropdownMenuContent
+      side="top"
+      className="bg-background w-[--radix-dropdown-menu-trigger-width] min-w-60 rounded-lg"
+      align="start"
+    >
+      <DropdownMenuLabel className="p-0 font-normal">
+        <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+          <Avatar className="h-8 w-8 rounded-full">
+            <AvatarImage src={getUserAvatar(user)} alt={user?.name || "User"} />
+            <AvatarFallback className="rounded-lg">
+              {user?.name?.slice(0, 1) || ""}
+            </AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span
+              className="truncate font-medium"
+              data-testid="sidebar-user-name"
+            >
+              {user?.name}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {user?.email}
+            </span>
+          </div>
+        </div>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+
+      {/* Everything that configures *the person* lives behind one entry.
+                  The flat list had chat preferences, shortcuts and account
+                  settings as three peers, which made the menu long without
+                  making anything easier to find. */}
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger
+          className="flex items-center"
+          icon={<ChevronRight className="size-4 ml-2" />}
+          data-testid="user-settings-menu-item"
+        >
+          <Settings className="mr-2 size-4" />
+          <span className="mr-auto">{t("userSettings")}</span>
+        </DropdownMenuSubTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuSubContent className="w-56">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => appStoreMutate({ openUserSettings: true })}
+              data-testid="user-profile-menu-item"
+            >
+              <UserRound className="size-4 text-foreground" />
+              <span>{t("profile")}</span>
+            </DropdownMenuItem>
+            {IS_CLOUD_EDITION && (
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => appStoreMutate({ openUserUsage: true })}
+                data-testid="user-usage-menu-item"
+              >
+                <ChartNoAxesColumn className="size-4 text-foreground" />
+                <span>{t("usage")}</span>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => appStoreMutate({ openChatPreferences: true })}
+            >
+              <Settings2 className="size-4 text-foreground" />
+              <span>{t("chatPreferences")}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => appStoreMutate({ openShortcutsPopup: true })}
+            >
+              <Command className="size-4 text-foreground" />
+              <span>{t("keyboardShortcuts")}</span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuPortal>
+      </DropdownMenuSub>
+      <SelectTheme />
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        className="cursor-pointer"
+        onClick={() => appStoreMutate({ openProblemReport: true })}
+        data-testid="report-issue-menu-item"
+      >
+        <MessageCircleWarning className="size-4 text-foreground" />
+        <span>{t("reportAnIssue")}</span>
+      </DropdownMenuItem>
+      {!IS_CLOUD_EDITION && (
+        <DropdownMenuItem
+          onClick={() => {
+            window.open("https://discord.gg/9dwdAYKBPp", "_blank");
+          }}
+        >
+          <MessagesSquare className="size-4 text-foreground" />
+          <span>{t("joinDiscord")}</span>
+        </DropdownMenuItem>
+      )}
+      <BillingMenuItem />
+      <DropdownMenuSeparator />
+
+      <WorkspaceMenuSection />
+      {IS_CLOUD_EDITION && referralEnabled && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={() => appStoreMutate({ openReferral: true })}
+            data-testid="user-referral-menu-item"
+          >
+            <Gift className="size-4 text-foreground" />
+            <span>{t("inviteFriends")}</span>
+          </DropdownMenuItem>
+        </>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={logout} className="cursor-pointer">
+        <LogOutIcon className="size-4 text-foreground" />
+        <span>{t("signOut")}</span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
+
+  // Compact (collapsed rail): avatar-only trigger, same menu content. The
+  // content's min-w-60 keeps the panel full-size despite the tiny trigger.
+  if (props.variant === "compact") {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={user?.name || "Account"}
+            title={user?.name}
+            data-testid="rail-user-button"
+            className="inline-flex items-center justify-center rounded-md size-9 hover:bg-sidebar-accent transition-colors"
+          >
+            <Avatar className="rounded-full size-7 border">
+              <AvatarImage
+                className="object-cover"
+                src={getUserAvatar(user)}
+                alt={user?.name || "User"}
+              />
+              <AvatarFallback>{user?.name?.slice(0, 1) || ""}</AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        {menuContent}
+      </DropdownMenu>
+    );
+  }
 
   return (
     <>
@@ -100,135 +255,7 @@ export function AppSidebarUserInner(props: {
                 <ChevronsUpDown className="ml-auto" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              className="bg-background w-[--radix-dropdown-menu-trigger-width] min-w-60 rounded-lg"
-              align="start"
-            >
-              <DropdownMenuLabel className="p-0 font-normal">
-                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="h-8 w-8 rounded-full">
-                    <AvatarImage
-                      src={getUserAvatar(user)}
-                      alt={user?.name || "User"}
-                    />
-                    <AvatarFallback className="rounded-lg">
-                      {user?.name?.slice(0, 1) || ""}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span
-                      className="truncate font-medium"
-                      data-testid="sidebar-user-name"
-                    >
-                      {user?.name}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {user?.email}
-                    </span>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-
-              {/* Everything that configures *the person* lives behind one entry.
-                  The flat list had chat preferences, shortcuts and account
-                  settings as three peers, which made the menu long without
-                  making anything easier to find. */}
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger
-                  className="flex items-center"
-                  icon={<ChevronRight className="size-4 ml-2" />}
-                  data-testid="user-settings-menu-item"
-                >
-                  <Settings className="mr-2 size-4" />
-                  <span className="mr-auto">{t("userSettings")}</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="w-56">
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() => appStoreMutate({ openUserSettings: true })}
-                      data-testid="user-profile-menu-item"
-                    >
-                      <UserRound className="size-4 text-foreground" />
-                      <span>{t("profile")}</span>
-                    </DropdownMenuItem>
-                    {IS_CLOUD_EDITION && (
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => appStoreMutate({ openUserUsage: true })}
-                        data-testid="user-usage-menu-item"
-                      >
-                        <ChartNoAxesColumn className="size-4 text-foreground" />
-                        <span>{t("usage")}</span>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() =>
-                        appStoreMutate({ openChatPreferences: true })
-                      }
-                    >
-                      <Settings2 className="size-4 text-foreground" />
-                      <span>{t("chatPreferences")}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() =>
-                        appStoreMutate({ openShortcutsPopup: true })
-                      }
-                    >
-                      <Command className="size-4 text-foreground" />
-                      <span>{t("keyboardShortcuts")}</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <SelectTheme />
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onClick={() => appStoreMutate({ openProblemReport: true })}
-                data-testid="report-issue-menu-item"
-              >
-                <MessageCircleWarning className="size-4 text-foreground" />
-                <span>{t("reportAnIssue")}</span>
-              </DropdownMenuItem>
-              {!IS_CLOUD_EDITION && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    window.open("https://discord.gg/9dwdAYKBPp", "_blank");
-                  }}
-                >
-                  <MessagesSquare className="size-4 text-foreground" />
-                  <span>{t("joinDiscord")}</span>
-                </DropdownMenuItem>
-              )}
-              <BillingMenuItem />
-              <DropdownMenuSeparator />
-
-              <WorkspaceMenuSection />
-              {IS_CLOUD_EDITION && referralEnabled && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => appStoreMutate({ openReferral: true })}
-                    data-testid="user-referral-menu-item"
-                  >
-                    <Gift className="size-4 text-foreground" />
-                    <span>{t("inviteFriends")}</span>
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="cursor-pointer">
-                <LogOutIcon className="size-4 text-foreground" />
-                <span>{t("signOut")}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+            {menuContent}
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -333,12 +360,14 @@ export function AppSidebarUserSkeleton() {
 
 export function AppSidebarUser({
   user,
+  variant = "full",
 }: {
   user?: BasicUser;
+  variant?: "full" | "compact";
 }) {
   return (
     <Suspense fallback={<AppSidebarUserSkeleton />}>
-      <AppSidebarUserInner user={user} />
+      <AppSidebarUserInner user={user} variant={variant} />
     </Suspense>
   );
 }

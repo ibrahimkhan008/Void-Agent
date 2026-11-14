@@ -50,7 +50,7 @@ export async function AppShell({
         {/* ChatGPT-style collapsed rail: the logo column that appears when
               the sidebar is closed — clicking its logo reopens. Desktop only;
               mobile keeps the Sheet flow. */}
-        <SidebarCollapsedRail />
+        <SidebarCollapsedRail user={user} />
         {/* Sizes the shell to the visual viewport and locks document scrolling
               — see `viewport-sync.tsx`. */}
         <ViewportSync />

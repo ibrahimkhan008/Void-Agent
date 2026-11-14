@@ -3,7 +3,9 @@ import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
+import { AppSidebarUser } from "@/components/layouts/app-sidebar-user";
 import { useStartNewChat } from "@/hooks/use-start-new-chat";
+import { BasicUser } from "app-types/user";
 import { cn } from "lib/utils";
 import { useSidebar } from "ui/sidebar";
 
@@ -16,7 +18,7 @@ import { useSidebar } from "ui/sidebar";
  * overlaying content. Always mounted and width-animated to zero while open,
  * so the collapse/expand slides instead of popping.
  */
-export function SidebarCollapsedRail() {
+export function SidebarCollapsedRail({ user }: { user?: BasicUser }) {
   const { open, toggleSidebar } = useSidebar();
   const startNewChat = useStartNewChat();
   const t = useTranslations("Layout");
@@ -63,6 +65,13 @@ export function SidebarCollapsedRail() {
         >
           <PlusIcon className="size-4" />
         </button>
+        {/* Profile at the bottom, ChatGPT-style: the avatar opens the same
+            account menu as the sidebar footer's user section. Rendered only
+            with a known user — the shell always passes one, and skipping it
+            keeps SWR from firing where no session exists (tests). */}
+        <div className="mt-auto">
+          {user ? <AppSidebarUser user={user} variant="compact" /> : null}
+        </div>
       </div>
     </div>
   );
