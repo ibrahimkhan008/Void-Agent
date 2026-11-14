@@ -1322,19 +1322,7 @@ function ChatBotInner({
           )}
           {emptyMessage ? (
             embedded ? null : (
-              <>
-                {/* Work | Cockpit switch: home screen only, never in a thread.
-                    Top-right of the main area — the row shares the composer's
-                    max-w-3xl centered container and justifies to its end, so
-                    the toggle's right edge aligns exactly with the composer's
-                    right boundary (Cognix reference). */}
-                {isHomeScreen && (
-                  <div className="relative z-10 mx-auto flex w-full max-w-3xl justify-end pt-2">
-                    <WorkspaceModeToggle />
-                  </div>
-                )}
-                <ChatGreeting />
-              </>
+              <ChatGreeting />
             )
           ) : (
             <>
@@ -1434,38 +1422,54 @@ function ChatBotInner({
               "w-full z-10",
             )}
           >
+            {/* Shared composer column: the Work | Cockpit switch (home screen
+                only) sits directly above the input in the same centered
+                container, 12px above the card — an integrated part of the
+                composer area, never positioned independently. */}
             <div
               className={cn(
-                "mx-auto relative flex justify-center items-center -top-2",
-                embedded ? "max-w-none" : "max-w-3xl",
+                "flex flex-col items-center",
+                embedded ? "w-full" : "mx-auto w-full max-w-3xl",
               )}
             >
-              <ScrollToBottomButton
-                className="pointer-events-auto"
-                show={!isAtBottom && messages.length > 0}
-                onClick={() => scrollToBottom()}
-              />
-            </div>
+              {emptyMessage && isHomeScreen && !embedded && (
+                <div className="mb-3 flex justify-center">
+                  <WorkspaceModeToggle />
+                </div>
+              )}
+              <div
+                className={cn(
+                  "relative flex w-full justify-center items-center -top-2",
+                  embedded ? "max-w-none" : "max-w-3xl",
+                )}
+              >
+                <ScrollToBottomButton
+                  className="pointer-events-auto"
+                  show={!isAtBottom && messages.length > 0}
+                  onClick={() => scrollToBottom()}
+                />
+              </div>
 
-            <div className="pointer-events-auto">
-              <PromptInput
-                input={input}
-                threadId={threadId}
-                sendMessage={sendMessage}
-                setInput={setInput}
-                // Deliberately not blocked by `isPendingToolCall`: a waiting
-                // approval/input card must not lock the composer — sending
-                // settles that call with the typed answer (see handleSendMessage).
-                isLoading={isLoading}
-                onStop={stop}
-                onFocus={isFirstTime ? undefined : handleFocus}
-                projectInfo={projectInfo}
-                showProjectContextBadge={showProjectContextBadge}
-                autoFocusInput={autoFocusInput}
-                embedded={embedded}
-                contextUsage={latestContextUsage?.usage}
-                contextUsageModel={latestContextUsage?.model}
-              />
+              <div className="pointer-events-auto w-full">
+                <PromptInput
+                  input={input}
+                  threadId={threadId}
+                  sendMessage={sendMessage}
+                  setInput={setInput}
+                  // Deliberately not blocked by `isPendingToolCall`: a waiting
+                  // approval/input card must not lock the composer — sending
+                  // settles that call with the typed answer (see handleSendMessage).
+                  isLoading={isLoading}
+                  onStop={stop}
+                  onFocus={isFirstTime ? undefined : handleFocus}
+                  projectInfo={projectInfo}
+                  showProjectContextBadge={showProjectContextBadge}
+                  autoFocusInput={autoFocusInput}
+                  embedded={embedded}
+                  contextUsage={latestContextUsage?.usage}
+                  contextUsageModel={latestContextUsage?.model}
+                />
+              </div>
             </div>
           </div>
           <DeleteThreadPopup
