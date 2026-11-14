@@ -16,7 +16,7 @@ afterEach(() => {
 const PASSING = {
   planModeActive: false,
   unattended: false,
-  kernelConfigured: true,
+  providerConfigured: true,
   toolkitOn: true,
   taskBrowserEnabled: false,
   policyGate: { enabled: true } as const,
@@ -126,7 +126,7 @@ describe("resolveBrowserToolSuppression", () => {
       resolveBrowserToolSuppression({
         ...PASSING,
         planModeActive: true,
-        kernelConfigured: false,
+        providerConfigured: false,
         toolkitOn: false,
         policyGate: { enabled: false, reason: "policy-off" },
       }),
@@ -137,11 +137,13 @@ describe("resolveBrowserToolSuppression", () => {
     expect(
       resolveBrowserToolSuppression({
         ...PASSING,
-        kernelConfigured: false,
+        providerConfigured: false,
         toolkitOn: false,
         policyGate: { enabled: false, reason: "policy-off" },
       }),
-    ).toBe("KERNEL_API_KEY not set");
+    ).toBe(
+      "no browser provider configured (KERNEL_API_KEY unset and the agent-browser CLI not found)",
+    );
   });
 
   it("reports the task switch ahead of the org policy", () => {
@@ -159,7 +161,7 @@ describe("resolveBrowserToolSuppression", () => {
 describe("shouldReadBrowserPolicy", () => {
   it("skips the org read when a cheap check already failed", () => {
     expect(
-      shouldReadBrowserPolicy({ ...PASSING, kernelConfigured: false }),
+      shouldReadBrowserPolicy({ ...PASSING, providerConfigured: false }),
     ).toBe(false);
     expect(
       shouldReadBrowserPolicy({

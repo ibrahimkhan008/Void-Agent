@@ -140,17 +140,22 @@ export type KernelBrowserSession = {
  * about those two.
  */
 export type BrowserToolOutput =
-  | { status: "starting"; sessionId: string; liveViewUrl: string }
+  | {
+      status: "starting";
+      sessionId: string;
+      /** Kernel streams a live view; the agent-browser CLI provider has none. */
+      liveViewUrl?: string;
+    }
   | {
       status: "running";
       sessionId: string;
-      liveViewUrl: string;
+      liveViewUrl?: string;
       message: unknown;
     }
   | {
       status: "done";
       sessionId: string;
-      liveViewUrl: string;
+      liveViewUrl?: string;
       summary: string;
       stepCount: number;
     }

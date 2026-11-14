@@ -37,7 +37,9 @@ export async function resolveVoiceBrowserSuppression(
   const gateInput = {
     planModeActive: false,
     unattended: false,
-    kernelConfigured: IS_KERNEL_CONFIGURED,
+    // Voice is Kernel-only on purpose: it surfaces Kernel's live view, which
+    // the agent-browser CLI fallback does not have.
+    providerConfigured: IS_KERNEL_CONFIGURED,
     toolkitOn: true,
     taskBrowserEnabled: false,
   };

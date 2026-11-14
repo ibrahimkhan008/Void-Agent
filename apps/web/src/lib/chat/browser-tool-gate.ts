@@ -20,7 +20,12 @@ export { isBrowserEgressIsolationEnabled } from "lib/kernel/browser-egress-capab
 export type BrowserToolGateInput = {
   planModeActive: boolean;
   unattended: boolean;
-  kernelConfigured: boolean;
+  /**
+   * Whether ANY browser provider is available: the Kernel cloud browser
+   * (KERNEL_API_KEY) or the free agent-browser CLI fallback. The tool binds
+   * Kernel when both are present.
+   */
+  providerConfigured: boolean;
   toolkitOn: boolean;
   /**
    * `scheduled_task.browser_automation_enabled` for the task driving this run.
@@ -42,7 +47,9 @@ export function resolveBrowserToolSuppression(
     return "provider-level browser egress isolation is not enabled";
   }
   if (input.planModeActive) return "plan mode";
-  if (!input.kernelConfigured) return "KERNEL_API_KEY not set";
+  if (!input.providerConfigured) {
+    return "no browser provider configured (KERNEL_API_KEY unset and the agent-browser CLI not found)";
+  }
   if (!input.toolkitOn) {
     return "toolkit not in client's allowedAppDefaultToolkit";
   }

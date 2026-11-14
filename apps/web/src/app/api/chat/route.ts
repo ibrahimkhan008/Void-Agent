@@ -131,6 +131,7 @@ import {
 } from "@/lib/project-brain/enqueue";
 import { buildProjectRetrievalPrompt } from "@/lib/project-brain/retrieve-for-chat";
 import { colorize } from "consola/utils";
+import { isAgentBrowserConfigured } from "lib/agent-browser/client";
 import { getContextWindow } from "lib/ai/model-context-windows";
 import {
   ANTHROPIC_CACHE_CONTROL,
@@ -146,6 +147,7 @@ import {
   PublishPageToolName,
   ResearchToolName,
 } from "lib/ai/tools";
+import { createAgentBrowserAutomationTool } from "lib/ai/tools/browser/agent-browser-automation-tool";
 import { createBrowserAutomationTool } from "lib/ai/tools/browser/browser-automation-tool";
 import { createImageTool } from "lib/ai/tools/image";
 import { createPlanTool } from "lib/ai/tools/planning/create-plan-tool";
@@ -1374,10 +1376,15 @@ export async function POST(request: Request) {
         // line. Ordering and reasons live in `lib/chat/browser-tool-gate` so
         // they can be tested; the org policy read only runs when every cheap
         // check passed.
+        // Free fallback: the open-source agent-browser CLI drives a headless
+        // Chrome locally when no Kernel key is set. Kernel wins when both are
+        // available (live view + credential vault + captcha solving).
+        const kernelBrowserConfigured = IS_KERNEL_CONFIGURED;
+        const agentBrowserReady = isAgentBrowserConfigured();
         const browserGateInput = {
           planModeActive,
           unattended: isUnattendedRun,
-          kernelConfigured: IS_KERNEL_CONFIGURED,
+          providerConfigured: kernelBrowserConfigured || agentBrowserReady,
           toolkitOn: browserToolkitOn,
           taskBrowserEnabled: unattendedContext.browserAutomationEnabled,
         };
@@ -1416,7 +1423,7 @@ export async function POST(request: Request) {
             : [];
 
         const BROWSER_TOOL: Record<string, Tool> =
-          browserToolSuppressedBy === null
+          browserToolSuppressedBy === null && kernelBrowserConfigured
             ? {
                 [DefaultToolName.BrowserAutomation]:
                   createBrowserAutomationTool({
@@ -1447,7 +1454,28 @@ export async function POST(request: Request) {
                     },
                   }),
               }
-            : {};
+            : browserToolSuppressedBy === null && agentBrowserReady
+              ? {
+                  [DefaultToolName.BrowserAutomation]:
+                    createAgentBrowserAutomationTool({
+                      model,
+                      customerId: customerId ?? undefined,
+                      entityId,
+                      organizationId: activeOrganizationId ?? undefined,
+                      threadId: id,
+                      modelId: chatModel
+                        ? `${chatModel.provider}/${chatModel.model}`
+                        : undefined,
+                      unattended: isUnattendedRun,
+                      // Same terminal-frame reader as the Kernel path: a
+                      // scheduled run whose page demanded a person is a
+                      // recorded failure, not a silent success.
+                      onRunBlocked: (block) => {
+                        metadata.blocked = block;
+                      },
+                    }),
+                }
+              : {};
 
         const availableTools: Record<string, Tool> = {
           ...MCP_TOOLS,
