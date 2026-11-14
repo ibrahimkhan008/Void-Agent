@@ -1,5 +1,9 @@
 "use client";
 
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Shortcuts, isShortcutEvent } from "lib/keyboard-shortcuts";
+import { PanelLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -10,11 +14,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "ui/sidebar";
-import { PanelLeft } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { isShortcutEvent, Shortcuts } from "lib/keyboard-shortcuts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
-import Image from "next/image";
+import { RailTooltipKeys } from "./sidebar-collapsed-rail";
 
 interface SidebarHeaderSharedProps {
   title: string | React.ReactNode;
@@ -140,22 +141,36 @@ export function SidebarHeaderShared({
                       <PanelLeft className="size-4" />
                     </div>
                   )}
-                  {/* Desktop: collapse icon in the logo row, on the right. */}
+                  {/* Desktop: collapse icon in the logo row, on the right —
+                      a permanently grayed chip (New Chat's muted look), with
+                      its own label + shortcut tooltip on hover. The row-level
+                      tooltip above only renders content when collapsed, so
+                      this one covers the open state. */}
                   {!isCollapsed && !isMobile && (
-                    <button
-                      type="button"
-                      aria-label="Toggle Sidebar"
-                      data-testid="sidebar-toggle"
-                      data-state={open ? "open" : "closed"}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleSidebar();
-                      }}
-                      className="ml-auto inline-flex items-center justify-center rounded-md size-7 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                    >
-                      <PanelLeft className="size-4" />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Toggle Sidebar"
+                          data-testid="sidebar-toggle"
+                          data-state={open ? "open" : "closed"}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSidebar();
+                          }}
+                          className="ml-auto inline-flex items-center justify-center rounded-md size-7 bg-sidebar-accent/50 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                        >
+                          <PanelLeft className="size-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="end">
+                        <div className="flex items-center gap-2">
+                          Toggle Sidebar
+                          <RailTooltipKeys shortcut={Shortcuts.toggleSidebar} />
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </Link>
               </SidebarMenuButton>
