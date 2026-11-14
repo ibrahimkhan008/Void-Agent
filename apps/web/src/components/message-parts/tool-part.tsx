@@ -13,7 +13,12 @@ import {
   VercelAIWorkflowToolStreamingResultTag,
 } from "app-types/workflow";
 import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
-import { DefaultToolName, ImageToolName, ResearchToolName } from "lib/ai/tools";
+import {
+  DefaultToolName,
+  ImageToolName,
+  ResearchToolName,
+  VideoToolName,
+} from "lib/ai/tools";
 import {
   markdownToHtmlEmail,
   markdownToPlainTextEmail,
@@ -160,6 +165,17 @@ const ImageGeneratorToolInvocation = dynamic(
   () =>
     import("../tool-invocation/image-generator").then(
       (mod) => mod.ImageGeneratorToolInvocation,
+    ),
+  {
+    ssr: false,
+    loading,
+  },
+);
+
+const VideoGeneratorToolInvocation = dynamic(
+  () =>
+    import("../tool-invocation/video-generator").then(
+      (mod) => mod.VideoGeneratorToolInvocation,
     ),
   {
     ssr: false,
@@ -645,6 +661,10 @@ export const ToolMessagePart = memo(
 
       if (toolName === ImageToolName) {
         return <ImageGeneratorToolInvocation part={part} />;
+      }
+
+      if (toolName === VideoToolName) {
+        return <VideoGeneratorToolInvocation part={part} />;
       }
 
       if (toolName === DefaultToolName.JavascriptExecution) {

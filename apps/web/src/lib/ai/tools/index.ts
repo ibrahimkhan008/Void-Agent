@@ -113,5 +113,6 @@ export const SequentialThinkingToolName = "sequential-thinking";
 export const ResearchToolName = "research";
 
 export const ImageToolName = "image-manager";
+export const VideoToolName = "video-generator";
 
 export const PublishPageToolName = "publish-page";

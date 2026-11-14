@@ -141,6 +141,7 @@ import {
 } from "lib/ai/tools";
 import { createBrowserAutomationTool } from "lib/ai/tools/browser/browser-automation-tool";
 import { createImageTool } from "lib/ai/tools/image";
+import { createVideoTool, VideoToolName } from "@/lib/ai/tools/video";
 import { createPlanTool } from "lib/ai/tools/planning/create-plan-tool";
 import { createPublishPageTool } from "lib/ai/tools/publish/publish-page-tool";
 import {
@@ -1262,6 +1263,16 @@ export async function POST(request: Request) {
                 ),
               }
             : {};
+
+        // Void Motion (§3.7): same chat UI — the prompt carries the clip
+        // length and dimensions, the finished MP4 lands in the thread.
+        const VIDEO_TOOL: Record<string, Tool> =
+          process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
+          isToolCallAllowed &&
+          (!allowedAppDefaultToolkit?.length ||
+            allowedAppDefaultToolkit.includes("video-generation"))
+            ? { [VideoToolName]: createVideoTool(customerId, id) }
+            : {};
         // Expose loadSkill only when the Auto catalog is non-empty — the model
         // needs the catalog (with ids) to call it meaningfully.
         const SKILL_TOOLS: Record<string, Tool> =
@@ -1413,6 +1424,7 @@ export async function POST(request: Request) {
           ...APP_DEFAULT_TOOLS,
           ...SKILL_TOOLS,
           ...IMAGE_TOOL,
+          ...VIDEO_TOOL,
           ...PUBLISH_TOOL,
           ...PLAN_TOOLS,
           ...BROWSER_TOOL,
