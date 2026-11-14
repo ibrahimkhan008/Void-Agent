@@ -119,9 +119,9 @@ export function DitherCanvas({
         );
         grad.addColorStop(
           0,
-          `rgba(236,236,234,${MIST_ALPHA + 0.32 * MIST_ALPHA})`,
+          `rgba(255,255,255,${MIST_ALPHA + 0.32 * MIST_ALPHA})`,
         );
-        grad.addColorStop(1, "rgba(236,236,234,0)");
+        grad.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, w, h);
       }
@@ -129,8 +129,8 @@ export function DitherCanvas({
       // Top fade: soften the first 14% into the ground above.
       if (TOP_FADE) {
         const fade = ctx.createLinearGradient(0, 0, 0, h * TOP_FADE);
-        fade.addColorStop(0, "rgba(236,236,234,1)");
-        fade.addColorStop(1, "rgba(236,236,234,0)");
+        fade.addColorStop(0, "rgba(255,255,255,1)");
+        fade.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = fade;
         ctx.fillRect(0, 0, w, h * TOP_FADE);
       }

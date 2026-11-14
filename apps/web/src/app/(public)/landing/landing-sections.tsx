@@ -20,7 +20,7 @@ export function LandingHero() {
           className="h-full w-full object-cover object-top [image-rendering:pixelated]"
         />
       </div>
-      {/* Green glow square masked by the site texture, rising at 0.5s */}
+      {/* Brand glow square masked by the site texture, rising at 0.5s */}
       <div
         aria-hidden
         className="landing-rise absolute top-[44%] right-[-6vw] h-[clamp(380px,40vw,760px)] w-[clamp(380px,40vw,760px)] bg-(--brand-glow)/55 [--rise-delay:0.5s] [--rise:24px]"
@@ -34,6 +34,11 @@ export function LandingHero() {
           WebkitMaskRepeat: "no-repeat",
           WebkitMaskPosition: "center",
         }}
+      />
+      {/* Brand gradient horizon — the blue always comes from below */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-(--brand-glow)/15 to-(--brand)/25"
       />
 
       <div className="relative mx-auto flex min-h-svh max-w-7xl items-end px-5 pt-40 pb-14 lg:pb-[9vh]">

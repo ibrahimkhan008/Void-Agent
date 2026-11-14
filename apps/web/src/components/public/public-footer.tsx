@@ -150,7 +150,7 @@ export function PublicFooter() {
           className="object-cover object-top [image-rendering:pixelated]"
         />
         <div
-          className="absolute inset-0"
+          className="gradient-brand absolute inset-0 opacity-25 mix-blend-multiply"
           style={{
             maskImage:
               "radial-gradient(ellipse 75% 80% at 50% 92%, black 45%, transparent 100%)",

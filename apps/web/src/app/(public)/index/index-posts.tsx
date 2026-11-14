@@ -267,13 +267,13 @@ export function IndexPostsClient() {
                     {featured.readTime}
                   </span>
                 </p>
-                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-[#0B7A3F] sm:text-5xl">
+                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-[#2537D5] sm:text-5xl">
                   {featured.title}
                 </h2>
                 <p className="mt-4 max-w-[60ch] text-base/7 text-(--paper)/65">
                   {featured.excerpt}
                 </p>
-                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-[#0B7A3F]">
+                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-[#2537D5]">
                   Read announcement
                   <span className="transition-transform group-hover:translate-x-1">
                     →
@@ -285,7 +285,7 @@ export function IndexPostsClient() {
                   className="aspect-video rounded-2xl border border-black/[0.08]"
                   style={{
                     backgroundImage:
-                      "radial-gradient(circle, #d6d6d1 1px, transparent 1px)",
+                      "radial-gradient(circle, #d9dce8 1px, transparent 1px)",
                     backgroundSize: "14px 14px",
                   }}
                 />
@@ -366,7 +366,7 @@ export function IndexPostsClient() {
                   {post.readTime}
                 </span>
               </p>
-              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-[#0B7A3F]">
+              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-[#2537D5]">
                 {post.title}
               </h3>
               <p className="mt-2 line-clamp-3 text-sm/6 text-(--paper)/65">
@@ -374,7 +374,7 @@ export function IndexPostsClient() {
               </p>
               <p className="mt-auto flex items-center justify-between border-t border-black/[0.04] pt-4 font-mono text-[11px] text-(--paper)/55">
                 <span>{post.team}</span>
-                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-[#0B7A3F]">
+                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-[#2537D5]">
                   Read post
                   <span className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                     ↗

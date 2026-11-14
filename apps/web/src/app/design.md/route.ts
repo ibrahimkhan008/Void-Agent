@@ -31,10 +31,10 @@ operators who want results rather than demos. The tone is calm, plain, and
 confident. Say what the product does in the words a user would use. Show the
 work instead of praising it.
 
-The look is a warm-gray, minimal world with one living color. Surfaces are
+The look is a cool-white, minimal world with one living color. Surfaces are
 soft and physical, type is quiet and precise, one italic accent word carries
 the emotion of a headline, and imagery is rendered through a hard Bayer
-dither. Agent Green appears where something can be acted on or where meaning
+dither. Blue appears where something can be acted on or where meaning
 lands. Everything else steps back.
 
 Facts that must stay true:
@@ -109,7 +109,7 @@ on the left and a single text column (about 72 characters) on the right.
 - Lede and body: 16 to 18 px, line height 1.75, text at 60% ink. Keep lines
   under 72 characters.
 - Eyebrow: Geist Mono, 11 px, tracking 0.14em, uppercase, 55% ink, led by a
-  green asterisk. One eyebrow per section, naming the section, never a
+  blue asterisk. One eyebrow per section, naming the section, never a
   slogan.
 - Headlines use Title Case. End the accent phrase with a period when the
   headline is a statement: "Simple Pricing For *Every Builder.*"
@@ -119,7 +119,7 @@ on the left and a single text column (about 72 characters) on the right.
 ### Accent words
 
 - One accent per headline, usually the last word or two. It is set in
-  Instrument Serif italic with a fade from ink (left) to Deep Green (right)
+  Instrument Serif italic with a fade from ink (left) to Blue (right)
   and a halftone dot mask (0.95 px dots on a 2.4 px grid).
 - Never set body text, buttons, or labels in the accent face.
 
@@ -127,20 +127,21 @@ on the left and a single text column (about 72 characters) on the right.
 
 | Name | Hex | Role |
 | --- | --- | --- |
-| Agent Green | \`#1CD86A\` | Actions, accents, the mark's color, the glow inside primary buttons |
-| Deep Green | \`#0B7A3F\` | Text-safe green for small type, links, accent fades |
-| Ink | \`#121212\` | Type and marks |
-| Ground | \`#ECECEA\` | The page |
-| Surface | \`#F5F5F3\` | Trays and raised panels |
+| Blue | \`#2537D5\` | Actions, accents, links, the mark's color, the glow inside primary buttons |
+| Ink | \`#000000\` | Type and marks |
+| Ground | \`#FFFFFF\` | The page |
+| Surface | \`#F4F5F8\` | Trays and raised panels |
 | Gray | \`#C7C7C4\` | Working neutral, rules, quiet fills |
-| Glow | \`#22C55E\` | Active markers and the button glow |
+| Light Blue | \`#7E89E6\` | Active markers, the button glow, and gradient mid-tones |
 
-- Three primaries carry the system: Agent Green, Ink, and the warm ground.
-  Gray is the neutral in between; Deep Green is the green for small type.
-- Use Deep Green, not Agent Green, for any text smaller than 24 px.
-- Gradients grow like new leaves: a neutral at the top that turns into
-  Agent Green at the base. Never blend two hues side to side; the green
-  always comes from below.
+- Three primaries carry the system: Blue, Ink, and the white ground.
+  Gray is the neutral in between; Light Blue tints markers, glows, and
+  gradient mid-tones.
+- Blue is text-safe at every size (8.1:1 on white). Reserve Light Blue for
+  graphic accents and markers, never for body text.
+- Gradients fall like light: a white top that passes through Light Blue
+  and deepens into Blue at the base. Never blend two hues side to side; the
+  blue always comes from below.
 - Surfaces are physical. A **tray** is a Surface panel, 20 px radius, 6 px
   padding, a white inner highlight on top and a hairline outer ring.
   **Cards** sit inside trays: white, 14 px radius, a hairline ring, and a
@@ -148,7 +149,7 @@ on the left and a single text column (about 72 characters) on the right.
 - Boundaries are hairlines at 5 to 10% black. Shadows are neutral and soft;
   never colored.
 - Dark tone exists for marketing comparisons and contact-sales only: ground
-  \`#080808\`, surface \`#141414\`, text \`#F2EFE9\`, green \`#4ADE80\`.
+  \`#080808\`, surface \`#141414\`, text \`#F2EFE9\`, blue \`#7E89E6\`.
   Product and public pages default to the light tone.
 
 ### Imagery and texture
@@ -169,8 +170,8 @@ on the left and a single text column (about 72 characters) on the right.
 
 - The mark is the "VA" monogram with an orbital swoosh. It sits on a fixed
   construction grid; never redraw, rotate, outline, recolor, or re-space it.
-- Place it only on the three brand grounds: Ground \`#ECECEA\`, Ink
-  \`#121212\`, or Agent Green \`#1CD86A\`.
+- Place it only on the three brand grounds: Ground \`#FFFFFF\`, Ink
+  \`#000000\`, or Blue \`#2537D5\`.
 - The word mark is Geist Medium at -2% tracking. Lockups pair the mark with
   "Void-Agent" (product) or "Void Agent" (full name) at a fixed gap,
   optically centered, in one flat color.
@@ -179,9 +180,9 @@ on the left and a single text column (about 72 characters) on the right.
 
 - Buttons are raised surfaces with a 10 px radius. Sizes: 32 px default,
   40 px large. Text is Geist Medium, 14 px.
-- **Primary**: warm gray surface with a dotted Agent Green glow on its right
+- **Primary**: light gray surface with a dotted Light Blue glow on its right
   edge that widens on hover. **Outline**: white surface; on hover a dotted
-  green glow slides in from the bottom left. **Secondary**: light gray
+  blue glow slides in from the bottom left. **Secondary**: light gray
   surface. **Ghost**: no surface, a 7% black fill on hover.
 - Buttons never lift on hover. Press scales to 0.97 for 100 ms. Trailing
   arrows nudge 2 px on hover.
@@ -226,7 +227,7 @@ on the left and a single text column (about 72 characters) on the right.
 ## Reject generated-design reflexes
 
 - Cream backgrounds with a terracotta accent, or near-black pages with a
-  single neon accent. Void Agent is warm gray with green.
+  single neon accent. Void Agent is cool white with blue.
 - Neon glows, colored shadows, glassmorphism, gradient orbs, and side-to-side
   multi-hue gradients.
 - Accenting one word in a different color or weight. The only accent is the

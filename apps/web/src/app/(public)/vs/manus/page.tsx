@@ -146,7 +146,7 @@ export default function VsManusPage() {
                 {badge}
               </span>
             ))}
-            <span className="rounded-full border border-emerald-300 bg-emerald-100/70 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-emerald-800 uppercase">
+            <span className="rounded-full border border-[#7e89e6]/40 bg-[#7e89e6]/10 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-[#2537d5] uppercase">
               $0 Free Tier Available
             </span>
           </div>
@@ -303,7 +303,7 @@ export default function VsManusPage() {
                     <td className="px-5 py-4 align-top font-medium text-black/70">
                       {row.capability}
                     </td>
-                    <td className="bg-emerald-50/40 px-5 py-4 align-top text-black/75">
+                    <td className="bg-[#7e89e6]/[0.08] px-5 py-4 align-top text-black/75">
                       {row.us}
                     </td>
                     <td
@@ -337,7 +337,7 @@ export default function VsManusPage() {
                 className="rounded-2xl border border-black/[0.07] bg-white p-6 sm:p-8"
               >
                 <div className="flex flex-col gap-5 sm:flex-row">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-(--brand)">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#7e89e6]/10 text-(--brand)">
                     <card.icon className="size-5" />
                   </span>
                   <div>

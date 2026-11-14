@@ -21,7 +21,7 @@ const TOPICS = [
     id: "Support",
     label: "Product & Account Support",
     sla: "1-2 business days",
-    mailbox: "support@Void Agent.local",
+    mailbox: "support@voidagent.space",
   },
   {
     id: "Sales",
@@ -45,13 +45,13 @@ const TOPICS = [
     id: "Billing",
     label: "Billing & Invoicing",
     sla: "48 hours",
-    mailbox: "support@Void Agent.local",
+    mailbox: "support@voidagent.space",
   },
   {
     id: "Partnerships",
     label: "Partnerships & Media",
     sla: "2-3 business days",
-    mailbox: "support@Void Agent.local",
+    mailbox: "support@voidagent.space",
   },
 ];
 
@@ -61,7 +61,7 @@ const EMAIL_CARDS = [
     title: "Product & Account Support",
     sla: "SLA: 1-2 business days",
     body: "Assistance with workspace accounts, bug reports, model behaviors, and features.",
-    email: "support@Void Agent.local",
+    email: "support@voidagent.space",
     subject: "[Support]",
   },
   {
@@ -93,7 +93,7 @@ const EMAIL_CARDS = [
     title: "Billing & Invoicing",
     sla: "SLA: 48 hours",
     body: "Subscription upgrades, payment method issues, invoice receipts, and refund claims.",
-    email: "support@Void Agent.local",
+    email: "support@voidagent.space",
     subject: "[Billing]",
   },
 ];
@@ -258,7 +258,7 @@ export function ContactForm() {
                   </a>
                   <button
                     type="submit"
-                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-[#0b7a3f] px-5 text-sm font-medium text-white transition-colors hover:bg-[#096634]"
+                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-[#2537d5] px-5 text-sm font-medium text-white transition-colors hover:bg-[#1c2ba8]"
                   >
                     <Send className="size-4" />
                     Send Message

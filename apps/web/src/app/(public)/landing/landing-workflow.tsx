@@ -135,7 +135,7 @@ export function WorkflowSection() {
                 title="AI Agent"
                 subtitle="Triage and label"
                 icon="AI"
-                color="#0b7a3f"
+                color="#2537d5"
                 className="left-[46%] top-[24%]"
                 wide
               />
@@ -176,7 +176,7 @@ export function WorkflowSection() {
                 title="Library"
                 subtitle="Save daily report"
                 icon="LI"
-                color="#0b7a3f"
+                color="#2537d5"
                 className="left-[92%] top-[44%] hidden lg:flex"
               />
 

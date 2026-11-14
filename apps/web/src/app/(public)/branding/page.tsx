@@ -16,53 +16,46 @@ export const metadata: Metadata = {
 
 const COLORS = [
   {
-    name: "Agent Green",
-    hex: "#1CD86A",
-    role: "Actions, accents, the mark's color",
-    bg: "#1CD86A",
-    text: "#121212",
-  },
-  {
-    name: "Deep Green",
-    hex: "#0B7A3F",
-    role: "Text-safe green for small type and links",
-    bg: "#0B7A3F",
+    name: "Blue",
+    hex: "#2537D5",
+    role: "Actions, accents, links, the mark's color",
+    bg: "#2537D5",
     text: "#FFFFFF",
   },
   {
+    name: "Light Blue",
+    hex: "#7E89E6",
+    role: "Active markers, the button glow, gradient mid-tones",
+    bg: "#7E89E6",
+    text: "#000000",
+  },
+  {
     name: "Ink",
-    hex: "#121212",
+    hex: "#000000",
     role: "Type and marks",
-    bg: "#121212",
+    bg: "#000000",
     text: "#FFFFFF",
   },
   {
     name: "Ground",
-    hex: "#ECECEA",
+    hex: "#FFFFFF",
     role: "The page",
-    bg: "#ECECEA",
-    text: "#121212",
+    bg: "#FFFFFF",
+    text: "#000000",
   },
   {
     name: "Surface",
-    hex: "#F5F5F3",
+    hex: "#F4F5F8",
     role: "Trays and raised panels",
-    bg: "#F5F5F3",
-    text: "#121212",
+    bg: "#F4F5F8",
+    text: "#000000",
   },
   {
     name: "Gray",
     hex: "#C7C7C4",
     role: "Working neutral, rules, quiet fills",
     bg: "#C7C7C4",
-    text: "#121212",
-  },
-  {
-    name: "Glow",
-    hex: "#22C55E",
-    role: "Active markers and the button glow",
-    bg: "#22C55E",
-    text: "#121212",
+    text: "#000000",
   },
 ];
 
@@ -80,7 +73,7 @@ const RULES = [
   ],
   [
     "Place it only on the three brand grounds",
-    "Ground #ECECEA, Ink #121212, or Agent Green #1CD86A. Nothing else.",
+    "Ground #FFFFFF, Ink #000000, or Blue #2537D5. Nothing else.",
   ],
   [
     "Partners are technology partners, never customers",
@@ -88,11 +81,11 @@ const RULES = [
   ],
   [
     "One accent word per headline",
-    "Instrument Serif italic, ink-to-green fade through the halftone mask. Never set body text in the accent face.",
+    "Instrument Serif italic, ink-to-blue fade through the halftone mask. Never set body text in the accent face.",
   ],
   [
-    "The green always comes from below",
-    "Gradients grow like new leaves: neutral at the top, Agent Green at the base. Never blend hues side to side.",
+    "The blue always comes from below",
+    "Gradients fall like light: white at the top, Light Blue in the middle, Blue at the base. Never blend hues side to side.",
   ],
   [
     "Show units and real numbers",
@@ -151,7 +144,7 @@ export default function BrandingPage() {
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {/* Ground */}
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid h-64 place-items-center rounded-[14px] bg-[#ECECEA]">
+            <div className="grid h-64 place-items-center rounded-[14px] bg-[#FFFFFF]">
               <span className="relative block size-28">
                 <DitherCanvas
                   src="/images/logo-va-128.webp"
@@ -162,12 +155,12 @@ export default function BrandingPage() {
               </span>
             </div>
             <p className="px-4 py-3 text-sm text-(--paper)/60">
-              Mark on Ground — #ECECEA
+              Mark on Ground — #FFFFFF
             </p>
           </div>
           {/* Ink */}
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid h-64 place-items-center rounded-[14px] bg-[#121212]">
+            <div className="grid h-64 place-items-center rounded-[14px] bg-[#000000]">
               <span className="relative block size-28">
                 <DitherCanvas
                   src="/images/logo-va-128.webp"
@@ -178,12 +171,12 @@ export default function BrandingPage() {
               </span>
             </div>
             <p className="px-4 py-3 text-sm text-(--paper)/60">
-              Mark on Ink — #121212
+              Mark on Ink — #000000
             </p>
           </div>
           {/* Green */}
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid h-64 place-items-center rounded-[14px] bg-[#1CD86A]">
+            <div className="grid h-64 place-items-center rounded-[14px] bg-[#2537D5]">
               <span className="relative block size-28">
                 <DitherCanvas
                   src="/images/logo-va-128.webp"
@@ -194,7 +187,7 @@ export default function BrandingPage() {
               </span>
             </div>
             <p className="px-4 py-3 text-sm text-(--paper)/60">
-              Mark on Agent Green — #1CD86A
+              Mark on Blue — #2537D5
             </p>
           </div>
         </div>
@@ -211,13 +204,13 @@ export default function BrandingPage() {
         <div className="mx-auto max-w-6xl px-6">
           <Eyebrow>Color</Eyebrow>
           <SectionHeading>
-            Warm Gray With One <AccentSpan>Living Color</AccentSpan>
+            Cool White With One <AccentSpan>Living Color</AccentSpan>
           </SectionHeading>
           <p className="mt-5 max-w-[70ch] text-lg/8 text-(--paper)/60">
-            Three primaries carry the system: Agent Green, Ink, and the warm
-            ground. Gray is the neutral in between; Deep Green is the green for
-            small type. Use Deep Green, not Agent Green, for any text smaller
-            than 24 px.
+            Three primaries carry the system: Blue, Ink, and the white ground.
+            Gray is the neutral in between; Light Blue tints markers, glows, and
+            gradient mid-tones. Blue stays readable at every size (8.1:1 on
+            white); reserve Light Blue for graphic accents.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {COLORS.map((color) => (
