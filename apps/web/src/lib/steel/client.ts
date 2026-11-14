@@ -1,5 +1,6 @@
 import "server-only";
 
+import { steelEgressProxyUrl } from "lib/browser-egress/capability";
 import type { KernelBrowserSession } from "lib/kernel/browser-contract";
 
 /**
@@ -104,9 +105,15 @@ export async function createSteelBrowserSession(_options?: {
     throw new Error(STEEL_BUSY_ERROR);
   }
 
+  // B20: every Steel session routes ALL browser traffic through the egress
+  // proxy when one is configured — required for the provider to bind at all.
+  const egressProxy = steelEgressProxyUrl();
   const created = await steelRequest<SteelSessionResponse>("/v1/sessions", {
     method: "POST",
-    body: JSON.stringify({ blockAds: false }),
+    body: JSON.stringify({
+      blockAds: false,
+      ...(egressProxy ? { proxyUrl: egressProxy } : {}),
+    }),
   });
   if (!created.id) {
     throw new Error("Steel returned a session without an id");

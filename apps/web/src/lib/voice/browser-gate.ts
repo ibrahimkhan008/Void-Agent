@@ -1,5 +1,6 @@
 import "server-only";
 import { resolveBrowserAutomationGate } from "lib/ai/routing/service";
+import { kernelEgressIsolated } from "lib/browser-egress/capability";
 import {
   resolveBrowserToolSuppression,
   shouldReadBrowserPolicy,
@@ -38,8 +39,13 @@ export async function resolveVoiceBrowserSuppression(
     planModeActive: false,
     unattended: false,
     // Voice is Kernel-only on purpose: it surfaces Kernel's live view, which
-    // the agent-browser CLI fallback does not have.
+    // the other providers do not have. B20: the session is also egress-gated —
+    // a Kernel key without KERNEL_EGRESS_MODE=managed keeps voice browser runs
+    // off, with the gate naming the fix.
     providerConfigured: IS_KERNEL_CONFIGURED,
+    selectedProvider: kernelEgressIsolated() ? "kernel" : null,
+    egressSkippedBy:
+      IS_KERNEL_CONFIGURED && !kernelEgressIsolated() ? "kernel" : null,
     toolkitOn: true,
     taskBrowserEnabled: false,
   };

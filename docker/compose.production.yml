@@ -89,6 +89,11 @@ services:
       # Fixes the URLs Steel advertises (websocketUrl/sessionViewerUrl).
       - DOMAIN=steel:3000
       - ENABLE_COMMANDS_API=false
+      # B20: Chromium silently bypasses the proxy for loopback by default —
+      # this negative bypass rule REMOVES the implicit exemption so loopback
+      # traffic also flows through the egress proxy (required with
+      # STEEL_EGRESS_PROXY_URL; harmless without one).
+      - CHROME_ARGS=--proxy-bypass-list=<-loopback>
     shm_size: 1g
     networks:
       - void-agent
@@ -99,6 +104,27 @@ services:
       timeout: 10s
       retries: 5
       start_period: 20s
+
+  # B20 egress boundary: the filtering forward proxy every browser session
+  # MUST route through (Steel proxyUrl / agent-browser --proxy). Resolves DNS
+  # itself, pins the resolved IP, and denies loopback/private/link-local/
+  # metadata destinations at the network layer. Internal network only.
+  egress-proxy:
+    build:
+      context: ./egress-proxy
+    environment:
+      - PORT=8080
+      # Comma-separated hostnames exempted from the deny list (rarely needed).
+      - EGRESS_ALLOW_HOSTS=
+    networks:
+      - void-agent
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   # Isolated Playwright code runner: receives {cdpUrl, code} from the app and
   # executes the agent's code against the Steel session, so model code never

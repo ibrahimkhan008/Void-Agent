@@ -1,0 +1,13 @@
+{
+  "name": "egress-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Network-level egress boundary for agent-driven browsers (B20): CONNECT/HTTP forward proxy that resolves DNS itself, pins the resolved IP, and denies loopback/private/link-local/metadata destinations before opening any connection.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

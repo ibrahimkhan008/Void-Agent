@@ -17,6 +17,8 @@ const PASSING = {
   planModeActive: false,
   unattended: false,
   providerConfigured: true,
+  selectedProvider: "kernel" as const,
+  egressSkippedBy: null,
   toolkitOn: true,
   taskBrowserEnabled: false,
   policyGate: { enabled: true } as const,

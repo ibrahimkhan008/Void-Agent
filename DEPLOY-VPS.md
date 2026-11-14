@@ -153,7 +153,18 @@ To activate the provider, set in `.env.production`:
 STEEL_BASE_URL=http://steel:3000            # app + executor → Steel (internal)
 STEEL_EXECUTOR_URL=http://steel-executor:8080
 STEEL_PUBLIC_BASE_URL=https://browser.your-domain.com   # what the USER's browser loads
+STEEL_EGRESS_PROXY_URL=http://egress-proxy:8080         # B20: REQUIRED to bind
 ```
+
+**B20 egress isolation** — a browser provider binds only when its network
+boundary is configured. The compose stack ships `egress-proxy`: a filtering
+forward proxy that resolves DNS itself, pins the resolved IP, and denies
+loopback/RFC1918/link-local/metadata destinations before opening any
+connection — live-verified 13/13 against a real Steel session (rebinding,
+redirects, subresources, WebSockets included). Steel also launches Chrome
+with `CHROME_ARGS=--proxy-bypass-list=<-loopback>` (compose env) so loopback
+is not silently exempt. Kernel equivalent: `KERNEL_EGRESS_MODE=managed`;
+CLI equivalent: `AGENT_BROWSER_EGRESS_PROXY_URL`.
 
 - `STEEL_PUBLIC_BASE_URL` needs a public route for the live view: add a
   tunnel hostname (Option A) or an nginx server block (Option B) proxying to

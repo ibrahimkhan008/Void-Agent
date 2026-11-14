@@ -147,3 +147,42 @@ describe("runAgentBrowserCommand", () => {
     }
   });
 });
+
+describe("buildAgentBrowserEnv (B20)", () => {
+  it("injects the egress proxy and strips every bypass variable", async () => {
+    const { buildAgentBrowserEnv } = await import("./client");
+    const env = buildAgentBrowserEnv({
+      HTTP_PROXY: "http://corporate:3128",
+      NO_PROXY: "localhost",
+      AGENT_BROWSER_PROXY_BYPASS: "*.internal",
+      PATH: "x",
+    });
+    vi.stubEnv("AGENT_BROWSER_EGRESS_PROXY_URL", "http://egress:8080");
+    // The helper reads env at call time — stub before building.
+    const env2 = buildAgentBrowserEnv({
+      NO_PROXY: "localhost",
+      AGENT_BROWSER_PROXY_BYPASS: "*.internal",
+      PATH: "x",
+    });
+    expect(env2.AGENT_BROWSER_PROXY).toBe("http://egress:8080");
+    expect(env2.NO_PROXY).toBeUndefined();
+    // The implicit loopback bypass is REMOVED via the negative rule, and any
+    // caller bypass list is replaced, never merged.
+    expect(env2.AGENT_BROWSER_PROXY_BYPASS).toBe("<-loopback>");
+    expect(env).toBeDefined();
+  });
+
+  it("leaves env untouched when egress is not configured", async () => {
+    vi.stubEnv("AGENT_BROWSER_EGRESS_PROXY_URL", "");
+    const { buildAgentBrowserEnv } = await import("./client");
+    const env = buildAgentBrowserEnv({
+      NO_PROXY: "localhost",
+      AGENT_BROWSER_PROXY_BYPASS: "*.internal",
+      PATH: "x",
+    });
+    expect(env.AGENT_BROWSER_PROXY).toBeUndefined();
+    // Without isolation the env is untouched (dev-style bypass stays).
+    expect(env.NO_PROXY).toBe("localhost");
+    expect(env.AGENT_BROWSER_PROXY_BYPASS).toBe("*.internal");
+  });
+});

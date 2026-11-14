@@ -3,6 +3,7 @@ import "server-only";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { agentBrowserEgressProxyUrl } from "lib/browser-egress/capability";
 import logger from "logger";
 
 /**
@@ -146,6 +147,30 @@ export function resetAgentBrowserAvailability(): void {
 }
 
 /**
+ * Child env for CLI runs. When B20 egress isolation is configured, the proxy
+ * is injected through the CLI's own `AGENT_BROWSER_PROXY` knob and every
+ * bypass variable (NO_PROXY / AGENT_BROWSER_PROXY_BYPASS) is stripped — a
+ * bypass list would route traffic around the boundary and defeat isolation.
+ */
+export function buildAgentBrowserEnv(
+  baseEnv: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...baseEnv };
+  const proxy = agentBrowserEgressProxyUrl();
+  if (proxy) {
+    env.AGENT_BROWSER_PROXY = proxy;
+    // Chromium IMPLICITLY bypasses the proxy for loopback — the negative
+    // bypass rule removes that exemption so loopback traffic also flows
+    // through the egress boundary. Any caller-supplied bypass list is
+    // replaced, never merged (a bypass would defeat isolation).
+    env.AGENT_BROWSER_PROXY_BYPASS = "<-loopback>";
+    delete env.NO_PROXY;
+    delete env.no_proxy;
+  }
+  return env;
+}
+
+/**
  * Run one agent-browser CLI command for a session.
  *
  * `args[0]` must be an allowed subcommand; `--session` is appended (not
@@ -192,6 +217,7 @@ export function runAgentBrowserCommand(
       argv,
       {
         timeout: timeoutMs,
+        env: buildAgentBrowserEnv(process.env),
         maxBuffer: 8 * 1024 * 1024,
         windowsHide: true,
         killSignal: "SIGKILL",

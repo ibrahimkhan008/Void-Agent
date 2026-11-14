@@ -152,6 +152,7 @@ import { createBrowserAutomationTool } from "lib/ai/tools/browser/browser-automa
 import { createImageTool } from "lib/ai/tools/image";
 import { createPlanTool } from "lib/ai/tools/planning/create-plan-tool";
 import { createPublishPageTool } from "lib/ai/tools/publish/publish-page-tool";
+import { selectIsolatedBrowserProvider } from "lib/browser-egress/capability";
 import {
   resolveBrowserToolSuppression,
   shouldReadBrowserPolicy,
@@ -1377,14 +1378,23 @@ export async function POST(request: Request) {
         // line. Ordering and reasons live in `lib/chat/browser-tool-gate` so
         // they can be tested; the org policy read only runs when every cheap
         // check passed.
-        // Provider chain: Kernel (cloud, metered) -> self-hosted Steel (free,
-        // single concurrent session, sidecar code executor) -> the open-source
-        // agent-browser CLI (free, local, one command per step). Kernel wins
-        // when several are available: it is the only one with a live view,
-        // the credential vault's profile persistence and captcha solving.
+        // Provider chain (B20, isolated-first): Kernel (cloud, metered) ->
+        // self-hosted Steel (free, single concurrent session, sidecar code
+        // executor) -> the open-source agent-browser CLI (free, local, one
+        // command per step). A candidate binds ONLY when its egress boundary
+        // is configured (see lib/browser-egress/capability.ts) — a provider
+        // configured without isolation is skipped and the gate names the fix.
+        // Among isolated candidates Kernel wins: it is the only one with a
+        // live view, the credential vault's profile persistence and CAPTCHA
+        // solving.
         const kernelBrowserConfigured = IS_KERNEL_CONFIGURED;
         const steelProvider = createSteelBrowserProvider();
         const agentBrowserReady = isAgentBrowserConfigured();
+        const selectedBrowserProvider = selectIsolatedBrowserProvider({
+          kernelConfigured: kernelBrowserConfigured,
+          steelConfigured: steelProvider !== null,
+          agentBrowserConfigured: agentBrowserReady,
+        });
         const browserGateInput = {
           planModeActive,
           unattended: isUnattendedRun,
@@ -1392,6 +1402,8 @@ export async function POST(request: Request) {
             kernelBrowserConfigured ||
             steelProvider !== null ||
             agentBrowserReady,
+          selectedProvider: selectedBrowserProvider.provider,
+          egressSkippedBy: selectedBrowserProvider.skippedBy,
           toolkitOn: browserToolkitOn,
           taskBrowserEnabled: unattendedContext.browserAutomationEnabled,
         };
@@ -1430,7 +1442,8 @@ export async function POST(request: Request) {
             : [];
 
         const BROWSER_TOOL: Record<string, Tool> =
-          browserToolSuppressedBy === null && kernelBrowserConfigured
+          browserToolSuppressedBy === null &&
+          selectedBrowserProvider.provider === "kernel"
             ? {
                 [DefaultToolName.BrowserAutomation]:
                   createBrowserAutomationTool({
@@ -1461,7 +1474,8 @@ export async function POST(request: Request) {
                     },
                   }),
               }
-            : browserToolSuppressedBy === null && steelProvider
+            : browserToolSuppressedBy === null &&
+                selectedBrowserProvider.provider === "steel"
               ? {
                   [DefaultToolName.BrowserAutomation]:
                     createBrowserAutomationTool({
@@ -1492,7 +1506,8 @@ export async function POST(request: Request) {
                       },
                     }),
                 }
-              : browserToolSuppressedBy === null && agentBrowserReady
+              : browserToolSuppressedBy === null &&
+                  selectedBrowserProvider.provider === "agent-browser"
                 ? {
                     [DefaultToolName.BrowserAutomation]:
                       createAgentBrowserAutomationTool({

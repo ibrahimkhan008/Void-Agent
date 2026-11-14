@@ -1,8 +1,8 @@
 import "server-only";
+import { kernelProxyMode } from "lib/browser-egress/capability";
 import logger from "logger";
 import {
   DEFAULT_KERNEL_BROWSER_TYPE,
-  DEFAULT_KERNEL_PROXY_MODE,
   type KernelBrowserSession,
   type KernelBrowserType,
   type KernelProxyMode,
@@ -64,7 +64,10 @@ export async function createBrowserSession(options?: {
   }
 
   const browserType = options?.browserType ?? DEFAULT_KERNEL_BROWSER_TYPE;
-  const proxyMode = options?.proxyMode ?? DEFAULT_KERNEL_PROXY_MODE;
+  // B20: egress isolation comes from the capability module — the session is
+  // only created in Kernel's managed-proxy mode when KERNEL_EGRESS_MODE=managed.
+  // An explicit caller override still wins (used by org connect-a-site flows).
+  const proxyMode = options?.proxyMode ?? kernelProxyMode();
   const browser = await getKernelClient().browsers.create({
     headless: browserType === "headless",
     timeout_seconds: BROWSER_INACTIVITY_TIMEOUT_SECONDS,

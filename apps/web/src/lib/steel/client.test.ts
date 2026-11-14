@@ -213,3 +213,29 @@ describe("createSteelBrowserProvider", () => {
     expect(typeof provider?.executeRaw).toBe("function");
   });
 });
+
+describe("steel session egress proxy (B20)", () => {
+  it("passes the egress proxy as proxyUrl on session create", async () => {
+    vi.stubEnv("STEEL_BASE_URL", "http://steel:3000");
+    vi.stubEnv("STEEL_EGRESS_PROXY_URL", "http://egress:8080");
+    const client = await loadClient();
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(async () => SESSION_OK as Response);
+    await client.createSteelBrowserSession();
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init?.body)).proxyUrl).toBe("http://egress:8080");
+  });
+
+  it("sends no proxyUrl when egress isolation is not configured", async () => {
+    vi.stubEnv("STEEL_BASE_URL", "http://steel:3000");
+    vi.stubEnv("STEEL_EGRESS_PROXY_URL", "");
+    const client = await loadClient();
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(async () => SESSION_OK as Response);
+    await client.createSteelBrowserSession();
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init?.body)).proxyUrl).toBeUndefined();
+  });
+});

@@ -22,12 +22,18 @@ Two memory layers; neither lives in this repo:
 
 ## Deployment
 
-- Production deploys as a **Docker stack on a VPS** — no systemd, no Vercel.
-  Runbook: `DEPLOY-VPS.md` (compose file: `docker/compose.production.yml`).
-  The stack is the app + Postgres (pgvector) + Redis, plus the optional
-  browser stack (`steel` + `steel-executor` for the free self-hosted browser
-  provider), data in named volumes, migrations applied automatically at
-  container boot.
+- **Production is LIVE on the VPS as a native (no-Docker) systemd stack**:
+  `app.voidagent.space` (Cloudflare Tunnel `void-agent` → `127.0.0.1:3000`),
+  apt-native PostgreSQL 16 + pgvector and Redis 7, Node 22 + pnpm 10,
+  `void-agent.service` running `next start` from `/home/ubuntu/void-agent`.
+  Env lives at `apps/web/.env.production` (600) with a root symlink; build
+  with `NODE_OPTIONS=--max-old-space-size=8192`; migrate with
+  `NODE_ENV=production pnpm db:migrate`; nightly `pg_dump` in
+  `/home/ubuntu/backups` (14-day retention). As-deployed runbook:
+  `docs/deploy-vps-native.md`. The Docker runbook (`DEPLOY-VPS.md`, compose
+  file `docker/compose.production.yml`) remains the recipe for any other
+  host; migrations there run at container boot, on the native host they are
+  an explicit update step.
 - Local dev: `pnpm --filter web dev` with the Postgres container from
   `docker compose -f docker/compose.yml up -d postgres` (Docker Desktop must
   be running; the dev server dies if the database is unreachable).
@@ -51,10 +57,17 @@ time in `apps/web/src/app/api/chat/route.ts`:
    (Apache-2.0), used when neither service is configured. One whitelisted
    CLI command per step (snapshot -> act on refs); no credential vault.
 
-All three sit behind the same fail-closed gates: `BROWSER_EGRESS_ISOLATION_ENABLED`
-(B20) and the org policy. Gate ordering/reasons live in
-`apps/web/src/lib/chat/browser-tool-gate.ts`; the provider seam is the
-`BrowserProvider` interface on `createBrowserAutomationTool`.
+**B20 egress isolation (implemented 2026-11-15):** a provider binds ONLY when
+its network-level egress boundary is configured — Kernel `KERNEL_EGRESS_MODE=managed`,
+Steel `STEEL_EGRESS_PROXY_URL` (the `egress-proxy` compose service: DNS resolved
++ IP-pinned by the proxy, loopback/RFC1918/link-local/metadata denied at the
+network layer, live-verified 13/13 incl. rebinding/redirects/subresources/
+WebSockets), agent-browser `AGENT_BROWSER_EGRESS_PROXY_URL` (CLI proxy + the
+`<-loopback>` bypass negation). `BROWSER_EGRESS_ISOLATION_ENABLED=true` remains
+the operator master flag, and the org policy still gates per org. The provider
+chain is isolated-first: an unisolated candidate is skipped and the gate names
+the env to set. Gate: `apps/web/src/lib/chat/browser-tool-gate.ts`; capability:
+`apps/web/src/lib/browser-egress/capability.ts`.
 
 ## Admin Panel Patterns
 
