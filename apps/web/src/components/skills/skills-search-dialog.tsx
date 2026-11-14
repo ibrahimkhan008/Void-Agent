@@ -2,10 +2,12 @@
 
 import { useSkills } from "@/hooks/queries/use-skills";
 import type { SkillSearchResult } from "app-types/skill";
+import { motionSkillsByPack } from "@/lib/skills/motion-catalog";
 import type { SkillSummary } from "app-types/skill";
 import { fetcher } from "lib/utils";
 import { Check, Download, Loader, Search, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "lib/utils";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { Button } from "ui/button";
@@ -315,9 +317,62 @@ export function SkillsSearchDialog({
           ) : (
             <>
               {!search.trim() && (
-                <p className="px-1 text-xs font-medium text-muted-foreground">
-                  Most popular
-                </p>
+                <>
+                  <p className="px-1 text-xs font-medium text-muted-foreground">
+                    Most popular
+                  </p>
+                  <div className="mb-4 space-y-3">
+                    <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
+                      <Sparkles className="size-3.5 text-primary" />
+                      Void Motion — motion graphics packs
+                    </p>
+                    {motionSkillsByPack().map((group) => (
+                      <div key={group.source} className="rounded-xl border p-3">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {group.pack}{" "}
+                          <span className="font-normal">· {group.source}</span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {group.skills.map((skill) => {
+                            const saved = savedSources.has(
+                              `${skill.source}/${skill.slug}`,
+                            );
+                            return (
+                              <button
+                                key={skill.slug}
+                                type="button"
+                                disabled={saved || savingId === skill.slug}
+                                onClick={async () => {
+                                  try {
+                                    await onSave({
+                                      name: skill.name,
+                                      id: skill.slug,
+                                      source: skill.source,
+                                      description: skill.description,
+                                      installs: 0,
+                                    } as unknown as SkillSearchResult);
+                                  } catch {
+                                    // onSave surfaces its own errors
+                                  }
+                                }}
+                                className={cn(
+                                  "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                                  saved
+                                    ? "border-primary/40 bg-primary/10 text-primary"
+                                    : "hover:bg-muted",
+                                )}
+                                title={skill.description}
+                              >
+                                {saved ? "✓ " : "+ "}
+                                {skill.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
               {results.map((skill) => (
                 <SkillResultCard
