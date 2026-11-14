@@ -27,7 +27,7 @@ import { computeBackoffMs, deliverWebhook, signPayload } from "lib/webhooks";
 //      a backoff retry until `max_attempts`, then fail it terminally.
 //
 // Deviations from the zip-main worker (documented in
-// docs/zip-main-triage-api.md):
+// docs/archive/zip-main-triage-api.md):
 //   - Leader lock replaced by Inngest `throttle: 1/1m` (single start per
 //     minute, so the read-only claim cannot be raced).
 //   - Retries reuse the existing delivery row instead of re-inserting (the

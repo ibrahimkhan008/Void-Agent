@@ -640,7 +640,7 @@ Treat every agent file binding as a read grant because server-side storage crede
 ## F029 project health transition implementation addendum (2026-11-07 06:41:22 +05:30)
 - Added a generic, deduplicated notification after a project-brain health snapshot is persisted and a known health transition is detected. Recipient resolution follows current personal/team/selected-project access and excludes former team/project members; text contains only the health transition, not project names, summaries, blockers, source content, or model output.
 - Reference-equivalent project-consolidation todo digest remains absent; this is an additional health-transition producer, not full notification parity. F029 remains PARTIAL pending the consolidation pipeline, PostgreSQL-backed recipient/persistence checks, browser permission flow, and real VAPID delivery.
-- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/testing-report.md.
+- Focused route/helper/generation tests passed 19/19 across 4 files; scoped Biome passed; full suite, whole-project typecheck, db journal check, and production build results are in docs/archive/testing-report.md.
 
 ## F030 Vercel integration addendum (2026-11Void Agent22 +05:30)
 - In addition to the verified Stripe slice, Void-Agent now has a read-only Vercel production-deployment panel for up to six configured projects, with latest status/date/URL and seven-day deployment error counts. Vercel config/token are encrypted as a single payload; migration 0063 remains additive and Stripe's existing secret column remains compatible.
@@ -1047,7 +1047,7 @@ The in-progress app builder now has owner-scoped build API access, DB composite 
 
 ## Current handoff security status — 2026-11-11 01:05 IST
 
-See docs/MIGRATION-STATUS-REPORT.md for the full audit. B20 is BLOCKED: browser/VM egress isolation is not enforceable; browser execution stays disabled. C45 is IMPLEMENTED BUT NOT FULLY VERIFIED: challenge issuance/client proof/chat-route guard and adversarial-focused tests are agent-reported; shared-cache/database behavior is not live-tested. C38 remains IMPLEMENTED BUT NOT FULLY VERIFIED pending live Composio/DB/browser evidence.
+See docs/archive/MIGRATION-STATUS-REPORT.md for the full audit. B20 is BLOCKED: browser/VM egress isolation is not enforceable; browser execution stays disabled. C45 is IMPLEMENTED BUT NOT FULLY VERIFIED: challenge issuance/client proof/chat-route guard and adversarial-focused tests are agent-reported; shared-cache/database behavior is not live-tested. C38 remains IMPLEMENTED BUT NOT FULLY VERIFIED pending live Composio/DB/browser evidence.
 
 Never read or copy staging .env. Review the 21 App Builder staging edits for ownership, job races, sandbox teardown, file bounds and preview policy. No live database/provider/browser verification was performed by the audit.
 

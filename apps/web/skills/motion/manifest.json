@@ -1,0 +1,179 @@
+{
+  "source": "iart-ai (MIT)",
+  "skills": [
+    {
+      "pack": "Web animation",
+      "slug": "60fps-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 10774
+    },
+    {
+      "pack": "Web animation",
+      "slug": "accessible-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 11775
+    },
+    {
+      "pack": "Web animation",
+      "slug": "micro-interaction",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 8634
+    },
+    {
+      "pack": "Web animation",
+      "slug": "page-transition-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 12195
+    },
+    {
+      "pack": "Web animation",
+      "slug": "svg-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 8622
+    },
+    {
+      "pack": "Web animation",
+      "slug": "lottie-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 9002
+    },
+    {
+      "pack": "Web animation",
+      "slug": "gsap-web",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 12360
+    },
+    {
+      "pack": "Web animation",
+      "slug": "glassmorphism",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 11668
+    },
+    {
+      "pack": "Web animation",
+      "slug": "ascii-animation",
+      "source": "iart-ai/web-animation-skills",
+      "bytes": 9219
+    },
+    {
+      "pack": "Motion design",
+      "slug": "motion-background",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 11954
+    },
+    {
+      "pack": "Motion design",
+      "slug": "color-motion",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 11924
+    },
+    {
+      "pack": "Motion design",
+      "slug": "logo-animation",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 8019
+    },
+    {
+      "pack": "Motion design",
+      "slug": "motion-art-direction",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 7581
+    },
+    {
+      "pack": "Motion design",
+      "slug": "shot-composition",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 12995
+    },
+    {
+      "pack": "Motion design",
+      "slug": "beat-sync-editing",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 13926
+    },
+    {
+      "pack": "Motion design",
+      "slug": "animation-principles",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 8527
+    },
+    {
+      "pack": "Motion design",
+      "slug": "after-effects",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 7430
+    },
+    {
+      "pack": "Motion design",
+      "slug": "remotion-video",
+      "source": "iart-ai/motion-design-skills",
+      "bytes": 9226
+    },
+    {
+      "pack": "Kinetic typography",
+      "slug": "kinetic-typography",
+      "source": "iart-ai/kinetic-typography-skills",
+      "bytes": 7793
+    },
+    {
+      "pack": "Data animation",
+      "slug": "chart-animation",
+      "source": "iart-ai/data-animation-skills",
+      "bytes": 10526
+    },
+    {
+      "pack": "Data animation",
+      "slug": "animated-infographic",
+      "source": "iart-ai/data-animation-skills",
+      "bytes": 10710
+    },
+    {
+      "pack": "Data animation",
+      "slug": "presentation-video",
+      "source": "iart-ai/data-animation-skills",
+      "bytes": 13668
+    },
+    {
+      "pack": "JS canvas films",
+      "slug": "javascript-animation",
+      "source": "iart-ai/javascript-animation-skills",
+      "bytes": 9088
+    },
+    {
+      "pack": "JS canvas films",
+      "slug": "soundtrack",
+      "source": "iart-ai/javascript-animation-skills",
+      "bytes": 4862
+    },
+    {
+      "pack": "Explainer videos",
+      "slug": "explainer-video",
+      "source": "iart-ai/explainer-video-skills",
+      "bytes": 10013
+    },
+    {
+      "pack": "Explainer videos",
+      "slug": "diagram-animation",
+      "source": "iart-ai/explainer-video-skills",
+      "bytes": 8449
+    },
+    {
+      "pack": "Explainer videos",
+      "slug": "isometric-animation",
+      "source": "iart-ai/explainer-video-skills",
+      "bytes": 11180
+    },
+    {
+      "pack": "Explainer videos",
+      "slug": "whiteboard-animation",
+      "source": "iart-ai/explainer-video-skills",
+      "bytes": 11744
+    },
+    {
+      "pack": "Explainer videos",
+      "slug": "wrapped-video",
+      "source": "iart-ai/explainer-video-skills",
+      "bytes": 12729
+    }
+  ]
+}

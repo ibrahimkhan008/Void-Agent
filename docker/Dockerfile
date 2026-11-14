@@ -34,6 +34,8 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 
 # Copy migrations content
 COPY --from=builder /app/apps/web/src/lib/db/migrations ./apps/web/src/lib/db/migrations
+# System default skills ship as files and are read at request time.
+COPY --from=builder /app/apps/web/skills ./apps/web/skills
 
 USER nextjs
 

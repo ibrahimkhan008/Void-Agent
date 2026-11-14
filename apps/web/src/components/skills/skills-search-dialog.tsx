@@ -1,7 +1,6 @@
 "use client";
 
 import { useSkills } from "@/hooks/queries/use-skills";
-import { motionSkillsByPack } from "@/lib/skills/motion-catalog";
 import type { SkillSearchResult } from "app-types/skill";
 import type { SkillSummary } from "app-types/skill";
 import { fetcher } from "lib/utils";
@@ -9,7 +8,7 @@ import { cn } from "lib/utils";
 import { Check, Download, Loader, Search, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { Button } from "ui/button";
 import {
   Dialog,
@@ -66,6 +65,14 @@ function SkillResultCard({
   );
 }
 
+interface BuiltInSkillView {
+  category: string;
+  slug: string;
+  name: string;
+  description?: string;
+  source?: string;
+}
+
 export function SkillsSearchDialog({
   open,
   onOpenChange,
@@ -85,6 +92,37 @@ export function SkillsSearchDialog({
   const [importingUrl, setImportingUrl] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
   const [importingZip, setImportingZip] = useState(false);
+
+  // System default skills ship with the product (apps/web/skills/) and
+  // install offline: content comes from this API, not the registry.
+  const { data: builtInData } = useSWR<{ skills: BuiltInSkillView[] }>(
+    open ? "/api/skills/built-in" : null,
+    fetcher,
+  );
+  const builtInSkills = builtInData?.skills ?? [];
+
+  const installBuiltIn = async (skill: BuiltInSkillView) => {
+    try {
+      const res = await fetch(
+        `/api/skills/built-in?category=${encodeURIComponent(skill.category)}&slug=${encodeURIComponent(skill.slug)}`,
+      );
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Could not read that system skill.");
+      }
+      await saveImported(
+        payload.skill.name,
+        `builtin/${skill.category}`,
+        payload.skill.content,
+        payload.skill.description,
+        skill.slug,
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not install that skill.",
+      );
+    }
+  };
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedSources = new Set(
@@ -167,11 +205,18 @@ export function SkillsSearchDialog({
     source: string,
     content: string,
     description?: string,
+    slug?: string,
   ) => {
     const res = await fetch("/api/skills", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, slug: name, source, content, description }),
+      body: JSON.stringify({
+        name,
+        slug: slug ?? name,
+        source,
+        content,
+        description,
+      }),
     });
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
@@ -407,37 +452,35 @@ export function SkillsSearchDialog({
                   <div className="mb-4 space-y-3">
                     <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
                       <Sparkles className="size-3.5 text-primary" />
-                      Void Motion — motion graphics packs
+                      Built-in skills — install offline, no registry needed
                     </p>
-                    {motionSkillsByPack().map((group) => (
-                      <div key={group.source} className="rounded-xl border p-3">
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          {group.pack}{" "}
-                          <span className="font-normal">· {group.source}</span>
+                    {Object.entries(
+                      builtInSkills.reduce<Record<string, BuiltInSkillView[]>>(
+                        (groups, skill) => {
+                          (groups[skill.category] ??= []).push(skill);
+                          return groups;
+                        },
+                        {},
+                      ),
+                    ).map(([category, skills]) => (
+                      <div key={category} className="rounded-xl border p-3">
+                        <p className="text-xs font-semibold text-muted-foreground capitalize">
+                          {category}{" "}
+                          <span className="font-normal">
+                            · {skills.length} built-in
+                          </span>
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          {group.skills.map((skill) => {
+                          {skills.map((skill) => {
                             const saved = savedSources.has(
-                              `${skill.source}/${skill.slug}`,
+                              `builtin/${skill.category}/${skill.slug}`,
                             );
                             return (
                               <button
                                 key={skill.slug}
                                 type="button"
-                                disabled={saved || savingId === skill.slug}
-                                onClick={async () => {
-                                  try {
-                                    await onSave({
-                                      name: skill.name,
-                                      id: skill.slug,
-                                      source: skill.source,
-                                      description: skill.description,
-                                      installs: 0,
-                                    } as unknown as SkillSearchResult);
-                                  } catch {
-                                    // onSave surfaces its own errors
-                                  }
-                                }}
+                                disabled={saved}
+                                onClick={() => installBuiltIn(skill)}
                                 className={cn(
                                   "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
                                   saved
