@@ -1323,15 +1323,16 @@ function ChatBotInner({
           {emptyMessage ? (
             embedded ? null : (
               <>
+                <ChatGreeting />
                 {/* Work | Cockpit switch: home screen only, never in a thread.
-                    Pinned to the top of the chat area, right under the app
-                    header, so it does not sit on top of the greeting. */}
+                    Centered between the greeting and the composer (ChatGPT-
+                    style) so it reads as part of the composer area rather
+                    than a pinned navigation element. */}
                 {isHomeScreen && (
-                  <div className="absolute inset-x-0 top-2 z-10 flex justify-center px-4">
+                  <div className="relative z-10 mb-8 flex justify-center px-4">
                     <WorkspaceModeToggle />
                   </div>
                 )}
-                <ChatGreeting />
               </>
             )
           ) : (
