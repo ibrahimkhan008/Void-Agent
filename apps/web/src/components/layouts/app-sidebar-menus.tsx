@@ -10,13 +10,14 @@ import { BasicUser } from "app-types/user";
 import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
 import { getIsUserAdmin } from "lib/user/utils";
 import {
+  Brain,
   FolderSearchIcon,
+  Globe,
   Library,
   PanelsTopLeft,
   PlusIcon,
   Rocket,
   Waypoints,
-  Globe,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
@@ -163,6 +164,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 >
                   <Globe className="size-4" />
                   Void Deploy
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          </Tooltip>
+        </SidebarMenu>
+        <SidebarMenu>
+          <Tooltip>
+            <SidebarMenuItem>
+              <Link href="/memory" onClick={() => setOpenMobile(false)}>
+                <SidebarMenuButton
+                  isActive={isActive("/memory")}
+                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
+                >
+                  <Brain className="size-4" />
+                  Void Memory
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

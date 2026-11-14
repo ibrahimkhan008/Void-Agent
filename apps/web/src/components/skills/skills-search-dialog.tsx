@@ -1,13 +1,13 @@
 "use client";
 
 import { useSkills } from "@/hooks/queries/use-skills";
-import type { SkillSearchResult } from "app-types/skill";
 import { motionSkillsByPack } from "@/lib/skills/motion-catalog";
+import type { SkillSearchResult } from "app-types/skill";
 import type { SkillSummary } from "app-types/skill";
 import { fetcher } from "lib/utils";
+import { cn } from "lib/utils";
 import { Check, Download, Loader, Search, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "lib/utils";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { Button } from "ui/button";
@@ -84,6 +84,7 @@ export function SkillsSearchDialog({
   const [importUrl, setImportUrl] = useState("");
   const [importingUrl, setImportingUrl] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
+  const [importingZip, setImportingZip] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const savedSources = new Set(
@@ -129,7 +130,7 @@ export function SkillsSearchDialog({
       const name = payload.name || url.split("/").pop() || "imported-skill";
       await saveImported(
         name,
-        url.replace(/https?:\/\//, "").slice(0, 180),
+        sourceFromUrl(url),
         payload.content,
         payload.description,
       );
@@ -151,7 +152,7 @@ export function SkillsSearchDialog({
         throw new Error("That file is too large (200 KB max).");
       }
       const name = file.name.replace(/\.md$/i, "").replace(/[^\w.-]+/g, "-");
-      await saveImported(name, name, content);
+      await saveImported(name, `local/${name}`, content);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Could not import that file.",
@@ -180,6 +181,59 @@ export function SkillsSearchDialog({
     void mutate(
       (key) => typeof key === "string" && key.startsWith("/api/skills"),
     );
+  };
+
+  // POST /api/skills validates source as owner/repo. GitHub URLs map to
+  // their owner/repo; anything else keeps its host + first path segment.
+  const sourceFromUrl = (url: string) => {
+    try {
+      const parsed = new URL(url);
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      if (
+        (parsed.hostname === "github.com" ||
+          parsed.hostname === "raw.githubusercontent.com") &&
+        segments.length >= 2
+      ) {
+        return `${segments[0]}/${segments[1]}`;
+      }
+      return `${parsed.hostname}/${segments[0] ?? "import"}`.slice(0, 180);
+    } catch {
+      return `local/${url.replace(/[^\w.-]+/g, "-").slice(0, 60) || "import"}`;
+    }
+  };
+
+  const importFromZip = async (file: File) => {
+    setImportingZip(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/skills/import-zip", {
+        method: "POST",
+        body,
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Could not import that archive.");
+      }
+      const imported: Array<{ name: string }> = payload.imported ?? [];
+      const failed: Array<{ folder: string; error: string }> =
+        payload.failed ?? [];
+      toast.success(
+        imported.length === 1
+          ? `Imported "${imported[0].name}".`
+          : `Imported ${imported.length} skills from the archive.`,
+      );
+      for (const f of failed) toast.error(`${f.folder}: ${f.error}`);
+      void mutate(
+        (key) => typeof key === "string" && key.startsWith("/api/skills"),
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import that archive.",
+      );
+    } finally {
+      setImportingZip(false);
+    }
   };
 
   const onSearchChange = (value: string) => {
@@ -233,8 +287,8 @@ export function SkillsSearchDialog({
             <Sparkles className="size-4" /> Add a skill
           </DialogTitle>
           <DialogDescription>
-            Search the Vercel skills library and save skills to use them in chat
-            or on your agents.
+            Search the skills library, import from a URL or file, or upload a
+            .zip of skill folders (each folder needs a SKILL.md).
           </DialogDescription>
         </DialogHeader>
 
@@ -294,6 +348,35 @@ export function SkillsSearchDialog({
                 <Loader className="size-3.5 animate-spin" />
               ) : (
                 "Upload .md"
+              )}
+            </Button>
+          </label>
+          <label className="inline-flex">
+            <input
+              type="file"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importFromZip(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={importingZip}
+              onClick={(e) => {
+                e.preventDefault();
+                e.currentTarget.previousElementSibling
+                  ?.querySelector("input")
+                  ?.click();
+              }}
+            >
+              {importingZip ? (
+                <Loader className="size-3.5 animate-spin" />
+              ) : (
+                "Upload .zip"
               )}
             </Button>
           </label>

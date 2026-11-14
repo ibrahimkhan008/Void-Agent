@@ -88,6 +88,7 @@ export interface ProjectRecordView {
   revision: number;
   updatedAt: string;
   revisionCount: number;
+  includeInContext: boolean;
 }
 
 const TYPE = "document";
@@ -147,6 +148,7 @@ export async function listProjectRecords(
       .select({
         content: ProjectBrainPageTable.compiledTruth,
         updatedAt: ProjectBrainPageTable.updatedAt,
+        includeInContext: ProjectBrainPageTable.includeInContext,
       })
       .from(ProjectBrainPageTable)
       .where(eq(ProjectBrainPageTable.id, pageId))
@@ -167,6 +169,7 @@ export async function listProjectRecords(
         ? new Date(page.updatedAt).toISOString()
         : new Date().toISOString(),
       revisionCount: rev?.revision ?? 1,
+      includeInContext: page?.includeInContext ?? true,
     });
   }
   return views;
@@ -286,7 +289,25 @@ export async function restoreRecordRevision(
   return { revision: nextRevision };
 }
 
-/** Flattened records for agent context: every record's current content. */
+/** Per-record retrieval tuning (project records). */
+export async function setProjectRecordContext(
+  projectId: string,
+  slug: ProjectRecordSlug,
+  includeInContext: boolean,
+): Promise<void> {
+  await pgDb
+    .update(ProjectBrainPageTable)
+    .set({ includeInContext, updatedAt: new Date() })
+    .where(
+      and(
+        eq(ProjectBrainPageTable.projectId, projectId),
+        eq(ProjectBrainPageTable.slug, slug),
+      ),
+    );
+}
+
+/** Flattened records for agent context: every record whose retrieval tuning
+ * includes it in the context (per-record toggle in the project's Brain tab). */
 export async function recordsForAgentContext(
   projectId: string,
 ): Promise<string> {
@@ -297,7 +318,12 @@ export async function recordsForAgentContext(
       content: ProjectBrainPageTable.compiledTruth,
     })
     .from(ProjectBrainPageTable)
-    .where(eq(ProjectBrainPageTable.projectId, projectId))
+    .where(
+      and(
+        eq(ProjectBrainPageTable.projectId, projectId),
+        eq(ProjectBrainPageTable.includeInContext, true),
+      ),
+    )
     .orderBy(asc(ProjectBrainPageTable.slug));
   const records = pages.filter((p) => p.slug.startsWith("records/"));
   if (!records.length) return "";

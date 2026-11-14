@@ -51,6 +51,7 @@ import {
   buildMcpServerCustomizationsSystemPrompt,
   buildPlanModeSystemPrompt,
   buildProjectInstructionsPrompt,
+  buildProjectRecordsPrompt,
   buildSandboxAssetsSystemPrompt,
   buildSkillCatalogSystemPrompt,
   buildSkillsSystemPrompt,
@@ -106,10 +107,16 @@ import {
 } from "@/lib/ai/document-context";
 import { buildIngestionPreviewParts } from "@/lib/ai/ingest";
 import { loadHitlTools } from "@/lib/ai/tools/hitl/load-hitl-tools";
+import {
+  MemoryRecordToolName,
+  createMemoryRecordTool,
+} from "@/lib/ai/tools/memory-record";
+import { VideoToolName, createVideoTool } from "@/lib/ai/tools/video";
 import { billingRunKey } from "@/lib/billing/usage-idempotency";
 import { resolveKnowledgeBaseBindings } from "@/lib/chat/knowledge-base-mentions";
 import { buildCitationSystemPrompt } from "@/lib/citations/parse-citations";
 import { pgDb } from "@/lib/db/pg/db.pg";
+import { recordsForAgentContext } from "@/lib/db/pg/repositories/project-records-repository.pg";
 import { ProjectTable } from "@/lib/db/pg/schema.pg";
 import {
   CreditsExhaustedError,
@@ -141,7 +148,6 @@ import {
 } from "lib/ai/tools";
 import { createBrowserAutomationTool } from "lib/ai/tools/browser/browser-automation-tool";
 import { createImageTool } from "lib/ai/tools/image";
-import { createVideoTool, VideoToolName } from "@/lib/ai/tools/video";
 import { createPlanTool } from "lib/ai/tools/planning/create-plan-tool";
 import { createPublishPageTool } from "lib/ai/tools/publish/publish-page-tool";
 import {
@@ -1053,6 +1059,16 @@ export async function POST(request: Request) {
             )
           : Promise.resolve(null);
 
+        // Void Memory (§3.3): the project's record documents (MEMORY.md,
+        // TODO.md, RULES.md, …) whose per-record retrieval tuning includes
+        // them. Only changes when someone edits a record, so it rides in the
+        // cache-stable prefix right after the instructions.
+        const projectRecordsPromise = retrievalProjectId
+          ? timer.track("projectRecords", () =>
+              recordsForAgentContext(retrievalProjectId),
+            )
+          : Promise.resolve("");
+
         // Knowledge sources for this turn: the ones the active agent is bound
         // to, the ones stored on the thread, and the ones this request's
         // composer mentions carry. Only those namespaces are searched, and the
@@ -1099,6 +1115,7 @@ export async function POST(request: Request) {
           selectedSkills,
           skillCatalog,
           projectInstructions,
+          projectRecords,
         ] = await Promise.all([
           mcpToolsPromise,
           mcpCustomizationsPromise,
@@ -1111,6 +1128,7 @@ export async function POST(request: Request) {
           selectedSkillsPromise,
           skillCatalogPromise,
           projectInstructionsPromise,
+          projectRecordsPromise,
         ]);
         logger.info(
           `Loaded ${Object.keys(MCP_TOOLS).length} MCP tools, ${Object.keys(COMPOSIO_TOOLS).length} Composio tools for chat`,
@@ -1220,6 +1238,9 @@ export async function POST(request: Request) {
           projectInstructions
             ? buildProjectInstructionsPrompt(projectInstructions)
             : undefined,
+          projectRecords
+            ? buildProjectRecordsPrompt(projectRecords)
+            : undefined,
           planModeActive && buildPlanModeSystemPrompt(),
           // ~870 tokens of tool-approval rules. Unreachable, but still billed,
           // when the model cannot call tools at all — or when there is no human
@@ -1273,6 +1294,17 @@ export async function POST(request: Request) {
             allowedAppDefaultToolkit.includes("video-generation"))
             ? { [VideoToolName]: createVideoTool(customerId, id) }
             : {};
+
+        // Void Memory (§3.3): the agent proposes record changes; the user
+        // approves them in the Void Memory page before they take effect.
+        const MEMORY_RECORD_TOOL: Record<string, Tool> = isToolCallAllowed
+          ? {
+              [MemoryRecordToolName]: createMemoryRecordTool(
+                session.user.id,
+                thread?.projectId ?? null,
+              ),
+            }
+          : {};
         // Expose loadSkill only when the Auto catalog is non-empty — the model
         // needs the catalog (with ids) to call it meaningfully.
         const SKILL_TOOLS: Record<string, Tool> =
@@ -1425,6 +1457,7 @@ export async function POST(request: Request) {
           ...SKILL_TOOLS,
           ...IMAGE_TOOL,
           ...VIDEO_TOOL,
+          ...MEMORY_RECORD_TOOL,
           ...PUBLISH_TOOL,
           ...PLAN_TOOLS,
           ...BROWSER_TOOL,

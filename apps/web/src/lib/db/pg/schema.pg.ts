@@ -2175,6 +2175,9 @@ export const ProjectBrainPageTable = pgTable(
     }).notNull(),
     title: text("title").notNull(),
     compiledTruth: text("compiled_truth").notNull().default(""),
+    // Per-record retrieval tuning: when false the record stays in the brain
+    // but is excluded from agent context assembly.
+    includeInContext: boolean("include_in_context").notNull().default(true),
     summary: text("summary"),
     frontmatter: jsonb("frontmatter")
       .$type<Record<string, unknown>>()
@@ -4320,6 +4323,109 @@ export const SiteConfigAuditTable = pgTable(
 );
 
 export type SiteConfigAuditEntity = typeof SiteConfigAuditTable.$inferSelect;
+
+export const UserRecordTable = pgTable(
+  "user_record",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    // Per-record retrieval tuning: false keeps the record stored but out of
+    // agent context assembly.
+    includeInContext: boolean("include_in_context").notNull().default(true),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("user_record_user_slug_unique").on(table.userId, table.slug),
+    index("user_record_user_idx").on(table.userId),
+  ],
+);
+
+export type UserRecordEntity = typeof UserRecordTable.$inferSelect;
+
+export const UserRecordRevisionTable = pgTable(
+  "user_record_revision",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    recordId: uuid("record_id")
+      .notNull()
+      .references(() => UserRecordTable.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    content: text("content").notNull(),
+    changeNote: text("change_note"),
+    userId: uuid("user_id").references(() => UserTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("user_record_revision_record_rev_unique").on(
+      table.recordId,
+      table.revision,
+    ),
+    index("user_record_revision_record_idx").on(table.recordId, table.revision),
+  ],
+);
+
+export type UserRecordRevisionEntity =
+  typeof UserRecordRevisionTable.$inferSelect;
+
+/**
+ * Agent-proposed record changes awaiting user approval. Approval applies the
+ * proposal through the normal save path (appending a revision); rejected rows
+ * stay for the audit trail. projectId set = project-scope proposal, null =
+ * global (user-level).
+ */
+export const RecordProposalTable = pgTable(
+  "record_proposal",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => ProjectTable.id, {
+      onDelete: "cascade",
+    }),
+    scope: varchar("scope", { length: 16, enum: ["global", "project"] })
+      .notNull()
+      .default("global"),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    proposedContent: text("proposed_content").notNull(),
+    changeNote: text("change_note"),
+    status: varchar("status", {
+      length: 16,
+      enum: ["pending", "approved", "rejected"],
+    })
+      .notNull()
+      .default("pending"),
+    proposedBy: text("proposed_by").notNull().default("agent"),
+    resolvedByUserId: uuid("resolved_by_user_id").references(
+      () => UserTable.id,
+      { onDelete: "set null" },
+    ),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("record_proposal_user_status_idx").on(table.userId, table.status),
+  ],
+);
+
+export type RecordProposalEntity = typeof RecordProposalTable.$inferSelect;
 
 export const MemoryTable = pgTable(
   "user_memory",

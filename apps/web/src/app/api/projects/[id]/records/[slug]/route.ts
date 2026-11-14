@@ -4,6 +4,7 @@ import {
   listRecordRevisions,
   restoreRecordRevision,
   saveProjectRecord,
+  setProjectRecordContext,
 } from "@/lib/db/pg/repositories/project-records-repository.pg";
 import {
   requireProjectAccess,
@@ -103,6 +104,28 @@ export async function POST(request: Request, { params }: Params) {
       actor.userId,
     );
     return NextResponse.json({ ok: true, revision: result.revision, role });
+  } catch (err) {
+    return toProjectErrorResponse(err);
+  }
+}
+
+/** PATCH — per-record retrieval tuning (include in the agent's context). */
+export async function PATCH(request: Request, { params }: Params) {
+  try {
+    const { id: projectId, slug } = await params;
+    validateSlug(slug);
+    await requireProjectAccess({ projectId, minRole: "editor" });
+    const body = (await request.json().catch(() => null)) as {
+      includeInContext?: boolean;
+    } | null;
+    if (typeof body?.includeInContext !== "boolean") {
+      return NextResponse.json(
+        { error: "includeInContext is required" },
+        { status: 400 },
+      );
+    }
+    await setProjectRecordContext(projectId, slug, body.includeInContext);
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return toProjectErrorResponse(err);
   }

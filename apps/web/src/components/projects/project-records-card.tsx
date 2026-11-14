@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "lib/utils";
+import { fetcher } from "lib/utils";
 import { History, Loader2, Save, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -8,7 +9,6 @@ import useSWR from "swr";
 import { Button } from "ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "ui/card";
 import { Textarea } from "ui/textarea";
-import { fetcher } from "lib/utils";
 
 interface RecordView {
   slug: string;
@@ -17,6 +17,7 @@ interface RecordView {
   content: string;
   revision: number;
   revisionCount: number;
+  includeInContext: boolean;
 }
 
 interface Revision {
@@ -53,6 +54,7 @@ export function ProjectRecordsCard({
   const [revisionsFor, setRevisionsFor] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<Revision[] | null>(null);
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const records = data?.records ?? [];
   const active = useMemo(
@@ -142,6 +144,26 @@ export function ProjectRecordsCard({
     }
   };
 
+  const toggleContext = async (slug: string, includeInContext: boolean) => {
+    setToggling(slug);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/records/${slug}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ includeInContext }),
+        },
+      );
+      if (!response.ok) throw new Error();
+      await mutate();
+    } catch {
+      toast.error("Could not update retrieval tuning.");
+    } finally {
+      setToggling(null);
+    }
+  };
+
   if (error) {
     return <p className="text-sm text-destructive">{error.message}</p>;
   }
@@ -188,7 +210,19 @@ export function ProjectRecordsCard({
 
         {active && (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">{active.purpose}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">{active.purpose}</p>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={active.includeInContext}
+                  disabled={!canEdit || toggling === active.slug}
+                  onChange={(e) => toggleContext(active.slug, e.target.checked)}
+                  className="accent-primary"
+                />
+                Include in agent context
+              </label>
+            </div>
             <Textarea
               value={draft ?? ""}
               onChange={(e) => setDraft(e.target.value)}
