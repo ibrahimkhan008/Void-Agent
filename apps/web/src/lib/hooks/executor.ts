@@ -1,7 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
 import { pgDb } from "@/lib/db/pg/db.pg";
-import { AgentTable, HookRunTable, InboundEndpointTable } from "@/lib/db/pg/schema.pg";
 import {
   type HookRunRow,
   countHookRunsToday,
@@ -11,8 +9,14 @@ import {
   lastHookRunAt,
   parseHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
+import {
+  AgentTable,
+  HookRunTable,
+  InboundEndpointTable,
+} from "@/lib/db/pg/schema.pg";
 import { createNotifications } from "@/lib/notifications/create-notifications";
 import { executeAgentRun } from "@/lib/scheduled-tasks/runner";
+import { and, eq } from "drizzle-orm";
 import logger from "logger";
 
 /**
@@ -35,71 +39,11 @@ import logger from "logger";
  * - Audit: every run keeps status, thread id, error and timings in hook_run.
  */
 
-export const HOOK_AGENT_RUN_EVENT = "void/hooks.agent-run";
-
 /** Bounds on one rendered prompt so a huge payload cannot blow the context. */
 const MAX_PROMPT_CHARS = 24_000;
 
-interface InboundOutboxPayload {
-  endpointId?: string;
-  userId?: string;
-  agentId?: string;
-  deliveryId?: string;
-  normalized?: {
-    kind?: string;
-    text?: string;
-    from?: string;
-    subject?: string;
-    [key: string]: unknown;
-  };
-}
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
-}
-
-/**
- * Called by the outbox tick for every claimed `inbound` event. Idempotent:
- * creates the queued hook_run (UNIQUE event_id) and enqueues the Inngest run.
- * Returns whether a NEW run was dispatched (a re-claim of an already
- * dispatched event returns false and does nothing).
- */
-export async function dispatchInboundHook(input: {
-  eventId: string;
-  payload: Record<string, unknown>;
-  /** Enqueues the async run (Inngest). The secret-gated tick path runs inline. */
-  enqueue?: (data: { runId: string }) => Promise<unknown>;
-}): Promise<{ dispatched: boolean; runId: string | null }> {
-  const payload = (input.payload ?? {}) as InboundOutboxPayload;
-  const agentId = isNonEmptyString(payload.agentId) ? payload.agentId : null;
-  const userId = isNonEmptyString(payload.userId) ? payload.userId : null;
-  const endpointId = isNonEmptyString(payload.endpointId)
-    ? payload.endpointId
-    : null;
-  if (!agentId || !userId || !endpointId) {
-    return { dispatched: false, runId: null };
-  }
-
-  const { created, runId } = await createHookRun({
-    eventId: input.eventId,
-    inboundEndpointId: endpointId,
-    agentId,
-    userId,
-  });
-  if (!created || !runId) {
-    return { dispatched: false, runId };
-  }
-  if (input.enqueue) {
-    try {
-      await input.enqueue({ runId });
-    } catch (error) {
-      logger.error(
-        `[hooks] failed to enqueue run ${runId}`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-  return { dispatched: true, runId };
 }
 
 /**
@@ -115,7 +59,9 @@ export function renderHookPrompt(
   const kind = isNonEmptyString(normalized.kind) ? normalized.kind : "webhook";
   const text = isNonEmptyString(normalized.text) ? normalized.text : "";
   const from = isNonEmptyString(normalized.from) ? normalized.from : "";
-  const subject = isNonEmptyString(normalized.subject) ? normalized.subject : "";
+  const subject = isNonEmptyString(normalized.subject)
+    ? normalized.subject
+    : "";
   const json = JSON.stringify(normalized, null, 2);
 
   const header = `You were triggered by a Void Hook (an inbound ${kind} event). Handle the event end to end: do what it asks, verify your work, and summarize the outcome with concrete values.`;
@@ -188,7 +134,7 @@ export async function runHookAgent(runId: string): Promise<{
     const config = parseHookConfig(endpoint.hookConfig);
 
     // Loop prevention 1: cooldown.
-    const lastAt = await lastHookRunAt(run.inboundEndpointId);
+    const lastAt = await lastHookRunAt(run.inboundEndpointId, run.id);
     if (lastAt) {
       const elapsed = (Date.now() - new Date(lastAt).getTime()) / 1000;
       if (elapsed < config.cooldownSeconds) {
@@ -306,5 +252,3 @@ async function notifyFailure(
     );
   }
 }
-
-

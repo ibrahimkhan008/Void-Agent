@@ -1,5 +1,6 @@
 import { inngest } from "@/lib/inngest/client";
 import { cloudInngestFunctions } from "@/lib/inngest/functions/cloud";
+import { hookAgentRun } from "@/lib/inngest/functions/hooks";
 import {
   projectBrainDream,
   projectBrainDreamScheduler,
@@ -12,7 +13,6 @@ import {
   scheduledTaskCronChecker,
 } from "@/lib/inngest/functions/scheduled-tasks";
 import { webhookOutboxTick } from "@/lib/inngest/functions/webhook-outbox";
-import { hookAgentRun } from "@/lib/inngest/functions/hooks";
 import { serve } from "inngest/next";
 
 // The execute-scheduled-task step holds this function open while the loopback

@@ -1,9 +1,9 @@
-import { inboundRepository } from "lib/db/repository";
 import {
   listHookRuns,
   updateEndpointHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
 import { withAuth } from "auth/route-guard";
+import { inboundRepository } from "lib/db/repository";
 import { z } from "zod";
 
 /**
@@ -82,14 +82,14 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
     data.cooldownSeconds !== undefined ||
     data.maxRunsPerDay !== undefined
   ) {
-    const current = (endpoint as { hookConfig?: Record<string, unknown> })
-      .hookConfig ?? {};
+    const current =
+      (endpoint as { hookConfig?: Record<string, unknown> }).hookConfig ?? {};
     await updateEndpointHookConfig(id, session.user.id, {
       promptTemplate:
         data.promptTemplate === undefined
-          ? (typeof current.promptTemplate === "string"
-              ? current.promptTemplate
-              : undefined)
+          ? typeof current.promptTemplate === "string"
+            ? current.promptTemplate
+            : undefined
           : (data.promptTemplate ?? undefined),
       cooldownSeconds:
         data.cooldownSeconds ??

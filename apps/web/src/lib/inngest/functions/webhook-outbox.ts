@@ -1,11 +1,8 @@
-import { inngest } from "../client";
-import logger from "logger";
 import { webhookRepository } from "lib/db/pg/repositories/webhook-repository.pg";
+import { HOOK_AGENT_RUN_EVENT, dispatchInboundHook } from "lib/hooks/dispatch";
 import { computeBackoffMs, deliverWebhook, signPayload } from "lib/webhooks";
-import {
-  HOOK_AGENT_RUN_EVENT,
-  dispatchInboundHook,
-} from "lib/hooks/executor";
+import logger from "logger";
+import { inngest } from "../client";
 
 // ---------------------------------------------------------------------------
 // Webhook outbox delivery tick (ported from zip-main

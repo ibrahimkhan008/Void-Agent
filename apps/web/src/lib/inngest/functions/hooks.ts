@@ -1,6 +1,6 @@
-import { inngest } from "../client";
 import { runHookAgent } from "lib/hooks/executor";
 import logger from "logger";
+import { inngest } from "../client";
 
 /**
  * Void Hooks executor (master prompt §3.5): consumes a dispatched hook run

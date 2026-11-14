@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { inngest } from "@/lib/inngest/client";
-import { dispatchInboundHook, runHookAgent } from "lib/hooks/executor";
 import { webhookRepository } from "lib/db/repository";
+import { dispatchInboundHook } from "lib/hooks/dispatch";
+import { runHookAgent } from "lib/hooks/executor";
 import logger from "logger";
+import { NextResponse } from "next/server";
 
 export const maxDuration = 300;
 
@@ -58,15 +59,28 @@ export async function POST(request: Request) {
       payload: event.payload,
     });
     if (dispatch.runId) dispatched.push(dispatch.runId);
+    // The hook_run row owns the outcome now — retire the outbox event so it
+    // is not re-claimed by the next tick (the Inngest driver does this in
+    // its own subscription path; this route is its own claimer).
+    await webhookRepository.markOutboxEventDelivered(event.id);
   }
 
-  // Execute synchronously, bounded: each run is a full agent loop.
+  // Execute synchronously, bounded: each run is a full agent loop. The
+  // backlog (queued runs from earlier ticks) is included so nothing starves
+  // when Inngest is not driving the async path.
+  const { listQueuedHookRuns } = await import(
+    "@/lib/db/pg/repositories/hook-repository.pg"
+  );
+  const backlog = await listQueuedHookRuns(3);
+  const toRun = [
+    ...new Set([...backlog.map((r) => r.id), ...dispatched]),
+  ].slice(0, 3);
   const results: Array<{
     runId: string;
     status: string;
     reason?: string;
   }> = [];
-  for (const runId of dispatched.slice(0, 3)) {
+  for (const runId of toRun) {
     const result = await runHookAgent(runId);
     results.push({ runId, ...result });
   }

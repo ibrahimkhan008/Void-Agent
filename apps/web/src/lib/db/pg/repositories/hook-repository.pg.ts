@@ -1,4 +1,3 @@
-import "server-only";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import { HookRunTable, InboundEndpointTable } from "../schema.pg";
@@ -57,14 +56,22 @@ export async function createHookRun(input: {
     .returning();
 
   if (inserted.length) {
-    return { created: true, runId: inserted[0].id, run: inserted[0] as HookRunRow };
+    return {
+      created: true,
+      runId: inserted[0].id,
+      run: inserted[0] as HookRunRow,
+    };
   }
   const [existing] = await pgDb
     .select()
     .from(HookRunTable)
     .where(eq(HookRunTable.eventId, input.eventId))
     .limit(1);
-  return { created: false, runId: existing?.id ?? null, run: existing as HookRunRow | undefined };
+  return {
+    created: false,
+    runId: existing?.id ?? null,
+    run: existing as HookRunRow | undefined,
+  };
 }
 
 export async function startHookRun(runId: string): Promise<void> {
@@ -93,7 +100,9 @@ export async function finishHookRun(
     .where(eq(HookRunTable.id, runId));
 }
 
-export async function getHookRunById(runId: string): Promise<HookRunRow | null> {
+export async function getHookRunById(
+  runId: string,
+): Promise<HookRunRow | null> {
   const [row] = await pgDb
     .select()
     .from(HookRunTable)
@@ -128,6 +137,17 @@ export async function listHookRuns(
   return rows as Array<HookRunRow & { agentName?: string | null }>;
 }
 
+/** Queued runs oldest-first — the tick's inline execution backlog. */
+export async function listQueuedHookRuns(limit = 3): Promise<HookRunRow[]> {
+  const rows = await pgDb
+    .select()
+    .from(HookRunTable)
+    .where(eq(HookRunTable.status, "queued"))
+    .orderBy(HookRunTable.createdAt)
+    .limit(Math.min(limit, 10));
+  return rows as HookRunRow[];
+}
+
 /** Runs today for one endpoint — the daily-cap check. */
 export async function countHookRunsToday(endpointId: string): Promise<number> {
   const [row] = await pgDb
@@ -143,8 +163,16 @@ export async function countHookRunsToday(endpointId: string): Promise<number> {
   return Number(row?.value ?? 0);
 }
 
-/** The endpoint's last executed (non-skipped) run — the cooldown check. */
-export async function lastHookRunAt(endpointId: string): Promise<Date | null> {
+/**
+ * The endpoint's last executed (non-skipped) run — the cooldown check.
+ * `excludeRunId` omits the CURRENT run: its own row was just created for the
+ * event being processed, and counting it would block the first execution
+ * forever (caught live by the e2e verification).
+ */
+export async function lastHookRunAt(
+  endpointId: string,
+  excludeRunId?: string,
+): Promise<Date | null> {
   const [row] = await pgDb
     .select({ createdAt: HookRunTable.createdAt })
     .from(HookRunTable)
@@ -152,6 +180,7 @@ export async function lastHookRunAt(endpointId: string): Promise<Date | null> {
       and(
         eq(HookRunTable.inboundEndpointId, endpointId),
         sql`${HookRunTable.status} <> 'skipped'`,
+        excludeRunId ? sql`${HookRunTable.id} <> ${excludeRunId}` : sql`true`,
       ),
     )
     .orderBy(desc(HookRunTable.createdAt))

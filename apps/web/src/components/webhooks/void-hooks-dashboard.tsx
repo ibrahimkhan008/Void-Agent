@@ -4,8 +4,8 @@ import { useAgents } from "@/hooks/queries/use-agents";
 import { fetcher } from "lib/utils";
 import { Loader, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import useSWR from "swr";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { Button } from "ui/button";
 import {
   Card,
@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "ui/card";
+import { Input } from "ui/input";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "ui/select";
-import { Input } from "ui/input";
 import { Textarea } from "ui/textarea";
 
 /**
@@ -166,9 +166,9 @@ export function VoidHooksDashboard() {
             )}
           </CardTitle>
           <CardDescription>
-            Inbound events run an agent: point a webhook (or email/Slack
-            source) at the hook URL and every event executes it — with
-            cooldown and daily-cap loop prevention.
+            Inbound events run an agent: point a webhook (or email/Slack source)
+            at the hook URL and every event executes it — with cooldown and
+            daily-cap loop prevention.
           </CardDescription>
         </div>
       </CardHeader>
@@ -255,8 +255,8 @@ export function VoidHooksDashboard() {
           </div>
         ) : hooks.length === 0 ? (
           <p className="p-2 text-sm text-muted-foreground">
-            No hooks yet. Create one above — the agent then runs on every
-            event that hits its inbound URL.
+            No hooks yet. Create one above — the agent then runs on every event
+            that hits its inbound URL.
           </p>
         ) : (
           <div className="space-y-2">
@@ -286,8 +286,7 @@ export function VoidHooksDashboard() {
                       /api/inbound/{hook.token}
                     </code>
                     <p className="text-[11px] text-muted-foreground">
-                      cooldown{" "}
-                      {hook.hookConfig.cooldownSeconds ?? 60}s · cap{" "}
+                      cooldown {hook.hookConfig.cooldownSeconds ?? 60}s · cap{" "}
                       {hook.hookConfig.maxRunsPerDay ?? 20}/day
                     </p>
                   </div>
@@ -354,9 +353,7 @@ export function VoidHooksDashboard() {
           </div>
         ) : null}
 
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
   );

@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTableName } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
 /**
  * pgDb stub: dispatches by drizzle table name. Tests populate `rows` per
- * table; `claim` is what the conditional queued→running UPDATE returns.
+ * table; `claimReturn` is what the conditional queued→running UPDATE returns.
  */
 const rows: Record<string, unknown[]> = {};
 let claimReturn: unknown[] = [];
@@ -37,7 +37,6 @@ vi.mock("@/lib/db/pg/db.pg", () => ({
 }));
 
 const finishHookRun = vi.fn();
-const createHookRun = vi.fn();
 const countHookRunsToday = vi.fn().mockResolvedValue(0);
 const lastHookRunAt = vi.fn().mockResolvedValue(null);
 const parseHookConfig = vi.fn((raw: unknown) => {
@@ -53,14 +52,11 @@ const parseHookConfig = vi.fn((raw: unknown) => {
   };
 });
 vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
-  createHookRun: (...args: unknown[]) => createHookRun(...args),
+  getHookRunById: async () => RUN,
   finishHookRun: (...args: unknown[]) => finishHookRun(...args),
   countHookRunsToday: (...args: unknown[]) => countHookRunsToday(...args),
   lastHookRunAt: (...args: unknown[]) => lastHookRunAt(...args),
   parseHookConfig: (...args: unknown[]) => parseHookConfig(...args),
-  listHookRuns: vi.fn().mockResolvedValue([]),
-  getHookRunById: vi.fn(async () => RUN),
-  updateEndpointHookConfig: vi.fn(),
 }));
 
 const executeAgentRun = vi.fn();
@@ -71,12 +67,6 @@ const createNotifications = vi.fn();
 vi.mock("@/lib/notifications/create-notifications", () => ({
   createNotifications: (...args: unknown[]) => createNotifications(...args),
 }));
-
-import {
-  dispatchInboundHook,
-  renderHookPrompt,
-  runHookAgent,
-} from "./executor";
 
 const RUN = {
   id: "run-1",
@@ -92,11 +82,12 @@ const RUN = {
   createdAt: new Date(),
 };
 
+import { renderHookPrompt, runHookAgent } from "./executor";
+
 beforeEach(() => {
   claimReturn = [];
   for (const key of Object.keys(rows)) delete rows[key];
   finishHookRun.mockReset();
-  createHookRun.mockReset();
   countHookRunsToday.mockResolvedValue(0);
   lastHookRunAt.mockResolvedValue(null);
   executeAgentRun.mockReset();
@@ -141,55 +132,6 @@ describe("renderHookPrompt", () => {
   });
 });
 
-describe("dispatchInboundHook", () => {
-  it("ignores payloads without an agent binding", async () => {
-    const dispatch = await dispatchInboundHook({
-      eventId: "evt-2",
-      payload: { userId: "u1", endpointId: "e1" },
-    });
-    expect(dispatch.dispatched).toBe(false);
-    expect(dispatch.runId).toBeNull();
-    expect(createHookRun).not.toHaveBeenCalled();
-  });
-
-  it("does not re-dispatch an event that already has a run", async () => {
-    createHookRun.mockResolvedValue({
-      created: false,
-      runId: "existing",
-      run: { id: "existing" },
-    });
-    let enqueued = 0;
-    const dispatch = await dispatchInboundHook({
-      eventId: "evt-1",
-      payload: { agentId: "a1", userId: "u1", endpointId: "e1" },
-      enqueue: async () => {
-        enqueued += 1;
-      },
-    });
-    expect(dispatch.dispatched).toBe(false);
-    expect(enqueued).toBe(0);
-  });
-
-  it("dispatches a fresh event and enqueues the run", async () => {
-    createHookRun.mockResolvedValue({
-      created: true,
-      runId: "run-new",
-      run: { id: "run-new" },
-    });
-    let enqueued: { runId: string } | null = null;
-    const dispatch = await dispatchInboundHook({
-      eventId: "evt-new",
-      payload: { agentId: "a1", userId: "u1", endpointId: "e1" },
-      enqueue: async (data) => {
-        enqueued = data;
-      },
-    });
-    expect(dispatch.dispatched).toBe(true);
-    expect(dispatch.runId).toBe("run-new");
-    expect(enqueued).toEqual({ runId: "run-new" });
-  });
-});
-
 describe("runHookAgent gates", () => {
   it("skips a run claimed by another driver", async () => {
     claimReturn = [];
@@ -213,7 +155,9 @@ describe("runHookAgent gates", () => {
 
   it("skips inside the cooldown window", async () => {
     claimReturn = [{ id: "run-1" }];
-    rows.inbound_endpoint = [{ id: "e1", enabled: true, hookConfig: { cooldownSeconds: 300 } }];
+    rows.inbound_endpoint = [
+      { id: "e1", enabled: true, hookConfig: { cooldownSeconds: 300 } },
+    ];
     rows.hook_run = [RUN];
     lastHookRunAt.mockResolvedValue(new Date());
     const result = await runHookAgent("run-1");
