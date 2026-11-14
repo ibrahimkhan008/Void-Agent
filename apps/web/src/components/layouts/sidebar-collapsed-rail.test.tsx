@@ -76,7 +76,7 @@ describe("SidebarCollapsedRail", () => {
     expect(rail.getAttribute("aria-hidden")).toBe("false");
 
     const logo = getByTestId("sidebar-rail-logo");
-    expect(logo.getAttribute("aria-label")).toBe("Open sidebar");
+    expect(logo.getAttribute("aria-label")).toBe("Toggle Sidebar");
 
     // Clicking the logo flips the provider's open state, which the rail
     // reflects by hiding itself again (aria-hidden -> "true").
