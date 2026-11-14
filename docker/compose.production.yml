@@ -55,6 +55,49 @@ services:
       timeout: 5s
       retries: 10
 
+  # Free browser provider (self-hosted Steel, Apache-2.0): one active
+  # session, live view UI at /ui, CDP over its websocket root. NO AUTH on
+  # ports 3000/9223 — keep them off the public internet; only the app and
+  # the executor reach it here. If you want the live view from outside,
+  # route it through your tunnel/Access, never a bare port.
+  steel:
+    image: ghcr.io/steel-dev/steel-browser:latest
+    environment:
+      # Fixes the URLs Steel advertises (websocketUrl/sessionViewerUrl).
+      - DOMAIN=steel:3000
+      - ENABLE_COMMANDS_API=false
+    shm_size: 1g
+    networks:
+      - void-agent
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # Isolated Playwright code runner: receives {cdpUrl, code} from the app and
+  # executes the agent's code against the Steel session, so model code never
+  # runs inside the app server (same property Kernel's hosted runtime gives).
+  # Internal network only — it accepts arbitrary code by design.
+  steel-executor:
+    build:
+      context: ./steel-executor
+    environment:
+      - PORT=8080
+    networks:
+      - void-agent
+    restart: unless-stopped
+    depends_on:
+      - steel
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     command: ['redis-server', '--appendonly', 'yes']

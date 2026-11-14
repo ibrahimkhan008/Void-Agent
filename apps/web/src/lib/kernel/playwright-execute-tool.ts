@@ -55,13 +55,29 @@ export const createPlaywrightExecuteTool = ({
   sessionId,
   credentials = [],
   onCredentialUsed,
+  /**
+   * Pluggable raw executor. Defaults to the Kernel cloud runtime
+   * (`client.browsers.playwright.execute`); the self-hosted Steel provider
+   * passes its sidecar executor instead, keeping the placeholder
+   * substitution, origin binding and secret redaction here — they are
+   * provider-agnostic.
+   */
+  executeRaw,
 }: {
   client: Kernel;
   sessionId: string;
   /** Credentials this run may substitute. Empty on most runs. */
   credentials?: ResolvedCredential[];
   onCredentialUsed?: (aliases: string[]) => void;
+  executeRaw?: (code: string, timeoutSec?: number) => Promise<unknown>;
 }) => {
+  const rawExecute =
+    executeRaw ??
+    ((code: string, timeoutSec?: number) =>
+      client.browsers.playwright.execute(sessionId, {
+        code,
+        ...(timeoutSec ? { timeout_sec: timeoutSec } : {}),
+      }));
   if (!isBrowserEgressIsolationEnabled()) {
     throw new Error(BROWSER_EGRESS_ISOLATION_REQUIRED_MESSAGE);
   }
@@ -79,11 +95,7 @@ export const createPlaywrightExecuteTool = ({
     ),
   );
 
-  const execute = (code: string, timeoutSec?: number) =>
-    client.browsers.playwright.execute(sessionId, {
-      code,
-      ...(timeoutSec ? { timeout_sec: timeoutSec } : {}),
-    });
+  const execute = rawExecute;
 
   return createTool({
     description: `Execute Playwright code against the live browser session.

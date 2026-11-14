@@ -166,6 +166,7 @@ import { browserCredentialRepository } from "lib/db/repository";
 import { serverFileStorage } from "lib/file-storage";
 import { IS_KERNEL_CONFIGURED } from "lib/kernel/client";
 import { resolveBrowserCredentials } from "lib/kernel/credential-vault";
+import { createSteelBrowserProvider } from "lib/steel/provider";
 import { generateUUID } from "lib/utils";
 import {
   rememberAgentAction,
@@ -1376,15 +1377,21 @@ export async function POST(request: Request) {
         // line. Ordering and reasons live in `lib/chat/browser-tool-gate` so
         // they can be tested; the org policy read only runs when every cheap
         // check passed.
-        // Free fallback: the open-source agent-browser CLI drives a headless
-        // Chrome locally when no Kernel key is set. Kernel wins when both are
-        // available (live view + credential vault + captcha solving).
+        // Provider chain: Kernel (cloud, metered) -> self-hosted Steel (free,
+        // single concurrent session, sidecar code executor) -> the open-source
+        // agent-browser CLI (free, local, one command per step). Kernel wins
+        // when several are available: it is the only one with a live view,
+        // the credential vault's profile persistence and captcha solving.
         const kernelBrowserConfigured = IS_KERNEL_CONFIGURED;
+        const steelProvider = createSteelBrowserProvider();
         const agentBrowserReady = isAgentBrowserConfigured();
         const browserGateInput = {
           planModeActive,
           unattended: isUnattendedRun,
-          providerConfigured: kernelBrowserConfigured || agentBrowserReady,
+          providerConfigured:
+            kernelBrowserConfigured ||
+            steelProvider !== null ||
+            agentBrowserReady,
           toolkitOn: browserToolkitOn,
           taskBrowserEnabled: unattendedContext.browserAutomationEnabled,
         };
@@ -1454,10 +1461,10 @@ export async function POST(request: Request) {
                     },
                   }),
               }
-            : browserToolSuppressedBy === null && agentBrowserReady
+            : browserToolSuppressedBy === null && steelProvider
               ? {
                   [DefaultToolName.BrowserAutomation]:
-                    createAgentBrowserAutomationTool({
+                    createBrowserAutomationTool({
                       model,
                       customerId: customerId ?? undefined,
                       entityId,
@@ -1467,15 +1474,46 @@ export async function POST(request: Request) {
                         ? `${chatModel.provider}/${chatModel.model}`
                         : undefined,
                       unattended: isUnattendedRun,
+                      provider: steelProvider,
+                      credentials: browserCredentials,
                       // Same terminal-frame reader as the Kernel path: a
                       // scheduled run whose page demanded a person is a
                       // recorded failure, not a silent success.
                       onRunBlocked: (block) => {
                         metadata.blocked = block;
                       },
+                      onCredentialUsed: (aliases) => {
+                        if (!activeOrganizationId) return;
+                        void browserCredentialRepository
+                          .touchLastUsed(activeOrganizationId, aliases)
+                          .catch(() => {
+                            // Best-effort bookkeeping; never fail a run.
+                          });
+                      },
                     }),
                 }
-              : {};
+              : browserToolSuppressedBy === null && agentBrowserReady
+                ? {
+                    [DefaultToolName.BrowserAutomation]:
+                      createAgentBrowserAutomationTool({
+                        model,
+                        customerId: customerId ?? undefined,
+                        entityId,
+                        organizationId: activeOrganizationId ?? undefined,
+                        threadId: id,
+                        modelId: chatModel
+                          ? `${chatModel.provider}/${chatModel.model}`
+                          : undefined,
+                        unattended: isUnattendedRun,
+                        // Same terminal-frame reader as the Kernel path: a
+                        // scheduled run whose page demanded a person is a
+                        // recorded failure, not a silent success.
+                        onRunBlocked: (block) => {
+                          metadata.blocked = block;
+                        },
+                      }),
+                  }
+                : {};
 
         const availableTools: Record<string, Tool> = {
           ...MCP_TOOLS,

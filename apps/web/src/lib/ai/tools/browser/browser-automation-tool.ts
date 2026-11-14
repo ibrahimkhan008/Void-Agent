@@ -129,6 +129,25 @@ export const browserAutomationSchema = z.object({
  * see `lib/kernel/playwright-execute-tool` for where they enter, and
  * `lib/kernel/redact-secrets` for where they are scrubbed on the way out.
  */
+/**
+ * A swappable browser runtime. The Kernel cloud browser is the default; the
+ * self-hosted Steel provider (lib/steel) passes its own session lifecycle and
+ * sidecar executor. Everything else — the subagent loop, the credential
+ * placeholder machinery, the blocked signal, redaction — is provider-agnostic.
+ */
+export interface BrowserProvider {
+  createSession: (options?: {
+    stealth?: boolean;
+    profile?: { name: string; saveChanges: boolean };
+  }) => Promise<KernelBrowserSession>;
+  destroySession: (
+    session: Pick<KernelBrowserSession, "sessionId">,
+  ) => Promise<void>;
+  executeRaw: (code: string, timeoutSec?: number) => Promise<unknown>;
+  /** Browser-second billing exists only on the metered Kernel provider. */
+  billBrowserSeconds?: boolean;
+}
+
 export const createBrowserAutomationTool = ({
   model,
   customerId,
@@ -140,6 +159,7 @@ export const createBrowserAutomationTool = ({
   credentials = [],
   onRunBlocked,
   onCredentialUsed,
+  provider,
 }: {
   model: LanguageModel;
   customerId?: string;
@@ -157,6 +177,8 @@ export const createBrowserAutomationTool = ({
    */
   onRunBlocked?: (block: { source: string; reason: string }) => void;
   onCredentialUsed?: (aliases: string[]) => void;
+  /** Omit for the default Kernel cloud browser. */
+  provider?: BrowserProvider;
 }) => {
   if (!isBrowserEgressIsolationEnabled()) {
     throw new Error(BROWSER_EGRESS_ISOLATION_REQUIRED_MESSAGE);
@@ -217,13 +239,14 @@ wall, so report what it says instead of retrying.`,
         );
 
       try {
-        session = await createBrowserSession({
+        session = await (provider?.createSession ?? createBrowserSession)({
           // On for every run, not just unattended ones. Kernel charges nothing
           // for it, and the CAPTCHA solver it brings is worth most on the
           // portals this tool exists for — a watched run still cannot solve a
           // Cloudvoid-agent challenge by itself. Egress is chosen separately (and
           // defaults to direct) so this does not route us into Kernel's
           // managed proxy pool, which blocks government and banking domains.
+          // Providers without stealth/captcha (Steel) ignore it.
           stealth: true,
           ...(profile ? { profile: { name: profile.name, saveChanges } } : {}),
         });
@@ -264,6 +287,12 @@ wall, so report what it says instead of retrying.`,
               sessionId,
               credentials,
               onCredentialUsed,
+              ...(provider
+                ? {
+                    executeRaw: (code: string, timeoutSec?: number) =>
+                      provider.executeRaw(code, timeoutSec),
+                  }
+                : {}),
             }),
             [BLOCKED_TOOL_NAME]: createTool({
               description:
@@ -361,15 +390,17 @@ wall, so report what it says instead of retrying.`,
         // Every path deletes the browser now that nothing parks: it frees the
         // concurrency slot immediately, and it is also what makes Kernel commit
         // a profile's cookies, which it does only on delete or timeout.
-        await destroyBrowserSession(session);
-        await trackBrowserRun({
-          customerId,
-          entityId,
-          session,
-          seconds,
-          threadId,
-          runId: toolCallId,
-        });
+        await (provider?.destroySession ?? destroyBrowserSession)(session);
+        if (provider ? provider.billBrowserSeconds === true : true) {
+          await trackBrowserRun({
+            customerId,
+            entityId,
+            session,
+            seconds,
+            threadId,
+            runId: toolCallId,
+          });
+        }
       }
     },
     toModelOutput: ({ output }) => ({
