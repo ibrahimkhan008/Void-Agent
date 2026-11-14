@@ -227,6 +227,7 @@ You may not use Void Agent to generate, distribute, or facilitate:
 ### 9.2 Deception & Fraud
 You may not use Void Agent to:
 - Create deepfakes, synthetic media, or impersonations intended to deceive or defraud
+- Create non-consensual intimate imagery (NCII) of any real person, or synthetic media depicting a real person's likeness without their consent
 - Generate phishing content, scam messages, or fraudulent communications
 - Impersonate any person, company, or entity — including Void Agent staff or support
 - Spread deliberate misinformation or disinformation at scale
