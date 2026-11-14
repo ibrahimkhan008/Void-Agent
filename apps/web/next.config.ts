@@ -50,6 +50,14 @@ const getConfig = () => {
   const nextConfig: NextConfig = {
     poweredByHeader: false,
     output: BUILD_OUTPUT,
+    // The changelog hub's one true URL is /index. /updates existed only for
+    // the abandoned Vercel workaround (Vercel's platform intercepted /index
+    // before any page code ran); it was reverted when the Vercel footprint
+    // was removed. Keep this redirect so the old name still lands on the
+    // page instead of bouncing anonymous visitors to sign-in.
+    async redirects() {
+      return [{ source: "/updates", destination: "/index", permanent: true }];
+    },
     // Workspace packages ship TypeScript source; Next must transpile them.
     transpilePackages: [
       "@keinsaas/mcp-types",
