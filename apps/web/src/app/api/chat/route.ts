@@ -1488,7 +1488,11 @@ export async function POST(request: Request) {
                         ? `${chatModel.provider}/${chatModel.model}`
                         : undefined,
                       unattended: isUnattendedRun,
-                      provider: steelProvider,
+                      // steelProvider is `BrowserProvider | null` (null =
+                      // unconfigured); the tool's prop is optional/undefined-
+                      // able, so fold null into "no provider" (default
+                      // behavior) instead of failing the build's type check.
+                      provider: steelProvider ?? undefined,
                       credentials: browserCredentials,
                       // Same terminal-frame reader as the Kernel path: a
                       // scheduled run whose page demanded a person is a
