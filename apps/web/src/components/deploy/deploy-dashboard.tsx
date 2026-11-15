@@ -118,7 +118,10 @@ export function DeployDashboard({
         body: JSON.stringify({ slug: page.slug, badgeVisible: next }),
       });
       if (!res.ok) throw new Error();
-      const apply = (row: { slug: string; version: number }) =>
+      // Generic: preserves the FULL row type in both setState branches (a
+      // `{ slug; version }` param would strip every other field off the
+      // unchanged rows and fail the DeployPageRow/DeployHistoryRow updates).
+      const apply = <T extends { slug: string; version: number }>(row: T) =>
         row.slug === page.slug ? { ...row, badgeVisible: next } : row;
       setPages((prev) => prev.map(apply));
       setHistory((prev) => prev.map(apply));

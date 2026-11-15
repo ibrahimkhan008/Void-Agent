@@ -1,5 +1,4 @@
 import { createHookRun } from "@/lib/db/pg/repositories/hook-repository.pg";
-import { inngest } from "@/lib/inngest/client";
 
 /**
  * Void Hooks dispatch (master prompt §3.5): idempotently creates the hook_run

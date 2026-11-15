@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // No server-only in this module's graph BY DESIGN (see the file comment) —
 // the webhook-outbox test imports it statically and must be able to mock it

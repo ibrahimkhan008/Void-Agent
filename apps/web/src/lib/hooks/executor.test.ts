@@ -56,7 +56,8 @@ vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
   finishHookRun: (...args: unknown[]) => finishHookRun(...args),
   countHookRunsToday: (...args: unknown[]) => countHookRunsToday(...args),
   lastHookRunAt: (...args: unknown[]) => lastHookRunAt(...args),
-  parseHookConfig: (...args: unknown[]) => parseHookConfig(...args),
+  parseHookConfig: (...args: Parameters<typeof parseHookConfig>) =>
+    parseHookConfig(...args),
 }));
 
 const executeAgentRun = vi.fn();

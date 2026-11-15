@@ -74,7 +74,10 @@ export async function createBrowserSession(options?: {
     // Always sent explicitly. Omitting it is not a neutral default: a stealth
     // browser with no proxy config silently takes Kernel's managed pool, which
     // blocks the government and banking domains this feature exists to reach.
-    proxy: { mode: proxyMode },
+    // "managed" is a live-API value the SDK's BrowserProxyMode union (0.97.0)
+    // hasn't picked up yet ("direct" | "default") — the runtime value is
+    // forwarded verbatim; only the SDK's type is bridged here.
+    proxy: { mode: proxyMode as unknown as KernelProxyMode },
     ...(options?.stealth ? { stealth: true } : {}),
     ...(options?.profile
       ? {

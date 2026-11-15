@@ -3,7 +3,6 @@ import { pgDb } from "@/lib/db/pg/db.pg";
 import {
   type HookRunRow,
   countHookRunsToday,
-  createHookRun,
   finishHookRun,
   getHookRunById,
   lastHookRunAt,
@@ -44,6 +43,16 @@ const MAX_PROMPT_CHARS = 24_000;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+/**
+ * The payload of a `WebhookEventOutboxTable` row (stored as jsonb — see the
+ * schema's `Record<string, unknown>`). The inbound ingest path writes its
+ * normalized view under `normalized`; hooks read from there.
+ */
+export interface InboundOutboxPayload {
+  normalized?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
