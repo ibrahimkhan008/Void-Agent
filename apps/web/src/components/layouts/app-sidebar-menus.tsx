@@ -1,32 +1,23 @@
 "use client";
-import { SidebarMenuAction, SidebarMenuButton, useSidebar } from "ui/sidebar";
-import { SidebarMenu, SidebarMenuItem } from "ui/sidebar";
-import { SidebarGroupContent } from "ui/sidebar";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "ui/sidebar";
 import { Tooltip } from "ui/tooltip";
 
 import { useStartNewChat } from "@/hooks/use-start-new-chat";
-import { requireCredits } from "@/lib/billing/require-credits";
 import { BasicUser } from "app-types/user";
 import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
 import { getIsUserAdmin } from "lib/user/utils";
-import {
-  Brain,
-  FolderSearchIcon,
-  Globe,
-  Library,
-  PanelsTopLeft,
-  PlusIcon,
-  Rocket,
-  Waypoints,
-} from "lucide-react";
+import { BookOpen, CalendarClock, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { MCPIcon } from "ui/mcp-icon";
-import { SidebarGroup } from "ui/sidebar";
 import { WriteIcon } from "ui/write-icon";
-import { ProjectDialog } from "../projects/project-dialog";
 import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 
 /**
@@ -39,13 +30,7 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
   const startNewChat = useStartNewChat();
   const t = useTranslations("");
   const { setOpenMobile } = useSidebar();
-  const [addProjectDialogOpen, setAddProjectDialogOpen] = useState(false);
   const pathname = usePathname();
-
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname?.startsWith(href + "/");
-  };
 
   return (
     <SidebarGroup>
@@ -78,153 +63,49 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
               </Link>
             </SidebarMenuItem>
           </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/mcp">
-                <SidebarMenuButton
-                  isActive={isActive("/mcp")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <MCPIcon className="size-4 fill-accent-foreground" />
-                  {t("Layout.mcpConfiguration")}
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/workflow">
-                <SidebarMenuButton
-                  isActive={isActive("/workflow")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <Waypoints className="size-4" />
-                  {t("Layout.workflow")}
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/ecanvas" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton
-                  isActive={isActive("/ecanvas")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <PanelsTopLeft className="size-4" />
-                  Canvas
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/knowledge" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton
-                  isActive={isActive("/knowledge")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <Library className="size-4" />
-                  Collections
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/build" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton
-                  isActive={isActive("/build")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <Rocket className="size-4" />
-                  App Builder
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/deploy" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton
-                  isActive={isActive("/deploy")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <Globe className="size-4" />
-                  Void Deploy
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
-              <Link href="/memory" onClick={() => setOpenMobile(false)}>
-                <SidebarMenuButton
-                  isActive={isActive("/memory")}
-                  className="font-medium hover:bg-black/[0.05] data-[active=true]:bg-white data-[active=true]:shadow-[var(--shadow-chip)] data-[active=true]:ring-1 data-[active=true]:ring-black/10"
-                >
-                  <Brain className="size-4" />
-                  Void Memory
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          </Tooltip>
-        </SidebarMenu>
-        <SidebarMenu>
-          <Tooltip>
-            <SidebarMenuItem>
+          <SidebarMenuItem className="mb-1">
+            <Link href="/library" onClick={() => setOpenMobile(false)}>
               <SidebarMenuButton
-                className="font-medium hover:bg-black/[0.05]"
-                onClick={() => {
-                  if (!requireCredits()) return;
-                  setAddProjectDialogOpen(true);
-                }}
+                isActive={pathname === "/library"}
+                className="font-semibold"
+                tooltip="Library"
               >
-                <PlusIcon className="size-4" />
-                Projects
+                <BookOpen className="size-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Library
+                </span>
               </SidebarMenuButton>
-              <SidebarMenuAction
-                className="top-1.5"
-                showOnHover
-                onClick={() => {
-                  if (!requireCredits()) return;
-                  setAddProjectDialogOpen(true);
-                }}
+            </Link>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="mb-1">
+            <Link href="/customize" onClick={() => setOpenMobile(false)}>
+              <SidebarMenuButton
+                isActive={pathname === "/customize"}
+                className="font-semibold"
+                tooltip="Customize"
               >
-                <FolderSearchIcon className="size-4" />
-              </SidebarMenuAction>
-            </SidebarMenuItem>
-          </Tooltip>
+                <SlidersHorizontal className="size-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Customize
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="mb-1">
+            <Link href="/schedules" onClick={() => setOpenMobile(false)}>
+              <SidebarMenuButton
+                isActive={pathname === "/schedules"}
+                className="font-semibold"
+                tooltip="Schedules"
+              >
+                <CalendarClock className="size-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Schedules
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
         </SidebarMenu>
-        <ProjectDialog
-          open={addProjectDialogOpen}
-          onOpenChange={setAddProjectDialogOpen}
-        >
-          <SidebarMenuButton
-            className="font-medium hover:bg-black/[0.05]"
-            onClick={() => {
-              if (!requireCredits()) return;
-              setAddProjectDialogOpen(true);
-            }}
-          >
-            <PlusIcon className="size-4" />
-            Projects
-          </SidebarMenuButton>
-        </ProjectDialog>
         {user && getIsUserAdmin({ role: user.role }) && <AppSidebarAdmin />}
       </SidebarGroupContent>
     </SidebarGroup>

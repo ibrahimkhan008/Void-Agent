@@ -9,6 +9,8 @@ vi.mock("next/image", () => ({
   default: ({ alt }: { alt: string }) => <img alt={alt} />,
 }));
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+
 const startNewChat = vi.fn();
 vi.mock("@/hooks/use-start-new-chat", () => ({
   useStartNewChat: () => startNewChat,
@@ -88,6 +90,16 @@ describe("SidebarCollapsedRail", () => {
     const { getByTestId } = renderRail(false);
     fireEvent.click(getByTestId("sidebar-rail-new-chat"));
     expect(startNewChat).toHaveBeenCalledOnce();
+  });
+
+  it("shows Library and Customize icon links when collapsed", () => {
+    const { getByTestId } = renderRail(false);
+    expect(getByTestId("sidebar-rail-library").getAttribute("href")).toBe(
+      "/library",
+    );
+    expect(getByTestId("sidebar-rail-customize").getAttribute("href")).toBe(
+      "/customize",
+    );
   });
 
   it("shows the profile avatar at the bottom when collapsed", () => {

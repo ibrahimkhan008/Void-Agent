@@ -1,5 +1,11 @@
 "use client";
-import { PanelLeft, PlusIcon } from "lucide-react";
+import {
+  BookOpen,
+  CalendarClock,
+  PanelLeft,
+  PlusIcon,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
@@ -12,6 +18,8 @@ import {
   getShortcutKeyList,
 } from "lib/keyboard-shortcuts";
 import { cn } from "lib/utils";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSidebar } from "ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 
@@ -47,6 +55,7 @@ export function SidebarCollapsedRail({ user }: { user?: BasicUser }) {
   const startNewChat = useStartNewChat();
   const t = useTranslations("Layout");
   const tk = useTranslations("KeyboardShortcuts");
+  const pathname = usePathname();
 
   return (
     <div
@@ -113,6 +122,69 @@ export function SidebarCollapsedRail({ user }: { user?: BasicUser }) {
               {t("newChat")}
               <RailTooltipKeys shortcut={Shortcuts.openNewChat} />
             </div>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/schedules"
+              aria-label="Schedules"
+              data-testid="sidebar-rail-schedules"
+              aria-current={pathname === "/schedules" ? "page" : undefined}
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-md transition-colors",
+                pathname === "/schedules"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <CalendarClock className="size-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center">
+            Schedules
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/library"
+              aria-label="Library"
+              data-testid="sidebar-rail-library"
+              aria-current={pathname === "/library" ? "page" : undefined}
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-md transition-colors",
+                pathname === "/library"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <BookOpen className="size-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center">
+            Library
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/customize"
+              aria-label="Customize"
+              data-testid="sidebar-rail-customize"
+              aria-current={pathname === "/customize" ? "page" : undefined}
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-md transition-colors",
+                pathname === "/customize"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+            >
+              <SlidersHorizontal className="size-4" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center">
+            Customize
           </TooltipContent>
         </Tooltip>
         {/* Profile at the bottom, ChatGPT-style: the avatar opens the same
