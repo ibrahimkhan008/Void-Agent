@@ -177,7 +177,7 @@ export function AgentsList({
       </div>
 
       {/* My Agents Section */}
-      {canCreate && (
+      {(canCreate || myAgents.length > 0) && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">{t("Agent.myAgents")}</h2>
@@ -244,11 +244,9 @@ export function AgentsList({
       )}
 
       {/* Shared/Available Agents Section */}
-      <div className="flex flex-col gap-4 mt-8">
+      <div className="mt-8 flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">
-            {canCreate ? t("Agent.sharedAgents") : t("Agent.availableAgents")}
-          </h2>
+          <h2 className="text-lg font-semibold">{t("Agent.sharedAgents")}</h2>
           <div className="flex-1 h-px bg-border" />
         </div>
 
