@@ -5,12 +5,9 @@ const { memoryRepositoryMock } = vi.hoisted(() => ({
 vi.mock("lib/db/repository", () => ({
   memoryRepository: memoryRepositoryMock,
 }));
-import { getNavigatorToolSpec } from "lib/navigator-tools/definitions";
 import { getVoiceAppToolDefinitions } from "lib/voice/app-tool-definitions";
 import {
   COMPOSIO_FALLBACK_SYSTEM_PROMPT,
-  buildCockpitGreetingPrompt,
-  buildCockpitOversightPrompt,
   buildHitlSystemPrompt,
   buildMemoryPromptSection,
   buildSpeechSystemPrompt,
@@ -196,7 +193,6 @@ describe("voice app-control prompt", () => {
     }
     // Hidden from voice, so never described to it.
     expect(text).not.toContain("- update_agent");
-    expect(text).not.toContain("- cockpit_list_updates");
     // The pre-registry camelCase names are gone for good.
     expect(text).not.toMatch(/\b(askAgent|sendChatMessage|listAgents)\b/);
   });
@@ -204,43 +200,6 @@ describe("voice app-control prompt", () => {
   it("only describes the browser tools when the session has them", () => {
     expect(prompt(false)).not.toContain("browseWeb");
     expect(prompt(true)).toContain("- browseWeb (confirm first)");
-  });
-});
-
-describe("cockpit oversight prompt", () => {
-  it("matches the snapshot", () => {
-    expect(buildCockpitOversightPrompt()).toMatchSnapshot();
-  });
-
-  it("names only tools the registry actually has", () => {
-    const names = buildCockpitOversightPrompt().match(
-      /(?<![</])\bcockpit_[a-z_]+/g,
-    );
-    expect(names?.length).toBeGreaterThan(0);
-    for (const name of names ?? []) {
-      expect(getNavigatorToolSpec(name)).toBeDefined();
-    }
-  });
-});
-
-describe("cockpit greeting", () => {
-  it("greets by first name", () => {
-    expect(buildCockpitGreetingPrompt({ name: "Paul Klein" })).toContain(
-      'Say exactly "Hi Paul Sir."',
-    );
-  });
-
-  it("prefers the display name the user chose", () => {
-    expect(
-      buildCockpitGreetingPrompt({ name: "Paul Klein" }, { displayName: "PK" }),
-    ).toContain('"Hi PK Sir."');
-  });
-
-  it("still greets without a name, and keeps quotes out of the line", () => {
-    expect(buildCockpitGreetingPrompt({ name: "  " })).toContain('"Hi Sir."');
-    expect(buildCockpitGreetingPrompt({ name: 'Paul"' })).toContain(
-      '"Hi Paul Sir."',
-    );
   });
 });
 

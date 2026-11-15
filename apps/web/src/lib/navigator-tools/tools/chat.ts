@@ -36,14 +36,8 @@ const CHAT_FALLBACK_REPLY =
   "Die Nachricht ist gespeichert, aber die Antwort konnte gerade nicht erzeugt werden. Bitte im Chat nachsehen.";
 
 /** Where the turns these tools write came from, for the chat UI and audits. */
-function messageSource(
-  actor: ToolActor,
-): "voice_realtime" | "navigator_mcp" | "navigator_cockpit" {
-  return actor.source === "voice"
-    ? "voice_realtime"
-    : actor.source === "mcp"
-      ? "navigator_mcp"
-      : "navigator_cockpit";
+function messageSource(actor: ToolActor): "voice_realtime" | "navigator_mcp" {
+  return actor.source === "voice" ? "voice_realtime" : "navigator_mcp";
 }
 
 async function persistAssistantTurn(

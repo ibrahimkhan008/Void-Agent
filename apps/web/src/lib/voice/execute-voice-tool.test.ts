@@ -122,7 +122,7 @@ describe("executeVoiceTool", () => {
    * never offered to the session: either name arriving here is refused, never
    * executed and never sent down the MCP path.
    */
-  it.each(["activateAgent", "update_agent", "cockpit_list_updates"])(
+  it.each(["activateAgent", "update_agent"])(
     "refuses %s on the server",
     async (toolName) => {
       const result = await executeVoiceTool({

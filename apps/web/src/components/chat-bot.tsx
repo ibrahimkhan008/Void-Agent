@@ -26,7 +26,10 @@ import { ChatMessageList } from "./chat-message-list";
 import { ErrorMessage } from "./message";
 import PromptInput from "./prompt-input";
 import { ScrollToBottomButton } from "./scroll-to-bottom-button";
-import { WorkspaceModeToggle } from "./workspace-mode-toggle";
+import {
+  WorkspaceModeToggle,
+  isWorkspaceLandingPath,
+} from "./workspace-mode-toggle";
 
 import { useShallow } from "zustand/shallow";
 
@@ -1143,8 +1146,9 @@ function ChatBotInner({
   setIsDeleteThreadPopupOpen: (v: boolean) => void;
 }) {
   const { isOpen: isPanelOpen } = useArtifactPanel();
-  // The Work | Cockpit toggle belongs to the home screen's empty chat only.
-  const isHomeScreen = usePathname() === "/";
+  // Workspace navigation appears on both empty workspace landing pages.
+  const pathname = usePathname();
+  const isWorkspaceLanding = isWorkspaceLandingPath(pathname);
 
   const composerRef = useRef<HTMLDivElement>(null);
   // Size the trailing filler to the room actually left below the newest prompt.
@@ -1422,17 +1426,15 @@ function ChatBotInner({
               "w-full z-10",
             )}
           >
-            {/* Shared composer column: the Work | Cockpit switch (home screen
-                only) sits directly above the input in the same centered
-                container, 12px above the card — an integrated part of the
-                composer area, never positioned independently. */}
+            {/* The Chat label sits directly above the input in the same
+                centered container as the composer. */}
             <div
               className={cn(
                 "flex flex-col items-center",
                 embedded ? "w-full" : "mx-auto w-full max-w-3xl",
               )}
             >
-              {emptyMessage && isHomeScreen && !embedded && (
+              {emptyMessage && isWorkspaceLanding && !embedded && (
                 <div className="mb-3 flex w-full justify-end pr-[17px]">
                   <WorkspaceModeToggle />
                 </div>

@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import { middleware } from "./middleware";
 
 describe("middleware cookie redirect", () => {
+  it("lets signed-in admins reach the admin dashboard", async () => {
+    const response = await middleware(
+      new NextRequest("http://localhost/admin", {
+        headers: { cookie: "better-auth.session_token=valid" },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("lets the Navigator MCP endpoint answer for itself without a cookie", async () => {
     const response = await middleware(
       new NextRequest("http://localhost/api/navigator-mcp", { method: "POST" }),
@@ -13,7 +23,7 @@ describe("middleware cookie redirect", () => {
 
   it("still redirects other API routes without a cookie", async () => {
     const response = await middleware(
-      new NextRequest("http://localhost/api/cockpit/api-keys"),
+      new NextRequest("http://localhost/api/admin/api-keys"),
     );
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/sign-in");

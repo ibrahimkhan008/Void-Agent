@@ -6,15 +6,15 @@ import { useVoiceToolMentions } from "@/hooks/use-voice-tool-mentions";
 import { TextPart, getToolName, isToolUIPart } from "ai";
 import { DEFAULT_VOICE_TOOLS, UIMessageWithCompleted } from "lib/ai/speech";
 import { useOpenAIVoiceChat as OpenAIVoiceChat } from "lib/ai/speech/open-ai/use-voice-chat.openai";
+import { cn, groupBy } from "lib/utils";
 import { getVoiceAppToolDefinitions } from "lib/voice/app-tool-definitions";
 import { useMirrorVoiceLiveStatus } from "lib/voice/voice-live-status";
-import { cn, groupBy } from "lib/utils";
 import {
   ChevronRight,
   Loader,
   MessageSquareMoreIcon,
-  MessagesSquareIcon,
   MessageSquareTextIcon,
+  MessagesSquareIcon,
   MicIcon,
   MicOffIcon,
   PhoneIcon,
@@ -39,9 +39,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { useShallow } from "zustand/shallow";
 import { EnabledTools, EnabledToolsDropdown } from "./enabled-tools-dropdown";
 import { ToolMessagePart } from "./message-parts";
+import { VoiceDeviceSettingsDialog } from "./voice-device-settings-dialog";
 import { VoiceBrowserPreview } from "./voice/voice-browser-preview";
 import { VoiceSettingsPopover } from "./voice/voice-settings-popover";
-import { VoiceDeviceSettingsDialog } from "./voice-device-settings-dialog";
 
 /**
  * The always-present tool groups, for the read-only tools dropdown.
@@ -131,11 +131,9 @@ export function VoiceChatSession() {
     toolMentions,
     agentId,
     ...voiceChat.options.providerOptions,
-    context: voiceChat.context,
   });
 
-  // Mirror the session state for controls outside the drawer (the cockpit's
-  // COM 1 pushbutton); the drawer unmounts on close, which resets it.
+  // Mirror realtime voice state for other voice controls.
   useMirrorVoiceLiveStatus({ isLoading, isActive, isUserSpeaking });
 
   const startWithSound = useCallback(() => {
@@ -155,9 +153,6 @@ export function VoiceChatSession() {
       voiceChat: {
         ...voiceChat,
         isOpen: false,
-        // The opener sets it again; a stale "cockpit" must not follow the
-        // user into the next voice chat opened from somewhere else.
-        context: undefined,
       },
     });
   }, [appStoreMutate, stop, voiceChat]);

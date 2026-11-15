@@ -179,13 +179,7 @@ vi.mock("lib/scheduled-tasks/trigger", () => ({
   triggerScheduledTaskForUser: vi.fn(),
 }));
 
-vi.mock("lib/notifications/create-notifications", () => ({
-  createNotifications: vi.fn(),
-}));
-
-// The real feeds read encrypted connections and call providers; the tools
-// only fold their result, so the feed loader is stubbed.
-vi.mock("lib/cockpit/feeds", () => ({ getCockpitData: vi.fn() }));
+vi.mock("lib/notifications/create-notifications", () => ({}));
 
 const { agentRepository, chatRepository, skillRepository } = await import(
   "lib/db/repository"
@@ -203,9 +197,6 @@ const { generateText } = await import("ai");
 const { buildVoiceAgentContext } = await import("lib/voice/voice-session");
 const { assertCreditsAvailable, CreditsExhaustedError, trackUsage } =
   await import("lib/gate");
-const { createNotifications } = await import(
-  "lib/notifications/create-notifications"
-);
 const { triggerScheduledTaskForUser } = await import(
   "lib/scheduled-tasks/trigger"
 );
@@ -213,7 +204,6 @@ const { workflowRepository } = await import("lib/db/repository");
 const { createWorkflowExecutor } = await import(
   "lib/ai/workflow/executor/workflow-executor"
 );
-const { getCockpitData } = await import("lib/cockpit/feeds");
 const { runTool } = await import("../registry");
 
 const actor = {
@@ -755,139 +745,6 @@ describe("run_scheduled_task", () => {
       "44444444-4444-4444-8444-444444444444",
     );
     expect(!result.ok && result.error.code).toBe("not_found");
-  });
-});
-
-describe("cockpit", () => {
-  const inop = (reason: string) => ({ status: "inop" as const, reason });
-  const allInop = {
-    marketing: inop("notConnected"),
-    products: inop("notConnected"),
-    stripe: inop("notConnected"),
-    revolut: inop("notConnected"),
-    superlog: inop("notConnected"),
-    seo: inop("notConnected"),
-    connections: [],
-    generatedAt: "2026-10-07T10:00:00.000Z",
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(getCockpitData).mockResolvedValue(allInop as never);
-  });
-
-  it("reports every feed as INOP with its reason until feeds are connected", async () => {
-    const result = await runTool(actor, "cockpit_summary", {});
-    const output = (result as { output: Record<string, unknown> }).output;
-    for (const key of ["finance", "marketing", "productHealth", "seo"]) {
-      expect(output[key]).toEqual({ status: "inop", reason: "Not connected" });
-    }
-    expect(output.attention).toEqual([]);
-    expect(output.note).toMatch(/do not estimate/);
-  });
-
-  it("reads the feeds for the actor's own scope", async () => {
-    await runTool(actor, "cockpit_finance", {});
-    expect(getCockpitData).toHaveBeenCalledWith({
-      userId: "user-1",
-      organizationId: "org-1",
-    });
-  });
-
-  it("folds live Stripe data into the finance feed and flags failed payments", async () => {
-    vi.mocked(getCockpitData).mockResolvedValue({
-      ...allInop,
-      stripe: {
-        status: "live",
-        updatedAt: "2026-10-07T10:00:00.000Z",
-        data: {
-          currency: "eur",
-          balanceAvailable: 123_456,
-          balancePending: 0,
-          mrr: 1_200_000,
-          activeSubscriptions: 40,
-          payments30d: { count: 52, volume: 1_300_000 },
-          failed7d: Array.from({ length: 12 }, (_, i) => ({
-            id: `ch_${i}`,
-            amount: 4_900,
-            currency: "eur",
-            created: "2026-10-06T10:00:00.000Z",
-            description: null,
-          })),
-          nextPayout: null,
-        },
-      },
-      revolut: inop("reauthorize"),
-    } as never);
-
-    const finance = (
-      (await runTool(actor, "cockpit_finance", {})) as {
-        output: { finance: Record<string, any> };
-      }
-    ).output.finance;
-    expect(finance.status).toBe("live");
-    expect(finance.data).toMatchObject({
-      currency: "EUR",
-      mrr: 12_000,
-      cash: 1_235,
-      activeSubscriptions: 40,
-      sources: {
-        stripe: "live",
-        revolut: "Authorization expired: reauthorize in CONNECT",
-      },
-    });
-    expect(finance.data.failedPayments7d.count).toBe(12);
-    expect(finance.data.failedPayments7d.latest).toHaveLength(5);
-
-    const summary = (
-      (await runTool(actor, "cockpit_summary", {})) as {
-        output: Record<string, any>;
-      }
-    ).output;
-    expect(summary.attention).toEqual([
-      "12 failed payment(s) in the last 7 days",
-    ]);
-    // The summary keeps the headline count only, not the list.
-    expect(summary.finance.data.failedPayments7d).toEqual({ count: 12 });
-    expect(summary.note).toBeUndefined();
-  });
-
-  it("posts an update for the actor only, with severity on the type", async () => {
-    vi.mocked(createNotifications).mockResolvedValue({
-      inserted: [{ id: "n1", userId: "user-1" }],
-    });
-
-    const result = await runTool(actor, "cockpit_push_update", {
-      title: "Deploy failed",
-      severity: "alert",
-      url: "/projects/p1",
-    });
-
-    expect(createNotifications).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userIds: ["user-1"],
-        type: "cockpit_update.alert",
-        title: "Deploy failed",
-        url: "/projects/p1",
-        dedupeKey: expect.stringMatching(/^cockpit:[0-9a-f]{24}:\d+$/),
-      }),
-    );
-    expect((result as { output: unknown }).output).toEqual({
-      posted: true,
-      id: "n1",
-      severity: "alert",
-    });
-  });
-
-  it("refuses a link that is not an in-app path or https", async () => {
-    for (const url of ["javascript:alert(1)", "//evil.example", "http://x.y"]) {
-      const result = await runTool(actor, "cockpit_push_update", {
-        title: "Hi",
-        url,
-      });
-      expect(!result.ok && result.error.code).toBe("invalid_arguments");
-    }
-    expect(createNotifications).not.toHaveBeenCalled();
   });
 });
 

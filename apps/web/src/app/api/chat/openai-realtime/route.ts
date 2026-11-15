@@ -73,15 +73,11 @@ export const POST = withAuth(async (request, session) => {
       sessionOnly?: boolean;
       agentId?: string;
       mentions?: ChatMention[];
-      /** Where the voice drawer was opened from; see VoiceSessionContext. */
-      context?: unknown;
       /** The voice preset's default answer language; see VoiceLanguage. */
       language?: unknown;
     };
 
     const { agentId, mentions } = resolveVoiceRequestContext(request, body);
-    // A closed set: anything else is ignored rather than trusted.
-    const sessionContext = body.context === "cockpit" ? "cockpit" : undefined;
     const language = parseVoiceLanguage(body.language);
 
     const organizationId =
@@ -123,7 +119,6 @@ export const POST = withAuth(async (request, session) => {
       // connected, so the whole integration surface costs about what one app
       // tool does in a session config that is re-sent every turn.
       includeComposio: true,
-      context: sessionContext,
       language,
     });
 
@@ -146,8 +141,6 @@ export const POST = withAuth(async (request, session) => {
     if (body.sessionOnly) {
       return Response.json({
         instructions: context.systemPrompt,
-        // Only the prepare call: the transport's own token call is discarded.
-        greeting: context.greeting,
         tools: toolSetup.tools,
         toolStatus: toolSetup.toolStatus,
         toolExecutionMap: toolSetup.toolExecutionMap,

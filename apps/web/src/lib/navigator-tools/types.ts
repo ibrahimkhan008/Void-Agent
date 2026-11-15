@@ -11,7 +11,7 @@ import type { z } from "zod";
 export type ToolActor = {
   userId: string;
   organizationId: string | null;
-  source: "voice" | "mcp" | "cockpit";
+  source: "voice" | "mcp";
 };
 
 export type NavigatorToolGroup =
@@ -20,8 +20,7 @@ export type NavigatorToolGroup =
   | "projects"
   | "workflows"
   | "scheduled"
-  | "skills"
-  | "cockpit";
+  | "skills";
 
 /**
  * The client-safe half of a tool: everything except `run`.

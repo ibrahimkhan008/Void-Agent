@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { listNavigatorToolSpecs } from "lib/navigator-tools/definitions";
+import { describe, expect, it } from "vitest";
 import {
   BROWSER_VOICE_APP_TOOL_DEFINITIONS,
   VOICE_APP_TOOL_DEFINITIONS,
@@ -77,11 +77,7 @@ describe("voice app tool definitions", () => {
    */
   it("keeps voice-hidden registry tools off the list but recognises them", () => {
     const names = VOICE_APP_TOOL_NAMES;
-    for (const hidden of [
-      "update_agent",
-      "create_workflow",
-      "cockpit_list_updates",
-    ]) {
+    for (const hidden of ["update_agent", "create_workflow"]) {
       expect(names).not.toContain(hidden);
       expect(isVoiceAppToolName(hidden)).toBe(true);
     }

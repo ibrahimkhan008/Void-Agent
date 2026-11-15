@@ -1,18 +1,18 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { AgentSummary } from "app-types/agent";
 import { ChatMention, ChatModel, ChatThread } from "app-types/chat";
 import { AllowedMCPServer, MCPServerInfo } from "app-types/mcp";
-import { DEFAULT_OPENAI_VOICE } from "lib/ai/speech/open-ai/voice-constants";
+import { SkillSummary } from "app-types/skill";
 import { WorkflowSummary } from "app-types/workflow";
+import { DEFAULT_OPENAI_VOICE } from "lib/ai/speech/open-ai/voice-constants";
 import { AppDefaultToolkit } from "lib/ai/tools";
 import { filterDeferredAppToolkits } from "lib/ai/tools/resolve-allowed-toolkits";
+import type { UsageLimitStatus } from "lib/gate/types";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   APP_STORE_PERSIST_VERSION,
   migratePersistedAppState,
 } from "./persist-migrate";
-import { AgentSummary } from "app-types/agent";
-import { SkillSummary } from "app-types/skill";
-import type { UsageLimitStatus } from "lib/gate/types";
 
 export interface UploadedFile {
   id: string;
@@ -102,12 +102,6 @@ export interface AppState {
   voiceChat: {
     isOpen: boolean;
     agentId?: string;
-    /**
-     * Where the session was opened from, for its instructions ("cockpit" adds
-     * the oversight prompt and shows the floating orb instead of the drawer).
-     * Never persisted.
-     */
-    context?: "cockpit";
     options: {
       provider: string;
       providerOptions?: Record<string, any>;
@@ -219,7 +213,6 @@ export const appStore = create<AppState & AppDispatch>()(
           ...initialState.voiceChat,
           ...state.voiceChat,
           isOpen: false,
-          context: undefined,
         },
       }),
     },

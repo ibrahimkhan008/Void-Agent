@@ -8,7 +8,7 @@ import {
 } from "node:crypto";
 
 /**
- * AES-256-GCM sealing for credentials stored at rest (cockpit connections).
+ * AES-256-GCM sealing for credentials in legacy Cockpit connection records.
  *
  * Format: base64(iv[12] | tag[16] | ciphertext). The key is `APP_SECRETS_KEY`,
  * 32 bytes encoded as base64 (`openssl rand -base64 32`).
@@ -57,7 +57,7 @@ function resolveKey(): Buffer {
   if (!warned) {
     warned = true;
     console.warn(
-      "[secret-box] APP_SECRETS_KEY not set; using the development key. Cockpit connections are not protected at rest.",
+      "[secret-box] APP_SECRETS_KEY not set; using the development key. Legacy Cockpit connection records are not protected at rest.",
     );
   }
   return DEV_KEY;

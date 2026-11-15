@@ -16,8 +16,7 @@ import { createMcpHandler, getPublicOrigin, withMcpAuth } from "mcp-handler";
  * Two credentials are accepted:
  * - `Authorization: Bearer <Navigator API key>` (Claude Desktop, Cursor, …).
  *   The key's organization is re-checked against membership on every request.
- * - The session cookie, same-origin only, for in-app callers such as the
- *   cockpit's "test connection" button.
+ * - The session cookie, same-origin only, for in-app callers.
  *
  * The cookie redirect in `middleware.ts` skips this path; the missing-
  * credential case is answered here with a 401 challenge.
@@ -121,7 +120,7 @@ async function verifyRequest(request: Request): Promise<Verified> {
       const actor: ToolActor = {
         userId: session.user.id,
         organizationId,
-        source: "cockpit",
+        source: "mcp",
       };
       outcome = {
         authInfo: {

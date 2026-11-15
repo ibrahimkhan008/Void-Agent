@@ -109,7 +109,6 @@ describe("buildOpenAIRealtimeToolSetup", () => {
         "send_chat_message",
         "add_project_member",
         "load_skill",
-        "cockpit_summary",
       ]),
     );
     expect(setup.toolExecutionMap.list_agents).toEqual({

@@ -3663,7 +3663,7 @@ export const NotificationTable = pgTable(
 export type NotificationEntity = typeof NotificationTable.$inferSelect;
 
 /**
- * Encrypted credentials for one cockpit data source (migration 0066). Scoped
+ * Legacy encrypted credentials from retired Cockpit data sources (migration 0066). Scoped
  * to an organization, or to the user alone when `organizationId` is null; one
  * row per scope and provider. `configEncrypted` is sealed with
  * `lib/crypto/secret-box.ts` and must never leave the server decrypted.

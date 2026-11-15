@@ -63,11 +63,6 @@ export type VoiceChatOptions = {
   model?: string;
   voice?: string;
   /**
-   * Where the session is opened from. `"cockpit"` makes the server append the
-   * flight-deck oversight prompt to the instructions.
-   */
-  context?: "cockpit";
-  /**
    * Push-to-talk: turn detection off; the caller drives each turn with
    * `pushToTalkStart` / `pushToTalkEnd`. Fixed for the life of a session.
    */

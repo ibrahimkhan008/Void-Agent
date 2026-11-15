@@ -8,7 +8,6 @@ import { pgBrowserCredentialRepository } from "./pg/repositories/browser-credent
 import { bugReportRepository as pgBugReportRepository } from "./pg/repositories/bug-bounty-repository.pg";
 import { pgChatExportRepository } from "./pg/repositories/chat-export-repository.pg";
 import { pgChatRepository } from "./pg/repositories/chat-repository.pg";
-import { pgCockpitConnectionRepository } from "./pg/repositories/cockpit-connection-repository.pg";
 import { pgDodoPaymentsRepository } from "./pg/repositories/dodo-payments-repository.pg";
 import { embedSessionRepository as pgEmbedSessionRepository } from "./pg/repositories/embed-session-repository.pg";
 import { inboundRepository as pgInboundRepository } from "./pg/repositories/inbound-repository.pg";
@@ -56,7 +55,6 @@ export const voiceDeviceRepository = pgVoiceDeviceRepository;
 export const voiceDeviceCustomRepository = pgCustomVoiceDeviceRepository;
 export const browserCredentialRepository = pgBrowserCredentialRepository;
 export const problemReportRepository = pgProblemReportRepository;
-export const cockpitConnectionRepository = pgCockpitConnectionRepository;
 
 // Destination-only API, webhook, inbound-trigger, and embed persistence.
 // Keep these aliases separate from upstream Better Auth's `ApiKeyTable`

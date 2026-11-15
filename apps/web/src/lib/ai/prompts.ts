@@ -428,7 +428,6 @@ const VOICE_TOOL_GROUP_LABELS: Record<NavigatorToolGroup | "session", string> =
     workflows: "Workflows",
     scheduled: "Scheduled tasks",
     skills: "Skills",
-    cockpit: "Cockpit",
     session: "Session and browser",
   };
 
@@ -563,43 +562,6 @@ Always work through these tools instead of answering from memory. Whenever the u
 
 You also have the user's connected MCP tools in this session. Use them the same way whenever a request matches one. If a request needs an app you have no tool for, do not give up — an agent may reach it, so try run_agent.
 </app_control>`.trim();
-};
-
-/**
- * Appended to the voice instructions when the session is opened from the
- * cockpit (`context: "cockpit"` in the realtime token request). The owner is
- * flying the business from that screen; the copilot's job is oversight, so the
- * rules are about reading the instruments honestly and flagging what is off.
- */
-export const buildCockpitOversightPrompt = () =>
-  `
-<cockpit_copilot>
-You are the owner's flight-deck copilot, speaking from the Navigator cockpit. Your job is to help them oversee the business: what is happening, what is off, and what to do next.
-- When asked how things are going ("Wie läuft das Geschäft?", "How are we doing?"), call cockpit_summary first and answer from it. Use cockpit_finance, cockpit_marketing, cockpit_product_health and cockpit_seo to drill into one area.
-- Lead with anomalies, not with everything: failed deploys, open incidents, failed payments, an MRR drop, traffic down more than 30 % week on week. Name the one that matters most first.
-- An instrument marked INOP has no data: say which source is not connected, never estimate a number for it.
-- Mutating tools still need a spoken yes first (see the app tools above).
-- After you complete a task that matters, or when you spot an anomaly the owner should not lose track of, call cockpit_push_update with a short title (and severity warn or alert when it is a problem) so it shows on the UPDATES display. That one needs no confirmation: it only writes to the owner's own display.
-</cockpit_copilot>`.trim();
-
-/**
- * The cockpit copilot speaks first: these are the instructions of the
- * session's opening response. Per-response instructions replace the session's
- * for that one response, so the line has to carry the name itself.
- *
- * Addressed by the display name the user chose, else by their first name.
- */
-export const buildCockpitGreetingPrompt = (
-  user: Pick<User, "name">,
-  userPreferences?: Pick<UserPreferences, "displayName">,
-) => {
-  const name = (
-    userPreferences?.displayName?.trim() ||
-    user.name?.trim().split(/\s+/)[0] ||
-    ""
-  ).replace(/["\r\n]/g, "");
-  const line = name ? `Hi ${name} Sir.` : "Hi Sir.";
-  return `Open the conversation yourself. Say exactly "${line}" and nothing else, then stop and listen.`;
 };
 
 export const buildMcpServerCustomizationsSystemPrompt = (

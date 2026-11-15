@@ -1,8 +1,8 @@
 import { jsonSchema } from "ai";
 import type { ChatMention } from "app-types/chat";
 import type { VercelAIMcpTool } from "app-types/mcp";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   buildVoiceAgentContext: vi.fn(),
@@ -306,56 +306,6 @@ describe("POST /api/chat/openai-realtime", () => {
       toolName: "COMPOSIO_SEARCH_TOOLS",
     });
   });
-  /**
-   * The cockpit opens the drawer with `context: "cockpit"`, which adds the
-   * oversight prompt. Only that literal is honoured: anything else a client
-   * sends is dropped rather than passed into prompt building.
-   */
-  describe("session context", () => {
-    beforeEach(() => {
-      mocks.buildVoiceAgentContext.mockResolvedValue({
-        enabledMentions: [],
-        mcpTools: {},
-        composioTools: {},
-        systemPrompt: "Be helpful.",
-      });
-    });
-
-    it("passes the cockpit context to the session builder", async () => {
-      await requestSetup({ context: "cockpit" });
-      expect(mocks.buildVoiceAgentContext).toHaveBeenCalledWith(
-        expect.objectContaining({ context: "cockpit" }),
-      );
-    });
-
-    it("hands the client the opening line the copilot speaks first", async () => {
-      mocks.buildVoiceAgentContext.mockResolvedValue({
-        enabledMentions: [],
-        mcpTools: {},
-        composioTools: {},
-        systemPrompt: "Be helpful.",
-        greeting: 'Say exactly "Hi Paul Sir."',
-      });
-      const payload = await requestSetup({ context: "cockpit" });
-      expect(payload.greeting).toBe('Say exactly "Hi Paul Sir."');
-    });
-
-    it("sends no opening line when the session builder made none", async () => {
-      const payload = await requestSetup();
-      expect(payload.greeting).toBeUndefined();
-    });
-
-    it.each([undefined, "admin", { cockpit: true }])(
-      "ignores any other context (%j)",
-      async (context) => {
-        await requestSetup({ context });
-        expect(mocks.buildVoiceAgentContext).toHaveBeenCalledWith(
-          expect.objectContaining({ context: undefined }),
-        );
-      },
-    );
-  });
-
   // The preset's default language picks the prompt's one language rule. A
   // closed set: anything else falls back to German.
   describe("session language", () => {

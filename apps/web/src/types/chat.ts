@@ -58,13 +58,9 @@ export type ChatMetadata = {
   lastCompletedStep?: number;
   agentId?: string;
   retrievalSources?: RetrievalSource[];
-  // `navigator_*`: written by a Navigator tool called over MCP or from the
-  // cockpit (lib/navigator-tools), not typed in the chat UI.
-  source?:
-    | "voice_transcript"
-    | "voice_realtime"
-    | "navigator_mcp"
-    | "navigator_cockpit";
+  // `navigator_*`: written by a Navigator tool called over MCP or voice, not
+  // typed in the chat UI.
+  source?: "voice_transcript" | "voice_realtime" | "navigator_mcp";
   voiceSessionId?: string;
   error?: {
     code: string;

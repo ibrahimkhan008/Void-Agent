@@ -1,5 +1,5 @@
-import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -106,7 +106,7 @@ describe("navigator tool registry", () => {
       listTools({ voice: false })
         .map((tool) => tool.name)
         .sort(),
-    ).toEqual(["cockpit_list_updates", "create_workflow", "update_agent"]);
+    ).toEqual(["create_workflow", "update_agent"]);
   });
 
   it("flags exactly the tools that change something as not read-only", () => {
@@ -115,7 +115,6 @@ describe("navigator tool registry", () => {
       .sort();
     expect(mutating).toEqual([
       "add_project_member",
-      "cockpit_push_update",
       "create_agent",
       "create_chat",
       "create_project",

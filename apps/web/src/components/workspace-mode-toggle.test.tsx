@@ -8,12 +8,12 @@ import messages from "../../messages/en.json";
 const nav = vi.hoisted(() => ({ pathname: "/" }));
 vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname }));
 vi.mock("next/link", () => ({
-  default: ({ href, prefetch: _p, ...props }: any) => (
+  default: ({ href, prefetch: _prefetch, ...props }: any) => (
     <a href={href} {...props} />
   ),
 }));
 
-const { WorkspaceModeToggle, workspaceModeOf } = await import(
+const { isWorkspaceLandingPath, WorkspaceModeToggle } = await import(
   "./workspace-mode-toggle"
 );
 
@@ -29,33 +29,42 @@ function renderAt(pathname: string) {
 describe("WorkspaceModeToggle", () => {
   afterEach(cleanup);
 
-  it("marks Work active on the home screen", () => {
+  it("shows Chat and Agent beside each other with Chat active at home", () => {
     renderAt("/");
-    const work = screen.getByRole("tab", { name: "Work" });
-    expect(work.getAttribute("aria-selected")).toBe("true");
-    expect(work.getAttribute("href")).toBe("/");
-    expect(
-      screen
-        .getByRole("tab", { name: "Cockpit" })
-        .getAttribute("aria-selected"),
-    ).toBe("false");
-    expect(screen.getByRole("tablist").getAttribute("aria-label")).toBe(
-      "Workspace mode",
-    );
+
+    const chat = screen.getByRole("tab", { name: "Chat" });
+    const agent = screen.getByRole("tab", { name: "Agent" });
+
+    expect(chat.getAttribute("href")).toBe("/");
+    expect(chat.getAttribute("aria-current")).toBe("page");
+    expect(chat.getAttribute("aria-selected")).toBe("true");
+    expect(agent.getAttribute("href")).toBe("/cloud-agent");
+    expect(agent.getAttribute("aria-selected")).toBe("false");
+    expect(screen.queryByText("Cockpit")).toBeNull();
   });
 
-  it("marks Cockpit active on /cockpit and links back to Work", () => {
-    renderAt("/cockpit");
-    const cockpit = screen.getByRole("tab", { name: "Cockpit" });
-    expect(cockpit.getAttribute("aria-selected")).toBe("true");
-    expect(cockpit.getAttribute("href")).toBe("/cockpit");
-    expect(cockpit.getAttribute("aria-current")).toBe("page");
-  });
+  it.each(["/cloud-agent", "/cloud-agent/run-1", "/agent/agent-1"])(
+    "marks Agent active on %s",
+    (pathname) => {
+      renderAt(pathname);
+      expect(
+        screen.getByRole("tab", { name: "Agent" }).getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        screen
+          .getByRole("tab", { name: "Agent" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      expect(
+        screen.getByRole("tab", { name: "Chat" }).getAttribute("aria-selected"),
+      ).toBe("false");
+    },
+  );
 
-  it("treats only /cockpit and its children as Cockpit", () => {
-    expect(workspaceModeOf("/cockpit/anything")).toBe("cockpit");
-    expect(workspaceModeOf("/cockpitx")).toBe("work");
-    expect(workspaceModeOf("/chat/123")).toBe("work");
-    expect(workspaceModeOf(null)).toBe("work");
+  it("renders the workspace switcher only on the two landing routes", () => {
+    expect(isWorkspaceLandingPath("/")).toBe(true);
+    expect(isWorkspaceLandingPath("/cloud-agent")).toBe(true);
+    expect(isWorkspaceLandingPath("/chat/thread-1")).toBe(false);
+    expect(isWorkspaceLandingPath(null)).toBe(false);
   });
 });

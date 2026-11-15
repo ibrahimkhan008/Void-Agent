@@ -24,7 +24,7 @@ export function parseVoiceLanguage(value: unknown): VoiceLanguage {
  */
 export const VOICE_TRANSCRIPTION_MODEL = "gpt-4o-transcribe";
 const VOICE_TRANSCRIPTION_TERMS =
-  "keinsaas, Navigator, Cockpit, Agent, Workflow, Projekt, Stripe, Revolut, Superlog.";
+  "keinsaas, Navigator, Agent, Workflow, Projekt, Stripe, Revolut, Superlog.";
 export function getVoiceTranscriptionPrompt(language: VoiceLanguage): string {
   return language === "en"
     ? `Mostly English, sometimes German. Terms: ${VOICE_TRANSCRIPTION_TERMS}`

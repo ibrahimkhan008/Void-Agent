@@ -4,7 +4,6 @@ import globalLogger from "logger";
 import { NAVIGATOR_TOOL_SPECS, isVoiceVisibleSpec } from "./definitions";
 import { AGENT_TOOLS } from "./tools/agents";
 import { CHAT_TOOLS } from "./tools/chat";
-import { COCKPIT_TOOLS } from "./tools/cockpit";
 import { PROJECT_TOOLS } from "./tools/projects";
 import { SCHEDULED_TOOLS } from "./tools/scheduled";
 import { SKILL_TOOLS } from "./tools/skills";
@@ -35,7 +34,6 @@ export const NAVIGATOR_TOOLS: NavigatorTool[] = (() => {
     ...WORKFLOW_TOOLS,
     ...SCHEDULED_TOOLS,
     ...SKILL_TOOLS,
-    ...COCKPIT_TOOLS,
   ] as NavigatorTool[]) {
     if (runners.has(tool.name)) {
       throw new Error(`Duplicate Navigator tool "${tool.name}"`);

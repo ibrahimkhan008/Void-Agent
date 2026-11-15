@@ -126,8 +126,8 @@ describe("POST /api/navigator-mcp", () => {
       (tool: { name: string }) => tool.name,
     );
     expect(names).toContain("list_agents");
-    expect(names).toContain("cockpit_push_update");
-    expect(names.length).toBeGreaterThanOrEqual(25);
+    // Retired Cockpit tools are no longer part of the Navigator registry.
+    expect(names.length).toBeGreaterThanOrEqual(22);
     const listProjects = message.result.tools.find(
       (tool: { name: string }) => tool.name === "list_projects",
     );
@@ -193,7 +193,7 @@ describe("POST /api/navigator-mcp", () => {
       });
     });
 
-    it("accepts a same-origin browser request as the cockpit", async () => {
+    it("accepts a same-origin browser request as an MCP caller", async () => {
       mocks.runTool.mockResolvedValue({ ok: true, output: { agents: [] } });
       const response = await rpc(
         "tools/call",
@@ -202,7 +202,7 @@ describe("POST /api/navigator-mcp", () => {
       );
       expect(response.status).toBe(200);
       expect(mocks.runTool).toHaveBeenCalledWith(
-        { userId: "user-2", organizationId: "org-session", source: "cockpit" },
+        { userId: "user-2", organizationId: "org-session", source: "mcp" },
         "list_agents",
         {},
       );

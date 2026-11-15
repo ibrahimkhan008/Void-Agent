@@ -17,8 +17,8 @@ export const VOICE_LIVE_IDLE: VoiceLiveStatus = {
 
 /**
  * What the mounted voice session is doing, for controls that live outside
- * it (the cockpit's COM 1 pushbutton). Only the mounted session, the drawer
- * or the cockpit orb, writes it through `useMirrorVoiceLiveStatus`; nothing
+ * it (voice controls outside the drawer). Only the mounted session or drawer
+ * writes it through `useMirrorVoiceLiveStatus`; nothing
  * is persisted.
  */
 export const useVoiceLiveStatus = create<VoiceLiveStatus>(

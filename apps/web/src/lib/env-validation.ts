@@ -78,15 +78,6 @@ const OPTIONAL_FEATURES: OptionalFeature[] = [
     fallback: "third-party app connections are unavailable",
   },
   {
-    // Without its own key, production derives one from BETTER_AUTH_SECRET.
-    vars: ["APP_SECRETS_KEY"],
-    anyOf: ["APP_SECRETS_KEY", "BETTER_AUTH_SECRET"],
-    feature:
-      "Cockpit connections (encrypted credentials for Stripe, Revolut, Superlog, SEO, Vercel, website analytics)",
-    fallback:
-      "cockpit connections disabled: they cannot be saved or read in production (development uses a fixed, insecure key)",
-  },
-  {
     vars: ["VAPID_PRIVATE_KEY", "NEXT_PUBLIC_VAPID_PUBLIC_KEY"],
     feature: "Web push notifications",
     fallback: "browser notifications are disabled while the app is closed",

@@ -840,24 +840,6 @@ describe("useOpenAIVoiceChat", () => {
       });
     });
 
-    it("sends the cockpit context with the prepare call only when set", async () => {
-      const { result, unmount } = renderHook(() =>
-        useOpenAIVoiceChat({ voice: "ash", context: "cockpit" }),
-      );
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
-      const [, init] = vi.mocked(fetch).mock.calls[0];
-      expect(JSON.parse(String(init?.body))).toEqual(
-        expect.objectContaining({ sessionOnly: true, context: "cockpit" }),
-      );
-      unmount();
-
-      vi.mocked(fetch).mockClear();
-      const plain = renderHook(() => useOpenAIVoiceChat({ voice: "ash" }));
-      await waitFor(() => expect(plain.result.current.isLoading).toBe(false));
-      const [, plainInit] = vi.mocked(fetch).mock.calls[0];
-      expect(JSON.parse(String(plainInit?.body))).not.toHaveProperty("context");
-    });
-
     it("sends the preset's default language with the prepare call", async () => {
       const jarvis = renderHook(() => useOpenAIVoiceChat({ voice: "jarvis" }));
       await waitFor(() => expect(jarvis.result.current.isLoading).toBe(false));
@@ -877,37 +859,6 @@ describe("useOpenAIVoiceChat", () => {
       expect(JSON.parse(String(marinInit?.body))).toEqual(
         expect.objectContaining({ language: "de" }),
       );
-    });
-
-    it("speaks the prepared greeting first, once per connect", async () => {
-      vi.mocked(fetch).mockResolvedValue(
-        response({
-          instructions: "Be helpful.",
-          greeting: 'Say exactly "Hi Paul Sir."',
-          tools: [],
-          toolStatus: { requested: [], available: [], unavailable: [] },
-          toolExecutionMap: {},
-        }),
-      );
-      const { result } = renderHook(() =>
-        useOpenAIVoiceChat({ voice: "ash", context: "cockpit" }),
-      );
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
-      await act(async () => {
-        await result.current.start();
-      });
-      expect(realtimeMock.methods.sendEvent).not.toHaveBeenCalled();
-
-      act(() => {
-        realtimeMock.latestOptions.onEvent({ type: "session-created" });
-        // The confirmation of our own session-update must not greet twice.
-        realtimeMock.latestOptions.onEvent({ type: "session-updated" });
-      });
-      expect(realtimeMock.methods.sendEvent).toHaveBeenCalledTimes(1);
-      expect(realtimeMock.methods.sendEvent).toHaveBeenCalledWith({
-        type: "response-create",
-        options: { instructions: 'Say exactly "Hi Paul Sir."' },
-      });
     });
 
     it("connects on its own once autoStart is set, and only once", async () => {

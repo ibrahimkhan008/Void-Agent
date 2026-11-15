@@ -305,10 +305,6 @@ export async function middleware(request: NextRequest) {
     return next();
   }
 
-  if (pathname === "/admin") {
-    return redirect("/admin/users", null);
-  }
-
   // Allow scheduled task requests through when the shared secret is configured
   // and valid. The route handler performs its own user-level validation.
   const scheduledTaskSecret = process.env.SCHEDULED_TASK_SECRET;

@@ -1,15 +1,15 @@
 "use client";
 
 import { appStore } from "@/app/store";
-import { announceCockpitPushUpdate } from "@/hooks/queries/use-cockpit-updates";
 import { experimental_useRealtime } from "@ai-sdk/react";
 import type { Experimental_RealtimeServerEvent } from "ai";
 import { isToolUIPart } from "ai";
+import { analytics } from "lib/analytics/posthog";
 import { generateUUID } from "lib/utils";
 import { isBrowserVoiceAppTool } from "lib/voice/app-tool-definitions";
 import {
-  startVoiceBrowserRun,
   VoiceBrowserRunError,
+  startVoiceBrowserRun,
 } from "lib/voice/browser-run-client";
 import {
   VOICE_BROWSER_CHECK_TIMEOUT_MS,
@@ -32,7 +32,6 @@ import {
 } from "lib/voice/types";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analytics } from "lib/analytics/posthog";
 import { UIMessageWithCompleted, VoiceChatOptions, VoiceChatSession } from "..";
 import {
   buildRealtimeSessionConfig,
@@ -43,15 +42,15 @@ import {
   resolveOpenAIVoicePreset,
 } from "./voice-constants";
 import {
+  createBrowserGatewayRealtimeModel,
+  setBrowserGatewayTeamIdOrSlug,
+} from "./voice-gateway-client";
+import {
   type VoiceSessionConfirmation,
   type VoiceSettings,
   checkSessionConfirmation,
   normalizeVoiceSettings,
 } from "./voice-settings";
-import {
-  createBrowserGatewayRealtimeModel,
-  setBrowserGatewayTeamIdOrSlug,
-} from "./voice-gateway-client";
 import { buildVoiceTokenApiUrl } from "./voice-token-api";
 
 function extractUsageFromRealtimeEvent(
@@ -265,7 +264,6 @@ function isMessageCompleted(message: UIMessageWithCompleted): boolean {
 export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
   const {
     voice = DEFAULT_OPENAI_VOICE,
-    context,
     ptt = false,
     autoStart = false,
   } = props || {};
@@ -312,8 +310,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     agentId?: string;
     toolMentions: NonNullable<VoiceChatOptions["toolMentions"]>;
     instructions?: string;
-    /** Instructions for an opening response the model speaks unprompted. */
-    greeting?: string;
     tools: OpenAIRealtimeFunctionTool[];
     toolStatus: VoiceToolStatus;
     toolExecutionMap: VoiceToolExecutionMap;
@@ -376,10 +372,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
   }>({ prepareMs: null, connectStartedAt: null });
   /** Push-to-talk: whether the talk button is currently held. */
   const pttHeldRef = useRef(false);
-  /** The prepared opening line, read from `onEvent`; see `preparedContext`. */
-  const greetingRef = useRef<string | undefined>(undefined);
-  /** Whether this connect's opening response was requested; reset by `start`. */
-  const greetedRef = useRef(false);
   const toolExecutionMapRef = useRef<VoiceToolExecutionMap>({});
 
   /**
@@ -392,8 +384,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
   const toolMentions = props?.toolMentions ?? [];
   const agentId = props?.agentId;
   const requestedContextKey = useMemo(
-    () => JSON.stringify({ voice, agentId, toolMentions, context }),
-    [voice, agentId, toolMentions, context],
+    () => JSON.stringify({ voice, agentId, toolMentions }),
+    [voice, agentId, toolMentions],
   );
   const requestedContext = useMemo(
     () => ({
@@ -401,7 +393,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       voice,
       agentId,
       toolMentions,
-      context,
     }),
     [requestedContextKey],
   );
@@ -495,33 +486,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               confirmation.status,
             );
           }
-        }
-      }
-      // Speak first: a session prepared with a greeting (the cockpit's) asks
-      // for its opening response as soon as the server has the session,
-      // without waiting for the microphone. `session-update` was queued on
-      // socket open, ahead of this on the transport's ordered send queue, so
-      // the reply already has the session's voice. Per-response instructions
-      // apply to this one response only.
-      if (
-        (rawType === "session-created" ||
-          rawType === "session.created" ||
-          rawType === "session-updated" ||
-          rawType === "session.updated") &&
-        greetingRef.current &&
-        !greetedRef.current
-      ) {
-        greetedRef.current = true;
-        try {
-          realtimeRef.current?.sendEvent({
-            type: "response-create",
-            options: { instructions: greetingRef.current },
-          });
-        } catch (greetError) {
-          console.error(
-            "[voice-realtime] failed to request greeting",
-            greetError,
-          );
         }
       }
       // Server-side rejections (e.g. a response.create sent while a response
@@ -709,7 +673,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
               ...prev.voiceChat,
               agentId: undefined,
               isOpen: false,
-              context: undefined,
             },
           }));
           // No response requested: the session is going away.
@@ -819,7 +782,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           });
         }
 
-        announceCockpitPushUpdate(toolName, args, payload.output);
         return withResumedResponse(payload.output);
       } catch (toolError) {
         // Never rethrow: an unanswered function call leaves the conversation
@@ -850,7 +812,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
   realtimeRef.current = realtime;
   toolExecutionMapRef.current = preparedContext?.toolExecutionMap ?? {};
-  greetingRef.current = preparedContext?.greeting;
 
   // Prepare the agent/MCP context before connecting. A sessionConfig identity
   // change makes useRealtime dispose its current store, so a live session is
@@ -886,11 +847,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
             language: resolveOpenAIVoicePreset(requestedContext.voice).language,
             agentId: requestedContext.agentId,
             mentions: requestedContext.toolMentions,
-            // Only the prepare call carries it: its instructions are the ones
-            // the session uses (the transport's own token call is discarded).
-            ...(requestedContext.context
-              ? { context: requestedContext.context }
-              : {}),
           }),
         });
         if (!response.ok) {
@@ -903,7 +859,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         }
         const payload = (await response.json()) as {
           instructions?: string;
-          greeting?: string;
           teamIdOrSlug?: string;
           tools?: OpenAIRealtimeFunctionTool[];
           toolStatus?: VoiceToolStatus;
@@ -920,7 +875,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
         setPreparedContext({
           ...requestedContext,
           instructions: payload.instructions,
-          greeting: payload.greeting,
           tools: payload.tools ?? [],
           toolStatus,
           toolExecutionMap: payload.toolExecutionMap ?? {},
@@ -1149,13 +1103,13 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
       analytics.capture("voice_session_ready", {
         session_ready_ms: connectMs,
         prepare_ms: prepareMs,
-        context: context ?? "default",
+        context: "chat",
         ptt,
       });
     } catch {
       // Telemetry must never touch the session.
     }
-  }, [realtime.status, context, ptt]);
+  }, [realtime.status, ptt]);
 
   const isReadyToConnect =
     preparedContext != null && !isContextLoading && contextError == null;
@@ -1315,7 +1269,6 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
 
     latencyRef.current.connectStartedAt = performance.now();
     pttHeldRef.current = false;
-    greetedRef.current = false;
     try {
       await currentRealtime.connect();
       const stream = await navigator.mediaDevices.getUserMedia(

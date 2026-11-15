@@ -102,7 +102,6 @@ export enum DefaultToolName {
   DeleteMemory = "delete_memory",
   SearchMemory = "search_memory",
   Scheduler = "scheduler",
-  CockpitPushUpdate = "cockpit_push_update",
   CodeEngine = "code-engine",
   PublishPage = "publish-page",
 }

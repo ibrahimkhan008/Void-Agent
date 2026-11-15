@@ -1,4 +1,3 @@
-import { COCKPIT_UPDATE_SEVERITIES } from "lib/cockpit/updates";
 import { z } from "zod";
 import type { NavigatorToolGroup, NavigatorToolSpec } from "./types";
 
@@ -313,90 +312,6 @@ export const loadSkillSpec = spec({
   readOnly: true,
 });
 
-// ── cockpit ───────────────────────────────────────────────────────────
-export const cockpitSummarySpec = spec({
-  name: "cockpit_summary",
-  group: "cockpit",
-  description:
-    "Business overview from the cockpit: finance, marketing, product health and SEO in compact numbers. Start here when asked how things are going.",
-  input: emptyInput,
-  readOnly: true,
-});
-
-export const cockpitFinanceSpec = spec({
-  name: "cockpit_finance",
-  group: "cockpit",
-  description:
-    "Cockpit finance feed: MRR, cash balances, inflow and outflow, payments and failed payments.",
-  input: emptyInput,
-  readOnly: true,
-});
-
-export const cockpitMarketingSpec = spec({
-  name: "cockpit_marketing",
-  group: "cockpit",
-  description:
-    "Cockpit marketing feed: website visitors, traffic sources and conversions.",
-  input: emptyInput,
-  readOnly: true,
-});
-
-export const cockpitProductHealthSpec = spec({
-  name: "cockpit_product_health",
-  group: "cockpit",
-  description:
-    "Cockpit product health feed: deployments, open incidents and errors per product.",
-  input: emptyInput,
-  readOnly: true,
-});
-
-export const cockpitSeoSpec = spec({
-  name: "cockpit_seo",
-  group: "cockpit",
-  description:
-    "Cockpit SEO feed: organic traffic estimate, keyword positions and referring domains.",
-  input: emptyInput,
-  readOnly: true,
-});
-
-/**
- * Only an in-app link (`/path`) or an https URL: the bell and the cockpit open
- * it, so a `javascript:` or protocol-relative value must never be stored.
- */
-const updateUrl = z
-  .string()
-  .max(500)
-  .refine(
-    (value) => /^\/(?!\/)/.test(value) || /^https:\/\/[^\s]+$/.test(value),
-    "url must be an in-app path starting with / or an https URL",
-  );
-
-export const cockpitPushUpdateSpec = spec({
-  name: "cockpit_push_update",
-  group: "cockpit",
-  description:
-    "Post a short line to the cockpit UPDATES display, e.g. after finishing a task that matters or spotting an anomaly.",
-  input: z.object({
-    title: z.string().trim().min(1).max(120),
-    body: z.string().trim().max(500).optional(),
-    severity: z.enum(COCKPIT_UPDATE_SEVERITIES).default("info"),
-    url: updateUrl.optional(),
-  }),
-  readOnly: false,
-});
-
-export const cockpitListUpdatesSpec = spec({
-  name: "cockpit_list_updates",
-  group: "cockpit",
-  description: "List the latest updates on the cockpit UPDATES display.",
-  input: z.object({
-    limit: z.number().int().min(1).max(20).optional(),
-  }),
-  readOnly: true,
-  // The cockpit shows these itself; voice has no need to read them back.
-  voice: false,
-});
-
 /** Display order: groups as the prompt and the tools dropdown show them. */
 export const NAVIGATOR_TOOL_GROUP_ORDER: NavigatorToolGroup[] = [
   "agents",
@@ -405,7 +320,6 @@ export const NAVIGATOR_TOOL_GROUP_ORDER: NavigatorToolGroup[] = [
   "workflows",
   "scheduled",
   "skills",
-  "cockpit",
 ];
 
 export const NAVIGATOR_TOOL_SPECS: NavigatorToolSpec[] = [
@@ -431,13 +345,6 @@ export const NAVIGATOR_TOOL_SPECS: NavigatorToolSpec[] = [
   runScheduledTaskSpec,
   listSkillsSpec,
   loadSkillSpec,
-  cockpitSummarySpec,
-  cockpitFinanceSpec,
-  cockpitMarketingSpec,
-  cockpitProductHealthSpec,
-  cockpitSeoSpec,
-  cockpitPushUpdateSpec,
-  cockpitListUpdatesSpec,
 ] as NavigatorToolSpec[];
 
 const specsByName = new Map(NAVIGATOR_TOOL_SPECS.map((s) => [s.name, s]));

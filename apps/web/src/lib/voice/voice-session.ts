@@ -1,32 +1,28 @@
-import { Agent } from "app-types/agent";
-import { ChatMention } from "app-types/chat";
+import {
+  rememberAgentAction,
+  rememberMcpServerCustomizationsAction,
+} from "@/app/api/chat/actions";
 import {
   filterMcpServerCustomizations,
   loadMcpToolsStateless,
   mergeSystemPrompt,
 } from "@/app/api/chat/shared.chat";
+import { Agent } from "app-types/agent";
+import { ChatMention } from "app-types/chat";
 import {
-  buildCockpitGreetingPrompt,
-  buildCockpitOversightPrompt,
   buildMcpServerCustomizationsSystemPrompt,
   buildSpeechSystemPrompt,
   buildVoiceAppControlPrompt,
 } from "lib/ai/prompts";
+import type { VoiceLanguage } from "lib/ai/speech/voice-realtime-config";
 import {
   agentRepository,
   skillRepository,
   userRepository,
 } from "lib/db/repository";
-import type { VoiceLanguage } from "lib/ai/speech/voice-realtime-config";
 import { getUserPreferences } from "lib/user/server";
 import { safe } from "ts-safe";
-import {
-  rememberAgentAction,
-  rememberMcpServerCustomizationsAction,
-} from "@/app/api/chat/actions";
 import { VoiceActor } from "./types";
-
-export type VoiceSessionContext = "cockpit";
 
 export type VoiceAgentContext = {
   agent?: Agent;
@@ -39,11 +35,6 @@ export type VoiceAgentContext = {
    */
   composioTools: Record<string, unknown>;
   systemPrompt: string;
-  /**
-   * Instructions for an opening response the model speaks before the user
-   * says anything. Only cockpit sessions have one.
-   */
-  greeting?: string;
 };
 
 /**
@@ -159,7 +150,6 @@ export async function buildVoiceAgentContext({
   defaultToAllMcpServers = false,
   browserAutomation = false,
   includeComposio = false,
-  context,
   language,
 }: {
   actor: VoiceActor;
@@ -168,11 +158,6 @@ export async function buildVoiceAgentContext({
    * have no voice preset leave it out and get German.
    */
   language?: VoiceLanguage;
-  /**
-   * Where the session was opened from. `"cockpit"` appends the oversight
-   * prompt that makes the model the owner's flight-deck copilot.
-   */
-  context?: VoiceSessionContext;
   agentId?: string;
   mentions: ChatMention[];
   includeAppControl?: boolean;
@@ -270,10 +255,6 @@ export async function buildVoiceAgentContext({
       language,
     }),
     appControlPrompt,
-    // Only next to the app tools: the oversight rules name cockpit tools.
-    context === "cockpit" && appControlRoster
-      ? buildCockpitOversightPrompt()
-      : "",
     buildMcpServerCustomizationsSystemPrompt(mcpServerCustomizations),
   );
 
@@ -283,9 +264,5 @@ export async function buildVoiceAgentContext({
     mcpTools,
     composioTools,
     systemPrompt,
-    greeting:
-      context === "cockpit"
-        ? buildCockpitGreetingPrompt(user, userPreferences ?? undefined)
-        : undefined,
   };
 }
