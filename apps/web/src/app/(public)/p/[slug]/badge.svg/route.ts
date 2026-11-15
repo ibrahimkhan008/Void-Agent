@@ -1,4 +1,4 @@
-import { publishedPageRepository } from "lib/db/pg/repositories/published-page-repository.pg";
+import { publishedPageRepository } from "lib/db/repository";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

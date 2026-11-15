@@ -1,8 +1,8 @@
+import { DeployDashboard } from "@/components/deploy/deploy-dashboard";
 import { getSession } from "auth/server";
 import { publishedPageRepository } from "lib/db/repository";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { DeployDashboard } from "@/components/deploy/deploy-dashboard";
 
 export const metadata: Metadata = {
   title: "Void Deploy",

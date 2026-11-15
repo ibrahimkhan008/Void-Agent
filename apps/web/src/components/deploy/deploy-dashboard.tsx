@@ -119,9 +119,7 @@ export function DeployDashboard({
       });
       if (!res.ok) throw new Error();
       const apply = (row: { slug: string; version: number }) =>
-        row.slug === page.slug
-          ? { ...row, badgeVisible: next }
-          : row;
+        row.slug === page.slug ? { ...row, badgeVisible: next } : row;
       setPages((prev) => prev.map(apply));
       setHistory((prev) => prev.map(apply));
       toast.success(
@@ -135,8 +133,7 @@ export function DeployDashboard({
   };
 
   const copyBadgeEmbed = async (page: DeployPageRow) => {
-    const origin =
-      typeof window === "undefined" ? "" : window.location.origin;
+    const origin = typeof window === "undefined" ? "" : window.location.origin;
     const snippet = `<a href="${origin}/p/${page.slug}"><img src="${origin}/p/${page.slug}/badge.svg" alt="Built with Void Agent" width="208" height="28" /></a>`;
     try {
       await navigator.clipboard.writeText(snippet);
@@ -320,7 +317,9 @@ export function DeployDashboard({
                                 key={h.id}
                                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs odd:bg-muted/40"
                               >
-                                <span className="font-medium">v{h.version}</span>
+                                <span className="font-medium">
+                                  v{h.version}
+                                </span>
                                 <span
                                   className={`rounded-full px-2 py-0.5 text-[10px] ${
                                     hLive
