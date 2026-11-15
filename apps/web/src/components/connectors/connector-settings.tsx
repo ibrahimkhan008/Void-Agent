@@ -1,6 +1,8 @@
 "use client";
 import { Eyebrow } from "@/components/ui/eyebrow";
 
+import { Store } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Connector = {
@@ -24,7 +26,9 @@ const AUTH_HOSTS = new Set([
   "app.productboard.com",
 ]);
 
-export function ConnectorSettings() {
+export function ConnectorSettings({
+  embedded = false,
+}: { embedded?: boolean }) {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -258,17 +262,36 @@ export function ConnectorSettings() {
     ].includes(connector.provider),
   );
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-6 p-6">
-      <header>
-        <Eyebrow>Integrate</Eyebrow>
-        <h1 className="text-3xl font-normal tracking-[-0.03em] text-balance">
-          Connected accounts
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Connect accounts to use their data with Void Agent. Provider
-          credentials are stored encrypted and scoped to your account.
-        </p>
+    <Root
+      className={
+        embedded ? "space-y-5" : "mx-auto w-full max-w-4xl space-y-6 p-6"
+      }
+    >
+      <header className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-1">
+          {!embedded ? <Eyebrow>Integrate</Eyebrow> : null}
+          <h1
+            className={`${embedded ? "text-lg font-semibold" : "text-3xl font-normal tracking-[-0.03em]"} text-balance`}
+          >
+            {embedded ? "Connectors" : "Connected accounts"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {embedded
+              ? "Connect apps to use their data and actions in chat and Cloud Agent. Credentials are encrypted and scoped to your account."
+              : "Connect accounts to use their data with Void Agent. Provider credentials are stored encrypted and scoped to your account."}
+          </p>
+        </div>
+        {embedded ? (
+          <Link
+            href="/mcp/create"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary"
+          >
+            <Store className="size-4" /> Add connector
+          </Link>
+        ) : null}
       </header>
       {notice ? (
         <p role="status" className="rounded-md border p-3 text-sm">
@@ -385,6 +408,6 @@ export function ConnectorSettings() {
           </article>
         ))}
       </section>
-    </main>
+    </Root>
   );
 }
