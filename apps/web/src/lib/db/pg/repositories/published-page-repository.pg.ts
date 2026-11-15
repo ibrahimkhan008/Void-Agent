@@ -51,12 +51,17 @@ export const pgPublishedPageRepository = {
     expiresAt?: Date | null;
   }): Promise<PublishedPage> => {
     const [latest] = await pgDb
-      .select({ version: PublishedPageTable.version })
+      .select({
+        version: PublishedPageTable.version,
+        badgeVisible: PublishedPageTable.badgeVisible,
+      })
       .from(PublishedPageTable)
       .where(eq(PublishedPageTable.slug, input.slug))
       .orderBy(desc(PublishedPageTable.version))
       .limit(1);
 
+    // A republish INHERITS the badge visibility so it never silently
+    // reappears after the owner turned it off.
     const [row] = await pgDb
       .insert(PublishedPageTable)
       .values({
@@ -68,6 +73,7 @@ export const pgPublishedPageRepository = {
         organizationId: input.organizationId ?? null,
         threadId: input.threadId ?? null,
         expiresAt: input.expiresAt ?? null,
+        badgeVisible: latest?.badgeVisible ?? true,
       })
       .returning();
 
@@ -111,6 +117,63 @@ export const pgPublishedPageRepository = {
       .from(PublishedPageTable)
       .where(eq(PublishedPageTable.ownerId, ownerId))
       .orderBy(desc(PublishedPageTable.publishedAt));
+  },
+
+  /**
+   * Deployment history (§3.9): EVERY version the owner has published, slug
+   * ascending + version descending. The dashboard surfaces this per page.
+   */
+  selectHistoryByOwner: async (ownerId: string): Promise<PublishedPage[]> => {
+    return pgDb
+      .select()
+      .from(PublishedPageTable)
+      .where(eq(PublishedPageTable.ownerId, ownerId))
+      .orderBy(PublishedPageTable.slug, desc(PublishedPageTable.version));
+  },
+
+  /** Badge visibility toggle (owner-scoped, latest version of the slug). */
+  setBadgeVisibleBySlug: async (
+    slug: string,
+    ownerId: string,
+    visible: boolean,
+  ): Promise<boolean> => {
+    const [latest] = await pgDb
+      .select({ version: PublishedPageTable.version })
+      .from(PublishedPageTable)
+      .where(
+        and(
+          eq(PublishedPageTable.slug, slug),
+          eq(PublishedPageTable.ownerId, ownerId),
+        ),
+      )
+      .orderBy(desc(PublishedPageTable.version))
+      .limit(1);
+    if (!latest) return false;
+    const [row] = await pgDb
+      .update(PublishedPageTable)
+      .set({ badgeVisible: visible })
+      .where(
+        and(
+          eq(PublishedPageTable.slug, slug),
+          eq(PublishedPageTable.version, latest.version),
+        ),
+      )
+      .returning({ id: PublishedPageTable.id });
+    return Boolean(row);
+  },
+
+  /**
+   * Public badge gate (§3.9): whether the badge endpoint may serve this
+   * slug — reads the latest version's flag, no auth (the badge IS public).
+   */
+  isBadgeVisibleBySlug: async (slug: string): Promise<boolean> => {
+    const [latest] = await pgDb
+      .select({ badgeVisible: PublishedPageTable.badgeVisible })
+      .from(PublishedPageTable)
+      .where(eq(PublishedPageTable.slug, slug))
+      .orderBy(desc(PublishedPageTable.version))
+      .limit(1);
+    return latest?.badgeVisible ?? false;
   },
 
   // Fire-and-forget from the public /p/[slug] render: failure must never

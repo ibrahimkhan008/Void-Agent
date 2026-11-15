@@ -71,6 +71,53 @@ export const POST = withAuth(async (request, session) => {
   }
 });
 
+/** GET — the owner's full deployment history (every version per slug). */
+export const GET = withAuth(async (_request, session) => {
+  const history = await publishedPageRepository.selectHistoryByOwner(
+    session.user.id,
+  );
+  return Response.json({
+    history: history.map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      version: p.version,
+      title: p.title,
+      viewCount: p.viewCount,
+      publishedAt: p.publishedAt.toISOString(),
+      revokedAt: p.revokedAt ? p.revokedAt.toISOString() : null,
+      expiresAt: p.expiresAt ? p.expiresAt.toISOString() : null,
+      badgeVisible: p.badgeVisible,
+    })),
+  });
+});
+
+/**
+ * PATCH — attribution badge visibility (§3.9 "visibility controls").
+ * Owner-scoped; applies to the latest version of the slug.
+ */
+export const PATCH = withAuth(async (request, session) => {
+  const body = (await request.json().catch(() => null)) as {
+    slug?: string;
+    badgeVisible?: boolean;
+  } | null;
+  const slug = body?.slug;
+  if (typeof slug !== "string" || typeof body?.badgeVisible !== "boolean") {
+    return Response.json(
+      { error: "slug and badgeVisible are required" },
+      { status: 400 },
+    );
+  }
+  const updated = await publishedPageRepository.setBadgeVisibleBySlug(
+    slug,
+    session.user.id,
+    body.badgeVisible,
+  );
+  if (!updated) {
+    return Response.json({ error: "Page not found" }, { status: 404 });
+  }
+  return Response.json({ slug, badgeVisible: body.badgeVisible });
+});
+
 export const DELETE = withAuth(async (request, session) => {
   const slug = new URL(request.url).searchParams.get("slug");
   if (!slug || !isValidPageSlug(slug)) {

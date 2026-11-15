@@ -1021,6 +1021,9 @@ export const PublishedPageTable = pgTable(
     // Aggregated per row (each published version). The public /p/[slug]
     // render increments it fire-and-forget — never on the critical path.
     viewCount: integer("view_count").notNull().default(0),
+    // Void Deploy (§3.9): attribution badge visibility. A republish INHERITS
+    // the previous version's setting so the badge never silently reappears.
+    badgeVisible: boolean("badge_visible").notNull().default(true),
   },
   (table) => [
     unique("published_page_slug_version_unique").on(table.slug, table.version),

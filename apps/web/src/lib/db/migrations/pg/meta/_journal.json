@@ -610,6 +610,13 @@
       "when": 1794697356753,
       "tag": "0085_void_agent_hooks",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1794701383351,
+      "tag": "0086_void_agent_deploy_badges",
+      "breakpoints": true
     }
   ]
 }
