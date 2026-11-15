@@ -1,9 +1,11 @@
 import { withAuth } from "auth/route-guard";
 import { FileNotFoundError } from "lib/errors";
 import { serverFileStorage } from "lib/file-storage";
+import type { StorageBucket } from "lib/file-storage/file-storage.interface";
 import {
   downloadFilenameFromKey,
   getContentTypeFromFilename,
+  isUserStorageKey,
 } from "lib/file-storage/storage-utils";
 import logger from "lib/logger";
 import { NextResponse } from "next/server";
@@ -51,6 +53,18 @@ const INLINE_CONTENT_TYPES = new Set([
 export const GET = withAuth(async (req: Request, session) => {
   const url = new URL(req.url);
   const key = url.searchParams.get("key");
+  const bucketParam = url.searchParams.get("bucket");
+  const buckets: StorageBucket[] = ["attachments", "avatars", "ai-generated"];
+  const bucket =
+    bucketParam && buckets.includes(bucketParam as StorageBucket)
+      ? (bucketParam as StorageBucket)
+      : undefined;
+  if (bucketParam && !bucket) {
+    return NextResponse.json(
+      { error: "Invalid storage bucket" },
+      { status: 400 },
+    );
+  }
   if (!key || key.includes("..")) {
     return NextResponse.json(
       { error: "A valid storage key is required" },
@@ -58,8 +72,14 @@ export const GET = withAuth(async (req: Request, session) => {
     );
   }
 
-  // Keys are namespaced by owner; only the owner may download.
-  if (!key.startsWith(`${session.user.id}/`)) {
+  // Accept the current configured owner prefix and the legacy prefix used by
+  // older persisted chat links. Both forms reject traversal and backslashes.
+  const safeLegacyOwnedKey =
+    !key.includes("\\") &&
+    !/[\u0000-\u001f\u007f]/.test(key) &&
+    key.startsWith(`${session.user.id}/`) &&
+    !key.split("/").some((segment) => segment === "." || segment === "..");
+  if (!isUserStorageKey(key, session.user.id) && !safeLegacyOwnedKey) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -73,18 +93,25 @@ export const GET = withAuth(async (req: Request, session) => {
     // A driver without signed URLs streams the object through the function
     // (and inherits the platform's response-size cap).
     if (!serverFileStorage.getSignedUrl) {
-      return await streamObject(key, filename, contentType, inline);
+      return await streamObject(key, filename, contentType, inline, bucket);
     }
 
-    if (!(await serverFileStorage.exists(key))) {
+    if (!(await serverFileStorage.exists(key, bucket))) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    const signedUrl = await serverFileStorage.getSignedUrl(
-      key,
-      SIGNED_URL_TTL_SECONDS,
-      inline ? undefined : { download: filename },
-    );
+    const signedUrl = bucket
+      ? await serverFileStorage.getSignedUrl(
+          key,
+          SIGNED_URL_TTL_SECONDS,
+          inline ? undefined : { download: filename },
+          bucket,
+        )
+      : await serverFileStorage.getSignedUrl(
+          key,
+          SIGNED_URL_TTL_SECONDS,
+          inline ? undefined : { download: filename },
+        );
     if (!signedUrl) {
       logger.error(`[storage] signed url failed key=${key}`);
       return NextResponse.json({ error: "Download failed" }, { status: 500 });
@@ -109,8 +136,9 @@ async function streamObject(
   filename: string,
   contentType: string,
   inline: boolean,
+  bucket?: StorageBucket,
 ): Promise<Response> {
-  const buffer = await serverFileStorage.download(key);
+  const buffer = await serverFileStorage.download(key, bucket);
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": contentType,

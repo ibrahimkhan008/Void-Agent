@@ -1,10 +1,14 @@
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { FileNotFoundError } from "lib/errors";
+import { generateUUID } from "lib/utils";
 import type {
   FileMetadata,
   FileStorage,
+  OwnedFileListing,
   SignedUrlOptions,
+  StorageBucket,
+  StoredFile,
   UploadOptions,
 } from "./file-storage.interface";
 import {
@@ -17,7 +21,6 @@ import {
   toBuffer,
   validateStorageOwnerId,
 } from "./storage-utils";
-import { generateUUID } from "lib/utils";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -116,6 +119,23 @@ const mapMetadata = (
     uploadedAt: info.uploadedAt,
   }) satisfies FileMetadata;
 
+const BUCKET_TYPES: StorageBucket[] = [
+  "attachments",
+  "ai-generated",
+  "avatars",
+];
+
+const getBucketNameForType = (bucket: StorageBucket) => {
+  switch (bucket) {
+    case "avatars":
+      return AVATAR_BUCKET;
+    case "ai-generated":
+      return AI_GENERATED_BUCKET;
+    default:
+      return ATTACHMENT_BUCKET;
+  }
+};
+
 export const createSupabaseStorage = (): FileStorage => {
   return {
     async upload(content, options: UploadOptions = {}) {
@@ -188,9 +208,11 @@ export const createSupabaseStorage = (): FileStorage => {
       return null;
     },
 
-    async download(key) {
+    async download(key, bucket) {
       ensureSupabaseConfigured();
-      const bucketName = getBucketName(key);
+      const bucketName = bucket
+        ? getBucketNameForType(bucket)
+        : getBucketName(key);
 
       const { data, error } = await supabase!.storage
         .from(bucketName)
@@ -266,10 +288,12 @@ export const createSupabaseStorage = (): FileStorage => {
       }
     },
 
-    async exists(key) {
+    async exists(key, bucket) {
       try {
         ensureSupabaseConfigured();
-        const bucketName = getBucketName(key);
+        const bucketName = bucket
+          ? getBucketNameForType(bucket)
+          : getBucketName(key);
 
         const { data, error } = await supabase!.storage
           .from(bucketName)
@@ -284,10 +308,12 @@ export const createSupabaseStorage = (): FileStorage => {
       }
     },
 
-    async getMetadata(key) {
+    async getMetadata(key, bucket) {
       try {
         ensureSupabaseConfigured();
-        const bucketName = getBucketName(key);
+        const bucketName = bucket
+          ? getBucketNameForType(bucket)
+          : getBucketName(key);
 
         const { data, error } = await supabase!.storage
           .from(bucketName)
@@ -312,6 +338,84 @@ export const createSupabaseStorage = (): FileStorage => {
       }
     },
 
+    async listOwnedFiles(ownerId): Promise<OwnedFileListing> {
+      ensureSupabaseConfigured();
+      const safeOwnerId = validateStorageOwnerId(ownerId);
+      const prefix = STORAGE_PREFIX
+        ? `${STORAGE_PREFIX}/${safeOwnerId}`
+        : safeOwnerId;
+      const results: StoredFile[] = [];
+      const seen = new Set<string>();
+      const maxFiles = 2000;
+
+      async function visit(
+        bucket: StorageBucket,
+        folder: string,
+        depth: number,
+      ) {
+        if (depth > 4 || results.length >= maxFiles) return;
+        const bucketName = getBucketNameForType(bucket);
+        let offset = 0;
+        while (offset < 2000 && results.length < maxFiles) {
+          const { data, error } = await supabase!.storage
+            .from(bucketName)
+            .list(folder, {
+              limit: 100,
+              offset,
+              sortBy: { column: "created_at", order: "desc" },
+            });
+          if (error)
+            throw new Error(`Failed to list uploaded files: ${error.message}`);
+          if (!data.length) break;
+
+          for (const entry of data) {
+            const key = `${folder}/${entry.name}`;
+            if (entry.id === null || entry.id === undefined) {
+              await visit(bucket, key, depth + 1);
+              continue;
+            }
+            const uniqueKey = `${bucket}:${key}`;
+            if (seen.has(uniqueKey)) continue;
+            seen.add(uniqueKey);
+            results.push({
+              ...mapMetadata(key, {
+                contentType:
+                  entry.metadata?.mimetype || "application/octet-stream",
+                size: entry.metadata?.size || 0,
+                uploadedAt: entry.created_at
+                  ? new Date(entry.created_at)
+                  : undefined,
+              }),
+              bucket,
+            });
+          }
+
+          if (data.length < 100) break;
+          offset += data.length;
+        }
+      }
+
+      const bucketResults = await Promise.all(
+        BUCKET_TYPES.map(async (bucket) => {
+          try {
+            await visit(bucket, prefix, 0);
+            return true;
+          } catch (error) {
+            console.error(`Unable to list ${bucket} storage objects`, error);
+            return false;
+          }
+        }),
+      );
+      return {
+        files: results.sort(
+          (left, right) =>
+            (right.uploadedAt?.getTime() ?? 0) -
+            (left.uploadedAt?.getTime() ?? 0),
+        ),
+        incomplete: bucketResults.some((succeeded) => !succeeded),
+      };
+    },
+
     async getSourceUrl(key) {
       try {
         ensureSupabaseConfigured();
@@ -331,10 +435,17 @@ export const createSupabaseStorage = (): FileStorage => {
       return this.getSourceUrl(key);
     },
 
-    async getSignedUrl(key, expiresIn = 3600, options?: SignedUrlOptions) {
+    async getSignedUrl(
+      key,
+      expiresIn = 3600,
+      options?: SignedUrlOptions,
+      bucket?,
+    ) {
       try {
         ensureSupabaseConfigured();
-        const bucketName = getBucketName(key);
+        const bucketName = bucket
+          ? getBucketNameForType(bucket)
+          : getBucketName(key);
 
         const { data, error } = await supabase!.storage
           .from(bucketName)

@@ -1,15 +1,20 @@
 import path from "node:path";
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { FileNotFoundError } from "lib/errors";
+import { generateUUID } from "lib/utils";
 import type {
   FileMetadata,
   FileStorage,
+  OwnedFileListing,
+  StoredFile,
   UploadOptions,
   UploadUrl,
   UploadUrlOptions,
@@ -24,8 +29,6 @@ import {
   toBuffer,
   validateStorageOwnerId,
 } from "./storage-utils";
-import { FileNotFoundError } from "lib/errors";
-import { generateUUID } from "lib/utils";
 
 const required = (name: string, value: string | undefined) => {
   if (!value) throw new Error(`Missing required env: ${name}`);
@@ -281,6 +284,39 @@ export const createS3FileStorage = (): FileStorage => {
         if ((error as any)?.$metadata?.httpStatusCode === 404) return null;
         throw error;
       }
+    },
+
+    async listOwnedFiles(ownerId): Promise<OwnedFileListing> {
+      const safeOwnerId = validateStorageOwnerId(ownerId);
+      const storagePrefix = resolveStoragePrefix();
+      const prefix = `${storagePrefix ? `${storagePrefix}/` : ""}${safeOwnerId}/`;
+      const files: StoredFile[] = [];
+      let continuationToken: string | undefined;
+      do {
+        const page = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix,
+            ContinuationToken: continuationToken,
+            MaxKeys: Math.min(1000, 2000 - files.length),
+          }),
+        );
+        for (const object of page.Contents ?? []) {
+          if (!object.Key || object.Key.endsWith("/")) continue;
+          files.push({
+            key: object.Key,
+            filename: path.posix.basename(object.Key),
+            contentType: "application/octet-stream",
+            size: object.Size ?? 0,
+            uploadedAt: object.LastModified,
+            bucket: "attachments",
+          });
+          if (files.length >= 2000) break;
+        }
+        continuationToken =
+          files.length >= 2000 ? undefined : page.NextContinuationToken;
+      } while (continuationToken);
+      return { files, incomplete: false };
     },
 
     async getSourceUrl(key) {

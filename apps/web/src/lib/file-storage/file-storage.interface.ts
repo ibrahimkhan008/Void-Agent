@@ -55,6 +55,17 @@ export interface SignedUrlOptions {
   download?: string | boolean;
 }
 
+export type StorageBucket = "attachments" | "avatars" | "ai-generated";
+
+export interface StoredFile extends FileMetadata {
+  bucket: StorageBucket;
+}
+
+export interface OwnedFileListing {
+  files: StoredFile[];
+  incomplete: boolean;
+}
+
 export interface FileStorage {
   /** Upload file content directly from the server (e.g. AI generated image). */
   upload(
@@ -69,7 +80,7 @@ export interface FileStorage {
   createUploadUrl?(options: UploadUrlOptions): Promise<UploadUrl | null>;
 
   /** Retrieve file bytes in server environment. */
-  download(key: string): Promise<Buffer>;
+  download(key: string, bucket?: StorageBucket): Promise<Buffer>;
 
   /** Retrieve bytes only if both object metadata and streamed content fit the limit. */
   downloadLimited(key: string, maxBytes: number): Promise<Buffer>;
@@ -78,10 +89,16 @@ export interface FileStorage {
   delete(key: string): Promise<void>;
 
   /** Check existence without downloading. */
-  exists(key: string): Promise<boolean>;
+  exists(key: string, bucket?: StorageBucket): Promise<boolean>;
 
   /** Fetch stored metadata. */
-  getMetadata(key: string): Promise<FileMetadata | null>;
+  getMetadata(
+    key: string,
+    bucket?: StorageBucket,
+  ): Promise<FileMetadata | null>;
+
+  /** List objects beneath a validated authenticated owner's storage prefix. */
+  listOwnedFiles(ownerId: string): Promise<OwnedFileListing>;
 
   /** Public URL used by clients to read the file (same as UploadResult.sourceUrl). */
   getSourceUrl(key: string): Promise<string | null>;
@@ -99,5 +116,6 @@ export interface FileStorage {
     key: string,
     expiresIn?: number,
     options?: SignedUrlOptions,
+    bucket?: StorageBucket,
   ): Promise<string | null>;
 }

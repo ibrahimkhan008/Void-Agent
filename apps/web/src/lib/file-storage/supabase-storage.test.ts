@@ -6,12 +6,14 @@ const mocks = vi.hoisted(() => {
   const remove = vi.fn();
   const download = vi.fn();
   const getPublicUrl = vi.fn();
-  const from = vi.fn(() => ({
+  const list = vi.fn();
+  const from = vi.fn((_bucket: string) => ({
     upload,
     createSignedUrl,
     remove,
     download,
     getPublicUrl,
+    list: (folder: string, options: unknown) => list(_bucket, folder, options),
   }));
   return {
     upload,
@@ -19,6 +21,7 @@ const mocks = vi.hoisted(() => {
     remove,
     download,
     getPublicUrl,
+    list,
     from,
     createClient: vi.fn(() => ({ storage: { from } })),
     generateUUID: vi.fn(() => "fixed-uuid"),
@@ -53,6 +56,7 @@ describe("supabase file storage ownership and bounded downloads", () => {
     mocks.getPublicUrl.mockReturnValue({
       data: { publicUrl: "https://example.test/file" },
     });
+    mocks.list.mockResolvedValue({ data: [], error: null });
   });
 
   it("stores authenticated uploads under the validated owner prefix", async () => {
@@ -86,6 +90,81 @@ describe("supabase file storage ownership and bounded downloads", () => {
       }),
     ).rejects.toThrow("Upload owner does not match");
     expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("lists only files below the requested user's prefix across supported buckets", async () => {
+    mocks.list.mockImplementation(async (bucket: string, folder: string) => {
+      if (bucket === "attachments" && folder === "uploads/user-1") {
+        return {
+          data: [
+            {
+              id: "object-1",
+              name: "notes.txt",
+              metadata: { mimetype: "text/plain", size: 5 },
+              created_at: "2026-11-15T00:00:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+    const { createSupabaseStorage } = await import("./supabase-storage");
+    const files = await createSupabaseStorage().listOwnedFiles("user-1");
+
+    expect(files).toEqual({
+      incomplete: false,
+      files: [
+        expect.objectContaining({
+          key: "uploads/user-1/notes.txt",
+          filename: "notes.txt",
+          contentType: "text/plain",
+          size: 5,
+          bucket: "attachments",
+        }),
+      ],
+    });
+    expect(mocks.list).toHaveBeenCalledWith(
+      "attachments",
+      "uploads/user-1",
+      expect.objectContaining({ limit: 100 }),
+    );
+    expect(mocks.list).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "uploads/user-2",
+      expect.anything(),
+    );
+  });
+
+  it("lists nested project uploads under the same owner prefix", async () => {
+    mocks.list.mockImplementation(async (bucket: string, folder: string) => {
+      if (bucket !== "attachments") return { data: [], error: null };
+      if (folder === "uploads/user-1") {
+        return { data: [{ id: null, name: "projects" }], error: null };
+      }
+      if (folder === "uploads/user-1/projects") {
+        return { data: [{ id: null, name: "project-1" }], error: null };
+      }
+      if (folder === "uploads/user-1/projects/project-1") {
+        return {
+          data: [
+            {
+              id: "object-2",
+              name: "document.pdf",
+              metadata: { mimetype: "application/pdf", size: 1024 },
+              created_at: "2026-11-15T00:00:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+    const { createSupabaseStorage } = await import("./supabase-storage");
+    const files = await createSupabaseStorage().listOwnedFiles("user-1");
+    expect(files.files.map(({ key }) => key)).toContain(
+      "uploads/user-1/projects/project-1/document.pdf",
+    );
   });
 
   it("limits Supabase downloads while streaming the short-lived signed object", async () => {

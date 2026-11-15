@@ -40,6 +40,8 @@ const KEY_XLS = "user_123/0f3e2f10-1111-2222-3333-444455556666-report.xls";
 const KEY_PDF = "user_123/0f3e2f10-1111-2222-3333-444455556666-report.pdf";
 const KEY_SVG = "user_123/0f3e2f10-1111-2222-3333-444455556666-x.svg";
 const KEY_HTML = "user_123/0f3e2f10-1111-2222-3333-444455556666-x.html";
+const KEY_CURRENT =
+  "uploads/user_123/0f3e2f10-1111-2222-3333-444455556666-chat.pdf";
 const SIGNED = "https://sb.co/storage/v1/object/sign/attachments/k?token=t";
 
 afterEach(() => {
@@ -47,11 +49,12 @@ afterEach(() => {
   storage.getSignedUrl = vi.fn();
 });
 
-function request(key?: string, disposition?: string) {
+function request(key?: string, disposition?: string, bucket?: string) {
   const url = new URL("http://localhost/api/storage/download");
   if (key !== undefined) url.searchParams.set("key", key);
   if (disposition !== undefined)
     url.searchParams.set("disposition", disposition);
+  if (bucket !== undefined) url.searchParams.set("bucket", bucket);
   return new Request(url) as unknown as NextRequest;
 }
 
@@ -111,6 +114,22 @@ describe("GET /api/storage/download", () => {
     expect(storage.getSignedUrl).not.toHaveBeenCalled();
   });
 
+  test("allows the current uploads/<userId> storage prefix", async () => {
+    storage.exists.mockResolvedValue(true);
+    storage.getSignedUrl!.mockResolvedValue(SIGNED);
+
+    const res = await GET(request(KEY_CURRENT, undefined, "attachments"));
+
+    expect(res.status).toBe(302);
+    expect(storage.exists).toHaveBeenCalledWith(KEY_CURRENT, "attachments");
+    expect(storage.getSignedUrl).toHaveBeenCalledWith(
+      KEY_CURRENT,
+      60,
+      { download: "chat.pdf" },
+      "attachments",
+    );
+  });
+
   test("returns 404 for a missing object without signing anything", async () => {
     storage.exists.mockResolvedValue(false);
 
@@ -128,6 +147,28 @@ describe("GET /api/storage/download", () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Download failed" });
+  });
+
+  test("uses only a supported bucket when downloading an owner-scoped file", async () => {
+    storage.exists.mockResolvedValue(true);
+    storage.getSignedUrl!.mockResolvedValue(SIGNED);
+
+    const res = await GET(request(KEY_XLS, undefined, "ai-generated"));
+
+    expect(res.status).toBe(302);
+    expect(storage.exists).toHaveBeenCalledWith(KEY_XLS, "ai-generated");
+    expect(storage.getSignedUrl).toHaveBeenCalledWith(
+      KEY_XLS,
+      60,
+      { download: "report.xls" },
+      "ai-generated",
+    );
+  });
+
+  test("rejects unknown buckets", async () => {
+    const res = await GET(request(KEY_XLS, undefined, "private-secrets"));
+    expect(res.status).toBe(400);
+    expect(storage.exists).not.toHaveBeenCalled();
   });
 
   describe("driver without signed URLs (streaming fallback)", () => {
