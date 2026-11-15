@@ -1,17 +1,17 @@
-import { inngest } from "../client";
-import { INNGEST_PLAN_CONCURRENCY_LIMIT } from "../limits";
-import logger from "logger";
-import { scheduledRunEventId } from "@/lib/scheduled-tasks/due-detection";
 import {
   claimScheduledSlot,
   findDueScheduledTasks,
 } from "@/lib/scheduled-tasks/checker";
+import { scheduledRunEventId } from "@/lib/scheduled-tasks/due-detection";
 import {
-  executeAgentRun,
+  type ScheduledRunResult,
+  executeScheduledRun,
   loadScheduledTaskContext,
   recordScheduledRunResult,
-  type ScheduledRunResult,
 } from "@/lib/scheduled-tasks/runner";
+import logger from "logger";
+import { inngest } from "../client";
+import { INNGEST_PLAN_CONCURRENCY_LIMIT } from "../limits";
 
 // Main execution function
 export const executeScheduledTask = inngest.createFunction(
@@ -65,7 +65,7 @@ export const executeScheduledTask = inngest.createFunction(
     let result: ScheduledRunResult;
     try {
       result = await step.run("execute-task", () =>
-        executeAgentRun(task, agent),
+        executeScheduledRun(task, agent),
       );
     } catch {
       result = {

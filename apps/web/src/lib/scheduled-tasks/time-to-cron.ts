@@ -2,13 +2,20 @@
  * Converts user-friendly schedule inputs to cron expressions
  */
 
-export type ScheduleFrequency = "hourly" | "daily" | "weekly" | "monthly";
+export type ScheduleFrequency =
+  | "hourly"
+  | "daily"
+  | "weekdays"
+  | "weekly"
+  | "monthly"
+  | "custom";
 
 export interface ScheduleInput {
   frequency: ScheduleFrequency;
   time?: string; // "HH:MM" format (not used for hourly)
   dayOfWeek?: number; // 0-6 (Sunday-Saturday) for weekly
   dayOfMonth?: number; // 1-31 for monthly
+  customCron?: string;
   timezone: string;
 }
 
@@ -18,6 +25,14 @@ export interface ScheduleInput {
  */
 export function timeToCron(input: ScheduleInput): string {
   const { frequency, time, dayOfWeek, dayOfMonth } = input;
+
+  if (frequency === "custom") {
+    const expression = input.customCron?.trim();
+    if (!expression) {
+      throw new Error("A cron expression is required");
+    }
+    return expression;
+  }
 
   // For hourly: run at minute 0 of every hour
   if (frequency === "hourly") {
@@ -37,6 +52,9 @@ export function timeToCron(input: ScheduleInput): string {
   switch (frequency) {
     case "daily":
       return `${minutes} ${hours} * * *`;
+
+    case "weekdays":
+      return `${minutes} ${hours} * * 1-5`;
 
     case "weekly":
       if (dayOfWeek === undefined) {
@@ -61,7 +79,7 @@ export function timeToCron(input: ScheduleInput): string {
 export function cronToHumanReadable(cron: string, timezone: string): string {
   const parts = cron.split(" ");
   if (parts.length !== 5) {
-    return "Invalid cron expression";
+    return `${cron} (${timezone})`;
   }
 
   const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
@@ -74,6 +92,11 @@ export function cronToHumanReadable(cron: string, timezone: string): string {
   // Daily
   if (dayOfMonth === "*" && dayOfWeek === "*") {
     return `Daily at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")} (${timezone})`;
+  }
+
+  // Weekly
+  if (dayOfMonth === "*" && dayOfWeek === "1-5") {
+    return `Weekdays at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")} (${timezone})`;
   }
 
   // Weekly
@@ -146,7 +169,7 @@ export function cronToScheduleInput(
 ): Partial<ScheduleInput> | null {
   const parts = cron.split(" ");
   if (parts.length !== 5) {
-    return null;
+    return { frequency: "custom", customCron: cron };
   }
 
   const [minute, hour, dayOfMonth, , dayOfWeek] = parts;
@@ -160,6 +183,14 @@ export function cronToScheduleInput(
   if (dayOfMonth === "*" && dayOfWeek === "*") {
     return {
       frequency: "daily",
+      time: `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`,
+    };
+  }
+
+  // Weekly: ${minute} ${hour} * * ${dayOfWeek}
+  if (dayOfMonth === "*" && dayOfWeek === "1-5") {
+    return {
+      frequency: "weekdays",
       time: `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`,
     };
   }
@@ -182,5 +213,5 @@ export function cronToScheduleInput(
     };
   }
 
-  return null;
+  return { frequency: "custom", customCron: cron };
 }

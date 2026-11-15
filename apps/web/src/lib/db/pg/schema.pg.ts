@@ -247,9 +247,14 @@ export const ScheduledTaskTable = pgTable(
 
     // What to run
     taskType: varchar("task_type", { enum: ["agent"] }).notNull(),
-    agentId: uuid("agent_id")
+    executionMode: varchar("execution_mode", {
+      enum: ["agent", "chat", "cloud-agent"],
+    })
       .notNull()
-      .references(() => AgentTable.id, { onDelete: "cascade" }),
+      .default("agent"),
+    agentId: uuid("agent_id").references(() => AgentTable.id, {
+      onDelete: "cascade",
+    }),
     // Name of this schedule within its agent (unique per agent). Lets a single
     // agent own multiple named schedules; also the filename a future
     // file/directory backend would use (schedules/<key>.json).
@@ -302,6 +307,9 @@ export const ScheduledTaskTable = pgTable(
     index("scheduled_task_agent_idx").on(table.agentId),
     index("scheduled_task_enabled_idx").on(table.enabled),
     uniqueIndex("scheduled_task_agent_key_idx").on(table.agentId, table.key),
+    uniqueIndex("scheduled_task_user_key_unbound_idx")
+      .on(table.userId, table.key)
+      .where(sql`${table.agentId} IS NULL`),
     index("scheduled_task_due_idx").on(table.enabled, table.nextRunAt),
   ],
 );

@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { AgentTable, ScheduledTaskTable } from "@/lib/db/pg/schema.pg";
+import { and, asc, eq } from "drizzle-orm";
 import { computeNextRunAt } from "./schedule-validation";
 
 /**
@@ -24,6 +24,7 @@ export async function listScheduledTasksForUser(
       id: ScheduledTaskTable.id,
       userId: ScheduledTaskTable.userId,
       taskType: ScheduledTaskTable.taskType,
+      executionMode: ScheduledTaskTable.executionMode,
       agentId: ScheduledTaskTable.agentId,
       key: ScheduledTaskTable.key,
       name: ScheduledTaskTable.name,

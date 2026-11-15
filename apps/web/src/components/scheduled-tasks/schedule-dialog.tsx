@@ -1,10 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
-import useSWR from "swr";
-import { Switch } from "@/components/ui/switch";
-import { authClient } from "@/lib/auth/client";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,15 +18,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { authClient } from "@/lib/auth/client";
 import {
   type ScheduleFrequency,
+  cronToScheduleInput,
   getCommonTimezones,
   getUserTimezone,
   timeToCron,
-  cronToScheduleInput,
 } from "@/lib/scheduled-tasks/time-to-cron";
+import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import useSWR from "swr";
 
 /**
  * Schedule config captured before the agent exists (create flow). The parent
@@ -46,6 +46,8 @@ export type DeferredScheduleConfig = {
   enabled: true;
 };
 
+export type ScheduledExecutionMode = "agent" | "chat" | "cloud-agent";
+
 type BrowserCredentialOption = {
   alias: string;
   label: string | null;
@@ -59,6 +61,11 @@ export interface ScheduleDialogProps {
   /** Absent while the agent is being created — the dialog defers the config. */
   taskId?: string;
   taskName?: string;
+  initialName?: string;
+  initialPrompt?: string;
+  initialFrequency?: ScheduleFrequency;
+  initialExecutionMode?: ScheduledExecutionMode;
+  allowExecutionModeChange?: boolean;
   existingSchedule?: any;
   /**
    * Name of the schedule within the agent. New schedules pass a fresh key so
@@ -76,6 +83,11 @@ export function ScheduleDialog({
   taskType,
   taskId,
   taskName,
+  initialName,
+  initialPrompt,
+  initialFrequency,
+  initialExecutionMode,
+  allowExecutionModeChange = false,
   existingSchedule,
   scheduleKey,
   onScheduleCreated,
@@ -83,19 +95,39 @@ export function ScheduleDialog({
 }: ScheduleDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [frequency, setFrequency] = useState<ScheduleFrequency>("daily");
+  const [executionMode, setExecutionMode] = useState<ScheduledExecutionMode>(
+    initialExecutionMode ?? "agent",
+  );
   const [time, setTime] = useState("09:00");
   const [dayOfWeek, setDayOfWeek] = useState<number>(1); // Monday
   const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+  const [customCron, setCustomCron] = useState("0 9 * * 1-5");
   const [timezone, setTimezone] = useState(getUserTimezone());
   const [inputPrompt, setInputPrompt] = useState("");
+  const [scheduleName, setScheduleName] = useState("");
+  const [description, setDescription] = useState("");
   const [browserAutomationEnabled, setBrowserAutomationEnabled] =
     useState(false);
   const [credentialAliases, setCredentialAliases] = useState<string[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("none");
   const tBrowser = useTranslations("Agent.scheduleBrowser");
 
   // Only the org's stored sign-ins can be pinned, and the server re-checks the
   // list anyway — this is for the picker, not for authorization.
   const { data: activeOrg } = authClient.useActiveOrganization();
+  const { data: agentOptions = [], isLoading: agentsLoading } = useSWR<
+    { id: string; name: string }[]
+  >(
+    open && allowExecutionModeChange
+      ? "/api/agent?filters=mine,shared&limit=100"
+      : null,
+    (url: string) =>
+      fetch(url).then((response) =>
+        response.ok
+          ? response.json()
+          : Promise.reject(new Error("Could not load agents")),
+      ),
+  );
   const { data: credentialData } = useSWR<{
     credentials: BrowserCredentialOption[];
   }>(
@@ -110,6 +142,10 @@ export function ScheduleDialog({
   // deferred config from the create flow — both carry the same fields).
   useEffect(() => {
     if (existingSchedule) {
+      setExecutionMode(existingSchedule.executionMode || "agent");
+      setSelectedAgentId(taskId || existingSchedule.agentId || "none");
+      setScheduleName(existingSchedule.name || "");
+      setDescription(existingSchedule.description || "");
       setInputPrompt(existingSchedule.inputPrompt || "");
       setBrowserAutomationEnabled(
         Boolean(existingSchedule.browserAutomationEnabled),
@@ -124,9 +160,34 @@ export function ScheduleDialog({
         if (parsed.time) setTime(parsed.time);
         if (parsed.dayOfWeek !== undefined) setDayOfWeek(parsed.dayOfWeek);
         if (parsed.dayOfMonth !== undefined) setDayOfMonth(parsed.dayOfMonth);
+        if (parsed.customCron) setCustomCron(parsed.customCron);
       }
+    } else {
+      setExecutionMode(
+        initialExecutionMode || (taskId || taskName ? "agent" : "chat"),
+      );
+      setSelectedAgentId(taskId || "none");
+      setScheduleName(initialName || "");
+      setDescription("");
+      setInputPrompt(initialPrompt || "");
+      setBrowserAutomationEnabled(false);
+      setCredentialAliases([]);
+      setFrequency(initialFrequency || "daily");
+      setTime("09:00");
+      setDayOfWeek(1);
+      setDayOfMonth(1);
+      setCustomCron("0 9 * * 1-5");
+      setTimezone(getUserTimezone());
     }
-  }, [existingSchedule]);
+  }, [
+    existingSchedule,
+    initialName,
+    initialPrompt,
+    initialFrequency,
+    initialExecutionMode,
+    open,
+    taskId,
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,6 +199,7 @@ export function ScheduleDialog({
         time: frequency === "hourly" ? undefined : time,
         dayOfWeek: frequency === "weekly" ? dayOfWeek : undefined,
         dayOfMonth: frequency === "monthly" ? dayOfMonth : undefined,
+        customCron: frequency === "custom" ? customCron : undefined,
         timezone,
       });
     } catch {
@@ -147,7 +209,7 @@ export function ScheduleDialog({
 
     // Create flow: the agent does not exist yet, hand the config to the
     // parent, which saves it right after the agent is created.
-    if (!taskId) {
+    if (onSubmitDeferred) {
       onSubmitDeferred?.({
         cronExpression,
         timezone,
@@ -160,11 +222,23 @@ export function ScheduleDialog({
       return;
     }
 
+    const effectiveAgentId =
+      taskId || (selectedAgentId !== "none" ? selectedAgentId : undefined);
+    if (executionMode === "agent" && !effectiveAgentId) {
+      toast.error("Choose an agent before creating an agent schedule.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
         taskType,
-        agentId: taskId,
+        executionMode,
+        ...(executionMode === "agent" && effectiveAgentId
+          ? { agentId: effectiveAgentId }
+          : {}),
+        name: scheduleName || undefined,
+        description: description || null,
         // Preserve the schedule's key on edit; new schedules use the passed key
         // (or "default"). The POST route upserts on (agentId, key).
         key: existingSchedule?.key ?? scheduleKey ?? "default",
@@ -188,10 +262,12 @@ export function ScheduleDialog({
       });
 
       if (!response.ok) {
+        const result = await response.json().catch(() => null);
         throw new Error(
-          existingSchedule?.id
-            ? "Failed to update schedule"
-            : "Failed to create schedule",
+          result?.error ||
+            (existingSchedule?.id
+              ? "Failed to update schedule"
+              : "Failed to create schedule"),
         );
       }
 
@@ -200,9 +276,11 @@ export function ScheduleDialog({
     } catch (error) {
       console.error("Error creating schedule:", error);
       toast.error(
-        existingSchedule?.id
-          ? "Failed to update the schedule. Please try again."
-          : "Failed to create the schedule. Please try again.",
+        error instanceof Error
+          ? error.message
+          : existingSchedule?.id
+            ? "Failed to update the schedule. Please try again."
+            : "Failed to create the schedule. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -213,29 +291,135 @@ export function ScheduleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Schedule {taskName || "Task"}</DialogTitle>
+          <DialogTitle>
+            {existingSchedule
+              ? `Edit ${existingSchedule.name || "schedule"}`
+              : taskName
+                ? `Schedule ${taskName}`
+                : "Create New Schedule"}
+          </DialogTitle>
           <DialogDescription>
-            Choose when this {taskType} should run automatically.
+            Choose what runs and when it should run automatically.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {allowExecutionModeChange ? (
+            <div className="space-y-2">
+              <Label htmlFor="executionMode">Execution Mode</Label>
+              <Select
+                value={executionMode}
+                onValueChange={(value) =>
+                  setExecutionMode(value as ScheduledExecutionMode)
+                }
+              >
+                <SelectTrigger id="executionMode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="chat">
+                    Chat AI (Web Search + Memory)
+                  </SelectItem>
+                  <SelectItem value="cloud-agent">
+                    Cloud Agent (Autonomous Sandbox)
+                  </SelectItem>
+                  <SelectItem value="agent">
+                    Custom Agent (instructions + tools)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {!taskId && (
+                <div className="space-y-2">
+                  <Label htmlFor="scheduleAgent">Agent (optional)</Label>
+                  <Select
+                    value={selectedAgentId}
+                    onValueChange={setSelectedAgentId}
+                    disabled={agentsLoading}
+                  >
+                    <SelectTrigger id="scheduleAgent">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No agent</SelectItem>
+                      {agentOptions.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {executionMode === "agent" && selectedAgentId === "none" && (
+                    <p className="text-xs text-muted-foreground">
+                      Select an agent for Custom Agent mode, or switch to Chat
+                      AI or Cloud Agent to run without one.
+                    </p>
+                  )}
+                </div>
+              )}
+              {executionMode === "cloud-agent" && (
+                <p className="text-xs text-muted-foreground">
+                  Runs code in an E2B sandbox. Only files attached to the run
+                  can be inspected; local files and private repositories are not
+                  accessed automatically. E2B must be configured on the server
+                  before Cloud Agent schedules can be created.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label>Execution Mode</Label>
+              <p className="text-sm text-muted-foreground">
+                {executionMode === "agent"
+                  ? `Custom Agent${taskName ? ` · ${taskName}` : ""}`
+                  : executionMode === "cloud-agent"
+                    ? "Cloud Agent (Autonomous Sandbox)"
+                    : "Chat AI (Web Search + Memory)"}
+              </p>
+              {taskId && executionMode !== "agent" && (
+                <p className="text-sm text-muted-foreground">
+                  Using agent instructions and tools:{" "}
+                  {taskName || "Selected agent"}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Input Prompt — the user message of every scheduled run */}
           <div className="space-y-2">
+            <Label htmlFor="scheduleName">Schedule name</Label>
+            <Input
+              id="scheduleName"
+              value={scheduleName}
+              onChange={(e) => setScheduleName(e.target.value)}
+              placeholder={`Scheduled ${taskName || "agent"}`}
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="scheduleDescription">Description (optional)</Label>
+            <Input
+              id="scheduleDescription"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Short summary of this schedule"
+              maxLength={2000}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="inputPrompt">
-              What should the agent do each run?{" "}
+              Task Prompt / Instructions{" "}
               <span className="text-muted-foreground">(optional)</span>
             </Label>
             <Textarea
               id="inputPrompt"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder="e.g. Summarize yesterday's meeting transcripts and extract all todos"
+              placeholder="Describe the exact task to perform when this schedule triggers..."
               rows={3}
             />
             <p className="text-xs text-muted-foreground">
-              Sent to the agent as the user message on every scheduled run. If
-              empty, the agent runs with a generic prompt.
+              Sent as the user message on every scheduled run. If empty, the
+              selected execution mode uses a generic prompt.
             </p>
           </div>
 
@@ -254,11 +438,32 @@ export function ScheduleDialog({
               <SelectContent>
                 <SelectItem value="hourly">Every Hour</SelectItem>
                 <SelectItem value="daily">Every Day</SelectItem>
+                <SelectItem value="weekdays">Weekdays (Mon – Fri)</SelectItem>
                 <SelectItem value="weekly">Every Week</SelectItem>
                 <SelectItem value="monthly">Every Month</SelectItem>
+                <SelectItem value="custom">Custom Cron</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {frequency === "custom" && (
+            <div className="space-y-2">
+              <Label htmlFor="customCron">Cron expression</Label>
+              <Input
+                id="customCron"
+                value={customCron}
+                onChange={(event) => setCustomCron(event.target.value)}
+                placeholder="0 9 * * 1-5"
+                autoComplete="off"
+                spellCheck={false}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use standard five-field cron syntax: minute hour day-of-month
+                month day-of-week. The server validates it before saving.
+              </p>
+            </div>
+          )}
 
           {/* Time (not shown for hourly) */}
           {frequency !== "hourly" && (
@@ -327,59 +532,65 @@ export function ScheduleDialog({
           {/* Browser automation. Off by default and per-schedule, because an
               unattended browser run signs itself in and bills browser-seconds
               with nobody watching the result. */}
-          <div className="space-y-2 rounded-lg border p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <Label htmlFor="browserAutomation">{tBrowser("enable")}</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {tBrowser("enableDescription")}
-                </p>
-              </div>
-              <Switch
-                id="browserAutomation"
-                checked={browserAutomationEnabled}
-                onCheckedChange={setBrowserAutomationEnabled}
-              />
-            </div>
-            {browserAutomationEnabled && (
-              <div className="space-y-1.5 pt-1">
-                <p className="text-xs font-medium">{tBrowser("credentials")}</p>
-                {(credentialData?.credentials.length ?? 0) === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {tBrowser("noCredentials")}
+          {executionMode === "agent" && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label htmlFor="browserAutomation">
+                    {tBrowser("enable")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {tBrowser("enableDescription")}
                   </p>
-                ) : (
-                  credentialData?.credentials.map((credential) => (
-                    <label
-                      key={credential.alias}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={credentialAliases.includes(credential.alias)}
-                        onChange={(e) =>
-                          setCredentialAliases((current) =>
-                            e.target.checked
-                              ? [...current, credential.alias]
-                              : current.filter((a) => a !== credential.alias),
-                          )
-                        }
-                      />
-                      <span>
-                        {credential.label || credential.alias}
-                        <span className="text-muted-foreground ml-1.5">
-                          {credential.domain}
-                        </span>
-                      </span>
-                    </label>
-                  ))
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {tBrowser("credentialsWarning")}
-                </p>
+                </div>
+                <Switch
+                  id="browserAutomation"
+                  checked={browserAutomationEnabled}
+                  onCheckedChange={setBrowserAutomationEnabled}
+                />
               </div>
-            )}
-          </div>
+              {browserAutomationEnabled && (
+                <div className="space-y-1.5 pt-1">
+                  <p className="text-xs font-medium">
+                    {tBrowser("credentials")}
+                  </p>
+                  {(credentialData?.credentials.length ?? 0) === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {tBrowser("noCredentials")}
+                    </p>
+                  ) : (
+                    credentialData?.credentials.map((credential) => (
+                      <label
+                        key={credential.alias}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={credentialAliases.includes(credential.alias)}
+                          onChange={(e) =>
+                            setCredentialAliases((current) =>
+                              e.target.checked
+                                ? [...current, credential.alias]
+                                : current.filter((a) => a !== credential.alias),
+                            )
+                          }
+                        />
+                        <span>
+                          {credential.label || credential.alias}
+                          <span className="text-muted-foreground ml-1.5">
+                            {credential.domain}
+                          </span>
+                        </span>
+                      </label>
+                    ))
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {tBrowser("credentialsWarning")}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Timezone */}
           <div className="space-y-2">
@@ -420,7 +631,7 @@ export function ScheduleDialog({
                   : "Creating..."
                 : existingSchedule
                   ? "Update Schedule"
-                  : !taskId
+                  : onSubmitDeferred
                     ? "Set Schedule"
                     : "Create Schedule"}
             </Button>

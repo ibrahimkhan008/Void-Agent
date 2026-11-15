@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import logger from "logger";
 import {
   claimScheduledSlot,
   findDueScheduledTasks,
 } from "@/lib/scheduled-tasks/checker";
 import {
-  executeAgentRun,
+  type ScheduledRunResult,
+  executeScheduledRun,
   loadScheduledTaskContext,
   recordScheduledRunResult,
-  type ScheduledRunResult,
 } from "@/lib/scheduled-tasks/runner";
+import logger from "logger";
+import { NextResponse } from "next/server";
 
 // Loopback chat runs can take a while; give the batch room like /api/inngest.
 export const maxDuration = 300;
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     let result: ScheduledRunResult;
     try {
-      result = await executeAgentRun(ctx.task, ctx.agent);
+      result = await executeScheduledRun(ctx.task, ctx.agent);
     } catch (error) {
       result = {
         success: false,

@@ -42,7 +42,7 @@ type TaskWithRelations = ScheduledTaskRow & {
 };
 
 export type LoadScheduledTaskResult =
-  | { ok: true; task: TaskWithRelations; agent: AgentRow }
+  | { ok: true; task: TaskWithRelations; agent: AgentRow | null }
   | { ok: false; reason: string };
 
 // Minimal structural shapes the run/record steps actually read. Decoupled from
@@ -52,6 +52,8 @@ type RunnableTask = {
   id: string;
   userId: string;
   agentId: string | null;
+  executionMode?: "agent" | "chat" | "cloud-agent";
+  name?: string;
   inputPrompt: string | null;
   lastChatThreadId: string | null;
 };
@@ -91,38 +93,44 @@ export async function loadScheduledTaskContext(
   if (!task.user || task.user.banned) {
     return { ok: false, reason: !task.user ? "User not found" : "User banned" };
   }
-  if (!task.agentId) {
-    return { ok: false, reason: "Agent ID is missing from scheduled task" };
-  }
-
-  // Prefer the joined agent, but re-verify access; fall back to a direct load.
-  let agent = task.agent;
-  if (
-    !agent ||
-    !(
-      agent.userId === task.userId ||
-      agent.visibility === "public" ||
-      agent.visibility === "readonly"
-    )
-  ) {
-    const [agentRow] = await pgDb
-      .select()
-      .from(AgentTable)
-      .where(eq(AgentTable.id, task.agentId));
+  const executionMode = task.executionMode ?? "agent";
+  let agent: AgentRow | null = null;
+  if (task.agentId) {
+    // An agent is optional in Chat AI and Cloud Agent modes, but when present
+    // its instructions and tools are still a privileged input and must pass
+    // the same ownership/visibility checks as a Custom Agent schedule.
+    agent = task.agent;
     if (
-      agentRow &&
-      (agentRow.userId === task.userId ||
-        agentRow.visibility === "public" ||
-        agentRow.visibility === "readonly")
+      !agent ||
+      !(
+        agent.userId === task.userId ||
+        agent.visibility === "public" ||
+        agent.visibility === "readonly"
+      )
     ) {
-      agent = agentRow;
-    } else {
-      logger.error("Scheduled task agent not found or not accessible", {
-        taskId: task.id,
-        agentId: task.agentId,
-        userId: task.userId,
-      });
-      return { ok: false, reason: "Agent not found or not accessible" };
+      const [agentRow] = await pgDb
+        .select()
+        .from(AgentTable)
+        .where(eq(AgentTable.id, task.agentId));
+      if (
+        agentRow &&
+        (agentRow.userId === task.userId ||
+          agentRow.visibility === "public" ||
+          agentRow.visibility === "readonly")
+      ) {
+        agent = agentRow;
+      } else {
+        logger.error("Scheduled task agent not found or not accessible", {
+          taskId: task.id,
+          agentId: task.agentId,
+          userId: task.userId,
+        });
+        return { ok: false, reason: "Agent not found or not accessible" };
+      }
+    }
+  } else if (executionMode === "agent") {
+    if (!task.agentId) {
+      return { ok: false, reason: "Agent ID is missing from scheduled task" };
     }
   }
 
@@ -139,13 +147,40 @@ export async function executeAgentRun(
   task: RunnableTask,
   agent: RunnableAgent,
 ): Promise<ScheduledRunResult> {
+  return executeScheduledRun({ ...task, executionMode: "agent" }, agent);
+}
+
+/** Executes a regular Chat AI, Cloud Agent, or legacy custom-agent schedule. */
+export async function executeScheduledRun(
+  task: RunnableTask,
+  agent: RunnableAgent | null,
+): Promise<ScheduledRunResult> {
   const threadId = isValidUUID(task.lastChatThreadId)
     ? task.lastChatThreadId
     : generateUUID();
 
-  const messageText = task.inputPrompt
+  const executionMode = task.executionMode ?? "agent";
+  if (executionMode === "agent" && !agent) {
+    return {
+      success: false,
+      error: "Scheduled agent is unavailable",
+      threadId,
+    };
+  }
+  const basePrompt = task.inputPrompt
     ? task.inputPrompt
-    : `Scheduled run for ${agent.name || "agent"} at ${new Date().toISOString()}`;
+    : `Scheduled run for ${agent?.name || task.name || "Chat AI"} at ${new Date().toISOString()}`;
+  const messageText =
+    executionMode === "cloud-agent"
+      ? `You are running as Cloud Agent in an autonomous, isolated E2B code sandbox. Use the available Python or JavaScript execution tools when the task requires code. Analyze only files explicitly attached to this conversation or supplied by the task; do not claim access to the user's local machine or an unspecified repository.\n\nTask:\n${basePrompt}`
+      : basePrompt;
+
+  const allowedAppDefaultToolkit =
+    executionMode === "cloud-agent"
+      ? ["webSearch", "memory", "code"]
+      : executionMode === "chat"
+        ? ["webSearch", "memory"]
+        : undefined;
 
   const requestBody = {
     id: threadId,
@@ -155,16 +190,19 @@ export async function executeAgentRun(
       parts: [{ type: "text", text: messageText }],
     },
     toolChoice: "auto",
-    chatModel: parseAgentModel(agent.model) ?? undefined,
-    mentions: [
-      {
-        type: "agent",
-        name: agent.name || "Scheduled Agent",
-        agentId: task.agentId,
-        description: agent.description || null,
-        icon: agent.icon || null,
-      },
-    ],
+    ...(allowedAppDefaultToolkit ? { allowedAppDefaultToolkit } : {}),
+    chatModel: agent ? (parseAgentModel(agent.model) ?? undefined) : undefined,
+    mentions: agent
+      ? [
+          {
+            type: "agent",
+            name: agent.name || "Scheduled Agent",
+            agentId: task.agentId,
+            description: agent.description || null,
+            icon: agent.icon || null,
+          },
+        ]
+      : [],
   };
 
   // Fail loud on missing config. Previously `SCHEDULED_TASK_SECRET!` was sent
@@ -198,7 +236,7 @@ export async function executeAgentRun(
     // secret above has been verified.
     [SCHEDULED_TASK_ID_HEADER]: task.id,
   };
-  if (agent.organizationId) {
+  if (agent?.organizationId) {
     headers["X-Organization-Id"] = agent.organizationId;
   }
 
@@ -325,7 +363,7 @@ async function drainStream(response: Response): Promise<StreamOutcome> {
 export async function recordScheduledRunResult(
   taskId: string,
   task: RunnableTask,
-  agent: RunnableAgent,
+  agent: RunnableAgent | null,
   result: ScheduledRunResult,
 ) {
   await pgDb
@@ -346,7 +384,7 @@ export async function recordScheduledRunResult(
     })
     .where(eq(ScheduledTaskTable.id, taskId));
 
-  const agentName = agent.name || "Agent";
+  const agentName = agent?.name || task.name || "Scheduled task";
   const title = result.success
     ? `${agentName} finished a scheduled run`
     : `${agentName} scheduled run failed`;
@@ -361,7 +399,7 @@ export async function recordScheduledRunResult(
     body,
     threadId: isValidUUID(result.threadId) ? result.threadId : null,
     agentId: task.agentId,
-    url: result.threadId ? `/chat/${result.threadId}` : "/agents",
+    url: result.threadId ? `/chat/${result.threadId}` : "/schedules",
     push: {
       kind: result.success ? "complete" : "error",
       tag: `scheduled-task-${task.id}`,
@@ -387,7 +425,7 @@ export async function runScheduledTaskNow(
 
   let result: ScheduledRunResult;
   try {
-    result = await executeAgentRun(ctx.task, ctx.agent);
+    result = await executeScheduledRun(ctx.task, ctx.agent);
   } catch (error) {
     result = {
       success: false,

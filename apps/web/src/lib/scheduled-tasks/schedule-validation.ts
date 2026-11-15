@@ -20,7 +20,8 @@ const BrowserCredentialAliasesSchema = z
 export const ScheduledTaskCreateSchema = z
   .object({
     taskType: z.literal("agent"),
-    agentId: z.string().uuid(),
+    executionMode: z.enum(["agent", "chat", "cloud-agent"]).default("agent"),
+    agentId: z.string().uuid().optional(),
     key: ScheduleKeySchema.optional().default("default"),
     name: z.string().max(200).optional(),
     description: z.string().max(2000).nullish(),
@@ -30,6 +31,15 @@ export const ScheduledTaskCreateSchema = z
     browserAutomationEnabled: z.boolean().optional(),
     browserCredentialAliases: BrowserCredentialAliasesSchema.nullish(),
     enabled: z.boolean().optional().default(true),
+  })
+  .superRefine((value, context) => {
+    if (value.executionMode === "agent" && !value.agentId) {
+      context.addIssue({
+        code: "custom",
+        path: ["agentId"],
+        message: "An agent is required for agent execution mode",
+      });
+    }
   })
   .strip();
 

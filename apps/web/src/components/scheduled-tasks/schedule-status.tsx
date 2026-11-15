@@ -32,7 +32,7 @@ export function ScheduleStatus({
 }: {
   task: {
     id: string;
-    agentId?: string;
+    agentId?: string | null;
     cronExpression: string;
     timezone: string;
     inputPrompt?: string | null;

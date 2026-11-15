@@ -1,13 +1,14 @@
 "use client";
+import { fetcher } from "lib/utils";
 import { useMemo } from "react";
 import useSWR from "swr";
-import { fetcher } from "lib/utils";
 
 export type ScheduledTaskSummary = {
   id: string;
   userId: string;
   taskType: "agent";
-  agentId: string;
+  agentId: string | null;
+  executionMode: "agent" | "chat" | "cloud-agent";
   key: string;
   name: string;
   description: string | null;
@@ -39,7 +40,9 @@ export function useScheduledTasks() {
   const byAgentId = useMemo(() => {
     const map = new Map<string, ScheduledTaskSummary>();
     for (const task of data?.tasks ?? []) {
-      if (!map.has(task.agentId)) map.set(task.agentId, task);
+      if (task.agentId && !map.has(task.agentId)) {
+        map.set(task.agentId, task);
+      }
     }
     return map;
   }, [data?.tasks]);
