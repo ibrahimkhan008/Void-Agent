@@ -1,7 +1,6 @@
 import { PROJECT_RECORDS } from "@/lib/db/pg/repositories/project-records-repository.pg";
 import { proposeRecordChange } from "@/lib/db/pg/repositories/user-records-repository.pg";
-import { tool as createTool } from "ai";
-import { z } from "zod";
+import { tool as createTool, jsonSchema } from "ai";
 
 /**
  * Void Memory — agent record proposals (master prompt §3.3): when the agent
@@ -23,6 +22,21 @@ const PROJECT_SLUGS: string[] = PROJECT_RECORDS.map((r) => r.slug);
 
 export const MemoryRecordToolName = "propose-record";
 
+interface MemoryRecordInput {
+  scope: "global" | "project";
+  slug: string;
+  title?: string;
+  content: string;
+  changeNote?: string;
+}
+
+interface MemoryRecordOutput {
+  proposed: boolean;
+  proposalId?: string;
+  message?: string;
+  error?: string;
+}
+
 export const createMemoryRecordTool = (
   userId: string,
   projectId?: string | null,
@@ -31,34 +45,42 @@ export const createMemoryRecordTool = (
     ? "Project scope writes to the project's own records (MEMORY.md, TODO.md, DONT.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md). Global scope writes to the user-level records (MEMORY.md, PERSONA.md, BEHAVIOR.md, SKILLS.md, PREFERENCES.md) that apply across all projects."
     : "Global scope writes to the user-level records (MEMORY.md, PERSONA.md, BEHAVIOR.md, SKILLS.md, PREFERENCES.md) that apply across all projects.";
 
-  return createTool({
+  return createTool<
+    MemoryRecordInput,
+    MemoryRecordOutput,
+    Record<string, unknown>
+  >({
     description: `Propose creating or updating a structured memory record about the user or the project. Use this when you learn something durable worth remembering: the user's persona, working behavior, skills, preferences, project rules, decisions, or deployment details. ${scopeHint} The proposal takes effect once the user approves it in their Void Memory page — do not re-propose the same change.`,
-    inputSchema: z.object({
-      scope: z
-        .enum(["global", "project"])
-        .describe(
-          "global = about the user, applies across projects. project = about the current project. Required.",
-        ),
-      slug: z
-        .string()
-        .describe(
-          "The record to write. Project scope: memory | todo | dont | rules | style | architecture | decisions | security | deployment. Global scope: memory | persona | behavior | skills | preferences. Required.",
-        ),
-      title: z
-        .string()
-        .optional()
-        .describe(
-          "Record title when creating a NEW record. Required for new records.",
-        ),
-      content: z
-        .string()
-        .describe(
-          "The FULL new content of the record in Markdown — include everything the record should say after this change, not just a delta. Required.",
-        ),
-      changeNote: z
-        .string()
-        .optional()
-        .describe("Short summary of what changed and why."),
+    inputSchema: jsonSchema({
+      type: "object",
+      properties: {
+        scope: {
+          type: "string",
+          enum: ["global", "project"],
+          description:
+            "global = about the user, applies across projects. project = about the current project. Required.",
+        },
+        slug: {
+          type: "string",
+          description:
+            "The record to write. Project scope: memory | todo | dont | rules | style | architecture | decisions | security | deployment. Global scope: memory | persona | behavior | skills | preferences. Required.",
+        },
+        title: {
+          type: "string",
+          description:
+            "Record title when creating a NEW record. Required for new records.",
+        },
+        content: {
+          type: "string",
+          description:
+            "The FULL new content of the record in Markdown — include everything the record should say after this change, not just a delta. Required.",
+        },
+        changeNote: {
+          type: "string",
+          description: "Short summary of what changed and why.",
+        },
+      },
+      required: ["scope", "slug", "content"],
     }),
     execute: async ({ scope, slug, title, content, changeNote }) => {
       // Scope validation

@@ -33,13 +33,18 @@ export const savedWorkflowRunProposalSchema = z
       .string()
       .trim()
       .regex(/^[A-Za-z_][A-Za-z0-9_]{0,80}$/u),
-    payload: z.record(z.string().max(160), jsonValueSchema),
+    // B20-adjacent model-facing constraint: the payload is intentionally
+    // z.unknown() — z.record with the RECURSIVE jsonValueSchema (z.lazy)
+    // cannot convert to JSON schema and throws under ai@7's asSchema. The
+    // deep depth/size validation for ISSUANCE lives in
+    // workflowRunApprovalSchema below (server-side parse, never converted).
+    payload: z.record(z.string().max(160), z.unknown()),
   })
   .strict()
   .superRefine((value, ctx) => {
     if (
       Object.keys(value.payload).length > 100 ||
-      Buffer.byteLength(JSON.stringify(value.payload), "utf8") > 16_000
+      Buffer.byteLength(JSON.stringify(value.payload ?? {}), "utf8") > 16_000
     ) {
       ctx.addIssue({
         code: "custom",

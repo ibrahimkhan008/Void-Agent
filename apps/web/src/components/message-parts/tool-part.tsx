@@ -2,8 +2,8 @@
 
 import { MediaPreview } from "@/components/media";
 import { useCopy } from "@/hooks/use-copy";
-import type { SavedWorkflowRunProposal } from "@/lib/ai/tools/hitl/workflow-run-approval";
 import type { ConnectorActionApproval } from "@/lib/ai/tools/hitl/connector-action-approval";
+import type { SavedWorkflowRunProposal } from "@/lib/ai/tools/hitl/workflow-run-approval";
 import { normalizeRequestInputQuestions } from "@/lib/chat/request-input-questions";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ToolUIPart, UIMessage, getToolName } from "ai";
@@ -16,8 +16,8 @@ import { extractMCPToolId } from "lib/ai/mcp/mcp-tool-id";
 import {
   DefaultToolName,
   ImageToolName,
-  ResearchToolName,
   OrchestratorToolName,
+  ResearchToolName,
   VideoToolName,
 } from "lib/ai/tools";
 import {
@@ -67,8 +67,8 @@ import {
   type RequestInputAnswer,
   RequestInputUI,
 } from "../tools";
-import { WorkflowRunReview } from "../tools/workflow-run-review";
 import { ConnectorActionReview } from "../tools/connector-action-review";
+import { WorkflowRunReview } from "../tools/workflow-run-review";
 import { useDeleteMessage } from "./shared";
 
 interface ToolMessagePartProps {
