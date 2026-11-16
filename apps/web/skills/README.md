@@ -37,3 +37,6 @@ copy into the workspace skill library, no registry round trip.
   `motion-design-skills`, `kinetic-typography-skills`, `data-animation-skills`,
   `javascript-animation-skills`, `explainer-video-skills`), all MIT.
   Provenance: `motion/manifest.json`; license: `motion/THIRD-PARTY-NOTICE.md`.
+- `pdf/` — the professional PDF production toolkit (2 skills: `pdf`,
+  `pdf-viewer`), vendored from the ZCode official `pdf` plugin, MIT.
+  Provenance: `pdf/THIRD-PARTY-NOTICE.md`.

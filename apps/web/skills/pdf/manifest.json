@@ -1,0 +1,7 @@
+{
+  "source": "zcode-plugins-official/pdf (ZCode, MIT)",
+  "skills": [
+    { "slug": "pdf", "source": "zcode-plugins-official/pdf", "bytes": 74555 },
+    { "slug": "pdf-viewer", "source": "zcode-plugins-official/pdf", "bytes": 3231 }
+  ]
+}
