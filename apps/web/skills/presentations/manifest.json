@@ -1,0 +1,12 @@
+{
+  "source": "ZCode official presentations plugin",
+  "license": "MIT",
+  "skills": [
+    {
+      "slug": "pptx"
+    },
+    {
+      "slug": "pptx-viewer"
+    }
+  ]
+}
