@@ -36,9 +36,16 @@ vi.mock("@/lib/db/pg/db.pg", () => ({
   },
 }));
 
-const finishHookRun = vi.fn();
-const countHookRunsToday = vi.fn().mockResolvedValue(0);
-const lastHookRunAt = vi.fn().mockResolvedValue(null);
+const evaluateMatchRules = vi.fn((..._args: unknown[]) => ({ matched: true }));
+const finishHookRunMock = vi.fn(async (..._args: unknown[]) => ({
+  status: "succeeded",
+}));
+let countHookRunsTodayValue = 0;
+const countHookRunsToday = vi.fn(
+  async (..._args: unknown[]) => countHookRunsTodayValue,
+);
+let lastHookRunAtValue: Date | null = null;
+const lastHookRunAt = vi.fn(async (..._args: unknown[]) => lastHookRunAtValue);
 const parseHookConfig = vi.fn((raw: unknown) => {
   const config = (raw ?? {}) as {
     promptTemplate?: string;
@@ -53,7 +60,8 @@ const parseHookConfig = vi.fn((raw: unknown) => {
 });
 vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
   getHookRunById: async () => RUN,
-  finishHookRun: (...args: unknown[]) => finishHookRun(...args),
+  evaluateMatchRules: (...args: unknown[]) => evaluateMatchRules(...args),
+  finishHookRun: (...args: unknown[]) => finishHookRunMock(...args),
   countHookRunsToday: (...args: unknown[]) => countHookRunsToday(...args),
   lastHookRunAt: (...args: unknown[]) => lastHookRunAt(...args),
   parseHookConfig: (...args: Parameters<typeof parseHookConfig>) =>
@@ -88,9 +96,9 @@ import { renderHookPrompt, runHookAgent } from "./executor";
 beforeEach(() => {
   claimReturn = [];
   for (const key of Object.keys(rows)) delete rows[key];
-  finishHookRun.mockReset();
-  countHookRunsToday.mockResolvedValue(0);
-  lastHookRunAt.mockResolvedValue(null);
+  finishHookRunMock.mockReset();
+  countHookRunsTodayValue = 0;
+  lastHookRunAtValue = null;
   executeAgentRun.mockReset();
   createNotifications.mockReset();
 });
@@ -148,7 +156,7 @@ describe("runHookAgent gates", () => {
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("skipped");
     expect(result.reason).toContain("disabled");
-    expect(finishHookRun).toHaveBeenCalledWith(
+    expect(finishHookRunMock).toHaveBeenCalledWith(
       "run-1",
       expect.objectContaining({ status: "skipped" }),
     );
@@ -160,7 +168,7 @@ describe("runHookAgent gates", () => {
       { id: "e1", enabled: true, hookConfig: { cooldownSeconds: 300 } },
     ];
     rows.hook_run = [RUN];
-    lastHookRunAt.mockResolvedValue(new Date());
+    lastHookRunAtValue = new Date();
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("skipped");
     expect(result.reason).toContain("cooldown");
@@ -173,7 +181,7 @@ describe("runHookAgent gates", () => {
       { id: "e1", enabled: true, hookConfig: { maxRunsPerDay: 3 } },
     ];
     rows.hook_run = [RUN];
-    countHookRunsToday.mockResolvedValue(3);
+    countHookRunsTodayValue = 3;
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("skipped");
     expect(result.reason).toContain("daily cap");
@@ -219,7 +227,7 @@ describe("runHookAgent gates", () => {
     const [task] = executeAgentRun.mock.calls[0];
     expect(task.inputPrompt).toContain("deploy the site");
     expect(task.userId).toBe("u1");
-    expect(finishHookRun).toHaveBeenLastCalledWith(
+    expect(finishHookRunMock).toHaveBeenLastCalledWith(
       "run-1",
       expect.objectContaining({ status: "succeeded", threadId: "thread-1" }),
     );
