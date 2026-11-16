@@ -28,7 +28,9 @@ import {
   getUserTimezone,
   timeToCron,
 } from "@/lib/scheduled-tasks/time-to-cron";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -330,7 +332,15 @@ export function ScheduleDialog({
               </Select>
               {!taskId && (
                 <div className="space-y-2">
-                  <Label htmlFor="scheduleAgent">Agent (optional)</Label>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="scheduleAgent">Agent (optional)</Label>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href="/agent/new">
+                        <Plus aria-hidden="true" />
+                        Create New Agent
+                      </Link>
+                    </Button>
+                  </div>
                   <Select
                     value={selectedAgentId}
                     onValueChange={setSelectedAgentId}

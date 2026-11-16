@@ -1,7 +1,6 @@
 import "server-only";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import {
-  type HookMatchRule,
   type HookRunRow,
   countHookRunsToday,
   evaluateMatchRules,
