@@ -17,6 +17,7 @@ import {
   DefaultToolName,
   ImageToolName,
   ResearchToolName,
+  OrchestratorToolName,
   VideoToolName,
 } from "lib/ai/tools";
 import {
@@ -189,6 +190,13 @@ const ArtifactChip = dynamic(
   { ssr: false, loading },
 );
 
+const OrchestratorCard = dynamic(
+  () =>
+    import("../tool-invocation/orchestrator-card").then(
+      (mod) => mod.OrchestratorCard,
+    ),
+  { loading: () => null },
+);
 const SubagentCard = dynamic(
   () =>
     import("../tool-invocation/subagent-card").then((mod) => mod.SubagentCard),
@@ -693,6 +701,10 @@ export const ToolMessagePart = memo(
 
       if (toolName === ResearchToolName) {
         return <SubagentCard key={part.toolCallId} part={part} />;
+      }
+
+      if (toolName === OrchestratorToolName) {
+        return <OrchestratorCard key={part.toolCallId} part={part} />;
       }
 
       if (

@@ -134,6 +134,10 @@ import { colorize } from "consola/utils";
 import { isAgentBrowserConfigured } from "lib/agent-browser/client";
 import { getContextWindow } from "lib/ai/model-context-windows";
 import {
+  OrchestratorToolName,
+  createOrchestratorTool,
+} from "lib/ai/orchestrator/orchestrator";
+import {
   ANTHROPIC_CACHE_CONTROL,
   withTrailingCacheBreakpoint,
 } from "lib/ai/prompt-cache";
@@ -1353,6 +1357,26 @@ export async function POST(request: Request) {
             }
           : {};
 
+        // Void Orchestrator (§3.2/§3.4, Stage 06): role-scoped parallel
+        // workers — 06A Research & Inspect, 06B Build & Modify, 06C Test &
+        // Analyze — with a verification gate. Bound for every tool-allowed
+        // chat (not plan-gated): the fan-out IS the execution stage.
+        const ORCHESTRATOR_TOOL: Record<string, Tool> = isToolCallAllowed
+          ? {
+              [OrchestratorToolName]: createOrchestratorTool({
+                model,
+                customerId: customerId ?? undefined,
+                entityId,
+                projectId: thread?.projectId ?? undefined,
+                organizationId: activeOrganizationId ?? undefined,
+                threadId: id,
+                modelId: chatModel
+                  ? `${chatModel.provider}/${chatModel.model}`
+                  : undefined,
+              }),
+            }
+          : {};
+
         // Browser automation is bound here rather than in the toolkit map: it
         // drives an inner agent and so needs the request's resolved model, the
         // same reason the research subagent is bound here.
@@ -1545,6 +1569,7 @@ export async function POST(request: Request) {
           ...MEMORY_RECORD_TOOL,
           ...PUBLISH_TOOL,
           ...PLAN_TOOLS,
+          ...ORCHESTRATOR_TOOL,
           ...BROWSER_TOOL,
         };
         // Composio is the fallback family (see COMPOSIO_FALLBACK_SYSTEM_PROMPT):

@@ -8,8 +8,17 @@ import {
   streamText,
   toUIMessageStream,
 } from "ai";
-import { aiTelemetry } from "lib/ai/telemetry";
 import type { Tool } from "ai";
+import { aiTelemetry } from "lib/ai/telemetry";
+import { e2bSandboxTool } from "lib/ai/tools/code/e2b-sandbox-tool";
+import { jsExecutionTool } from "lib/ai/tools/code/js-run-tool";
+import { pythonExecutionTool } from "lib/ai/tools/code/python-run-tool";
+import { httpFetchTool } from "lib/ai/tools/http/fetch";
+import { searchKnowledgeBase } from "lib/ai/tools/knowledge-base/search-knowledge-base";
+import {
+  createExaContentsTool,
+  createExaSearchTool,
+} from "lib/ai/tools/web/web-search";
 import { z } from "zod";
 
 /**
@@ -34,6 +43,8 @@ import { z } from "zod";
  */
 
 export type OrchestratorWorkerRole = "research" | "build" | "test";
+
+export const OrchestratorToolName = "orchestrator";
 
 export interface OrchestratorWorkerPlan {
   key: string;
@@ -86,9 +97,11 @@ export type OrchestratorToolOutput =
       objective: string;
       workers: OrchestratorWorkerResult[];
       report: string;
-      verification:
-        | { passed: boolean; summary: string; failedChecks: string[] }
-        | null;
+      verification: {
+        passed: boolean;
+        summary: string;
+        failedChecks: string[];
+      } | null;
     }
   | { status: "failed"; error: string };
 
@@ -141,43 +154,37 @@ ${SHARED_WORKER_RULES}`,
 
 function workerToolset(
   role: OrchestratorWorkerRole,
-  deps: {
-    customerId?: string;
-    entityId?: string;
-    projectId?: string;
-    tools: {
-      webSearch: Tool;
-      webContent: Tool;
-      searchKnowledgeBase: Tool;
-      httpFetchTool: Tool;
-      e2bSandboxTool: Tool;
-      jsExecutionTool: Tool;
-      pythonExecutionTool: Tool;
-    };
-  },
+  deps: { customerId?: string; entityId?: string; projectId?: string },
 ): Record<string, Tool> {
+  // Role-scoped instances built fresh per worker: each lane gets ONLY the
+  // tools its role needs (research = read-only; build/test = sandboxed write
+  // scope). Static registry instances + per-request factories.
+  const httpFetch = httpFetchTool;
+  const sandbox = e2bSandboxTool;
+  const js = jsExecutionTool;
+  const python = pythonExecutionTool;
   if (role === "research") {
     return {
-      webSearch: deps.tools.webSearch,
-      webContent: deps.tools.webContent,
-      searchKnowledgeBase: deps.tools.searchKnowledgeBase,
-      httpFetch: deps.tools.httpFetchTool,
+      webSearch: createExaSearchTool(deps.customerId, deps.entityId),
+      webContent: createExaContentsTool(deps.customerId, deps.entityId),
+      searchKnowledgeBase: searchKnowledgeBase(deps.customerId, deps.projectId),
+      httpFetch,
     };
   }
   if (role === "build") {
     return {
-      sandbox: deps.tools.e2bSandboxTool,
-      javascriptExecution: deps.tools.jsExecutionTool,
-      pythonExecution: deps.tools.pythonExecutionTool,
-      httpFetch: deps.tools.httpFetchTool,
+      sandbox,
+      javascriptExecution: js,
+      pythonExecution: python,
+      httpFetch,
     };
   }
   // test
   return {
-    javascriptExecution: deps.tools.jsExecutionTool,
-    pythonExecution: deps.tools.pythonExecutionTool,
-    sandbox: deps.tools.e2bSandboxTool,
-    httpFetch: deps.tools.httpFetchTool,
+    javascriptExecution: js,
+    pythonExecution: python,
+    sandbox,
+    httpFetch,
   };
 }
 
@@ -193,11 +200,7 @@ const workerSchema = z.object({
     .describe(
       "research = read-only fact gathering; build = produce the artifact in the sandbox; test = verify outputs against criteria",
     ),
-  name: z
-    .string()
-    .min(1)
-    .max(80)
-    .describe("Display name, e.g. Research Agent"),
+  name: z.string().min(1).max(80).describe("Display name, e.g. Research Agent"),
   task: z
     .string()
     .min(1)
@@ -235,16 +238,6 @@ export interface OrchestratorDeps {
   organizationId?: string;
   threadId?: string;
   modelId?: string;
-  /** Role-scoped tool instances, built per request by the chat route. */
-  tools: {
-    webSearch: Tool;
-    webContent: Tool;
-    searchKnowledgeBase: Tool;
-    httpFetchTool: Tool;
-    e2bSandboxTool: Tool;
-    jsExecutionTool: Tool;
-    pythonExecutionTool: Tool;
-  };
 }
 
 interface WorkerFrameSink {
@@ -290,9 +283,7 @@ function createFrameSink(): WorkerFrameSink {
   };
 }
 
-async function collectSummary(
-  message: UIMessage | undefined,
-): Promise<string> {
+async function collectSummary(message: UIMessage | undefined): Promise<string> {
   let summary = "";
   for (const part of message?.parts ?? []) {
     if (part.type === "text" && part.text.trim()) {
@@ -341,7 +332,6 @@ async function runWorker(
           customerId: deps.customerId,
           entityId: deps.entityId,
           projectId: deps.projectId,
-          tools: deps.tools,
         }),
         stopWhen: stepCountIs(WORKER_STEPS),
         abortSignal: signal,

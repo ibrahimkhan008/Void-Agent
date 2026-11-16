@@ -110,6 +110,7 @@ export const SequentialThinkingToolName = "sequential-thinking";
 
 // Plan-mode research subagent tool (not user-selectable).
 export const ResearchToolName = "research";
+export const OrchestratorToolName = "orchestrator";
 
 export const ImageToolName = "image-manager";
 export const VideoToolName = "video-generator";
