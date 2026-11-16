@@ -1,0 +1,9 @@
+{
+  "source": "ZCode official visualize plugin",
+  "license": "Apache-2.0",
+  "skills": [
+    {
+      "slug": "visualize"
+    }
+  ]
+}
