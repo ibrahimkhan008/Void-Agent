@@ -1,0 +1,9 @@
+{
+  "source": "ZCode official skill-creator plugin",
+  "license": "MIT",
+  "skills": [
+    {
+      "slug": "skill-creator"
+    }
+  ]
+}
