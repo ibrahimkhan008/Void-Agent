@@ -3933,6 +3933,11 @@ export const InboundEndpointTable = pgTable(
         promptTemplate?: string;
         cooldownSeconds?: number;
         maxRunsPerDay?: number;
+        matchRules?: Array<{
+          field: string;
+          op: string;
+          value: string;
+        }>;
       }>()
       .notNull()
       .default({}),

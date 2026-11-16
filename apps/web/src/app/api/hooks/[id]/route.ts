@@ -24,6 +24,17 @@ const PatchSchema = z
     promptTemplate: z.string().max(8_000).nullable().optional(),
     cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
     maxRunsPerDay: z.number().int().min(1).max(1_000).optional(),
+    matchRules: z
+      .array(
+        z.object({
+          field: z.enum(["source", "from", "subject", "text"]),
+          op: z.enum(["contains", "equals"]),
+          value: z.string().min(1).max(400),
+        }),
+      )
+      .max(6)
+      .nullable()
+      .optional(),
   })
   .strip();
 
@@ -80,7 +91,8 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
   if (
     data.promptTemplate !== undefined ||
     data.cooldownSeconds !== undefined ||
-    data.maxRunsPerDay !== undefined
+    data.maxRunsPerDay !== undefined ||
+    data.matchRules !== undefined
   ) {
     const current =
       (endpoint as { hookConfig?: Record<string, unknown> }).hookConfig ?? {};
@@ -101,6 +113,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
         (typeof current.maxRunsPerDay === "number"
           ? current.maxRunsPerDay
           : undefined),
+      matchRules: data.matchRules ?? undefined,
     });
   }
 

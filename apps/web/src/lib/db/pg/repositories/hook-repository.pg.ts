@@ -188,10 +188,25 @@ export async function lastHookRunAt(
   return row?.createdAt ?? null;
 }
 
+export type HookMatchField = "source" | "from" | "subject" | "text";
+export type HookMatchOp = "contains" | "equals";
+
+/**
+ * Void Hooks rule matching (§3.5 "rule matching"): an event triggers the
+ * hook only when EVERY rule matches the normalized payload (AND semantics).
+ * Empty array = always trigger (the endpoint itself is the rule).
+ */
+export interface HookMatchRule {
+  field: HookMatchField;
+  op: HookMatchOp;
+  value: string;
+}
+
 export interface EndpointHookConfig {
   promptTemplate?: string;
   cooldownSeconds?: number;
   maxRunsPerDay?: number;
+  matchRules?: HookMatchRule[];
 }
 
 export function parseHookConfig(
@@ -212,7 +227,47 @@ export function parseHookConfig(
       typeof config.maxRunsPerDay === "number" && config.maxRunsPerDay > 0
         ? Math.floor(config.maxRunsPerDay)
         : 20,
+    matchRules: Array.isArray(config.matchRules)
+      ? config.matchRules.filter(
+          (rule): rule is HookMatchRule =>
+            Boolean(rule) &&
+            typeof rule.field === "string" &&
+            typeof rule.op === "string" &&
+            typeof rule.value === "string",
+        )
+      : [],
   };
+}
+
+/**
+ * Rule evaluation against the normalized payload: every rule must match
+ * (AND). Contains = case-insensitive substring; equals = case-insensitive
+ * full match. Missing payload fields are treated as empty strings.
+ */
+export function evaluateMatchRules(
+  rules: HookMatchRule[],
+  normalized: Record<string, unknown>,
+): { matched: boolean; failed?: HookMatchRule } {
+  for (const rule of rules) {
+    // `subject` rides in the per-source meta (webhook payloads carry it
+    // inline; email/slack normalizers put it in meta.subject).
+    const raw =
+      rule.field === "subject"
+        ? ((normalized.meta as Record<string, unknown> | undefined)?.subject ??
+          "")
+        : normalized[rule.field];
+    const actual =
+      typeof raw === "string"
+        ? raw.toLowerCase()
+        : raw === undefined || raw === null
+          ? ""
+          : String(raw).toLowerCase();
+    const expected = rule.value.toLowerCase();
+    const ok =
+      rule.op === "equals" ? actual === expected : actual.includes(expected);
+    if (!ok) return { matched: false, failed: rule };
+  }
+  return { matched: true };
 }
 
 /** Updates an endpoint's hook config (owner-scoped). */

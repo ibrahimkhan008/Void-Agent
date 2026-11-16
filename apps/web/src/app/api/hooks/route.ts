@@ -31,6 +31,16 @@ const CreateHookSchema = z.object({
   promptTemplate: z.string().max(8_000).optional(),
   cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
   maxRunsPerDay: z.number().int().min(1).max(1_000).optional(),
+  matchRules: z
+    .array(
+      z.object({
+        field: z.enum(["source", "from", "subject", "text"]),
+        op: z.enum(["contains", "equals"]),
+        value: z.string().min(1).max(400),
+      }),
+    )
+    .max(6)
+    .optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -91,6 +101,7 @@ export const POST = withAuth(async (request, session) => {
     promptTemplate: data.promptTemplate,
     cooldownSeconds: data.cooldownSeconds,
     maxRunsPerDay: data.maxRunsPerDay,
+    matchRules: data.matchRules,
   });
 
   return Response.json(
@@ -105,6 +116,7 @@ export const POST = withAuth(async (request, session) => {
           promptTemplate: data.promptTemplate,
           cooldownSeconds: data.cooldownSeconds,
           maxRunsPerDay: data.maxRunsPerDay,
+          matchRules: data.matchRules,
         },
       },
       // The inbound URL the event source POSTs to, and the signing secret —

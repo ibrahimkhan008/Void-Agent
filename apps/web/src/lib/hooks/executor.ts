@@ -1,8 +1,10 @@
 import "server-only";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import {
+  type HookMatchRule,
   type HookRunRow,
   countHookRunsToday,
+  evaluateMatchRules,
   finishHookRun,
   getHookRunById,
   lastHookRunAt,
@@ -142,6 +144,34 @@ export async function runHookAgent(runId: string): Promise<{
 
     const config = parseHookConfig(endpoint.hookConfig);
 
+    // Re-read the event payload ONCE — it drives both the rule evaluation
+    // and the prompt render.
+    const payload = await loadEventPayload(run.eventId);
+
+    // §3.5 rule matching: every rule must match the normalized payload
+    // (AND semantics). A non-matching event is recorded as skipped so the
+    // user can see exactly why the hook did not fire.
+    const normalizedView = (payload?.normalized ?? {}) as {
+      source?: string;
+      from?: string;
+      text?: string;
+      meta?: Record<string, unknown>;
+    };
+    const match = evaluateMatchRules(config.matchRules ?? [], {
+      source: normalizedView.source ?? "",
+      from: normalizedView.from ?? "",
+      subject:
+        ((normalizedView.meta as Record<string, unknown> | undefined)?.subject as
+          | string
+          | undefined) ?? "",
+      text: normalizedView.text ?? "",
+    });
+    if (!match.matched && match.failed) {
+      const reason = `rule not matched: ${match.failed.field} ${match.failed.op} "${match.failed.value}"`;
+      await finishHookRun(runId, { status: "skipped", error: reason });
+      return { status: "skipped", reason };
+    }
+
     // Loop prevention 1: cooldown.
     const lastAt = await lastHookRunAt(run.inboundEndpointId, run.id);
     if (lastAt) {
@@ -173,8 +203,6 @@ export async function runHookAgent(runId: string): Promise<{
       return { status: "failed", reason };
     }
 
-    // Re-read the event payload for the prompt render.
-    const payload = await loadEventPayload(run.eventId);
     const prompt = renderHookPrompt(config.promptTemplate, payload ?? {});
 
     const result = await executeAgentRun(
