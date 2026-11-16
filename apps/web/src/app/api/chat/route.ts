@@ -31,6 +31,7 @@ import {
   releaseMemberBudget,
   reserveMemberBudget,
   resolveAutomaticRoute,
+  resolveFallbackModel,
   resolveBrowserAutomationGate,
   resolveUnattendedBrowserGate,
   validateManualModel,
@@ -587,8 +588,32 @@ export async function POST(request: Request) {
           reasonCode: "routing_schema_unavailable",
         };
       } else if (error instanceof RoutingPolicyError) {
-        await markPreStreamFailure();
-        return chatErrorResponse(error.code, error.message, 403);
+        // §3.1 "model fallback and retry": the admin Models settings persist
+        // per-provider chains + a global chain — walk them before refusing.
+        // Resolution-time only: a fallback that the org policy refuses is
+        // skipped; the first allowed entry becomes the chat model.
+        const fallback = chatModel
+          ? await resolveFallbackModel({
+              organizationId: activeOrganizationId,
+              userId: session.user.id,
+              primary: chatModel,
+            })
+          : null;
+        if (fallback) {
+          chatModel = fallback.chatModel;
+          resolvedCandidate = fallback.candidate;
+          memberId = fallback.memberId;
+          routingMetadata = {
+            automatic: false,
+            reasonCode: "fallback_chain",
+          };
+          logger.info(
+            `[chat] fallback chain applied: ${fallback.chatModel.provider}/${fallback.chatModel.model}`,
+          );
+        } else {
+          await markPreStreamFailure();
+          return chatErrorResponse(error.code, error.message, 403);
+        }
       } else {
         // Anything else here is infrastructure (e.g. a database connection-pool
         // checkout timeout), not a policy decision. Model routing must never

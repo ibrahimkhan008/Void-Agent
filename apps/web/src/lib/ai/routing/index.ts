@@ -1,4 +1,5 @@
 export * from "./budget";
+export * from "./fallback";
 export * from "./model-switch";
 export * from "./route";
 export * from "./service";
