@@ -38,15 +38,32 @@ export default async function PublishedPage({ params }: Props) {
   void publishedPageRepository.incrementViewBySlug(slug).catch(() => undefined);
 
   return (
-    <iframe
-      // The published HTML is model-generated and must not run with access to
-      // this origin — a sandboxed iframe keeps it away from cookies, storage
-      // and the parent DOM. allow-scripts without allow-same-origin means
-      // scripts run in an opaque origin, which is what makes that safe.
-      sandbox="allow-scripts allow-popups allow-forms"
-      srcDoc={page.html}
-      title={page.title}
-      className="h-dvh w-full border-0"
-    />
+    // §3.9 attribution badge: OUR chrome below the sandboxed iframe — the
+    // model-generated HTML cannot remove it, and it renders only while the
+    // owner keeps badge visibility on for the slug.
+    <div className="flex h-dvh flex-col bg-white">
+      <iframe
+        // The published HTML is model-generated and must not run with access to
+        // this origin — a sandboxed iframe keeps it away from cookies, storage
+        // and the parent DOM. allow-scripts without allow-same-origin means
+        // scripts run in an opaque origin, which is what makes that safe.
+        sandbox="allow-scripts allow-popups allow-forms"
+        srcDoc={page.html}
+        title={page.title}
+        className="min-h-0 w-full flex-1 border-0"
+      />
+      {page.badgeVisible ? (
+        <div className="flex items-center justify-center border-t border-black/5 px-2 py-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/p/${slug}/badge.svg`}
+            alt="Built with Void Agent"
+            width={208}
+            height={28}
+            className="h-7 w-auto"
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
