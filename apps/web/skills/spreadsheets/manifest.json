@@ -1,0 +1,12 @@
+{
+  "source": "ZCode official spreadsheets plugin",
+  "license": "MIT",
+  "skills": [
+    {
+      "slug": "xlsx"
+    },
+    {
+      "slug": "xlsx-viewer"
+    }
+  ]
+}
