@@ -17,7 +17,12 @@ import { ResizeHandle } from "./components/ResizeHandle";
 import { StreamOverlay } from "./components/StreamOverlay";
 import { extractHTML, streamChat } from "./lib/api";
 import type { Message } from "./lib/api";
-import { exportAllAsPng, exportSourceAsPng, getSources } from "./lib/export";
+import {
+  exportAllAsPng,
+  exportAllAsSvg,
+  exportSourceAsPng,
+  getSources,
+} from "./lib/export";
 import {
   flattenChatModels,
   getModelOptionById,
@@ -431,6 +436,16 @@ export function App({ canvasId }: { canvasId: string }) {
     }
     return results;
   }, [selectedFrameIds]);
+
+  // §3.6 vector export: download the whole canvas as an editable SVG.
+  const handleExportSvg = useCallback(async () => {
+    const api = editorRef.current;
+    if (!api) return;
+    setStatusMessage("Exporting SVG…");
+    const fileName = canvasId ? `canvas-${canvasId}` : "canvas";
+    const exported = await exportAllAsSvg(api, fileName);
+    setStatusMessage(exported ? "SVG exported" : "SVG export failed");
+  }, [canvasId]);
 
   const capturePreview = useCallback(async (): Promise<string | null> => {
     const iframe = previewRef.current;
@@ -1142,6 +1157,13 @@ ${SYSTEM_PROMPT}`;
                   disabled={downloading}
                 >
                   {downloading ? "ZIPPING…" : "ZIP"}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  aria-label="Export canvas as SVG"
+                  onClick={handleExportSvg}
+                >
+                  SVG
                 </button>
                 <button
                   className="btn btn-secondary"

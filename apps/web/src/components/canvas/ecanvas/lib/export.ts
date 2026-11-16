@@ -1,4 +1,4 @@
-import { exportToBlob } from "@excalidraw/excalidraw";
+import { exportToBlob, exportToSvg } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
@@ -118,4 +118,44 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+/**
+ * Export the canvas (or one frame) as a downloadable SVG file (§3.6 —
+ * vector export). Uses Excalidraw's own SVG renderer, so shapes stay
+ * editable vectors rather than a rasterized PNG.
+ */
+export async function exportAllAsSvg(
+  api: ExcalidrawImperativeAPI,
+  fileName = "canvas.svg",
+): Promise<string | null> {
+  const elements = api.getSceneElements();
+  if (elements.length === 0) return null;
+
+  const isDark = (api.getAppState() as any).theme === "dark";
+
+  try {
+    const svgElement = await exportToSvg({
+      elements: elements as any,
+      appState: {
+        exportWithDarkMode: isDark,
+        exportBackground: true,
+      },
+      files: api.getFiles(),
+      exportPadding: 16,
+    });
+
+    const markup = new XMLSerializer().serializeToString(svgElement);
+    const blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName.endsWith(".svg") ? fileName : `${fileName}.svg`;
+    link.click();
+    URL.revokeObjectURL(url);
+    return fileName;
+  } catch (e) {
+    console.error("SVG export failed:", e);
+    return null;
+  }
 }
