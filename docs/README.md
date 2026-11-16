@@ -7,6 +7,7 @@ Living documentation for Void Agent. Migration-era audit reports live in
 
 | File | What it covers |
 |---|---|
+| `PROGRESS.md` | Feature progress: done / half-done / never-started across the master prompt's modules (verified 2026-11-17) |
 | `architecture-overview.md` | The integrated monorepo architecture and baseline |
 | `boot-diagnostics.md` | Temporary boot trace (redirects, reloads) |
 | `chat-request-security.md` | Browser chat request security (C45 envelope guards) |
