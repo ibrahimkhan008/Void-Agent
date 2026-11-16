@@ -1,0 +1,12 @@
+{
+  "source": "ZCode official documents plugin",
+  "license": "MIT",
+  "skills": [
+    {
+      "slug": "docx"
+    },
+    {
+      "slug": "docx-viewer"
+    }
+  ]
+}
