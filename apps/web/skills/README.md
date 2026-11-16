@@ -40,3 +40,15 @@ copy into the workspace skill library, no registry round trip.
 - `pdf/` — the professional PDF production toolkit (2 skills: `pdf`,
   `pdf-viewer`), vendored from the ZCode official `pdf` plugin, MIT.
   Provenance: `pdf/THIRD-PARTY-NOTICE.md`.
+- `spreadsheets/` — spreadsheet production & analysis (2 skills: `xlsx`,
+  `xlsx-viewer`), ZCode official plugin, MIT.
+- `presentations/` — presentation production (2 skills: `pptx`,
+  `pptx-viewer`), ZCode official plugin, MIT.
+- `documents/` — document production (2 skills: `docx`, `docx-viewer`),
+  ZCode official plugin, MIT.
+- `visualize/` — interactive visualization skill (1), ZCode official
+  plugin, Apache-2.0.
+- `skill-creator/` — authoring new skills (1), ZCode official plugin, MIT.
+- `design/` — the design system + 82 template skeletons (dashboard,
+  blog-post, pitch-deck, valuation model, …), ZCode official plugin,
+  Apache-2.0, with the design-rules hooks vendored as reference.
