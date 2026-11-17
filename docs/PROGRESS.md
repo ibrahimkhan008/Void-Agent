@@ -479,14 +479,36 @@ found and fixed:
 
 ## ❌ NEVER STARTED — zero code
 
-### §3.10 Void Sentinel
-The continuous monitoring module: watch deployed applications, detect
-errors, investigate logs, create isolated repair environments, generate
-fixes, run tests, request approval, deploy or roll back. Four autonomy
-modes (monitor-only → autonomous-within-limits). Notification channels
-(Telegram, Slack, email) belong here. The published-page uptime monitor
-(shipped with Deploy depth) is the seed — Sentinel generalizes it to
-arbitrary targets with the repair loop.
+### §3.10 Void Sentinel ✅ BUILT (2026-11-18, `f2ff104`)
+Autonomous monitoring + repair for published sites, complete as a v1:
+- **Watch/detect**: per-site monitors (interval 60s–24h, content assertions
+  contains/not_contains + status) probed by the background-jobs `sentinel`
+  job; a non-2xx status is itself the failure signature even with no
+  assertions (unit-drill finding). Transition matrix opens incidents only on
+  fresh breaks and CONFIRMS deployed fixes when the probe recovers.
+- **Mode-gated repair** (four autonomy modes from the master prompt): the
+  agent diagnoses from the live broken HTML + last-good version (deployment
+  history = the diff surface) and returns the repaired document; assertions
+  are REPLAYED against it (repaired ≠ verified — a failed replay never
+  deploys); suggest/repair_approval park it for one-click owner approval,
+  autonomous deploys within its 200 KB limit; deployment = a NEW version
+  through the existing pipeline with previous_version recorded, so rollback
+  is one click. Failure notifications flow through create-notifications.
+- **Storage**: migration 0094 (sentinel_monitor + sentinel_incident with
+  lifecycle statuses + verification evidence), db:check green.
+- **API + UI**: /api/sentinel/monitors (+[id]) and /incidents/[id]
+  (approve|rollback|close) — 7 route tests; a Sentinel panel in the Deploy
+  dashboard (per-site enable toggle, mode/interval/assertions editor, open
+  incidents with verification evidence and approve/rollback/close).
+- **Tests**: 28 Sentinel tests (transition matrix, assertions, probe
+  fetch/unreachable, tick incident/confirm, repair pipeline propose /
+  autonomous deploy / failed-verification / monitor-only skip, routes).
+- **Follow-ups**: sandboxed serving verification for app-type sites; probe
+  response-time trends; notification channels beyond in-app/push/email.
+  Ledger correction: the earlier claim that a "published-page uptime
+  monitor shipped with Deploy depth" had NO code behind it — live/offline
+  was DB-state derived only; Sentinel's probes are the first real network
+  monitoring. Remaining NEVER STARTED: §3.11 Cloud & Devices, swarms.
 
 ### §3.11 Void Cloud & Devices
 Authorized connections to user infrastructure: VPSs, dedicated servers,
