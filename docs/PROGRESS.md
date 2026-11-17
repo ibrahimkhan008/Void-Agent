@@ -259,32 +259,33 @@
   tests prove an agent-bound inbound event dispatches the hook exactly once
   (idempotent on redelivery) and that a dispatch failure still delivers
   subscriptions; the executor renders "inbound github event" prompts with
-  From/Subject/commit lines. **Still outstanding:** no live GitHub delivery
-  drill (real repo → hook → run); everything else passes local suites.
-**Commits**: `cb9422d`, `d61b0ea`
-- 🟡 Additional content-filter operators are implemented locally:
-  startsWith, endsWith, notContains, and notEquals. The API validates them,
-  and stored invalid rules fail closed; the implementation and tests are
-  already published in commit `d698cac`. Live webhook/PostgreSQL verification
-  remains outstanding.
-- 🟡 Local Hooks regression fixes: the executor now passes normalized metadata
-  to subject rules and renders the subject from metadata in prompts; PATCH
-  keeps existing match rules when another setting changes; create/rebind and
-  execution require the hook owner to own its bound agent. Creation keeps the
-  endpoint disabled until configuration is saved. Focused route, matcher, and
-  executor tests plus the full web suite and TypeScript pass. Live
-  webhook/PostgreSQL verification has not been repeated for these edits.
-- 🟡 **Cross-hook chaining** is implemented locally: an owner can configure up
-  to three enabled hooks to run after a successful hook, each child run has a
-  deterministic idempotency key, bounded parent-result context, and a database
-  depth limit of three. The queued run is durable before Inngest enqueue; the
-  existing hook tick can recover queued children if enqueue fails. Focused API
-  and executor tests pass (22 cases), targeted Biome and `db:check` pass. The
-  additive PostgreSQL migration has now been applied to isolated PostgreSQL.
-  Real-database tests verify trigger-payload/depth persistence, unique event
-  idempotency, and the depth-three constraint. The outbox-to-Inngest enqueue
-  recovery path and real GitHub delivery still have not been exercised, so
-  this remains PARTIAL.
+  From/Subject/commit lines. A full pipeline drill against isolated
+  PostgreSQL (2026-11-18) additionally proves route → outbox → dispatch →
+  Inngest function → executor → succeeded run with thread/timings,
+  redelivery non-double-running, tamper rejection before storage, cap and
+  disabled gates, and tick orphan recovery — and it caught two real bugs:
+  the daily-cap check counted the run's own just-created queued row (with
+  `maxRunsPerDay: 1` the endpoint could never fire at all) and the tick left
+  agent-less inbound events pending forever. Both fixed.
+**Commits**: `cb9422d`, `d61b0ea`, `7365841`. **Still outstanding:** a real
+  GitHub delivery against a live deployment (operator-side; everything the
+  environment can reach is proven).
+- ✅ Additional content-filter operators are implemented and rule matching
+  against real normalized payloads is covered by the pipeline drill
+  (startsWith matched, non-matching skipped with the rule in the reason);
+  the API validation and fail-closed behavior from `d698cac` stand.
+- ✅ Local Hooks regression fixes (metadata-driven subject rules, PATCH
+  rule preservation, owner-owns-agent on rebind and execution, disabled
+  endpoint until configuration is saved) all hold under the pipeline drill —
+  the executor gates (enabled/rules/ownership) and the disabled-until-config
+  flow are exercised against real rows.
+- ✅ **Cross-hook chaining is fully drilled** (2026-11-18): the pipeline
+  integration suite against isolated PostgreSQL proves an owner-configured
+  chain queues exactly the eligible owner-owned children at depth 1 with
+  deterministic event ids and the hook_chain payload, a child executes
+  through the same executor, and a depth-3 run queues nothing. The tick's
+  queued-orphan recovery (enqueue failed → row stays durable → tick executes
+  it) is proven end-to-end.
 
 ### §3.6 Canvas depth
 - ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports
@@ -468,9 +469,11 @@ operator credentials still determine whether an item can be closed.
 5. **Orchestrator checkpoints** — database persistence, owner/thread isolation,
    rollback, and concurrent single-claim behavior are verified against isolated
    PostgreSQL. Exercise a model/sandbox resume and crash recovery.
-6. **Live hook verification** — database idempotency and chain-depth limits are
-   verified against isolated PostgreSQL; verify chained execution and recovery
-   through isolated Inngest and repeat real GitHub-delivery checks.
+6. ~~**Live hook verification**~~ — CLOSED in code (2026-11-18): chained
+   execution, enqueue-recovery, cap/cooldown gates and delivery→run are
+   proven by the pipeline integration suite against isolated PostgreSQL
+   (`7365841`). The only remaining check is a real GitHub delivery against a
+   live deployment, which is operator-side.
 7. **Notification digests** — code and focused tests exist; verify cron
    registration, PostgreSQL query behavior, and delivery through isolated
    Inngest/SMTP before closing
