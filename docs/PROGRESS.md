@@ -196,19 +196,34 @@
   needs a design decision on what to log)
 
 ### Connectors
-- ✅ 16 first-party wired with OAuth + scoped approvals
-- ❌ ~32 cataloged providers unwired (Discord, Twitter/X, Salesforce,
-  HubSpot, Pipedrive, Apollo, Trello, Firecrawl, …)
+- ✅ 16 first-party connector tool factories are wired with scoped approvals.
+- ✅ A separate Composio-backed marketplace can list and authorize its live
+  toolkit catalog, then provide connected tools to chat when
+  `COMPOSIO_API_KEY` is configured.
+- 🟡 The legacy provider catalog contains 52 names, but it is not a verified
+  count of missing integrations: several are available through Composio, and
+  direct provider-specific OAuth/credential flows exist for a smaller set.
+  The Customize connector cards currently show only their explicitly
+  supported provider subset. Per-provider live authorization and action
+  coverage have not been verified here. Do not describe all remaining names
+  as simply “unwired.”
 
 ### Notifications
 - ✅ In-app + Web Push (VAPID)
+- ✅ Per-user email preference for scheduled-task results and hook failures.
+  It defaults off; delivery is limited to verified account emails when SMTP
+  is configured. Emails contain a generic notice and a safe in-app link, not
+  the notification body. Nine focused preference and delivery tests pass; no live
+  SMTP delivery has been verified.
 - 🟡 Operator problem reports, organization invitations, and password resets
   now use an optional TLS-required SMTP
   transport (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optional paired
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
   visible to callers; stored problem reports remain intact. Focused transport,
   gate, and report-route tests pass. No live SMTP delivery has been verified.
-- ❌ Per-user notification email preferences/digests are not implemented.
+- ❌ Per-user notification digests and configurable per-event email choices
+  are not implemented. The current preference sends eligible events
+  immediately.
 - ⏸️ Telegram and outbound Slack are deferred per user direction; they are
   not required in the current work scope.
 

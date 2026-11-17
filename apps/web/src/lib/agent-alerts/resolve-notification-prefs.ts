@@ -6,6 +6,7 @@ export const NOTIFICATION_PREFS_DEFAULTS: ResolvedNotificationPrefs = {
   onlyWhenAway: true,
   hideTaskDetails: false,
   weeklyEngagementEnabled: true,
+  emailEnabled: false,
 };
 
 export function resolveNotificationPrefs(

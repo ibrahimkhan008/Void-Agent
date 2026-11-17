@@ -43,6 +43,7 @@ export type UserPreferences = {
     onlyWhenAway: boolean;
     hideTaskDetails: boolean;
     weeklyEngagementEnabled: boolean;
+    emailEnabled?: boolean;
   };
 
   /** Private assistant responses saved by this user. */
@@ -181,6 +182,7 @@ export const UserPreferencesZodSchema = z.object({
       onlyWhenAway: z.boolean().default(true),
       hideTaskDetails: z.boolean().default(false),
       weeklyEngagementEnabled: z.boolean().default(true),
+      emailEnabled: z.boolean().default(false),
     })
     .optional(),
   savedNotes: z

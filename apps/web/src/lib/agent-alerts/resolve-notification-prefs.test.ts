@@ -8,6 +8,7 @@ describe("resolveNotificationPrefs", () => {
       onlyWhenAway: true,
       hideTaskDetails: false,
       weeklyEngagementEnabled: true,
+      emailEnabled: false,
     });
   });
 
@@ -18,12 +19,14 @@ describe("resolveNotificationPrefs", () => {
         onlyWhenAway: true,
         hideTaskDetails: true,
         weeklyEngagementEnabled: false,
+        emailEnabled: true,
       }),
     ).toEqual({
       desktopEnabled: false,
       onlyWhenAway: true,
       hideTaskDetails: true,
       weeklyEngagementEnabled: false,
+      emailEnabled: true,
     });
   });
 });

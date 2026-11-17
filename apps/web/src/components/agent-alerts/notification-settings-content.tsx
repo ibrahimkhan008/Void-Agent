@@ -1,19 +1,20 @@
 "use client";
 
 import { useObjectState } from "@/hooks/use-object-state";
-import { isDesktop } from "@keinsaas/mcp-core/is-desktop";
-import type { UserPreferences } from "app-types/user";
-import { fetcher } from "lib/utils";
-import {
-  resolveNotificationPrefs,
-  NOTIFICATION_PREFS_DEFAULTS,
-} from "@/lib/agent-alerts/resolve-notification-prefs";
-import { setCachedNotificationPrefs } from "@/lib/agent-alerts/prefs-cache";
 import {
   requestBrowserNotificationPermission,
   sendTestAgentAlert,
 } from "@/lib/agent-alerts/maybe-notify-agent-alert";
+import { setCachedNotificationPrefs } from "@/lib/agent-alerts/prefs-cache";
+import {
+  NOTIFICATION_PREFS_DEFAULTS,
+  resolveNotificationPrefs,
+} from "@/lib/agent-alerts/resolve-notification-prefs";
+import type { ResolvedNotificationPrefs } from "@/lib/agent-alerts/types";
 import { registerWebPushSubscription } from "@/lib/push/register-web-push";
+import { isDesktop } from "@keinsaas/mcp-core/is-desktop";
+import type { UserPreferences } from "app-types/user";
+import { fetcher } from "lib/utils";
 import { Bell, Loader } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
@@ -24,7 +25,7 @@ import { Label } from "ui/label";
 import { Skeleton } from "ui/skeleton";
 import { Switch } from "ui/switch";
 
-type NotificationPrefs = NonNullable<UserPreferences["notifications"]>;
+type NotificationPrefs = ResolvedNotificationPrefs;
 
 export function NotificationSettingsContent() {
   const t = useTranslations("Chat.ChatPreferences.notificationSettings");
@@ -166,6 +167,15 @@ export function NotificationSettingsContent() {
               disabled={isSaving}
               onCheckedChange={(checked) =>
                 updatePref({ weeklyEngagementEnabled: checked })
+              }
+            />
+            <PreferenceRow
+              label={t("emailUpdates")}
+              description={t("emailUpdatesDescription")}
+              checked={notifications.emailEnabled}
+              disabled={isSaving}
+              onCheckedChange={(checked) =>
+                updatePref({ emailEnabled: checked })
               }
             />
           </>

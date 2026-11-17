@@ -1,8 +1,11 @@
 import "server-only";
 
 import { pgDb } from "@/lib/db/pg/db.pg";
-import { NotificationTable } from "@/lib/db/pg/schema.pg";
+import { NotificationTable, UserTable } from "@/lib/db/pg/schema.pg";
+import { safeNotificationHref } from "@/lib/notifications/contracts";
+import { sendSmtpEmail } from "@/lib/notifications/send-smtp-email";
 import { sendPushToUser } from "@/lib/push/send-push-to-user";
+import { inArray } from "drizzle-orm";
 
 export type CreateNotificationsInput = {
   userIds: string[];
@@ -63,6 +66,63 @@ export async function createNotifications(input: CreateNotificationsInput) {
           console.warn("[notifications] push failed", row.userId, error);
         }
       }),
+    );
+  }
+
+  // Email is opt-in and only sent to verified account addresses. Keep the
+  // message body out of email because notification bodies can contain user
+  // prompts or task data; the in-app notification remains the full record.
+  const emailEligibleType =
+    input.type === "scheduled_run_success" ||
+    input.type === "scheduled_run_failure" ||
+    input.type === "hook_run_failure";
+  if (
+    emailEligibleType &&
+    inserted.length &&
+    process.env.SMTP_HOST &&
+    process.env.SMTP_FROM
+  ) {
+    const recipients = await pgDb
+      .select({
+        userId: UserTable.id,
+        email: UserTable.email,
+        verified: UserTable.emailVerified,
+        preferences: UserTable.preferences,
+      })
+      .from(UserTable)
+      .where(
+        inArray(
+          UserTable.id,
+          inserted.map((row) => row.userId),
+        ),
+      );
+    await Promise.allSettled(
+      recipients
+        .filter((recipient) => {
+          const preferences = recipient.preferences as {
+            notifications?: { emailEnabled?: boolean };
+          } | null;
+          return (
+            recipient.verified &&
+            preferences?.notifications?.emailEnabled === true
+          );
+        })
+        .map(async (recipient) => {
+          try {
+            const href = safeNotificationHref(input.url ?? "/") ?? "/";
+            await sendSmtpEmail({
+              to: recipient.email,
+              subject: input.title,
+              body: `A notification is available in Void Agent.\n\nOpen: ${new URL(href, process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000").toString()}`,
+            });
+          } catch (error) {
+            console.warn(
+              "[notifications] email failed",
+              recipient.userId,
+              error,
+            );
+          }
+        }),
     );
   }
 

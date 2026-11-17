@@ -619,6 +619,8 @@
         "hideTaskDetails": "Hide task details",
         "hideTaskDetailsDescription": "Alerts will say an agent needs you without showing task names.",
         "weeklyReminders": "Weekly reminders",
+        "emailUpdates": "Email updates",
+        "emailUpdatesDescription": "If outbound email is configured, send a brief email when a scheduled task or hook run finishes. Only verified email addresses receive these messages.",
         "weeklyRemindersDescription": "Get a gentle nudge on Mondays to come back to Navigator.",
         "permissionTitle": "System permission",
         "permissionDefaultStatus": "This browser has not allowed alerts yet.",
