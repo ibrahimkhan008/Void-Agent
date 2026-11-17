@@ -432,6 +432,17 @@
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
   visible to callers; stored problem reports remain intact. Focused transport,
   gate, and report-route tests pass. No live SMTP delivery has been verified.
+- ✅ **Background jobs are Inngest-optional** (2026-11-18, `e207307`): every
+  recurring cron has a secret-gated HTTP endpoint any external scheduler can
+  drive — /api/scheduled-tasks/cron (minute), /api/hooks/tick +
+  /api/background-jobs/outbox-tick (minute; the outbox route adds the
+  webhook-subscription delivery half the hooks tick never covered),
+  /api/sandbox/reaper (5 min), /api/background-jobs/email-digest (daily).
+  The digest job body is shared (lib/notifications/digest-cron.ts) by both
+  drivers; the Inngest cron function delegates to it. systemd timer units
+  are documented in docs/deploy-vps-native.md (EnvironmentFile reads the
+  app's .env.production for SCHEDULED_TASK_SECRET). Project-brain dream
+  cycles stay Inngest-side (event-driven per project). 6 route tests.
 - ✅ Daily digest query layer is verified against real PostgreSQL
   (2026-11-18, `79f42a6`): the digest cron's exact query (24h window,
   notification ⋈ user join, digest-type filter) plus the recipient
