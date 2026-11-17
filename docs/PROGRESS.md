@@ -181,9 +181,20 @@
 
 ### §3.1 Fallback chains — mid-stream retry
 - ✅ Resolution-time consumption (org policy refusal → chain walk)
-- ❌ **Mid-stream retry**: when a stream fails mid-run with a model error,
-  the chain is not consulted (needs stream-failure detection + model swap
-  without duplicating the saved message)
+- ✅ Configured chains now feed AI Gateway's ordered model fallback for
+  provider/model failures before the first response is emitted. Every fallback
+  is revalidated against organization access/retention/price policy and must
+  support the request's tools/vision needs. Candidates more expensive than the
+  selected model are excluded, keeping the member-budget reservation bounded.
+  Gateway's successful-model metadata attributes each tool-loop step's token
+  usage and member-budget cost to the model that actually served it. Focused
+  fallback/BYOK tests pass; no live Gateway/provider failure drill was run.
+- 🟡 **After-output stream interruption remains unretried.** Once response
+  chunks or tool effects have escaped to the client, replaying the request can
+  duplicate visible output or side effects. Gateway model fallback is not
+  evidence that it can resume a provider stream after partial output; keep this
+  behavior explicit until the transport can safely detect and reconcile a
+  failed partial run.
 
 ### §3.2/3.4 Orchestrator depth
 - ✅ Role-scoped parallel workers with verification
@@ -385,7 +396,9 @@ operator credentials still determine whether an item can be closed.
    isolated PostgreSQL and verify model-plan application, browser interaction,
    persistence, and cross-user isolation.
 3. **Connector wiring** — implement real callable tools and scoped approvals
-4. **Mid-stream fallback retry** — avoid duplicate persisted messages
+4. **Fallback live verification** — exercise Gateway provider/model failover
+   with an isolated configured organization and confirm the usage attribution;
+   partial-output stream recovery remains a separate design gap
 5. **Orchestrator checkpoints** — local durable-resume implementation exists;
    apply migration 0091 to isolated PostgreSQL and test crash recovery,
    ownership, retry behavior, verification resume, and sandbox side effects.
@@ -401,6 +414,7 @@ operator credentials still determine whether an item can be closed.
 ## Verification notes
 
 - 2026-11-17 continuation: the complete web Vitest suite passed **505 files / 3,342 tests** after the routing-priority, eCanvas artifact-editor/storage, and orchestrator-checkpoint slices were published. Focused suites, targeted Biome, migration-journal checks, and `git diff --check` also passed for those changes. This is a local unit/component/API suite; it does not establish PostgreSQL integration, browser E2E, live model/provider, Inngest, SMTP, or GitHub webhook verification.
+- 2026-11-17 Gateway fallback slice: focused fallback/BYOK suites passed (2 files / 8 tests), targeted Biome and `git diff --check` passed. A single 6 GiB typecheck reported only the three pre-existing missing imports in preserved, untracked public/legal files; it reported no errors in the fallback changes. No live Gateway/provider failover test was run. AI Gateway's documented `providerOptions.gateway.models` behavior retries configured models when the primary fails or is unavailable; this does not prove recovery after partial output has reached the client.
 - The 6 GiB web typecheck was rerun after the Canvas and orchestrator code changes. It reported only three unresolved imports in pre-existing untracked public/legal files (`public-header` in two pages and `legal-toc` in one); no errors were reported in those changed slices. Those user-owned untracked files were not edited.
 - Docker is unavailable in this environment and no local PostgreSQL binaries/service or listener are present (`127.0.0.1:5432` refused). Migrations 0090 and 0091 were journal-checked only and were not applied. Production/VPS was not accessed.
 - 2026-11-17 targeted Canvas edit: 8 focused eCanvas tests passed, `pnpm db:check` passed, targeted Biome passed with only existing PascalCase filename warnings, and `git diff --check` passed. The model/iframe interaction remains unverified in a browser and no PostgreSQL migration was applied.

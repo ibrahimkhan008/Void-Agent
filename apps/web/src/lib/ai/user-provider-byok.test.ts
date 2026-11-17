@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const { getPreferences } = vi.hoisted(() => ({ getPreferences: vi.fn() }));
+vi.mock("@/lib/db/repository", () => ({
+  userRepository: { getPreferences },
+}));
 
 import {
+  loadUserProviderCredentials,
   resolveByokProvider,
   resolveUserProviderCredential,
 } from "./user-provider-byok";
@@ -41,5 +46,31 @@ describe("user hosted provider credentials", () => {
         },
       ),
     ).toThrow("authentication tag mismatch");
+  });
+
+  it("loads credentials once for the providers in a bounded fallback chain", async () => {
+    getPreferences.mockResolvedValue({
+      aiProviderKeys: {
+        anthropic: "encrypted-ant",
+        google: "encrypted-google",
+        openai: "unused-key",
+      },
+    });
+
+    await expect(
+      loadUserProviderCredentials(
+        [
+          "anthropic/claude-sonnet-5",
+          "google/gemini-3.1-pro-preview",
+          "TensorX/moonshotai/kimi-k3",
+        ],
+        "user-1",
+        (ciphertext) => `plain:${ciphertext}`,
+      ),
+    ).resolves.toEqual({
+      anthropic: [{ apiKey: "plain:encrypted-ant" }],
+      google: [{ apiKey: "plain:encrypted-google" }],
+    });
+    expect(getPreferences).toHaveBeenCalledExactlyOnceWith("user-1");
   });
 });

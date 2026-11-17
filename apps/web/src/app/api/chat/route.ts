@@ -26,13 +26,16 @@ import {
   estimateCostMicros,
   extractRouteSignals,
   finalizeMemberBudget,
+  findGatewayFallbackCandidate,
   findPreviousThreadChatModel,
+  groupGatewayStepUsage,
   isRoutingSchemaUnavailableError,
   releaseMemberBudget,
   reserveMemberBudget,
   resolveAutomaticRoute,
   resolveBrowserAutomationGate,
   resolveFallbackModel,
+  resolveGatewayFallbackCandidates,
   resolveUnattendedBrowserGate,
   validateManualModel,
 } from "lib/ai/routing";
@@ -113,7 +116,7 @@ import {
   createMemoryRecordTool,
 } from "@/lib/ai/tools/memory-record";
 import { VideoToolName, createVideoTool } from "@/lib/ai/tools/video";
-import { loadUserProviderCredential } from "@/lib/ai/user-provider-byok";
+import { loadUserProviderCredentials } from "@/lib/ai/user-provider-byok";
 import { billingRunKey } from "@/lib/billing/usage-idempotency";
 import { resolveKnowledgeBaseBindings } from "@/lib/chat/knowledge-base-mentions";
 import { buildCitationSystemPrompt } from "@/lib/citations/parse-citations";
@@ -706,10 +709,63 @@ export async function POST(request: Request) {
         ),
       ),
     ]);
-    const userProviderCredential =
+    const gatewayFallbacks: Array<{
+      candidate: RoutingCandidate;
+      modelId: string;
+    }> = [];
+    if (typeof model === "string" && chatModel && resolvedCandidate) {
+      try {
+        const candidates = await resolveGatewayFallbackCandidates({
+          organizationId: activeOrganizationId,
+          userId: session.user.id,
+          primary: chatModel,
+          primaryCandidate: resolvedCandidate,
+          // The eventual tool set also includes built-in tools added later in
+          // route preparation, so use the stricter request-level gate here.
+          requiresTools: toolChoice !== "none",
+          requiresVision: attachments.some(
+            (attachment) =>
+              attachment.mediaType?.startsWith("image/") ||
+              attachment.mediaType === "application/pdf",
+          ),
+        });
+        for (const candidate of candidates) {
+          try {
+            const fallbackModel = await getModelInstance(
+              candidate.chatModel,
+              session.user.id,
+            );
+            if (
+              typeof fallbackModel === "string" &&
+              fallbackModel !== model &&
+              !gatewayFallbacks.some((entry) => entry.modelId === fallbackModel)
+            ) {
+              gatewayFallbacks.push({ candidate, modelId: fallbackModel });
+            }
+          } catch (error) {
+            logger.warn(
+              `[chat] skipping unavailable Gateway fallback ${candidate.chatModel.provider}/${candidate.chatModel.model}`,
+              error,
+            );
+          }
+        }
+      } catch (error) {
+        // Fallback is optional; a config or routing lookup failure must not
+        // take down a chat request that already resolved its primary model.
+        logger.warn(
+          "[chat] could not resolve Gateway fallback candidates",
+          error,
+        );
+      }
+    }
+    const gatewayByok =
       typeof model === "string"
-        ? await loadUserProviderCredential(model, session.user.id)
-        : null;
+        ? await loadUserProviderCredentials(
+            [model, ...gatewayFallbacks.map(({ modelId }) => modelId)],
+            session.user.id,
+          )
+        : {};
+    const primaryRoutingCandidate = resolvedCandidate;
 
     const messages: UIMessage[] = (thread?.messages ?? []).map((m) => {
       return {
@@ -1691,15 +1747,21 @@ export async function POST(request: Request) {
             content: systemPrompt,
             providerOptions: ANTHROPIC_CACHE_CONTROL,
           },
-          ...(userProviderCredential
+          ...(typeof model === "string" &&
+          (gatewayFallbacks.length > 0 || Object.keys(gatewayByok).length > 0)
             ? {
                 providerOptions: {
                   gateway: {
-                    byok: {
-                      [userProviderCredential.provider]: [
-                        { apiKey: userProviderCredential.apiKey },
-                      ],
-                    },
+                    ...(gatewayFallbacks.length > 0
+                      ? {
+                          models: gatewayFallbacks.map(
+                            ({ modelId }) => modelId,
+                          ),
+                        }
+                      : {}),
+                    ...(Object.keys(gatewayByok).length > 0
+                      ? { byok: gatewayByok }
+                      : {}),
                   },
                 },
               }
@@ -1924,8 +1986,34 @@ export async function POST(request: Request) {
             rawFinishReason,
             warnings,
             stepNumber,
+            finalStep,
+            steps,
           }) => {
             clearStopPoll();
+            const gatewayCandidate = findGatewayFallbackCandidate({
+              providerMetadata: finalStep.providerMetadata,
+              candidates: [
+                ...(resolvedCandidate ? [resolvedCandidate] : []),
+                ...gatewayFallbacks.map(({ candidate }) => candidate),
+              ],
+            });
+            if (
+              gatewayCandidate &&
+              resolvedCandidate &&
+              gatewayCandidate.deploymentId !== resolvedCandidate.deploymentId
+            ) {
+              logger.warn(
+                `[chat] AI Gateway used configured fallback ${gatewayCandidate.chatModel.provider}/${gatewayCandidate.chatModel.model}`,
+              );
+              resolvedCandidate = gatewayCandidate;
+              chatModel = gatewayCandidate.chatModel;
+              metadata.chatModel = chatModel;
+              metadata.routing = {
+                ...metadata.routing,
+                automatic: metadata.routing?.automatic ?? false,
+                reasonCode: "gateway_model_fallback",
+              };
+            }
             if (metadata.runStatus === "running") {
               // The SDK already tells us WHY generation stopped. Surface
               // truncation/content-filter as "incomplete" instead of flattening
@@ -1948,21 +2036,32 @@ export async function POST(request: Request) {
               String((warning as { type?: string }).type ?? "provider_warning"),
             );
             metadata.lastCompletedStep = stepNumber;
-            if (
-              usage?.inputTokens != null &&
-              usage.outputTokens != null &&
-              resolvedCandidate
-            ) {
+            const usageGroups = primaryRoutingCandidate
+              ? groupGatewayStepUsage({
+                  steps,
+                  candidates: [
+                    primaryRoutingCandidate,
+                    ...gatewayFallbacks.map(({ candidate }) => candidate),
+                  ],
+                  defaultCandidate: primaryRoutingCandidate,
+                })
+              : [];
+            if (usageGroups.length > 0 && primaryRoutingCandidate) {
               await finalizeMemberBudget({
                 reservationId: budgetReservationId,
-                actualMicros: estimateCostMicros({
-                  inputTokens: usage.inputTokens,
-                  outputTokens: usage.outputTokens,
-                  candidate: resolvedCandidate,
-                  cacheReadTokens: usage.inputTokenDetails?.cacheReadTokens,
-                  cacheWriteTokens: usage.inputTokenDetails?.cacheWriteTokens,
-                  noCacheTokens: usage.inputTokenDetails?.noCacheTokens,
-                }),
+                actualMicros: usageGroups.reduce(
+                  (total, group) =>
+                    total +
+                    estimateCostMicros({
+                      inputTokens: group.inputTokens,
+                      outputTokens: group.outputTokens,
+                      candidate: group.candidate,
+                      cacheReadTokens: group.cacheReadTokens,
+                      cacheWriteTokens: group.cacheWriteTokens,
+                      noCacheTokens: group.noCacheTokens,
+                    }),
+                  0,
+                ),
               });
             } else {
               await releaseMemberBudget(budgetReservationId);
@@ -1982,53 +2081,43 @@ export async function POST(request: Request) {
               return;
             }
 
-            // Track usage with centralized cost-based calculation
-            if (
-              usage?.totalTokens &&
-              usage?.inputTokens &&
-              usage?.outputTokens
-            ) {
+            // Track usage by the model that actually served each Gateway
+            // step. A tool loop may use a fallback on one step and the primary
+            // on another, so a single turn-level model label is not enough.
+            if (usageGroups.length > 0) {
               logger.info(
-                `[billing] Processing token usage - Input: ${usage.inputTokens}, Output: ${usage.outputTokens}, Total: ${usage.totalTokens}`,
+                `[billing] Processing token usage across ${usageGroups.length} model(s)`,
               );
 
               // Local Models are subscription-gated, not usage-metered.
               if (chatModel?.provider !== "Local Models") {
                 try {
-                  await trackUsage({
-                    kind: "tokens",
-                    customerId,
-                    entityId,
-                    modelId: `${chatModel?.provider}/${chatModel?.model}`,
-                    promptTokens: usage.inputTokens,
-                    completionTokens: usage.outputTokens,
-                    // The cache breakdown of the prompt. Without it every
-                    // cached token is billed at full price.
-                    cacheReadTokens: usage.inputTokenDetails?.cacheReadTokens,
-                    cacheWriteTokens: usage.inputTokenDetails?.cacheWriteTokens,
-                    noCacheTokens: usage.inputTokenDetails?.noCacheTokens,
-                    idempotencyKey: billingRunKey({
-                      scope: "chat",
-                      // `trackUsage` drops the event when the customer is null
-                      // (community edition), so this only keeps the key well
-                      // formed — it never redirects a charge.
-                      subject: customerId ?? session.user.id,
-                      detail: message.id,
-                      runId,
-                    }),
-                    properties: {
-                      threadId: thread?.id,
-                      // Who spent it. The billing customer is the organization
-                      // for a team workspace, and `entity_id` is no longer sent
-                      // (Autumn rejects an entity that was never created), so
-                      // without this the event cannot be attributed to a person
-                      // at all.
-                      userId: session.user.id,
-                      ...(memberId ? { memberId } : {}),
-                    },
-                  });
-
-                  logger.info(`[billing] Token usage tracked successfully`);
+                  for (const group of usageGroups) {
+                    if (group.inputTokens + group.outputTokens <= 0) continue;
+                    await trackUsage({
+                      kind: "tokens",
+                      customerId,
+                      entityId,
+                      modelId: `${group.candidate.chatModel.provider}/${group.candidate.chatModel.model}`,
+                      promptTokens: group.inputTokens,
+                      completionTokens: group.outputTokens,
+                      cacheReadTokens: group.cacheReadTokens || undefined,
+                      cacheWriteTokens: group.cacheWriteTokens || undefined,
+                      noCacheTokens: group.noCacheTokens || undefined,
+                      idempotencyKey: billingRunKey({
+                        scope: "chat",
+                        subject: customerId ?? session.user.id,
+                        detail: `${message.id}:${group.candidate.deploymentId}`,
+                        runId,
+                      }),
+                      properties: {
+                        threadId: thread?.id,
+                        userId: session.user.id,
+                        ...(memberId ? { memberId } : {}),
+                      },
+                    });
+                  }
+                  logger.info("[billing] Token usage tracked successfully");
                 } catch (err) {
                   logger.error("[billing] Failed to track usage:", err);
                 }
@@ -2038,10 +2127,44 @@ export async function POST(request: Request) {
                 );
               }
             } else {
-              logger.warn(
-                `[billing] Incomplete usage data - cannot calculate user tokens`,
-                { usage },
-              );
+              if (
+                usage?.totalTokens &&
+                usage.inputTokens &&
+                usage.outputTokens &&
+                chatModel
+              ) {
+                try {
+                  await trackUsage({
+                    kind: "tokens",
+                    customerId,
+                    entityId,
+                    modelId: `${chatModel.provider}/${chatModel.model}`,
+                    promptTokens: usage.inputTokens,
+                    completionTokens: usage.outputTokens,
+                    cacheReadTokens: usage.inputTokenDetails?.cacheReadTokens,
+                    cacheWriteTokens: usage.inputTokenDetails?.cacheWriteTokens,
+                    noCacheTokens: usage.inputTokenDetails?.noCacheTokens,
+                    idempotencyKey: billingRunKey({
+                      scope: "chat",
+                      subject: customerId ?? session.user.id,
+                      detail: message.id,
+                      runId,
+                    }),
+                    properties: {
+                      threadId: thread?.id,
+                      userId: session.user.id,
+                      ...(memberId ? { memberId } : {}),
+                    },
+                  });
+                } catch (err) {
+                  logger.error("[billing] Failed to track token usage", err);
+                }
+              } else {
+                logger.warn(
+                  "[billing] Incomplete usage data - cannot calculate user tokens",
+                  { usage },
+                );
+              }
             }
           },
         });

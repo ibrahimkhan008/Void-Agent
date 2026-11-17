@@ -55,3 +55,29 @@ export async function loadUserProviderCredential(
   const preferences = await userRepository.getPreferences(userId);
   return resolveUserProviderCredential(modelId, preferences?.aiProviderKeys);
 }
+
+/** Load saved BYOK credentials for a bounded set of Gateway model slugs once. */
+export async function loadUserProviderCredentials(
+  modelIds: string[],
+  userId: string,
+  decryptValue: (value: string) => string = decrypt,
+): Promise<Record<string, Array<{ apiKey: string }>>> {
+  const providers = new Set(
+    modelIds
+      .map(resolveByokProvider)
+      .filter((provider): provider is UserByokProvider => provider !== null),
+  );
+  if (!providers.size) return {};
+
+  const preferences = await userRepository.getPreferences(userId);
+  const credentials: Record<string, Array<{ apiKey: string }>> = {};
+  for (const provider of providers) {
+    const credential = resolveUserProviderCredential(
+      `${provider}/_`,
+      preferences?.aiProviderKeys,
+      decryptValue,
+    );
+    if (credential) credentials[provider] = [{ apiKey: credential.apiKey }];
+  }
+  return credentials;
+}
