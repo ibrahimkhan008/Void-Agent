@@ -171,6 +171,45 @@ export async function resolveGatewayFallbackCandidates(input: {
   return candidates;
 }
 
+/**
+ * Resolve policy-approved fallbacks when the primary has NO priced routing
+ * candidate — the mode where routing resolution could not price the model
+ * (e.g. routing tables unavailable) but chat still streams on the selected
+ * model. Every chain entry is org-policy-validated; no price ceiling applies
+ * because the billing reservation is not pricing-aware in this mode.
+ */
+export async function resolveUnpricedFallbackCandidates(input: {
+  organizationId?: string | null;
+  userId: string;
+  primary: ChatModel;
+  requiresTools: boolean;
+  requiresVision: boolean;
+}): Promise<RoutingCandidate[]> {
+  const chain = buildChain(await loadModelsConfig(), input.primary);
+  const candidates: RoutingCandidate[] = [];
+  for (const entry of chain) {
+    try {
+      const route = await validateManualModel({
+        organizationId: input.organizationId,
+        userId: input.userId,
+        chatModel: { provider: entry.provider, model: entry.model },
+      });
+      const candidate = route.candidate;
+      if (!candidate) continue;
+      if (
+        (input.requiresTools && !candidate.supportsTools) ||
+        (input.requiresVision && !candidate.supportsVision)
+      ) {
+        continue;
+      }
+      candidates.push(candidate);
+    } catch {
+      // Policy-refused or unavailable candidates are never retried onto.
+    }
+  }
+  return candidates;
+}
+
 /** Return the successful model slug reported by AI Gateway, if present. */
 export function getSuccessfulGatewayModelSlug(
   providerMetadata: unknown,

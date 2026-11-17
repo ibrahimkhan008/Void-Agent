@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   verifyChatRequestGuard: vi.fn(),
   model: undefined as any,
   runMemoryExtraction: vi.fn(async () => {}),
+  resolveGatewayFallbackCandidates: vi.fn(),
+  resolveUnpricedFallbackCandidates: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -104,6 +106,11 @@ vi.mock("./route-helpers", async (importOriginal) => ({
     scheduledTaskId: null,
   })),
 }));
+vi.mock("lib/ai/routing", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("lib/ai/routing")>()),
+  resolveGatewayFallbackCandidates: mocks.resolveGatewayFallbackCandidates,
+  resolveUnpricedFallbackCandidates: mocks.resolveUnpricedFallbackCandidates,
+}));
 
 import { POST } from "./route";
 
@@ -159,6 +166,28 @@ function makeRequest(signal?: AbortSignal) {
   });
 }
 
+function makeFailingModel() {
+  const model = makeModel();
+  // The provider accepted the request but the stream died before any
+  // content — the exact shape the mid-stream fallback retry targets.
+  model.doStream = vi.fn(async (options: unknown) => {
+    model.doStreamCalls.push(options);
+    return {
+      stream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: "start", warnings: [] });
+          controller.enqueue({
+            type: "error",
+            error: new Error("provider 500 before output"),
+          });
+          controller.close();
+        },
+      }),
+    };
+  });
+  return model;
+}
+
 function configureChatRoute() {
   mocks.selectThreadDetails.mockResolvedValueOnce(null).mockResolvedValue({
     id: "thread-stream-1",
@@ -191,6 +220,8 @@ function getSerializedText(serializedStream: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.model = makeModel();
+  mocks.resolveGatewayFallbackCandidates.mockResolvedValue([]);
+  mocks.resolveUnpricedFallbackCandidates.mockResolvedValue([]);
   mocks.getSession.mockResolvedValue({ user: { id: "owner-1" } });
   mocks.getUserById.mockResolvedValue({ id: "owner-1", tier: "pro" });
   mocks.verifyChatRequestGuard.mockResolvedValue({ ok: true });
@@ -275,6 +306,47 @@ describe("POST /api/chat with AI SDK serialization and a controlled model", () =
           expect.objectContaining({ type: "text", text: "Hello from mock." }),
         ]),
       }),
+    );
+    expect(mocks.failMessageRun).not.toHaveBeenCalled();
+  });
+
+  it("retries on the fallback candidate when the primary errors before any output", async () => {
+    const primaryModel = makeFailingModel();
+    const fallbackModel = makeModel();
+    mocks.model = primaryModel;
+    configureChatRoute();
+    // The chain resolves regardless of which mode routing ends up in (priced
+    // candidate or unpriced walk), so both resolvers are wired.
+    const chain = [
+      {
+        chatModel: {
+          provider: "controlled-test-provider",
+          model: "fallback-model",
+        },
+      },
+    ];
+    mocks.resolveGatewayFallbackCandidates.mockResolvedValue(chain);
+    mocks.resolveUnpricedFallbackCandidates.mockResolvedValue(chain);
+    mocks.getModelInstance.mockImplementation(async (chatModel: any) =>
+      chatModel?.model === "fallback-model" ? fallbackModel : primaryModel,
+    );
+
+    const response = await POST(makeRequest());
+
+    expect(response.status).toBe(200);
+    const serializedStream = await response.text();
+    // The user sees the fallback's answer exactly once — no duplicated text,
+    // no leaked error frame from the failed attempt.
+    expect(getSerializedText(serializedStream)).toBe("Hello from mock.");
+    expect(serializedStream).toContain('"type":"finish"');
+    expect(serializedStream).not.toContain("provider 500");
+    expect(primaryModel.doStreamCalls).toHaveLength(1);
+    expect(fallbackModel.doStreamCalls).toHaveLength(1);
+    expect(mocks.finalizeMessageRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ runStatus: "completed" }),
+      }),
+      expect.anything(),
     );
     expect(mocks.failMessageRun).not.toHaveBeenCalled();
   });

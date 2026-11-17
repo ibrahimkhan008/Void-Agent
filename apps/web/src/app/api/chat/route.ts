@@ -30,6 +30,7 @@ import {
   findPreviousThreadChatModel,
   groupGatewayStepUsage,
   isRoutingSchemaUnavailableError,
+  probeStreamViability,
   releaseMemberBudget,
   reserveMemberBudget,
   resolveAutomaticRoute,
@@ -37,6 +38,7 @@ import {
   resolveFallbackModel,
   resolveGatewayFallbackCandidates,
   resolveUnattendedBrowserGate,
+  resolveUnpricedFallbackCandidates,
   validateManualModel,
 } from "lib/ai/routing";
 import { SERVER_TOOL_STEP_BUDGET_MS } from "lib/code-runner/timeouts";
@@ -709,53 +711,84 @@ export async function POST(request: Request) {
         ),
       ),
     ]);
+    // Validated fallback chain (§3.1 "model fallback and retry"): policy-
+    // checked candidates priced no higher than the primary, capability-gated.
+    // Consumed two ways — the AI Gateway's pre-output `models` failover in
+    // gateway mode, and the mid-stream retry before the first UI chunk in
+    // every mode.
+    const streamFallbacks: RoutingCandidate[] = [];
     const gatewayFallbacks: Array<{
       candidate: RoutingCandidate;
       modelId: string;
     }> = [];
-    if (typeof model === "string" && chatModel && resolvedCandidate) {
+    if (chatModel) {
       try {
-        const candidates = await resolveGatewayFallbackCandidates({
-          organizationId: activeOrganizationId,
-          userId: session.user.id,
-          primary: chatModel,
-          primaryCandidate: resolvedCandidate,
-          // The eventual tool set also includes built-in tools added later in
-          // route preparation, so use the stricter request-level gate here.
-          requiresTools: toolChoice !== "none",
-          requiresVision: attachments.some(
-            (attachment) =>
-              attachment.mediaType?.startsWith("image/") ||
-              attachment.mediaType === "application/pdf",
-          ),
-        });
+        // With a priced candidate the chain is price-capped at the primary so
+        // the billing reservation stays a conservative upper bound; without
+        // one (routing could not price the model) the chain is still
+        // org-policy-validated, just unpriced.
+        const candidates = resolvedCandidate
+          ? await resolveGatewayFallbackCandidates({
+              organizationId: activeOrganizationId,
+              userId: session.user.id,
+              primary: chatModel,
+              primaryCandidate: resolvedCandidate,
+              // The eventual tool set also includes built-in tools added later in
+              // route preparation, so use the stricter request-level gate here.
+              requiresTools: toolChoice !== "none",
+              requiresVision: attachments.some(
+                (attachment) =>
+                  attachment.mediaType?.startsWith("image/") ||
+                  attachment.mediaType === "application/pdf",
+              ),
+            })
+          : await resolveUnpricedFallbackCandidates({
+              organizationId: activeOrganizationId,
+              userId: session.user.id,
+              primary: chatModel,
+              requiresTools: toolChoice !== "none",
+              requiresVision: attachments.some(
+                (attachment) =>
+                  attachment.mediaType?.startsWith("image/") ||
+                  attachment.mediaType === "application/pdf",
+              ),
+            });
         for (const candidate of candidates) {
-          try {
-            const fallbackModel = await getModelInstance(
-              candidate.chatModel,
-              session.user.id,
-            );
-            if (
-              typeof fallbackModel === "string" &&
-              fallbackModel !== model &&
-              !gatewayFallbacks.some((entry) => entry.modelId === fallbackModel)
-            ) {
-              gatewayFallbacks.push({ candidate, modelId: fallbackModel });
-            }
-          } catch (error) {
-            logger.warn(
-              `[chat] skipping unavailable Gateway fallback ${candidate.chatModel.provider}/${candidate.chatModel.model}`,
-              error,
-            );
+          // The primary is never its own fallback.
+          if (
+            candidate.chatModel.provider === chatModel.provider &&
+            candidate.chatModel.model === chatModel.model
+          ) {
+            continue;
           }
+          streamFallbacks.push(candidate);
         }
       } catch (error) {
         // Fallback is optional; a config or routing lookup failure must not
         // take down a chat request that already resolved its primary model.
-        logger.warn(
-          "[chat] could not resolve Gateway fallback candidates",
-          error,
-        );
+        logger.warn("[chat] could not resolve fallback candidates", error);
+      }
+    }
+    if (typeof model === "string") {
+      for (const candidate of streamFallbacks) {
+        try {
+          const fallbackModel = await getModelInstance(
+            candidate.chatModel,
+            session.user.id,
+          );
+          if (
+            typeof fallbackModel === "string" &&
+            fallbackModel !== model &&
+            !gatewayFallbacks.some((entry) => entry.modelId === fallbackModel)
+          ) {
+            gatewayFallbacks.push({ candidate, modelId: fallbackModel });
+          }
+        } catch (error) {
+          logger.warn(
+            `[chat] skipping unavailable Gateway fallback ${candidate.chatModel.provider}/${candidate.chatModel.model}`,
+            error,
+          );
+        }
       }
     }
     const gatewayByok =
@@ -1732,13 +1765,20 @@ export async function POST(request: Request) {
         // reaching it, a 400k-window one gives up context it still had room
         // for. Models outside the catalog (Local, openai-compatible) fall back
         // low rather than high - the cost of guessing high is the whole turn.
-        const contextWindow =
+        // Mutable refs: a mid-stream fallback attempt recomputes them for the
+        // attempt's own model, so prepareStep compacts against the window the
+        // retry is actually running on.
+        let contextWindowRef =
           getContextWindow(chatModel) ?? FALLBACK_CONTEXT_WINDOW;
-        const compactAtTokens = Math.floor(
-          contextWindow * COMPACT_AT_CONTEXT_FRACTION,
+        let compactAtTokensRef = Math.floor(
+          contextWindowRef * COMPACT_AT_CONTEXT_FRACTION,
         );
+        // Ordinal of the attempt currently being pumped. onError's deferred
+        // terminal handling compares against it so a stale timer from a
+        // discarded retry attempt cannot touch the run's terminal state.
+        let attemptOrdinalRef = 0;
 
-        const result = streamText({
+        const baseStreamOptions = {
           model,
           // Passed as a system message rather than a string so the cache
           // breakpoint can be attached (see prompt-cache.ts).
@@ -1806,13 +1846,13 @@ export async function POST(request: Request) {
               lastUsage?.inputTokens != null
                 ? lastUsage.inputTokens + (lastUsage.outputTokens ?? 0)
                 : estimateTokens([...initialMessages, ...responseMessages]);
-            if (used <= compactAtTokens) return;
+            if (used <= compactAtTokensRef) return;
 
             const compacted = compactLoopMessages(responseMessages);
             if (!compacted) return;
 
             logger.info(
-              `compacting step context: ${responseMessages.length} loop messages -> ${compacted.length}, ~${Math.round(used / 1000)}k of ${Math.round(contextWindow / 1000)}k window`,
+              `compacting step context: ${responseMessages.length} loop messages -> ${compacted.length}, ~${Math.round(used / 1000)}k of ${Math.round(contextWindowRef / 1000)}k window`,
             );
 
             // Rebuilt from `initialMessages` rather than from the carried-
@@ -1895,39 +1935,53 @@ export async function POST(request: Request) {
             }
           },
           onError: ({ error }) => {
-            clearStopPoll();
-            // Unguarded, this is an unhandled rejection: the helper opens an
-            // advisory-locked transaction against a pool whose default size is
-            // 1, so a checkout timeout here would kill the instance mid-run —
-            // taking the terminal write and the buffered logs with it.
-            void releaseMemberBudget(budgetReservationId).catch((error) =>
-              logger.warn("Failed to release the member budget", error),
-            );
             const isTimeout =
               error instanceof Error && error.name === "TimeoutError";
-            metadata.runStatus = isTimeout ? "timed_out" : "failed";
-            metadata.error = {
-              code: isTimeout ? "timeout" : "stream_error",
-              retryable: true,
-            };
             logger.error(
               `AI SDK stream error [${
                 error instanceof Error ? error.name : "UnknownError"
               }]${isTimeout ? " (timeout scope: total/step/chunk/tool)" : ""}`,
               error,
             );
-            // The only other flush sites are onEnd, onAbort and the outer
-            // catch, so a run that errored used to emit no LatencyTimer at
-            // all — which reads in the logs exactly like a run that vanished.
-            timer.flush({
-              error: error instanceof Error ? error.name : "UnknownError",
-              provider: chatModel?.provider,
-              model: chatModel?.model,
-              userId: session.user.id,
-              threadId: thread?.id,
-            });
+            // The mid-stream fallback probe reads the error frame BEFORE the
+            // retry decision, so terminal side effects are deferred one tick
+            // and gated by attempt ordinal: a discarded attempt must not fail
+            // the run, release the budget reservation (the replacement
+            // attempt reuses it) or flush the latency timer — and a stale
+            // deferred timer from a discarded attempt is a no-op even when it
+            // lands during the replacement attempt's probe.
+            const ordinal = attemptOrdinalRef;
+            setTimeout(() => {
+              if (ordinal !== attemptOrdinalRef) return;
+              clearStopPoll();
+              // Unguarded, this is an unhandled rejection: the helper opens an
+              // advisory-locked transaction against a pool whose default size is
+              // 1, so a checkout timeout here would kill the instance mid-run —
+              // taking the terminal write and the buffered logs with it.
+              void releaseMemberBudget(budgetReservationId).catch((err) =>
+                logger.warn("Failed to release the member budget", err),
+              );
+              metadata.runStatus = isTimeout ? "timed_out" : "failed";
+              metadata.error = {
+                code: isTimeout ? "timeout" : "stream_error",
+                retryable: true,
+              };
+              // The only other flush sites are onEnd, onAbort and the outer
+              // catch, so a run that errored used to emit no LatencyTimer at
+              // all — which reads in the logs exactly like a run that vanished.
+              timer.flush({
+                error: error instanceof Error ? error.name : "UnknownError",
+                provider: attemptChatModelRef?.provider,
+                model: attemptChatModelRef?.model,
+                userId: session.user.id,
+                threadId: thread?.id,
+              });
+            }, 0);
           },
           onAbort: (event) => {
+            // Discarded retry attempts were cancelled, not aborted by the
+            // user; the replacement attempt owns terminal handling.
+            if (attemptDiscarded) return;
             const { steps } = event;
             // ai@7.0.18 passes the abort signal's `reason` on this event but
             // does not declare it on the callback type yet.
@@ -1960,8 +2014,8 @@ export async function POST(request: Request) {
             }
             timer.flush({
               aborted: true,
-              provider: chatModel?.provider,
-              model: chatModel?.model,
+              provider: attemptChatModelRef?.provider,
+              model: attemptChatModelRef?.model,
               userId: session.user.id,
               threadId: thread?.id,
             });
@@ -1989,6 +2043,10 @@ export async function POST(request: Request) {
             finalStep,
             steps,
           }) => {
+            // Only the surviving attempt may finalize: a discarded attempt's
+            // stream was cancelled before producing content, so its billing,
+            // usage attribution and run-status writes belong to nobody.
+            if (attemptDiscarded) return;
             clearStopPoll();
             const gatewayCandidate = findGatewayFallbackCandidate({
               providerMetadata: finalStep.providerMetadata,
@@ -2167,11 +2225,103 @@ export async function POST(request: Request) {
               }
             }
           },
+        } satisfies Parameters<typeof streamText>[0];
+
+        // ---- Mid-stream fallback retry (master prompt §3.1) ----
+        // AI SDK streams are append-only once merged into dataStream, so the
+        // only safe retry boundary is BEFORE the first UI chunk: probe the
+        // first frames on a tee'd branch. A model that errors before emitting
+        // any content has shown nothing, run no tool, and persisted nothing —
+        // discard it and retry on the next validated fallback candidate.
+        // Once content started the merge proceeds unchanged; post-output
+        // retry would duplicate text and repeat tool side effects.
+        let activeChatAttempt = 0;
+        let attemptDiscarded = false;
+        let attemptModelRef: typeof model = model;
+        let attemptChatModelRef: typeof chatModel = chatModel;
+        const buildStreamOptions = () => ({
+          ...baseStreamOptions,
+          // The instance must be per-attempt; telemetry re-reports the model
+          // the attempt is actually running on.
+          model: attemptModelRef,
+          experimental_telemetry: aiTelemetry("chat.stream", {
+            organizationId: activeOrganizationId,
+            threadId: id,
+            agentId: agent?.id,
+            provider: attemptChatModelRef?.provider,
+            modelId: attemptChatModelRef?.model,
+            toolCount: Object.keys(vercelAITooles ?? {}).length,
+          }),
         });
-        result.consumeStream();
+        let attemptCandidate = resolvedCandidate;
+        let streamResult = streamText(buildStreamOptions());
+        let [probedStream, probeMirror] = streamResult.stream.tee();
+        let verdict = await probeStreamViability(probeMirror);
+        for (const fallbackCandidate of streamFallbacks) {
+          if (verdict !== "failed-before-output") break;
+          let nextModel: typeof model;
+          try {
+            nextModel = await getModelInstance(
+              fallbackCandidate.chatModel,
+              session.user.id,
+            );
+            if (nextModel === model) continue;
+          } catch (error) {
+            logger.warn(
+              `[chat] skipping unavailable mid-stream fallback ${fallbackCandidate.chatModel.provider}/${fallbackCandidate.chatModel.model}`,
+              error,
+            );
+            continue;
+          }
+          // Discard the failed attempt: mark it stale first so its terminal
+          // callbacks become no-ops, then cancel both tee branches.
+          attemptDiscarded = true;
+          await probedStream.cancel().catch(() => {});
+          activeChatAttempt += 1;
+          attemptOrdinalRef = activeChatAttempt;
+          attemptModelRef = nextModel;
+          const fallbackChatModel = fallbackCandidate.chatModel;
+          attemptChatModelRef = fallbackChatModel;
+          attemptCandidate = fallbackCandidate;
+          contextWindowRef =
+            getContextWindow(fallbackChatModel) ?? FALLBACK_CONTEXT_WINDOW;
+          compactAtTokensRef = Math.floor(
+            contextWindowRef * COMPACT_AT_CONTEXT_FRACTION,
+          );
+          streamResult = streamText(buildStreamOptions());
+          [probedStream, probeMirror] = streamResult.stream.tee();
+          attemptDiscarded = false;
+          verdict = await probeStreamViability(probeMirror);
+          logger.warn(
+            `[chat] mid-stream fallback attempt ${activeChatAttempt}: retrying on ${fallbackChatModel.provider}/${fallbackChatModel.model}`,
+          );
+        }
+        // Attribution mirrors the Gateway swap: flip the request-level model
+        // only for a retry that actually produced output; billing keeps the
+        // primary candidate as the conservative bound either way.
+        if (activeChatAttempt > 0) {
+          if (verdict !== "failed-before-output") {
+            chatModel = attemptChatModelRef;
+            resolvedCandidate = attemptCandidate;
+            metadata.chatModel = chatModel;
+            metadata.routing = {
+              ...metadata.routing,
+              automatic: false,
+              reasonCode: "stream_model_fallback",
+            };
+            logger.info(
+              `[chat] mid-stream fallback applied: ${chatModel?.provider}/${chatModel?.model}`,
+            );
+          } else {
+            logger.warn(
+              `[chat] mid-stream fallback chain exhausted after ${activeChatAttempt} attempt(s)`,
+            );
+          }
+        }
+        streamResult.consumeStream();
         dataStream.merge(
           toUIMessageStream({
-            stream: result.stream,
+            stream: probedStream,
             tools: vercelAITooles,
             sendSources: true,
             // The default replaces every model error with "An error occurred.";
