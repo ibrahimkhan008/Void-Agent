@@ -183,10 +183,13 @@
 - 🟡 Durable checkpoints are now written between dependency waves. Failed runs
   expose a resume ID; resuming requires the same authenticated user and chat,
   reuses successful worker summaries, retries failed/unstarted work, and
-  repeats an incomplete verification stage. Migration 0091 and focused schema
-  tests are present. No isolated PostgreSQL or live model/sandbox resume test
-  was run, so persistence, crash recovery, and side-effect behavior remain
-  unverified. Keep PARTIAL.
+  repeats an incomplete verification stage. Resume now atomically claims a
+  failed checkpoint for that owner/thread; a second concurrent resume is
+  rejected, and stale running/verifying claims can be reclaimed after ten
+  minutes (the run deadline is six minutes). Migration 0091 and focused query
+  shape tests are present. No isolated PostgreSQL or live model/sandbox resume
+  test was run, so database-level crash recovery and side-effect behavior
+  remain unverified. Keep PARTIAL.
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
@@ -203,8 +206,9 @@
   large deliveries above 2 MiB are rejected rather than persisted.
 - 🟡 Additional content-filter operators are implemented locally:
   startsWith, endsWith, notContains, and notEquals. The API validates them,
-  and stored invalid rules fail closed; focused tests pass. This change has
-  not been published or verified against a live webhook.
+  and stored invalid rules fail closed; the implementation and tests are
+  already published in commit `d698cac`. Live webhook/PostgreSQL verification
+  remains outstanding.
 - 🟡 Local Hooks regression fixes: the executor now passes normalized metadata
   to subject rules and renders the subject from metadata in prompts; PATCH
   keeps existing match rules when another setting changes; create/rebind and
@@ -381,6 +385,8 @@ operator credentials still determine whether an item can be closed.
 - Docker is unavailable in this environment and no local PostgreSQL binaries/service or listener are present (`127.0.0.1:5432` refused). Migrations 0090 and 0091 were journal-checked only and were not applied. Production/VPS was not accessed.
 - 2026-11-17 targeted Canvas edit: 8 focused eCanvas tests passed, `pnpm db:check` passed, targeted Biome passed with only existing PascalCase filename warnings, and `git diff --check` passed. The model/iframe interaction remains unverified in a browser and no PostgreSQL migration was applied.
 - The 6 GiB web typecheck after the targeted-edit change still fails only on the same three unresolved imports in pre-existing untracked public/legal pages (`public-header` twice and `legal-toc` once); it reports no errors in the Canvas targeted-edit files. Those untracked files were preserved and not edited.
+- 2026-11-17 post-targeted-edit full web suite: **506 test files / 3,347 tests passed**. It is still a mock/unit/component/API suite; PostgreSQL, live providers, and browser E2E are not established by this result.
+- 2026-11-17 orchestrator resume-claim hardening: focused repository/orchestrator suites passed (2 files / 11 tests), targeted Biome passed, `pnpm db:check` passed, and `git diff --check` passed. Docker Engine is unavailable and localhost PostgreSQL is not listening, so no database integration or concurrent PostgreSQL run was performed.
 - 2026-11-17 local follow-up: the changed Hooks, Orchestrator, and schedule
   code passed the full web suite (495 files / 3,286 tests) after the Hooks
   security/subject fixes, 6 GiB TypeScript check, focused regression tests,

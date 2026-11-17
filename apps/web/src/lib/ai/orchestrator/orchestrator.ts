@@ -24,6 +24,7 @@ import {
 import {
   type StoredOrchestratorResult,
   type StoredOrchestratorWorker,
+  claimOrchestratorCheckpoint,
   createOrchestratorCheckpoint,
   getOrchestratorCheckpoint,
   saveOrchestratorCheckpoint,
@@ -554,7 +555,29 @@ or failed workers rerun.`,
 
       if (resumeRunId) {
         try {
-          const checkpoint = await getOrchestratorCheckpoint({
+          const existing = await getOrchestratorCheckpoint({
+            id: resumeRunId,
+            userId: deps.userId,
+            threadId: deps.threadId,
+          });
+          if (!existing) {
+            yield {
+              status: "failed" as const,
+              runId,
+              error:
+                "No resumable orchestration checkpoint was found for this chat",
+            };
+            return;
+          }
+          if (existing.status === "done") {
+            yield {
+              status: "failed" as const,
+              runId,
+              error: "This orchestration checkpoint is already complete",
+            };
+            return;
+          }
+          const checkpoint = await claimOrchestratorCheckpoint({
             id: resumeRunId,
             userId: deps.userId,
             threadId: deps.threadId,
@@ -564,15 +587,7 @@ or failed workers rerun.`,
               status: "failed" as const,
               runId,
               error:
-                "No resumable orchestration checkpoint was found for this chat",
-            };
-            return;
-          }
-          if (checkpoint.status === "done") {
-            yield {
-              status: "failed" as const,
-              runId,
-              error: "This orchestration checkpoint is already complete",
+                "This orchestration is already running. Wait for it to finish before resuming.",
             };
             return;
           }

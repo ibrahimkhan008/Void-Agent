@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, lte, or } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import { OrchestratorCheckpointTable } from "lib/db/pg/schema.pg";
 
@@ -52,6 +52,44 @@ export async function getOrchestratorCheckpoint(input: {
       ),
     )
     .limit(1);
+  return checkpoint ?? null;
+}
+
+/**
+ * Atomically claim a failed checkpoint for resume. A crashed worker can be
+ * reclaimed after ten minutes without allowing two live requests to execute
+ * the same unfinished workers concurrently. Orchestrator runs are bounded to
+ * six minutes, so the stale window leaves room for normal execution.
+ */
+export async function claimOrchestratorCheckpoint(input: {
+  id: string;
+  userId: string;
+  threadId: string;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const staleBefore = new Date(now.getTime() - 10 * 60 * 1000);
+  const [checkpoint] = await pgDb
+    .update(OrchestratorCheckpointTable)
+    .set({ status: "running", updatedAt: now })
+    .where(
+      and(
+        eq(OrchestratorCheckpointTable.id, input.id),
+        eq(OrchestratorCheckpointTable.userId, input.userId),
+        eq(OrchestratorCheckpointTable.threadId, input.threadId),
+        or(
+          eq(OrchestratorCheckpointTable.status, "failed"),
+          and(
+            inArray(OrchestratorCheckpointTable.status, [
+              "running",
+              "verifying",
+            ]),
+            lte(OrchestratorCheckpointTable.updatedAt, staleBefore),
+          ),
+        ),
+      ),
+    )
+    .returning();
   return checkpoint ?? null;
 }
 
