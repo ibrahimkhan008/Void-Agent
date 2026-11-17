@@ -146,15 +146,41 @@
 
 ### §3.2/3.4 Orchestrator depth
 - ✅ Role-scoped parallel workers with verification
-- ❌ Autonomous **self-decomposition** (the model supplies the worker split;
-  the orchestrator does not yet generate its own plan from the objective)
-- ❌ Cross-worker dependency ordering (currently all lanes start together)
+- 🟡 Autonomous **self-decomposition** is implemented locally: callers may
+  omit workers and the orchestrator asks its model for a bounded worker plan,
+  validates dependencies, then executes it. Schema/planner tests and
+  typecheck pass; a live model-driven run has not been verified.
+- 🟡 Cross-worker dependency ordering is implemented locally through
+  `dependsOn` worker keys and topological waves. Independent workers still
+  run concurrently; dependent workers receive prior summaries and skip when
+  a prerequisite fails. Focused schema/planner tests and typecheck pass;
+  no live model-run verification has been performed for this change.
 - ❌ Checkpoints between stages
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
-- ❌ **GitHub-event triggers** (push/PR/issue → agent run)
-- ❌ Content-filter operators beyond contains/equals
+- 🟡 **GitHub-event triggers** now have a local implementation for push,
+  pull-request, and issue deliveries: owner-created GitHub hooks retain an
+  encrypted signing secret, the inbound route verifies the raw-body GitHub
+  HMAC, and a stable per-hook delivery ID dedupes the queued outbox event.
+  The UI exposes GitHub setup and the owner API redacts the stored secret.
+  Focused signature, normalization, route, and redaction tests pass. The
+  signature and delivery-ID contracts follow [GitHub's webhook validation
+  guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
+  and [best practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks). This has
+  not been exercised against a real GitHub delivery or isolated PostgreSQL;
+  large deliveries above 2 MiB are rejected rather than persisted.
+- 🟡 Additional content-filter operators are implemented locally:
+  startsWith, endsWith, notContains, and notEquals. The API validates them,
+  and stored invalid rules fail closed; focused tests pass. This change has
+  not been published or verified against a live webhook.
+- 🟡 Local Hooks regression fixes: the executor now passes normalized metadata
+  to subject rules and renders the subject from metadata in prompts; PATCH
+  keeps existing match rules when another setting changes; create/rebind and
+  execution require the hook owner to own its bound agent. Creation keeps the
+  endpoint disabled until configuration is saved. Focused route, matcher, and
+  executor tests plus the full web suite and TypeScript pass. Live
+  webhook/PostgreSQL verification has not been repeated for these edits.
 - ❌ Cross-hook chaining
 
 ### §3.6 Canvas depth
@@ -176,8 +202,15 @@
 
 ### Notifications
 - ✅ In-app + Web Push (VAPID)
-- ❌ Telegram, Slack outbound, email sending (nodemailer installed, zero
-  usages) — Sentinel channels, defer with Sentinel
+- 🟡 Operator problem-report email now uses an optional TLS-required SMTP
+  transport (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optional paired
+  `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
+  visible to the caller; the stored report remains intact. Focused transport
+  and report-route tests pass. No live SMTP delivery has been verified.
+- ❌ User-facing email delivery remains unwired; password-reset and
+  organization-invitation mail are explicit no-ops in the community gate.
+- ⏸️ Telegram and outbound Slack are deferred per user direction; they are
+  not required in the current work scope.
 
 ---
 
@@ -195,6 +228,9 @@ found and fixed:
   schema error — straight to the expected gateway refusal, which is the
   missing dev gateway key, not the regression). No third offender exists.
 - Commits: `c89b744`, `2a8dfd6`
+- Source recheck on 2026-11-17: `propose-record` still uses `jsonSchema()`;
+  the model-facing workflow payload still uses `z.unknown()`. No new live
+  provider probe was run during this recheck.
 
 ---
 
@@ -238,18 +274,42 @@ wide-research fan-out) is unbuilt. The quota fields in the docs
 
 ## Recommended order
 
-1. **Sentinel monitoring core** — the largest remaining module; notification
-   channels (Telegram/Slack/email) belong here
-2. **BYOK-hosted** — per-user keys for hosted providers
-3. **Cloud/Devices** — remote infrastructure connections
-4. **Canvas PPTX/DOCX exports** — completes the export matrix
-5. **Connector wiring** — incremental, any number at a time
-6. **Mid-stream fallback retry** — extends the resolution-time consumer
+The current user request excludes every **NEVER STARTED** module above. The
+items below describe the remaining half-done work only; live verification and
+operator credentials still determine whether an item can be closed.
+
+1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
+2. **Canvas PPTX/DOCX exports, comments, and structural editing**
+3. **Connector wiring** — implement real callable tools and scoped approvals
+4. **Mid-stream fallback retry** — avoid duplicate persisted messages
+5. **Orchestrator checkpoints** — durable stage state and safe resume
+6. **Hook chaining and live GitHub/PostgreSQL verification**
+7. **Deploy build/runtime logs** — define distinct events for static publishes
+8. **Outbound notification channels** — complete independently of Sentinel
 
 ---
 
 ## Verification notes
 
+- 2026-11-17 local follow-up: the changed Hooks, Orchestrator, and schedule
+  code passed the full web suite (495 files / 3,286 tests) after the Hooks
+  security/subject fixes, 6 GiB TypeScript check, focused regression tests,
+  targeted Biome checks, and `git diff --check`. These are local
+  checks; no real GitHub webhook, hosted model, or production run was used.
+- Subsequent local GitHub-hook changes passed focused unit and route tests,
+  the **full web suite (496 files / 3,294 tests)**, the 6 GiB TypeScript
+  check, `pnpm db:check`, and a production web build. The build compiled and
+  exited 0; static page collection logged PostgreSQL `ECONNREFUSED` because
+  the local database was down, so this is not runtime/database verification.
+  These are local checks; Docker Desktop's engine
+  was unavailable, so no PostgreSQL integration run was performed. GitHub's
+  documented `X-Hub-Signature-256` verification and
+  `X-GitHub-Delivery` deduplication are implemented, but no live delivery or
+  real PostgreSQL outbox race was verified.
+- A later operator-email slice added SMTP delivery for problem reports and
+  passed 8 focused tests (transport plus report route). No SMTP server was
+  contacted. The updated full suite passed after this edit; the production
+  build predates the SMTP change.
 - Suite: **493 files / 3,267 tests** green (the post-marketing-extraction
   baseline; the public-site tests moved to `apps/marketing` with their files)
 - Built-in skills: **122 across 8 packs** verified via `/api/skills/built-in`
