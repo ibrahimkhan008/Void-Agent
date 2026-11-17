@@ -53,6 +53,55 @@ describe("selectDeterministicRoute", () => {
     expect(route.candidate.deploymentId).toBe("best-fit");
   });
 
+  it("cost priority chooses the lowest priced route inside the quality band", () => {
+    const route = selectDeterministicRoute({
+      candidates: [
+        candidate("best-fit", 90, {
+          inputPriceMicrosPerMillion: 10,
+          outputPriceMicrosPerMillion: 50,
+        }),
+        candidate("lower-cost", 84, {
+          inputPriceMicrosPerMillion: 2,
+          outputPriceMicrosPerMillion: 8,
+        }),
+        candidate("too-low-quality", 81, {
+          inputPriceMicrosPerMillion: 1,
+          outputPriceMicrosPerMillion: 1,
+        }),
+      ],
+      signals: {
+        taskKey: "coding",
+        requiresTools: false,
+        requiresVision: false,
+        minimumContextTokens: 0,
+      },
+      optimization: "cost",
+    });
+
+    expect(route.candidate.deploymentId).toBe("lower-cost");
+    expect(route.reasonCode).toBe("task_fit:cost:coding");
+  });
+
+  it("latency priority uses configured tiers within the quality band", () => {
+    const route = selectDeterministicRoute({
+      candidates: [
+        candidate("best-fit-slow", 90, { latencyTier: "slow" }),
+        candidate("fast-enough", 83, { latencyTier: "fast" }),
+        candidate("fast-but-low-fit", 81, { latencyTier: "fast" }),
+      ],
+      signals: {
+        taskKey: "coding",
+        requiresTools: false,
+        requiresVision: false,
+        minimumContextTokens: 0,
+      },
+      optimization: "latency",
+    });
+
+    expect(route.candidate.deploymentId).toBe("fast-enough");
+    expect(route.reasonCode).toBe("task_fit:latency:coding");
+  });
+
   it("applies hard eligibility before task scoring", () => {
     const route = selectDeterministicRoute({
       candidates: [candidate("disallowed", 100), candidate("allowed", 50)],

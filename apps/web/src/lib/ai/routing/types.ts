@@ -12,6 +12,8 @@ export type RoutingTaskKey =
   | "reasoning"
   | "vision";
 
+export type RoutingOptimization = "balanced" | "cost" | "latency";
+
 export type RouteSignals = {
   taskKey: RoutingTaskKey;
   requiresTools: boolean;
@@ -37,6 +39,8 @@ export type RoutingCandidate = {
   dataRetention: "unknown" | "zero" | "standard";
   inputPriceMicrosPerMillion: number;
   outputPriceMicrosPerMillion: number;
+  /** Admin-maintained catalog tier; not a live latency measurement. */
+  latencyTier?: string | null;
   contextTokens: number;
   supportsTools: boolean;
   supportsVision: boolean;

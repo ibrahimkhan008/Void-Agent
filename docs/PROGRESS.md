@@ -151,7 +151,17 @@
   this. Existing app credit accounting also remains unchanged, so actual
   provider billing attribution still needs live verification before this is
   considered complete.
-- ❌ Cost/latency-aware routing tiers
+- 🟡 Automatic routing now supports user-selected Balanced, Lower cost, and
+  Faster priorities under Customize → Instructions. Cost chooses the lowest
+  sum of configured input and output token rates among eligible
+  candidates no more than 8 task-fit points below the best candidate (equal
+  one-million-token input/output units; this is a rate comparison, not a
+  per-turn spend forecast). Faster uses the catalog's
+  admin-maintained `fast`/`balanced`/`slow` tier within the same quality band;
+  it is not a live latency measurement. Capability, retention, region,
+  organization allowlist/price policy, and thread pinning remain hard gates.
+  Route unit tests cover quality tradeoffs; live org routing has not been
+  verified. Keep PARTIAL until an isolated configured org verifies each tier.
 
 ### §3.1 Fallback chains — mid-stream retry
 - ✅ Resolution-time consumption (org policy refusal → chain walk)

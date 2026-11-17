@@ -64,6 +64,7 @@ export function UserInstructionsContent() {
     responseStyleExample: "",
     profession: "",
     botName: "",
+    autoRoutingMode: "balanced",
   });
 
   const {
@@ -109,6 +110,11 @@ export function UserInstructionsContent() {
     )
       return true;
     if ((data?.botName || "") !== (preferences.botName || "")) return true;
+    if (
+      (data?.autoRoutingMode || "balanced") !==
+      (preferences.autoRoutingMode || "balanced")
+    )
+      return true;
     return false;
   }, [preferences, data]);
 
@@ -209,6 +215,36 @@ export function UserInstructionsContent() {
               </>
             )}
           </div>
+        </div>
+        <div className="flex flex-col gap-2 text-foreground">
+          <Label htmlFor="auto-routing-mode">Automatic routing priority</Label>
+          <select
+            id="auto-routing-mode"
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+            value={preferences.autoRoutingMode ?? "balanced"}
+            onChange={(event) =>
+              setPreferences({
+                autoRoutingMode: event.target.value as
+                  | "balanced"
+                  | "cost"
+                  | "latency",
+              })
+            }
+          >
+            <option value="balanced">Balanced · best task fit</option>
+            <option value="cost">
+              Lower cost · cheaper token rates, within 8 points
+            </option>
+            <option value="latency">
+              Faster · configured tier, within 8 points
+            </option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Applies to new automatically routed chats. Organization allowlists,
+            required capabilities, and existing thread model pins still take
+            priority. Speed uses the model catalog&apos;s configured tier, not
+            live measurements.
+          </p>
         </div>
       </div>
       {isDiff && !isValidating && (

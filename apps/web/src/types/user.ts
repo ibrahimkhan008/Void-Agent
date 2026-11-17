@@ -16,6 +16,9 @@ export type UserPreferences = {
   responseStyleExample?: string; // Example of preferred response style
   botName?: string; // Name of the bot
 
+  /** Preference applied only among organization-approved automatic routes. */
+  autoRoutingMode?: "balanced" | "cost" | "latency";
+
   /** AES-GCM encrypted hosted provider keys; never returned by preferences APIs. */
   aiProviderKeys?: Record<string, string>;
 
@@ -154,6 +157,7 @@ export const UserPreferencesZodSchema = z.object({
   profession: z.string().optional(),
   responseStyleExample: z.string().optional(),
   botName: z.string().optional(),
+  autoRoutingMode: z.enum(["balanced", "cost", "latency"]).optional(),
   localModels: z
     .object({
       enabled: z.boolean(),

@@ -3,6 +3,7 @@ import {
   type OrganizationRoutingPolicy,
   type RouteSignals,
   type RoutingCandidate,
+  type RoutingOptimization,
   RoutingPolicyError,
 } from "./types";
 
@@ -81,6 +82,7 @@ export function selectDeterministicRoute(input: {
   candidates: RoutingCandidate[];
   signals: RouteSignals;
   policy?: OrganizationRoutingPolicy;
+  optimization?: RoutingOptimization;
   /** The model this thread's previous turn ran on, if it had one. */
   pinnedChatModel?: { provider?: string; model?: string } | null;
 }): DeterministicRoute {
@@ -128,7 +130,48 @@ export function selectDeterministicRoute(input: {
       );
     });
 
-  const winner = ranked[0];
+  const optimization = input.optimization ?? "balanced";
+  let ordered = ranked;
+  if (optimization !== "balanced" && ranked.length > 1) {
+    // A priority tier may trade at most eight task-fit points for price or
+    // configured speed. Hard capability and org policy gates were applied
+    // before this point and are never relaxed by a preference.
+    const bestScore = ranked[0].score;
+    const qualityBand = ranked.filter((entry) => entry.score >= bestScore - 8);
+    if (optimization === "cost") {
+      ordered = qualityBand.sort((left, right) => {
+        const leftUnitPrice =
+          left.candidate.inputPriceMicrosPerMillion +
+          left.candidate.outputPriceMicrosPerMillion;
+        const rightUnitPrice =
+          right.candidate.inputPriceMicrosPerMillion +
+          right.candidate.outputPriceMicrosPerMillion;
+        return (
+          leftUnitPrice - rightUnitPrice ||
+          right.score - left.score ||
+          right.tieBreakPriority - left.tieBreakPriority ||
+          left.candidate.deploymentId.localeCompare(
+            right.candidate.deploymentId,
+          )
+        );
+      });
+    } else {
+      const latencyRank = (tier?: string | null) =>
+        tier === "fast" ? 0 : tier === "balanced" ? 1 : tier === "slow" ? 2 : 3;
+      ordered = qualityBand.sort((left, right) => {
+        return (
+          latencyRank(left.candidate.latencyTier) -
+            latencyRank(right.candidate.latencyTier) ||
+          right.score - left.score ||
+          right.tieBreakPriority - left.tieBreakPriority ||
+          left.candidate.deploymentId.localeCompare(
+            right.candidate.deploymentId,
+          )
+        );
+      });
+    }
+  }
+  const winner = ordered[0];
   if (!winner) {
     throw new RoutingPolicyError(
       "NO_ELIGIBLE_MODEL",
@@ -140,6 +183,9 @@ export function selectDeterministicRoute(input: {
     candidate: winner.candidate,
     taskKey: input.signals.taskKey,
     taskScore: winner.score,
-    reasonCode: `task_fit:${input.signals.taskKey}`,
+    reasonCode:
+      optimization === "balanced"
+        ? `task_fit:${input.signals.taskKey}`
+        : `task_fit:${optimization}:${input.signals.taskKey}`,
   };
 }

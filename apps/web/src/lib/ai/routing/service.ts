@@ -1,8 +1,6 @@
 import "server-only";
 
 import { pgDb } from "@/lib/db/pg/db.pg";
-import { trace } from "@opentelemetry/api";
-import { aiRouteDecisions } from "lib/observability/instruments";
 import {
   MemberTable,
   ModelDeploymentTable,
@@ -12,8 +10,11 @@ import {
   OrganizationAiPolicyTable,
   OrganizationModelAccessTable,
 } from "@/lib/db/pg/schema.pg";
+import { trace } from "@opentelemetry/api";
 import type { ChatModel } from "app-types/chat";
 import { and, eq, inArray } from "drizzle-orm";
+import { userRepository } from "lib/db/repository";
+import { aiRouteDecisions } from "lib/observability/instruments";
 import globalLogger from "logger";
 import { selectDeterministicRoute } from "./route";
 import {
@@ -278,6 +279,7 @@ async function getCandidates(input: {
     .select({
       deployment: ModelDeploymentTable,
       modelName: ModelsTable.model,
+      latencyTier: ModelsTable.latencyTier,
     })
     .from(ModelDeploymentTable)
     .innerJoin(ModelsTable, eq(ModelDeploymentTable.modelId, ModelsTable.model))
@@ -368,7 +370,7 @@ async function getCandidates(input: {
     profilesByModel.set(profile.modelId, existing);
   }
 
-  const candidates = rows.map(({ deployment, modelName }) => {
+  const candidates = rows.map(({ deployment, modelName, latencyTier }) => {
     const access = accessByDeployment?.get(deployment.id);
     return {
       deploymentId: deployment.id,
@@ -387,6 +389,7 @@ async function getCandidates(input: {
       outputPriceMicrosPerMillion:
         access?.outputPriceMicrosPerMillionOverride ??
         deployment.outputPriceMicrosPerMillion,
+      latencyTier,
       contextTokens: deployment.contextTokens,
       supportsTools: deployment.supportsTools,
       supportsVision: deployment.supportsVision,
@@ -442,10 +445,26 @@ export async function resolveAutomaticRoute(input: {
   const candidates = await getCandidates({
     organizationId: context.organizationId,
   });
+  let optimization: "balanced" | "cost" | "latency" = "balanced";
+  try {
+    const preferences = await userRepository.getPreferences(input.userId);
+    if (
+      preferences?.autoRoutingMode === "cost" ||
+      preferences?.autoRoutingMode === "latency"
+    ) {
+      optimization = preferences.autoRoutingMode;
+    }
+  } catch (error) {
+    logger.warn(
+      "Could not load routing preference; using balanced routing",
+      error,
+    );
+  }
   const route = selectDeterministicRoute({
     candidates,
     signals: input.signals,
     policy: withAccessPolicy(context.policy, candidates),
+    optimization,
     pinnedChatModel: input.previousChatModel,
   });
 

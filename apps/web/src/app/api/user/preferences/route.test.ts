@@ -69,6 +69,29 @@ describe("/api/user/preferences", () => {
     });
   });
 
+  it("persists only the supported automatic-routing priorities", async () => {
+    const valid = await PUT(
+      new NextRequest("http://localhost/api/user/preferences", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ autoRoutingMode: "latency" }),
+      }),
+    );
+    expect(valid.status).toBe(200);
+    expect(preferencesByUser.get("owner-a")).toMatchObject({
+      autoRoutingMode: "latency",
+    });
+
+    const invalid = await PUT(
+      new NextRequest("http://localhost/api/user/preferences", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ autoRoutingMode: "unbounded-cost" }),
+      }),
+    );
+    expect(invalid.status).toBe(400);
+  });
+
   it("never returns encrypted hosted provider credentials", async () => {
     preferencesByUser.set("owner-a", {
       profession: "Engineer",
