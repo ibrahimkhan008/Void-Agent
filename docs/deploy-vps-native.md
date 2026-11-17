@@ -84,6 +84,58 @@ cloudflared tunnel route dns void-agent app.voidagent.space
 sudo cloudflared service install && sudo systemctl enable --now cloudflared
 ```
 
+## Background jobs without Inngest (systemd timers)
+
+Every recurring Inngest cron has an equivalent secret-gated HTTP endpoint,
+so the VPS runs the full product without any Inngest dependency — `systemd
+timers` (native to the host) drive them:
+
+| Job | HTTP endpoint | Cadence |
+|---|---|---|
+| Scheduled-task cron | `POST /api/scheduled-tasks/cron` | every minute |
+| Void Hooks + webhook outbox + subscriptions | `POST /api/hooks/tick` and `POST /api/background-jobs/outbox-tick` | every minute |
+| Sandbox reaper | `POST /api/sandbox/reaper` | every 5 minutes |
+| Notification email digest | `POST /api/background-jobs/email-digest` | daily 09:00 |
+
+All of them require the header `X-Scheduled-Task-Auth: $SCHEDULED_TASK_SECRET`
+(the same constant-time check). Project-brain dream cycles stay Inngest-side
+(event-driven per project; enable Inngest only if that feature is used).
+
+Timer units (one service + timer pair shown; repeat per endpoint with its
+cadence):
+
+```ini
+# /etc/systemd/system/void-agent-jobs-outbox.service
+[Unit]
+Description=Void Agent outbox tick (hooks + subscriptions)
+After=network-online.target void-agent.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+# The app's env file already carries SCHEDULED_TASK_SECRET (chmod 600).
+EnvironmentFile=/home/ubuntu/void-agent/apps/web/.env.production
+ExecStart=/usr/bin/curl -sS -X POST -H "X-Scheduled-Task-Auth: ${SCHEDULED_TASK_SECRET}" http://127.0.0.1:3000/api/background-jobs/outbox-tick
+
+# /etc/systemd/system/void-agent-jobs-outbox.timer
+[Unit]
+Description=Tick Void Agent background jobs every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+Persistent=true
+Unit=void-agent-jobs-outbox.service
+
+[Install]
+WantedBy=timers.target
+```
+
+For the daily digest use `OnCalendar=*-*-* 09:00:00` on a second pair hitting
+`/api/background-jobs/email-digest`. Enable with
+`systemctl enable --now void-agent-jobs-outbox.timer` (and the digest pair).
+Inngest remains fully optional: when `INNGEST_SIGNING_KEY`/`INNGEST_EVENT_KEY`
+are unset the HTTP timers cover everything above.
+
 ## Updating the production app
 
 ```bash
