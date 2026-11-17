@@ -1,6 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { cloudInngestFunctions } from "@/lib/inngest/functions/cloud";
 import { hookAgentRun } from "@/lib/inngest/functions/hooks";
+import { notificationEmailDigest } from "@/lib/inngest/functions/notification-email-digest";
 import {
   projectBrainDream,
   projectBrainDreamScheduler,
@@ -31,6 +32,7 @@ export const { GET, POST, PUT } = serve({
     reapIdleSandboxes,
     webhookOutboxTick,
     hookAgentRun,
+    notificationEmailDigest,
     ...cloudInngestFunctions,
   ],
 });

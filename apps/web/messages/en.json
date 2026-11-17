@@ -621,6 +621,8 @@
         "weeklyReminders": "Weekly reminders",
         "emailUpdates": "Email updates",
         "emailUpdatesDescription": "If outbound email is configured, send a brief email when a scheduled task or hook run finishes. Only verified email addresses receive these messages.",
+        "emailDigest": "Send one daily digest",
+        "emailDigestDescription": "Bundle enabled scheduled-task and hook emails into one daily summary instead of sending them immediately.",
         "emailScheduledSuccess": "Successful scheduled runs",
         "emailScheduledSuccessDescription": "Email me when a scheduled task completes successfully.",
         "emailScheduledFailure": "Failed scheduled runs",

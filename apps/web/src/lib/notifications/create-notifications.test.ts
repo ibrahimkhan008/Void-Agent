@@ -93,6 +93,29 @@ describe("createNotifications email delivery", () => {
     expect(where).not.toHaveBeenCalled();
   });
 
+  it("defers immediate email when daily digest is enabled", async () => {
+    returning.mockResolvedValueOnce([{ id: "notification-1", userId: "u1" }]);
+    where.mockResolvedValueOnce([
+      {
+        userId: "u1",
+        email: "enabled@example.test",
+        verified: true,
+        preferences: {
+          notifications: { emailEnabled: true, emailDigestEnabled: true },
+        },
+      },
+    ]);
+
+    await createNotifications({
+      userIds: ["u1"],
+      type: "scheduled_run_success",
+      title: "A task completed",
+      push: false,
+    });
+
+    expect(sendSmtpEmail).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["scheduled_run_success", "emailScheduledSuccess"],
     ["scheduled_run_failure", "emailScheduledFailure"],

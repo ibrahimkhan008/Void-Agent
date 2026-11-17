@@ -102,6 +102,7 @@ export async function createNotifications(input: CreateNotificationsInput) {
           const preferences = recipient.preferences as {
             notifications?: {
               emailEnabled?: boolean;
+              emailDigestEnabled?: boolean;
               emailScheduledSuccess?: boolean;
               emailScheduledFailure?: boolean;
               emailHookFailure?: boolean;
@@ -117,6 +118,7 @@ export async function createNotifications(input: CreateNotificationsInput) {
           return (
             recipient.verified &&
             notificationPrefs?.emailEnabled === true &&
+            notificationPrefs.emailDigestEnabled !== true &&
             eventEnabled
           );
         })

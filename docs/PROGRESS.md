@@ -234,8 +234,14 @@
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
   visible to callers; stored problem reports remain intact. Focused transport,
   gate, and report-route tests pass. No live SMTP delivery has been verified.
-- ❌ Per-user notification digests are not implemented. Enabled event types
-  send immediately.
+- 🟡 Per-user daily email digests are implemented locally: opted-in users can
+  choose a generic daily summary instead of immediate delivery for enabled
+  scheduled-run and hook-failure events. An Inngest daily cron groups verified
+  recipients, applies event preferences, and never includes notification
+  titles or bodies. Three digest unit tests plus immediate-delivery suppression
+  tests pass. This has not been verified with a live Inngest registration,
+  PostgreSQL database, or SMTP server; delivery remains best-effort and should
+  stay PARTIAL until those integrations are exercised.
 - ⏸️ Telegram and outbound Slack are deferred per user direction; they are
   not required in the current work scope.
 
@@ -311,7 +317,9 @@ operator credentials still determine whether an item can be closed.
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume
 6. **Hook chaining and live GitHub/PostgreSQL verification**
-7. **Notification digests** — optional batching beyond immediate email
+7. **Notification digests** — code and focused tests exist; verify cron
+   registration, PostgreSQL query behavior, and delivery through isolated
+   Inngest/SMTP before closing
 
 ---
 
@@ -344,6 +352,11 @@ operator credentials still determine whether an item can be closed.
   slice-owned type issues were corrected afterward; no full typecheck was
   repeated. No live AI provider request was made. [AI Gateway BYOK docs](https://vercel.com/docs/ai-gateway/authentication-and-byok/byok)
   note that a failed BYOK request may fall back to platform credentials.
+- Notification digest local validation: focused Vitest passed (3 files / 13
+  tests), targeted Biome and `git diff --check` passed. Tests cover recipient
+  aggregation, opt-in/verification/event filtering, generic email privacy, and
+  suppression of immediate sends when digest mode is enabled. No live SMTP,
+  Inngest, or PostgreSQL integration check was run.
 - Suite: **493 files / 3,267 tests** green (the post-marketing-extraction
   baseline; the public-site tests moved to `apps/marketing` with their files)
 - Built-in skills: **122 across 8 packs** verified via `/api/skills/built-in`

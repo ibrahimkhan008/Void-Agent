@@ -47,6 +47,7 @@ export type UserPreferences = {
     hideTaskDetails: boolean;
     weeklyEngagementEnabled: boolean;
     emailEnabled?: boolean;
+    emailDigestEnabled?: boolean;
     emailScheduledSuccess?: boolean;
     emailScheduledFailure?: boolean;
     emailHookFailure?: boolean;
@@ -189,6 +190,7 @@ export const UserPreferencesZodSchema = z.object({
       hideTaskDetails: z.boolean().default(false),
       weeklyEngagementEnabled: z.boolean().default(true),
       emailEnabled: z.boolean().default(false),
+      emailDigestEnabled: z.boolean().default(false),
       emailScheduledSuccess: z.boolean().default(true),
       emailScheduledFailure: z.boolean().default(true),
       emailHookFailure: z.boolean().default(true),

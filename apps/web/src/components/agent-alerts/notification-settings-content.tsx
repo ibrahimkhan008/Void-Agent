@@ -180,6 +180,15 @@ export function NotificationSettingsContent() {
             />
             <div className="ml-4 flex flex-col gap-4 border-l pl-4">
               <PreferenceRow
+                label={t("emailDigest")}
+                description={t("emailDigestDescription")}
+                checked={notifications.emailDigestEnabled}
+                disabled={isSaving || !notifications.emailEnabled}
+                onCheckedChange={(checked) =>
+                  updatePref({ emailDigestEnabled: checked })
+                }
+              />
+              <PreferenceRow
                 label={t("emailScheduledSuccess")}
                 description={t("emailScheduledSuccessDescription")}
                 checked={notifications.emailScheduledSuccess}
