@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ api: vi.fn() }));
 
+vi.mock(
+  "lib/db/pg/repositories/connector-action-approval-repository.pg",
+  () => ({
+    connectorActionApprovalRepository: { consume: vi.fn(async () => false) },
+  }),
+);
 vi.mock("lib/connectors/provider-api", () => ({
   callConnectorApi: mocks.api,
   ConnectorApiError: class ConnectorApiError extends Error {},

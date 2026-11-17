@@ -176,6 +176,107 @@ export const connectorActionApprovalSchema = z.union([
         .strict(),
     })
     .strict(),
+  // GitHub writes: each approval binds the exact repository, ref/path and
+  // content so a token can never be replayed against a different file,
+  // branch or commit. Branch names follow GitHub's git ref rules (no git
+  // metacharacters); content paths are relative with no traversal.
+  z
+    .object({
+      provider: z.literal("github"),
+      action: z.literal("create_branch"),
+      payload: z
+        .object({
+          repository: z
+            .string()
+            .regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/u),
+          branchName: z
+            .string()
+            .regex(/^[A-Za-z0-9][A-Za-z0-9_./-]{0,140}$/u)
+            .refine((value) => !value.includes(".."))
+            .refine((value) => !value.includes("//"))
+            .refine((value) => !value.endsWith("/"))
+            .refine((value) => !value.endsWith(".lock")),
+          fromSha: z.string().regex(/^[0-9a-f]{7,40}$/iu),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("github"),
+      action: z.literal("update_file"),
+      payload: z
+        .object({
+          repository: z
+            .string()
+            .regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/u),
+          path: z
+            .string()
+            .min(1)
+            .max(400)
+            .refine((value) => !value.startsWith("/"))
+            .refine((value) => !value.includes(".."))
+            .refine((value) => !/[\0\r\n]/u.test(value)),
+          branchName: z
+            .string()
+            .regex(/^[A-Za-z0-9][A-Za-z0-9_./-]{0,140}$/u)
+            .refine((value) => !value.includes(".."))
+            .refine((value) => !value.includes("//"))
+            .refine((value) => !value.endsWith("/"))
+            .refine((value) => !value.endsWith(".lock")),
+          fileSha: z.string().regex(/^[0-9a-f]{7,40}$/iu),
+          commitMessage: z.string().min(1).max(1_000),
+          fileContent: z.string().min(1).max(100_000),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("github"),
+      action: z.literal("create_pull_request"),
+      payload: z
+        .object({
+          repository: z
+            .string()
+            .regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/u),
+          title: z.string().min(1).max(500),
+          headRef: z
+            .string()
+            .regex(
+              /^[A-Za-z0-9][A-Za-z0-9_./-]{0,140}(:[A-Za-z0-9][A-Za-z0-9_./-]{0,140})?$/u,
+            )
+            .refine((value) => !value.includes(".."))
+            .refine((value) => !value.includes("//"))
+            .refine((value) => !value.endsWith("/"))
+            .refine((value) => !value.endsWith(".lock")),
+          baseBranch: z
+            .string()
+            .regex(/^[A-Za-z0-9][A-Za-z0-9_./-]{0,140}$/u)
+            .refine((value) => !value.includes(".."))
+            .refine((value) => !value.includes("//"))
+            .refine((value) => !value.endsWith("/"))
+            .refine((value) => !value.endsWith(".lock")),
+          body: z.string().max(20_000),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      provider: z.literal("github"),
+      action: z.literal("create_pr_review"),
+      payload: z
+        .object({
+          repository: z
+            .string()
+            .regex(/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/u),
+          pullNumber: z.number().int().min(1).max(2_147_483_647),
+          body: PlainText,
+        })
+        .strict(),
+    })
+    .strict(),
   z
     .object({
       provider: z.literal("zulip"),

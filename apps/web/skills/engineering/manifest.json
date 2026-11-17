@@ -1,0 +1,9 @@
+{
+  "source": "Void Agent native",
+  "license": "Proprietary",
+  "skills": [
+    {
+      "slug": "pr-review"
+    }
+  ]
+}
