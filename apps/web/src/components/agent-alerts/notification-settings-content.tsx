@@ -178,6 +178,35 @@ export function NotificationSettingsContent() {
                 updatePref({ emailEnabled: checked })
               }
             />
+            <div className="ml-4 flex flex-col gap-4 border-l pl-4">
+              <PreferenceRow
+                label={t("emailScheduledSuccess")}
+                description={t("emailScheduledSuccessDescription")}
+                checked={notifications.emailScheduledSuccess}
+                disabled={isSaving || !notifications.emailEnabled}
+                onCheckedChange={(checked) =>
+                  updatePref({ emailScheduledSuccess: checked })
+                }
+              />
+              <PreferenceRow
+                label={t("emailScheduledFailure")}
+                description={t("emailScheduledFailureDescription")}
+                checked={notifications.emailScheduledFailure}
+                disabled={isSaving || !notifications.emailEnabled}
+                onCheckedChange={(checked) =>
+                  updatePref({ emailScheduledFailure: checked })
+                }
+              />
+              <PreferenceRow
+                label={t("emailHookFailure")}
+                description={t("emailHookFailureDescription")}
+                checked={notifications.emailHookFailure}
+                disabled={isSaving || !notifications.emailEnabled}
+                onCheckedChange={(checked) =>
+                  updatePref({ emailHookFailure: checked })
+                }
+              />
+            </div>
           </>
         )}
 

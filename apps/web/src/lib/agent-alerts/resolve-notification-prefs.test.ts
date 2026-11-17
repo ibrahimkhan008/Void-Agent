@@ -9,6 +9,9 @@ describe("resolveNotificationPrefs", () => {
       hideTaskDetails: false,
       weeklyEngagementEnabled: true,
       emailEnabled: false,
+      emailScheduledSuccess: true,
+      emailScheduledFailure: true,
+      emailHookFailure: true,
     });
   });
 
@@ -20,6 +23,9 @@ describe("resolveNotificationPrefs", () => {
         hideTaskDetails: true,
         weeklyEngagementEnabled: false,
         emailEnabled: true,
+        emailScheduledSuccess: true,
+        emailScheduledFailure: true,
+        emailHookFailure: true,
       }),
     ).toEqual({
       desktopEnabled: false,
@@ -27,6 +33,9 @@ describe("resolveNotificationPrefs", () => {
       hideTaskDetails: true,
       weeklyEngagementEnabled: false,
       emailEnabled: true,
+      emailScheduledSuccess: true,
+      emailScheduledFailure: true,
+      emailHookFailure: true,
     });
   });
 });

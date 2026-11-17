@@ -10,6 +10,9 @@ export type ResolvedNotificationPrefs = {
   hideTaskDetails: boolean;
   weeklyEngagementEnabled: boolean;
   emailEnabled: boolean;
+  emailScheduledSuccess: boolean;
+  emailScheduledFailure: boolean;
+  emailHookFailure: boolean;
 };
 
 export type AgentAlertPayload = {

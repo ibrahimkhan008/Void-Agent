@@ -210,20 +210,20 @@
 
 ### Notifications
 - ✅ In-app + Web Push (VAPID)
-- ✅ Per-user email preference for scheduled-task results and hook failures.
-  It defaults off; delivery is limited to verified account emails when SMTP
-  is configured. Emails contain a generic notice and a safe in-app link, not
-  the notification body. Nine focused preference and delivery tests pass; no live
-  SMTP delivery has been verified.
+- ✅ Per-user email preference for scheduled-task results and hook failures,
+  with separate toggles for successful schedules, failed schedules, and hook
+  failures. It defaults off; delivery is limited to verified account emails
+  when SMTP is configured. Emails contain a generic notice and a safe in-app
+  link, not the notification body. Nine focused preference and delivery tests
+  pass; no live SMTP delivery has been verified.
 - 🟡 Operator problem reports, organization invitations, and password resets
   now use an optional TLS-required SMTP
   transport (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optional paired
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
   visible to callers; stored problem reports remain intact. Focused transport,
   gate, and report-route tests pass. No live SMTP delivery has been verified.
-- ❌ Per-user notification digests and configurable per-event email choices
-  are not implemented. The current preference sends eligible events
-  immediately.
+- ❌ Per-user notification digests are not implemented. Enabled event types
+  send immediately.
 - ⏸️ Telegram and outbound Slack are deferred per user direction; they are
   not required in the current work scope.
 

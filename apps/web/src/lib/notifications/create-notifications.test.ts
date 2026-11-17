@@ -93,6 +93,33 @@ describe("createNotifications email delivery", () => {
     expect(where).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["scheduled_run_success", "emailScheduledSuccess"],
+    ["scheduled_run_failure", "emailScheduledFailure"],
+    ["hook_run_failure", "emailHookFailure"],
+  ])("respects the %s event preference", async (type, preference) => {
+    returning.mockResolvedValueOnce([{ id: "notification-1", userId: "u1" }]);
+    where.mockResolvedValueOnce([
+      {
+        userId: "u1",
+        email: "enabled@example.test",
+        verified: true,
+        preferences: {
+          notifications: { emailEnabled: true, [preference]: false },
+        },
+      },
+    ]);
+
+    await createNotifications({
+      userIds: ["u1"],
+      type,
+      title: "Run result",
+      push: false,
+    });
+
+    expect(sendSmtpEmail).not.toHaveBeenCalled();
+  });
+
   it("does not send duplicate email when the notification was already recorded", async () => {
     returning.mockResolvedValueOnce([]);
     await createNotifications({

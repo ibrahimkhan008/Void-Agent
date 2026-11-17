@@ -100,11 +100,24 @@ export async function createNotifications(input: CreateNotificationsInput) {
       recipients
         .filter((recipient) => {
           const preferences = recipient.preferences as {
-            notifications?: { emailEnabled?: boolean };
+            notifications?: {
+              emailEnabled?: boolean;
+              emailScheduledSuccess?: boolean;
+              emailScheduledFailure?: boolean;
+              emailHookFailure?: boolean;
+            };
           } | null;
+          const notificationPrefs = preferences?.notifications;
+          const eventEnabled =
+            input.type === "scheduled_run_success"
+              ? notificationPrefs?.emailScheduledSuccess !== false
+              : input.type === "scheduled_run_failure"
+                ? notificationPrefs?.emailScheduledFailure !== false
+                : notificationPrefs?.emailHookFailure !== false;
           return (
             recipient.verified &&
-            preferences?.notifications?.emailEnabled === true
+            notificationPrefs?.emailEnabled === true &&
+            eventEnabled
           );
         })
         .map(async (recipient) => {

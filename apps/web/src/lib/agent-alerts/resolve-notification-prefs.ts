@@ -7,6 +7,9 @@ export const NOTIFICATION_PREFS_DEFAULTS: ResolvedNotificationPrefs = {
   hideTaskDetails: false,
   weeklyEngagementEnabled: true,
   emailEnabled: false,
+  emailScheduledSuccess: true,
+  emailScheduledFailure: true,
+  emailHookFailure: true,
 };
 
 export function resolveNotificationPrefs(
