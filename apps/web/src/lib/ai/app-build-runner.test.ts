@@ -182,6 +182,62 @@ describe("E2B app build lifecycle", () => {
     );
   });
 
+  it("syntax-checks generated app.js without evaluating it or logging parser output", async () => {
+    mocks.generateAppPlan.mockResolvedValue({
+      title: "Timer",
+      summary: "A focus timer.",
+      files: [{ path: "app.js", content: "const app = true;" }],
+    });
+
+    await executeAppBuild(input);
+
+    expect(sandbox.commands.run).toHaveBeenNthCalledWith(
+      2,
+      "node --check --input-type=module < /home/user/app/app.js",
+      { timeoutMs: 10_000 },
+    );
+    expect(sandbox.commands.run).toHaveBeenNthCalledWith(
+      3,
+      "nohup node /home/user/app/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &",
+      { timeoutMs: 10_000 },
+    );
+    expect(mocks.appendLogForOwner).toHaveBeenCalledWith(
+      input.buildId,
+      input.userId,
+      "Generated JavaScript passed syntax validation",
+    );
+  });
+
+  it("fails closed on invalid app.js and never persists source-bearing diagnostics", async () => {
+    mocks.generateAppPlan.mockResolvedValue({
+      title: "Timer",
+      summary: "A focus timer.",
+      files: [{ path: "app.js", content: "const secret = 'do not log';" }],
+    });
+    sandbox.commands.run.mockImplementation(async (_command, _options) => {
+      if (_command.startsWith("node --check")) {
+        return {
+          exitCode: 1,
+          stderr: "SyntaxError: const secret = 'do not log';",
+        };
+      }
+      return { exitCode: 0 };
+    });
+
+    await expect(executeAppBuild(input)).rejects.toThrow(
+      "Generated JavaScript failed syntax validation",
+    );
+
+    expect(sandbox.commands.run).toHaveBeenCalledTimes(2);
+    expect(sandbox.kill).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.appendLogForOwner.mock.calls.flatMap((call) => call),
+    ).not.toContain(expect.stringContaining("do not log"));
+    expect(JSON.stringify(mocks.appendLogForOwner.mock.calls)).not.toContain(
+      "do not log",
+    );
+  });
+
   it("passes the requested build mode to the planner", async () => {
     await executeAppBuild({ ...input, mode: "agent" });
     expect(mocks.generateAppPlan).toHaveBeenCalledWith(
@@ -353,6 +409,28 @@ describe("resumeAppBuild", () => {
     expect(sandbox.files.write).toHaveBeenCalledWith(
       "/home/user/app/server.js",
       expect.stringContaining("http.createServer"),
+    );
+  });
+
+  it("syntax-checks stored app.js before restarting a rebuilt preview", async () => {
+    mocks.connect.mockRejectedValue(new Error("404: Sandbox not found"));
+    await resumeAppBuild({
+      build: {
+        ...build,
+        sandboxId: "sbx_missing",
+        files: [
+          { path: "index.html", content: "<main>Timer</main>" },
+          { path: "app.js", content: "export const app = true;" },
+        ],
+      },
+      userId: "owner",
+      customerId: null,
+    });
+
+    expect(sandbox.commands.run).toHaveBeenNthCalledWith(
+      2,
+      "node --check --input-type=module < /home/user/app/app.js",
+      { timeoutMs: 10_000 },
     );
   });
 

@@ -54,6 +54,26 @@ http.createServer((req, res) => {
 }).listen(3000, "0.0.0.0");
 `;
 
+/** Parse generated browser JavaScript without evaluating it or persisting its contents. */
+async function validateGeneratedJavaScript(
+  sandbox: Sandbox,
+  files: { path: string; content: string }[],
+): Promise<boolean> {
+  if (!files.some((file) => file.path === "app.js")) return false;
+
+  // Both the executable and file path are constants. Module mode accepts
+  // browser-side import/export syntax; --check parses without running code.
+  const result = await sandbox.commands.run(
+    `node --check --input-type=module < ${APP_DIR}/app.js`,
+    { timeoutMs: 10_000 },
+  );
+  if (result.exitCode !== 0) {
+    // Never surface or persist stdout/stderr: parser output includes source lines.
+    throw new Error("Generated JavaScript failed syntax validation");
+  }
+  return true;
+}
+
 export class AppBuildCancelledError extends Error {
   constructor() {
     super("App build was cancelled");
@@ -167,6 +187,13 @@ export async function executeAppBuild(input: {
       input.userId,
       "Generated source files uploaded",
     );
+    if (await validateGeneratedJavaScript(sandbox, plan.files)) {
+      await pgAppBuildRepository.appendLogForOwner(
+        input.buildId,
+        input.userId,
+        "Generated JavaScript passed syntax validation",
+      );
+    }
 
     const start = await sandbox.commands.run(
       `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
@@ -368,6 +395,13 @@ export async function resumeAppBuild(input: {
       input.userId,
       "Generated source files uploaded",
     );
+    if (await validateGeneratedJavaScript(sandbox, plan.files)) {
+      await pgAppBuildRepository.appendLogForOwner(
+        job.id,
+        input.userId,
+        "Generated JavaScript passed syntax validation",
+      );
+    }
     const start = await sandbox.commands.run(
       `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
       { timeoutMs: 10_000 },

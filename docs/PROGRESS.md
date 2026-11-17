@@ -148,12 +148,16 @@
   provisioning, source upload, readiness, completion, and safe failure text;
   raw prompts, credentials, generated source, and sandbox stdout are not
   copied into the log. Focused repository/runner/API tests and schema checks
-  cover the behavior. This is lifecycle progress output, not a raw stdout
+  cover the behavior. Generated `app.js` is now parsed inside the E2B sandbox
+  with Node's syntax-check mode before preview startup, including stored files
+  on preview rebuild. Parser output is never persisted because it may include
+  source text; invalid JavaScript fails the build with a safe diagnostic.
+  This is lifecycle progress output, not a raw stdout
   stream; the E2B server process currently has no build command output to
   stream because previews serve generated static files. Migration 0092 is
   journaled but has not been applied to an isolated PostgreSQL database.
-  Four focused suites (38 tests), `db:check`, targeted Biome, and
-  `git diff --check` pass. The 6 GiB web typecheck still reports three
+  The focused runner suite (18 tests), four earlier focused suites (38 tests),
+  `db:check`, targeted Biome, and `git diff --check` pass. The 6 GiB web typecheck still reports three
   unresolved imports in pre-existing untracked public/legal files; it reports
   no errors in this App Builder slice.
 
