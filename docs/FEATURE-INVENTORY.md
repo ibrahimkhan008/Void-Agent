@@ -26,7 +26,7 @@
 | 11 | Void Deploy | ✅ DONE (uptime monitor shipped; build/runtime logs intentionally N/A for static publishing; third-party hosting integrations not built) |
 | 12 | Void Sentinel | ❌ NEVER STARTED |
 | 13 | Void Cloud | ❌ NEVER STARTED |
-| 14 | Void Devices | ❌ NEVER STARTED |
+| 14 | Void Devices | ❌ NEVER STARTED (managed per-user sandbox machines — web-based, no desktop daemon; substrate live via E2B) |
 | 15 | Void Connect | ✅ DONE (25 first-party connectors live-exercise pending; Composio demoted to optional marketplace) |
 | 16 | Void Skills | ✅ DONE (122 vendored skills / 8 packs + native engineering pack; GitHub-repo import works through the URL path) |
 | 17 | Cross-platform capabilities | ✅ DONE |
@@ -235,11 +235,18 @@ org switcher. Tracked as the top code-completable item in
 
 - ❌ Connect cloud infrastructure, manage VPS/dedicated servers, remote terminal, execute commands, Docker containers/Compose, remote files, services, deployments, server logs, infrastructure monitoring/diagnostics/automation — zero code.
 
-## 14. Void Devices — Remote Device Management
+## 14. Void Devices — Managed Sandbox Environments
 
-**Status: ❌ NEVER STARTED** (the voice-device pairing module is unrelated hardware pairing).
+**Status: ❌ NEVER STARTED as a distinct module — but the substrate is live: E2B sandboxes are already owned, persistent-capable (pause/resume, session persistence) and drill-verified. Void Devices is the USER-FACING layer on top: per-user sandbox machines.**
 
-- ❌ Connect workstations/servers/devices, remote terminal, remote files, authorized commands, connection management, status monitoring, agent tasks on devices, device permissions — zero code.
+**Product reframing (user direction, 2026-11-18): Void Agent is web-based — there is no desktop daemon/exe model. Void Devices does NOT mean connecting the user's own PC. It means Void Agent PROVIDES the machines: each user gets their own persistent sandbox environment(s) — named, always-available Linux machines we provision — and the agent does their work inside them.**
+
+- ❌ Devices page: create / pause / resume / delete / resize personal sandbox machines.
+- ❌ Persistent state across sessions (files, installed tooling, running services survive between visits — today's sandboxes are task-scoped ephemeral).
+- ❌ Agent tools bound to the user's device: terminal, file operations, code execution, service management inside THEIR machine.
+- ❌ Device specs (size, template, timeout policy) per user/tier.
+- ✅ Already exists beneath it: owned E2B templates (void-agent-web, void-agent-code-interpreter), authenticated controller, owner isolation, pause/auto-resume, deleted-sandbox rebuild — the App Builder lifecycle proved every primitive; Void Devices generalizes it from per-build to per-user.
+- ❌ The voice-device pairing tables (migration 0025) are unrelated hardware pairing.
 
 ## 15. Void Connect — Integrations and MCP
 
@@ -298,7 +305,7 @@ org switcher. Tracked as the top code-completable item in
 ## Net deltas from this vision (the honest remaining list)
 
 1. ❌ **Void Sentinel** — the largest missing module.
-2. ❌ **Void Cloud** and **Void Devices** — missing.
+2. ❌ **Void Cloud** and **Void Devices** — missing (Devices is web-native: per-user persistent sandbox machines layered on the live E2B substrate; Cloud is provider-API infrastructure management).
 3. ❌ **Write-capable swarms** — general N-worker write fan-out.
 4. 🟡 **Hooks as user scripts** (JS/TS/Python) — hooks currently trigger agents.
 5. 🟡 **Motion editing surface** — video generation exists; timeline/keyframe editing does not.
