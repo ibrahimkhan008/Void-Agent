@@ -27,6 +27,7 @@ const INSPIRATION = [
 interface Props {
   onGenerate: (prompt: string) => void;
   onRefine: (prompt: string) => void;
+  onTargetedEdit: (prompt: string) => void;
   onClear: () => void;
   hasOutput: boolean;
   generating: boolean;
@@ -37,6 +38,7 @@ interface Props {
 export function PromptBar({
   onGenerate,
   onRefine,
+  onTargetedEdit,
   onClear,
   hasOutput,
   generating,
@@ -152,6 +154,20 @@ export function PromptBar({
               <>↑ Generate</>
             )}
           </button>
+          {hasOutput && prompt.trim() && (
+            <button
+              className="btn btn-ghost"
+              onClick={() => {
+                if (generating) return;
+                onTargetedEdit(prompt.trim());
+                setPrompt("");
+              }}
+              disabled={generating}
+              title="Apply a small edit to the existing artifact"
+            >
+              Targeted edit
+            </button>
+          )}
           <span className="prompt-hint mono" id="canvas-prompt-hint">
             Ctrl/Cmd + Enter
           </span>

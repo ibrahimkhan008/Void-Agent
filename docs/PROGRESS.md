@@ -240,11 +240,15 @@
   returned from the sandboxed preview, size-checked, and saved through the
   authenticated, owner-scoped eCanvas content endpoint. Generated and edited
   artifacts use owner/canvas-keyed PostgreSQL storage (migration 0090) rather
-  than the former process-local cache. Focused protocol and API tests pass.
-  Natural-language targeted edits (for example, identifying “slide 3” from a
-  prompt) are not implemented; model Refine still returns a complete HTML
-  document. Migration 0090 has not been applied to isolated PostgreSQL and no
-  browser end-to-end check has been run. Keep PARTIAL.
+  than the former process-local cache. A separate Targeted edit action now
+  asks the selected model for a strict JSON DOM-operation plan, validates
+  selectors/operation types/styles/text/count before sending it to the
+  sandboxed preview, applies only bounded text/style/insert/remove/reorder
+  operations, and persists the resulting HTML through the same owner-scoped
+  endpoint. Full-document Refine remains available. Focused plan/protocol/API
+  tests pass. The model-generated plan and iframe interaction have not been
+  browser-tested; migration 0090 has not been applied to isolated PostgreSQL.
+  Keep PARTIAL.
 
 ### Connectors
 - ✅ 16 first-party connector tool factories are wired with scoped approvals.
@@ -351,11 +355,11 @@ items below describe the remaining half-done work only; live verification and
 operator credentials still determine whether an item can be closed.
 
 1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
-2. **Canvas structural editing** — text/style edits and basic selected-node
-   add/reorder/remove operations now exist with durable owner-scoped storage;
-   natural-language targeted edits remain. Apply migration 0090 only to
-   isolated PostgreSQL and verify browser interaction, persistence, and
-   cross-user isolation.
+2. **Canvas structural editing** — text/style and selected-node
+   add/reorder/remove controls plus a natural-language targeted-edit plan now
+   exist with durable owner-scoped storage. Apply migration 0090 only to
+   isolated PostgreSQL and verify model-plan application, browser interaction,
+   persistence, and cross-user isolation.
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — local durable-resume implementation exists;
@@ -372,6 +376,11 @@ operator credentials still determine whether an item can be closed.
 
 ## Verification notes
 
+- 2026-11-17 continuation: the complete web Vitest suite passed **505 files / 3,342 tests** after the routing-priority, eCanvas artifact-editor/storage, and orchestrator-checkpoint slices were published. Focused suites, targeted Biome, migration-journal checks, and `git diff --check` also passed for those changes. This is a local unit/component/API suite; it does not establish PostgreSQL integration, browser E2E, live model/provider, Inngest, SMTP, or GitHub webhook verification.
+- The 6 GiB web typecheck was rerun after the Canvas and orchestrator code changes. It reported only three unresolved imports in pre-existing untracked public/legal files (`public-header` in two pages and `legal-toc` in one); no errors were reported in those changed slices. Those user-owned untracked files were not edited.
+- Docker is unavailable in this environment and no local PostgreSQL binaries/service or listener are present (`127.0.0.1:5432` refused). Migrations 0090 and 0091 were journal-checked only and were not applied. Production/VPS was not accessed.
+- 2026-11-17 targeted Canvas edit: 8 focused eCanvas tests passed, `pnpm db:check` passed, targeted Biome passed with only existing PascalCase filename warnings, and `git diff --check` passed. The model/iframe interaction remains unverified in a browser and no PostgreSQL migration was applied.
+- The 6 GiB web typecheck after the targeted-edit change still fails only on the same three unresolved imports in pre-existing untracked public/legal pages (`public-header` twice and `legal-toc` once); it reports no errors in the Canvas targeted-edit files. Those untracked files were preserved and not edited.
 - 2026-11-17 local follow-up: the changed Hooks, Orchestrator, and schedule
   code passed the full web suite (495 files / 3,286 tests) after the Hooks
   security/subject fixes, 6 GiB TypeScript check, focused regression tests,

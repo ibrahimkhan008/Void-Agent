@@ -49,6 +49,50 @@ const EDITOR_SCRIPT = `(() => {
       selectedId = null;
       sendArtifact();
     }
+    if (event.data.type === "void-agent-apply-edit-plan" && Array.isArray(event.data.operations)) {
+      let applied = 0;
+      const safeTarget = (selector) => {
+        if (typeof selector !== "string" || selector.length > 160) return null;
+        try {
+          const element = document.querySelector(selector);
+          if (!element || ["BODY", "HTML", "HEAD", "SCRIPT", "STYLE", "IFRAME"].includes(element.tagName)) return null;
+          return element;
+        } catch { return null; }
+      };
+      for (const operation of event.data.operations.slice(0, 20)) {
+        if (!operation || typeof operation !== "object") continue;
+        const element = safeTarget(operation.selector);
+        if (!element) continue;
+        if (operation.operation === "set-text" && typeof operation.text === "string" && operation.text.length <= 4000 && element.children.length === 0) {
+          element.textContent = operation.text;
+          applied++;
+        } else if (operation.operation === "set-style") {
+          if ((operation.property === "color" || operation.property === "backgroundColor") && typeof operation.value === "string" && /^#[0-9a-f]{6}$/i.test(operation.value)) {
+            element.style[operation.property] = operation.value;
+            applied++;
+          } else if (operation.property === "fontSize" && typeof operation.value === "string" && /^(8|[1-9][0-9]?|96)px$/.test(operation.value)) {
+            element.style.fontSize = operation.value;
+            applied++;
+          }
+        } else if (operation.operation === "remove") {
+          element.remove();
+          applied++;
+        } else if (operation.operation === "insert-after" && ["p", "h2", "li", "div"].includes(operation.tag) && typeof operation.text === "string" && operation.text.length <= 4000 && element.parentElement) {
+          const added = document.createElement(operation.tag);
+          added.textContent = operation.text;
+          element.parentElement.insertBefore(added, element.nextElementSibling);
+          applied++;
+        } else if (operation.operation === "move-before") {
+          const target = safeTarget(operation.targetSelector);
+          if (target && target !== element && target.parentElement === element.parentElement && element.parentElement) {
+            target.parentElement.insertBefore(element, target);
+            applied++;
+          }
+        }
+      }
+      if (applied > 0) sendArtifact();
+      window.parent.postMessage({ type: "void-agent-edit-plan-complete", applied }, "*");
+    }
   });
   document.addEventListener("click", (event) => {
     if (!enabled) return;
@@ -77,9 +121,15 @@ interface Props {
   html: string;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   onArtifactEdited: (html: string) => void;
+  onEditPlanResult: (applied: number) => void;
 }
 
-export function Preview({ html, iframeRef, onArtifactEdited }: Props) {
+export function Preview({
+  html,
+  iframeRef,
+  onArtifactEdited,
+  onEditPlanResult,
+}: Props) {
   const [editMode, setEditMode] = useState(false);
   const [selection, setSelection] = useState<ArtifactElementSelection | null>(
     null,
@@ -97,6 +147,7 @@ export function Preview({ html, iframeRef, onArtifactEdited }: Props) {
         type?: unknown;
         selection?: unknown;
         html?: unknown;
+        applied?: unknown;
       } | null;
       if (!data || typeof data !== "object") return;
       if (
@@ -119,10 +170,18 @@ export function Preview({ html, iframeRef, onArtifactEdited }: Props) {
         onArtifactEdited(data.html as string);
         setSelection(null);
       }
+      if (
+        data.type === "void-agent-edit-plan-complete" &&
+        Number.isInteger(data.applied) &&
+        (data.applied as number) >= 0 &&
+        (data.applied as number) <= 20
+      ) {
+        onEditPlanResult(data.applied as number);
+      }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [iframeRef, onArtifactEdited]);
+  }, [iframeRef, onArtifactEdited, onEditPlanResult]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(
