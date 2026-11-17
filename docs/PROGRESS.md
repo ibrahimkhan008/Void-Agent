@@ -354,6 +354,22 @@
   `COMPOSIO_API_KEY` is configured. Per user direction the big providers are
   built FIRST-PARTY, not through Composio — first-party tools always outrank
   the demoted Composio fallback layer.
+- ✅ **Automatic AI code review, Codex-style settings** (2026-11-18,
+  `b4b560d`): per-repository automatic reviews configured like ChatGPT's
+  Code Review surface. Personal preferences (trigger pr_open / every_push /
+  smart_detect, exhaustive review) + per-repo overrides (migration 0093;
+  NULL = follow personal preferences). Enabling a repo provisions the whole
+  unattended pipeline through Void Hooks: a "Code Reviewer" agent, a
+  dedicated GitHub inbound endpoint (encrypted signing secret, cooldown 10s,
+  cap 100/day), and a REAL GitHub repo webhook (pull_request + push) via the
+  connector token. The executor's dedicated path fetches the PR diff +
+  AGENTS.md/SECURITY.md server-side, the agent analyzes unattended, and the
+  executor posts the answer as a COMMENT review — enabling automatic review
+  pre-authorizes the unattended post (no HITL token). Settings UI: a Code
+  Review tab in Customize (repo search, per-repo toggle + trigger + depth +
+  instructions). 46 tests green; db:check green with 0093.
+  **Still outstanding:** live drill — connect GitHub, enable a repo, land a
+  real review; production needs migration 0093 + a redeploy.
 - ✅ **Native GitHub PR-review and repo-write tools** (2026-11-18, `72830a5`):
   the GitHub connector now reads PRs (bounded summary), changed files with
   patches (20 files / 16k patches), and file contents (100k cap, blob sha);
