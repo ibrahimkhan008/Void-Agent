@@ -42,8 +42,9 @@
 - Skills registry: search (skills.sh integration), project-aware
   recommendations (10-domain catalog), review-before-import
 - Import paths: **files, URLs, ZIP archives** (folder-per-skill convention),
-  plus **122 vendored built-in skills across 8 packs** (offline install
-  through `/api/skills/built-in`)
+  plus **122 vendored built-in skills across 8 packs** and the native
+  `engineering` pack (pr-review) — offline install through
+  `/api/skills/built-in`
 - Built-in packs: motion (29, MIT), pdf (2, MIT), spreadsheets (2, MIT),
   presentations (2, MIT), documents (2, MIT), visualize (1, Apache-2.0),
   skill-creator (1, MIT), design (83, Apache-2.0) — all Void-Agent-native
@@ -341,7 +342,28 @@
   live Google OAuth or YouTube API request was performed.
 - ✅ A separate Composio-backed marketplace can list and authorize its live
   toolkit catalog, then provide connected tools to chat when
-  `COMPOSIO_API_KEY` is configured.
+  `COMPOSIO_API_KEY` is configured. Per user direction the big providers are
+  built FIRST-PARTY, not through Composio — first-party tools always outrank
+  the demoted Composio fallback layer.
+- ✅ **Native GitHub PR-review and repo-write tools** (2026-11-18, `72830a5`):
+  the GitHub connector now reads PRs (bounded summary), changed files with
+  patches (20 files / 16k patches), and file contents (100k cap, blob sha);
+  and writes — create branch, update file (base64 contents API with
+  fileSha+branch), create pull request, post a COMMENT-event PR review —
+  each gated by a one-use owner-approved token whose payload binds the exact
+  repository, branch/path and content (four new exact shapes in the HITL
+  approval schema, validated + rejection-tested). Slash-tolerant git branch
+  refs with `..`, `//`, trailing `/` and `.lock` guards. The new native
+  skill `engineering/pr-review` drives the Cursor/ChatGPT-style flow:
+  establish the change → read the diff → hunt correctness/security/
+  regressions/concurrency/edge cases with mandatory context reads →
+  severity-ranked findings with file/line refs → optional approved review
+  post and branch→commit→PR fix flow. 11 new tool tests; connector/HITL/
+  skills suites 25 files / 99 tests green. **Still outstanding:** live
+  GitHub OAuth + API verification (mock-tested only, like every connector);
+  the write tools are usable only after the user connects GitHub. Gmail/
+  Calendar/Drive read/write tools are already native — their live-use
+  blocker is Google OAuth scope verification (operator-side).
 - ✅ GitLab.com now has a direct PKCE OAuth flow requesting only `read_api`
   and `read_user`, plus owner-scoped, read-only project/issue/merge-request
   tools. Project IDs are validated as numeric path segments, provider fields
