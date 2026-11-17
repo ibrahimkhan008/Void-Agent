@@ -31,8 +31,8 @@ import {
   releaseMemberBudget,
   reserveMemberBudget,
   resolveAutomaticRoute,
-  resolveFallbackModel,
   resolveBrowserAutomationGate,
+  resolveFallbackModel,
   resolveUnattendedBrowserGate,
   validateManualModel,
 } from "lib/ai/routing";
@@ -113,6 +113,7 @@ import {
   createMemoryRecordTool,
 } from "@/lib/ai/tools/memory-record";
 import { VideoToolName, createVideoTool } from "@/lib/ai/tools/video";
+import { loadUserProviderCredential } from "@/lib/ai/user-provider-byok";
 import { billingRunKey } from "@/lib/billing/usage-idempotency";
 import { resolveKnowledgeBaseBindings } from "@/lib/chat/knowledge-base-mentions";
 import { buildCitationSystemPrompt } from "@/lib/citations/parse-citations";
@@ -705,6 +706,10 @@ export async function POST(request: Request) {
         ),
       ),
     ]);
+    const userProviderCredential =
+      typeof model === "string"
+        ? await loadUserProviderCredential(model, session.user.id)
+        : null;
 
     const messages: UIMessage[] = (thread?.messages ?? []).map((m) => {
       return {
@@ -1685,6 +1690,19 @@ export async function POST(request: Request) {
             content: systemPrompt,
             providerOptions: ANTHROPIC_CACHE_CONTROL,
           },
+          ...(userProviderCredential
+            ? {
+                providerOptions: {
+                  gateway: {
+                    byok: {
+                      [userProviderCredential.provider]: [
+                        { apiKey: userProviderCredential.apiKey },
+                      ],
+                    },
+                  },
+                },
+              }
+            : {}),
           // Breakpoint first, retrieval context second: the context is not
           // persisted, so the cached span has to end at the user's real
           // question to still match on the next turn.

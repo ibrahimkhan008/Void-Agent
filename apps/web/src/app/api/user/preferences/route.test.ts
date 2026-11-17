@@ -32,7 +32,7 @@ vi.mock("lib/db/repository", () => ({
   },
 }));
 
-import { PUT } from "./route";
+import { GET, PUT } from "./route";
 
 describe("/api/user/preferences", () => {
   beforeEach(() => {
@@ -67,5 +67,25 @@ describe("/api/user/preferences", () => {
       profession: "Old role",
       botName: "Void-Agent",
     });
+  });
+
+  it("never returns encrypted hosted provider credentials", async () => {
+    preferencesByUser.set("owner-a", {
+      profession: "Engineer",
+      aiProviderKeys: { openai: "ciphertext" },
+    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/user/preferences"),
+    );
+    expect(await response.json()).toEqual({ profession: "Engineer" });
+
+    const update = await PUT(
+      new NextRequest("http://localhost/api/user/preferences", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ botName: "Assistant" }),
+      }),
+    );
+    expect(JSON.stringify(await update.json())).not.toContain("ciphertext");
   });
 });

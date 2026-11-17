@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { safe } from "ts-safe";
@@ -220,7 +220,162 @@ export function UserInstructionsContent() {
           </Button>
         </div>
       )}
+      <div className="mt-10 border-t pt-6">
+        <UserHostedProviderKeys />
+      </div>
     </div>
+  );
+}
+
+const HOSTED_KEY_PROVIDERS = [
+  ["alibaba", "Alibaba"],
+  ["anthropic", "Anthropic"],
+  ["cohere", "Cohere"],
+  ["deepseek", "DeepSeek"],
+  ["google", "Google AI"],
+  ["mistral", "Mistral"],
+  ["moonshotai", "Moonshot AI"],
+  ["openai", "OpenAI"],
+  ["xai", "xAI"],
+  ["zai", "Z AI"],
+] as const;
+
+function UserHostedProviderKeys() {
+  const [configured, setConfigured] = useState<string[]>([]);
+  const [provider, setProvider] = useState<string>(HOSTED_KEY_PROVIDERS[0][0]);
+  const [apiKey, setApiKey] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [encryptionAvailable, setEncryptionAvailable] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const response = await fetch("/api/user/provider-keys", {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Could not load provider key settings");
+    const data = (await response.json()) as {
+      providers: Array<{ id: string; configured: boolean }>;
+      encryptionAvailable: boolean;
+    };
+    setConfigured(
+      data.providers.filter((item) => item.configured).map((item) => item.id),
+    );
+    setEncryptionAvailable(data.encryptionAvailable);
+  }, []);
+
+  useEffect(() => {
+    void refresh()
+      .catch(() => toast.error("Could not load provider key settings"))
+      .finally(() => setLoading(false));
+  }, [refresh]);
+
+  const save = async (value: string | null) => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/user/provider-keys", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: value }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(payload.error || "Could not save provider key");
+      }
+      await refresh();
+      setApiKey("");
+      toast.success(
+        value === null ? "Provider key removed" : "Provider key saved",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not save provider key",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isConfigured = configured.includes(provider);
+  const providerName = HOSTED_KEY_PROVIDERS.find(
+    ([id]) => id === provider,
+  )?.[1];
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-xl font-semibold">Hosted AI provider keys</h3>
+        <p className="pt-2 text-sm text-muted-foreground">
+          Use your own hosted provider credential for supported AI Gateway
+          models. Keys are encrypted at rest and never shown after saving. AI
+          Gateway may retry failed BYOK requests using the platform gateway
+          credential.
+        </p>
+      </div>
+      {!encryptionAvailable && (
+        <p role="alert" className="text-sm text-destructive">
+          Key storage is unavailable until the server encryption key is
+          configured.
+        </p>
+      )}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-40 flex-col gap-2">
+          <Label htmlFor="hosted-provider-key-provider">Provider</Label>
+          <select
+            id="hosted-provider-key-provider"
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+            value={provider}
+            onChange={(event) => setProvider(event.target.value)}
+            disabled={loading || saving}
+          >
+            {HOSTED_KEY_PROVIDERS.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex min-w-64 flex-1 flex-col gap-2">
+          <Label htmlFor="hosted-provider-key-value">
+            {providerName} API key
+          </Label>
+          <Input
+            id="hosted-provider-key-value"
+            type="password"
+            autoComplete="new-password"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder={
+              isConfigured
+                ? "Key saved; enter a new key to rotate"
+                : "Paste your provider API key"
+            }
+            disabled={loading || saving || !encryptionAvailable}
+          />
+        </div>
+        <Button
+          onClick={() => void save(apiKey)}
+          disabled={loading || saving || !apiKey.trim()}
+        >
+          {saving ? "Saving…" : "Save key"}
+        </Button>
+        {isConfigured && (
+          <Button
+            variant="outline"
+            onClick={() => void save(null)}
+            disabled={loading || saving}
+          >
+            Remove
+          </Button>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {isConfigured
+          ? `${providerName} key configured`
+          : `${providerName} key not configured`}
+      </p>
+    </section>
   );
 }
 

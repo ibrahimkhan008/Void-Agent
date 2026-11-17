@@ -1,13 +1,13 @@
 "use server";
 
+import { customModelProvider } from "@/lib/ai/models";
 import { BasicUserWithLastLogin, UserPreferences } from "app-types/user";
 import { auth, getSession } from "auth/server";
 import { Session } from "better-auth";
+import { hasAdminPermission } from "lib/auth/permissions";
 import { userRepository } from "lib/db/repository";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { customModelProvider } from "@/lib/ai/models";
-import { hasAdminPermission } from "lib/auth/permissions";
 
 // Helper function to get model provider from model name
 const getModelProvider = (modelName: string): string => {
@@ -140,7 +140,10 @@ export async function getUserPreferences(
   userId?: string,
 ): Promise<UserPreferences | null> {
   const resolvedUserId = await getUserIdAndCheckAccess(userId);
-  return await userRepository.getPreferences(resolvedUserId);
+  const preferences = await userRepository.getPreferences(resolvedUserId);
+  if (!preferences) return null;
+  const { aiProviderKeys: _encryptedKeys, ...safePreferences } = preferences;
+  return safePreferences;
 }
 
 export async function updateUserDetails(

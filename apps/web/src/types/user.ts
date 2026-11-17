@@ -16,6 +16,9 @@ export type UserPreferences = {
   responseStyleExample?: string; // Example of preferred response style
   botName?: string; // Name of the bot
 
+  /** AES-GCM encrypted hosted provider keys; never returned by preferences APIs. */
+  aiProviderKeys?: Record<string, string>;
+
   // Local models configuration (Ollama / LM Studio / OpenAI-compatible)
   localModels?: {
     enabled: boolean;

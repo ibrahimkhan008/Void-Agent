@@ -136,8 +136,16 @@
 
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
-- ❌ Per-user keys for **hosted providers** (OpenAI/Anthropic/Google/…) —
-  no user-provider-key table; no BYOK settings surface for hosted models
+- 🟡 Hosted-provider keys now have a user settings control under Customize →
+  Instructions, AES-256-GCM encrypted storage in the user's private
+  preferences, redacted status APIs, and request-scoped AI Gateway BYOK for
+  supported providers (Alibaba, Anthropic, Cohere, DeepSeek, Google, Mistral,
+  Moonshot, OpenAI, xAI, Z AI). Focused API/credential tests pass. There has
+  been no live provider request. AI Gateway documents that failed BYOK
+  credentials may retry with platform Gateway credentials; the UI discloses
+  this. Existing app credit accounting also remains unchanged, so actual
+  provider billing attribution still needs live verification before this is
+  considered complete.
 - ❌ Cost/latency-aware routing tiers
 
 ### §3.1 Fallback chains — mid-stream retry
@@ -329,6 +337,14 @@ operator credentials still determine whether an item can be closed.
   password resets; transport, community-gate, and problem-report route tests
   cover those paths. No SMTP server was contacted. The latest full suite and
   production build predate the invitation/reset wiring.
+- Hosted-provider BYOK local validation: settings/API/credential tests pass
+  (3 files / 10 tests), targeted Biome passes, and `git diff --check` passes.
+  One 6 GiB full typecheck was attempted during this work; it failed on three
+  missing imports in pre-existing untracked public/legal files plus a route
+  alias and a user-profile type issue introduced in this slice. The two
+  slice-owned type issues were corrected afterward; no full typecheck was
+  repeated. No live AI provider request was made. [AI Gateway BYOK docs](https://vercel.com/docs/ai-gateway/authentication-and-byok/byok)
+  note that a failed BYOK request may fall back to platform credentials.
 - Suite: **493 files / 3,267 tests** green (the post-marketing-extraction
   baseline; the public-site tests moved to `apps/marketing` with their files)
 - Built-in skills: **122 across 8 packs** verified via `/api/skills/built-in`

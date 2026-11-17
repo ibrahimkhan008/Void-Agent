@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 export const GET = withAuth(async (_request, session) => {
   try {
     const preferences = await userRepository.getPreferences(session.user.id);
-    return NextResponse.json(preferences ?? {});
+    return NextResponse.json(sanitizePreferences(preferences));
   } catch (error) {
     console.error("Failed to get preferences:", error);
     return NextResponse.json(
@@ -31,7 +31,7 @@ export const PUT = withAuth(async (request: Request, session) => {
     );
     return NextResponse.json({
       success: true,
-      preferences: updatedUser.preferences,
+      preferences: sanitizePreferences(updatedUser.preferences),
     });
   } catch (error) {
     console.error("Failed to update preferences:", error);
@@ -41,3 +41,11 @@ export const PUT = withAuth(async (request: Request, session) => {
     );
   }
 });
+
+function sanitizePreferences<
+  T extends Record<string, unknown> | null | undefined,
+>(preferences: T) {
+  if (!preferences) return {};
+  const { aiProviderKeys: _keys, ...safePreferences } = preferences;
+  return safePreferences;
+}
