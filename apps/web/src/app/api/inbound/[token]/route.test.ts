@@ -267,9 +267,13 @@ describe("POST /api/inbound/[token] GitHub delivery", () => {
     expect(second.status).toBe(202);
     const firstCall = mocks.enqueueOutboxEvent.mock.calls[0][0] as {
       id: string;
+      eventType: string;
+      payload: Record<string, unknown>;
     };
     const secondCall = mocks.enqueueOutboxEvent.mock.calls[1][0] as {
       id: string;
+      eventType: string;
+      payload: Record<string, unknown>;
     };
     expect(secondCall.id).toBe(firstCall.id);
     expect(firstCall.id).toMatch(/^[a-f0-9-]{36}$/);
