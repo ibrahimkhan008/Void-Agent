@@ -631,6 +631,13 @@
       "when": 1794913200000,
       "tag": "0088_void_agent_hook_chaining",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1794914400000,
+      "tag": "0089_ecanvas_element_comments",
+      "breakpoints": true
     }
   ]
 }

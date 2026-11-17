@@ -211,7 +211,12 @@
   are client-side downloads; each frame becomes one slide/page and retains
   its image aspect ratio. Focused aspect-ratio tests and exporter typecheck
   pass; generated Office files have not yet been smoke-opened in Office.
-- ❌ Per-element comments
+- 🟡 Per-element comments are implemented locally with authenticated,
+  owner-scoped list/create/delete APIs and PostgreSQL persistence; the eCanvas
+  editor loads comments for the selected Excalidraw element. API tests cover
+  validation, session ownership, create/list/delete and not-found behavior.
+  Migration 0089 is journaled but has not been applied to isolated PostgreSQL,
+  so cross-request persistence has not been integration-verified.
 - ❌ Structural artifact editing ("make slide 3 darker" edits the existing
   artifact instead of regenerating)
 
@@ -320,7 +325,8 @@ items below describe the remaining half-done work only; live verification and
 operator credentials still determine whether an item can be closed.
 
 1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
-2. **Canvas per-element comments and structural editing**
+2. **Canvas structural editing** — comments now have a local implementation;
+   verify persistence on isolated PostgreSQL and build genuine targeted edits.
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume

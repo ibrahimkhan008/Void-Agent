@@ -4666,6 +4666,38 @@ export const CanvasExportTable = pgTable(
   ],
 );
 
+// Private, per-element discussion notes for a user's eCanvas workspace.
+export const CanvasCommentTable = pgTable(
+  "canvas_comment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    canvasId: uuid("canvas_id").notNull(),
+    elementId: text("element_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("canvas_comment_owner_element_created_idx").on(
+      table.userId,
+      table.canvasId,
+      table.elementId,
+      table.createdAt,
+    ),
+    check(
+      "canvas_comment_body_length_check",
+      sql`length(trim(${table.body})) BETWEEN 1 AND 5000`,
+    ),
+  ],
+);
+
+export type CanvasComment = typeof CanvasCommentTable.$inferSelect;
+export type NewCanvasComment = typeof CanvasCommentTable.$inferInsert;
+
 export type CanvasExportEntity = typeof CanvasExportTable.$inferSelect;
 
 // Destination-only community feed. Uploaded media stays in the private

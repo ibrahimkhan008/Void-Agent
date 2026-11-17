@@ -15,6 +15,7 @@ import { PromptBar } from "./components/PromptBar";
 import { ProviderModal } from "./components/ProviderModal";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { StreamOverlay } from "./components/StreamOverlay";
+import { CanvasCommentsPanel } from "./components/canvas-comments-panel";
 import { extractHTML, streamChat } from "./lib/api";
 import type { Message } from "./lib/api";
 import {
@@ -153,6 +154,9 @@ export function App({ canvasId }: { canvasId: string }) {
     null,
   );
   const [canvasVersion, setCanvasVersion] = useState(0);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null,
+  );
   const [planMode, setPlanMode] = useState(false);
   const [planPhases, setPlanPhases] = useState<PlanPhase[]>([]);
   const [planActiveIndex, setPlanActiveIndex] = useState(0);
@@ -290,6 +294,11 @@ export function App({ canvasId }: { canvasId: string }) {
 
   const canvasChangeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleCanvasChange = useCallback(() => {
+    const selected = editorRef.current?.getAppState().selectedElementIds;
+    const selectedIds = selected
+      ? Object.keys(selected).filter((id) => selected[id])
+      : [];
+    setSelectedElementId(selectedIds[0] ?? null);
     if (canvasChangeTimer.current) clearTimeout(canvasChangeTimer.current);
     canvasChangeTimer.current = setTimeout(
       () => setCanvasVersion((v) => v + 1),
@@ -1121,6 +1130,10 @@ ${SYSTEM_PROMPT}`;
               setEditor(e);
             }}
             onCanvasChange={handleCanvasChange}
+          />
+          <CanvasCommentsPanel
+            canvasId={canvasId}
+            elementId={selectedElementId}
           />
           <FramePicker
             editor={editor}
