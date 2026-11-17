@@ -42,7 +42,7 @@ export const createMemoryRecordTool = (
   projectId?: string | null,
 ) => {
   const scopeHint = projectId
-    ? "Project scope writes to the project's own records (MEMORY.md, TODO.md, DONT.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md). Global scope writes to the user-level records (MEMORY.md, PERSONA.md, BEHAVIOR.md, SKILLS.md, PREFERENCES.md) that apply across all projects."
+    ? "Project scope writes to the project's own records (MEMORY.md, TODO.md, DONT.md, BOUNDARIES.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md). Global scope writes to the user-level records (MEMORY.md, PERSONA.md, BEHAVIOR.md, SKILLS.md, PREFERENCES.md) that apply across all projects."
     : "Global scope writes to the user-level records (MEMORY.md, PERSONA.md, BEHAVIOR.md, SKILLS.md, PREFERENCES.md) that apply across all projects.";
 
   return createTool<

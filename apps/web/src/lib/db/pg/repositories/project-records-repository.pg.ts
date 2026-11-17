@@ -3,9 +3,9 @@ import { pgDb } from "lib/db/pg/db.pg";
 import { ProjectBrainPageTable, ProjectBrainRevisionTable } from "../schema.pg";
 
 /**
- * The Void Agent structured project records (master prompt §3.3): nine
+ * The Void Agent structured project records (master prompt §3.3): ten
  * well-known, per-project markdown documents — MEMORY.md, TODO.md, DONT.md,
- * RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md and
+ * BOUNDARIES.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md and
  * DEPLOYMENT.md — stored as first-class brain pages (type "document") with a
  * full revision history. Every save appends a revision; restores append the
  * restored content as a NEW revision, so history never rewrites itself.
@@ -35,6 +35,14 @@ export const PROJECT_RECORDS = [
     purpose: "Things the agents must never do in this project.",
     template:
       "# DONT\n\nHard limits. Every entry here is a hard stop for all agents.\n\n- \n",
+  },
+  {
+    slug: "records/boundaries",
+    title: "BOUNDARIES.md",
+    purpose:
+      "Scope limits and out-of-bounds areas the agents must never cross.",
+    template:
+      "# Boundaries\n\nWhere this project ends and other systems begin. Out-of-bounds areas, off-limits data, and scope walls for all agents.\n\n- \n",
   },
   {
     slug: "records/rules",
@@ -136,7 +144,7 @@ async function ensureRecord(
   return pageId;
 }
 
-/** Ensures all nine records exist for the project, then returns their current state. */
+/** Ensures all ten records exist for the project, then returns their current state. */
 export async function listProjectRecords(
   projectId: string,
   userId: string,

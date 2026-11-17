@@ -28,9 +28,10 @@ interface Revision {
 }
 
 /**
- * The structured project records (master prompt §3.3): nine well-known,
+ * The structured project records (master prompt §3.3): ten well-known,
  * versioned markdown documents — MEMORY.md, TODO.md, DONT.md, RULES.md,
- * STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md.
+ * BOUNDARIES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md,
+ * DEPLOYMENT.md.
  * Every save appends a revision; restores append the restored content as a
  * new revision, so history never rewrites itself.
  */
