@@ -117,7 +117,7 @@
   (≤4 workers, step budgets, 6-minute run clock)
 **Commits**: `fe17634`, `7d79853`, `2a8dfd6`
 
-### §3.1 Fallback chains ✅ (resolution-time; mid-stream gap below)
+### §3.1 Fallback chains ✅ (resolution-time + pre-output mid-stream retry)
 - Admin-persisted per-provider chains + global chain consumed at resolution
   time when the org policy refuses a model; every entry re-validates
   through org policy (pricing/retention apply to fallbacks);
@@ -202,12 +202,23 @@
   Gateway's successful-model metadata attributes each tool-loop step's token
   usage and member-budget cost to the model that actually served it. Focused
   fallback/BYOK tests pass; no live Gateway/provider failure drill was run.
-- 🟡 **After-output stream interruption remains unretried.** Once response
-  chunks or tool effects have escaped to the client, replaying the request can
-  duplicate visible output or side effects. Gateway model fallback is not
-  evidence that it can resume a provider stream after partial output; keep this
-  behavior explicit until the transport can safely detect and reconcile a
-  failed partial run.
+- ✅ **Pre-output mid-stream retry shipped** (2026-11-17). AI SDK streams are
+  append-only once merged, so the retry boundary is BEFORE the first UI
+  chunk: each attempt is probed on a tee'd mirror branch (stream-viability.ts)
+  and a model that errors before producing any content — error frame, bare
+  end, or pump-raised stream rejection with nothing shown, no tool run, no
+  persistence — is retried on the next validated fallback candidate. The
+  chain feeds both the Gateway pre-output models param and this retry in
+  every mode (resolveUnpricedFallbackCandidates covers the unpriced mode
+  where routing could not price the primary). Terminal handling is deferred
+  and attempt-ordinal gated so a discarded attempt cannot fail the run,
+  release the budget reservation its replacement reuses, or flush the timer;
+  attribution flips chatModel/metadata with reasonCode stream_model_fallback
+  only for a retry that produced output, billing stays primary-priced.
+  Integration test proves the user sees the fallback's answer exactly once
+  with no leaked error frame. **Still outstanding:** no live provider-failure
+  drill; genuine after-output interruption remains unrecoverable by design
+  (append-only transport).
 
 ### §3.2/3.4 Orchestrator depth
 - ✅ Role-scoped parallel workers with verification
@@ -235,19 +246,22 @@
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
-- 🟡 **GitHub-event triggers** now have a local implementation for push,
-  pull-request, and issue deliveries: owner-created GitHub hooks retain an
-  encrypted signing secret, the inbound route verifies the raw-body GitHub
-  HMAC, and a stable per-hook delivery ID dedupes the queued outbox event.
-  The UI exposes GitHub setup and the owner API redacts the stored secret.
-  Focused signature, normalization, route, and redaction tests pass. The
-  signature and delivery-ID contracts follow [GitHub's webhook validation
-  guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
-  and [best practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks). This has
-  not been exercised against a real GitHub delivery; PostgreSQL hook-run
-  idempotency, payload/depth persistence, and the depth-three constraint now
-  pass isolated-database integration tests. Large deliveries above 2 MiB are
-  rejected rather than persisted.
+- ✅ **GitHub-event triggers validated against GitHub-realistic payloads**
+  (2026-11-17). Push/pull-request/issue fixtures mirror the exact shapes
+  GitHub delivers (repo, sender, action, PR/issue/commit fields) with
+  assertions on source, externalId, from, text and rule-relevant meta; HMAC
+  cases cover wrong-secret and malformed signature headers; route tests cover
+  ping ack (200, nothing stored), signed unsupported events (200 ignored),
+  malformed delivery/event headers (400), and redelivery queuing the same
+  deterministic outbox id. Validation surfaced and fixed one real gap: push
+  events carried commit messages in the payload but the normalizer dropped
+  them from the matched text — rules can now fire on commit content. Outbox
+  tests prove an agent-bound inbound event dispatches the hook exactly once
+  (idempotent on redelivery) and that a dispatch failure still delivers
+  subscriptions; the executor renders "inbound github event" prompts with
+  From/Subject/commit lines. **Still outstanding:** no live GitHub delivery
+  drill (real repo → hook → run); everything else passes local suites.
+**Commits**: `cb9422d`, `d61b0ea`
 - 🟡 Additional content-filter operators are implemented locally:
   startsWith, endsWith, notContains, and notEquals. The API validates them,
   and stored invalid rules fail closed; the implementation and tests are
