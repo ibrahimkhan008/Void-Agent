@@ -48,7 +48,7 @@ function collectSectionText(section: unknown, chunks: string[] = []): string[] {
 }
 
 export function createGoogleKeepToolForUser(userId: string) {
-  return tool({
+  return tool<z.infer<typeof inputSchema>, unknown, never>({
     description:
       "List and read bounded Google Keep notes accessible to the signed-in user. This tool is read-only; it cannot create, update, delete, or share notes.",
     inputSchema,

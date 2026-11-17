@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("ai", () => ({ tool: (definition: unknown) => definition }));
@@ -10,6 +10,8 @@ vi.mock("lib/connectors/provider-api", async (importOriginal) => {
 });
 
 import { createGoogleTasksToolForUser } from "./google-tasks-tool";
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("Google Tasks connector tool", () => {
   it("lists only bounded task-list fields for the authenticated user", async () => {
@@ -79,9 +81,9 @@ describe("Google Tasks connector tool", () => {
       {
         query: {
           maxResults: 10,
-          showCompleted: true,
-          showDeleted: false,
-          showHidden: false,
+          showCompleted: "true",
+          showDeleted: "false",
+          showHidden: "false",
         },
         maxResponseBytes: 256 * 1024,
       },

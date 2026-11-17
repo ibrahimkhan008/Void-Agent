@@ -13,7 +13,7 @@ const inputSchema = z.object({
 });
 
 export function createGoogleTasksToolForUser(userId: string) {
-  return tool({
+  return tool<z.infer<typeof inputSchema>, unknown, never>({
     description:
       "List the signed-in user's Google Tasks lists, or read tasks from one list. This tool is read-only and never creates, updates, or deletes tasks.",
     inputSchema,
@@ -29,9 +29,9 @@ export function createGoogleTasksToolForUser(userId: string) {
             ...(pageToken ? { pageToken } : {}),
             ...(taskListId
               ? {
-                  showCompleted: showCompleted ?? false,
-                  showDeleted: false,
-                  showHidden: false,
+                  showCompleted: String(showCompleted ?? false),
+                  showDeleted: "false",
+                  showHidden: "false",
                 }
               : {}),
           },
