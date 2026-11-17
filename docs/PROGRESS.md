@@ -75,6 +75,11 @@
 - **Attribution badges with visibility controls**: public `badge.svg`
   (live/offline dot), owner toggle, embed snippet, **rendered on the
   published page itself** below the sandboxed iframe
+- **Log scope decision**: Void Deploy publishes already-generated static HTML;
+  it runs no build or persistent application process. Version history and
+  publish/revoke timestamps are therefore the relevant deployment audit
+  trail. Separate build/runtime logs are intentionally not applicable unless
+  deploy later adds a build or server runtime.
 **Commits**: `8003435`, `d248ece`, `f4e9d6c`, `b2e7781`
 
 ### §3.5 Automations ✅ (hooks + scheduled tasks; depth gaps below)
@@ -202,11 +207,6 @@
 - ❌ Structural artifact editing ("make slide 3 darker" edits the existing
   artifact instead of regenerating)
 
-### §3.9 Deploy — logs
-- ✅ History + badges complete
-- ❌ Distinct build/runtime log stream (static publishes have no build step —
-  needs a design decision on what to log)
-
 ### Connectors
 - ✅ 16 first-party connector tool factories are wired with scoped approvals.
 - ✅ A separate Composio-backed marketplace can list and authorize its live
@@ -311,8 +311,7 @@ operator credentials still determine whether an item can be closed.
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume
 6. **Hook chaining and live GitHub/PostgreSQL verification**
-7. **Deploy build/runtime logs** — define distinct events for static publishes
-8. **Outbound notification channels** — complete independently of Sentinel
+7. **Notification digests** — optional batching beyond immediate email
 
 ---
 
