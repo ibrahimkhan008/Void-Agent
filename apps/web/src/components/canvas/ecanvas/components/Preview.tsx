@@ -14,6 +14,12 @@ const EDITOR_SCRIPT = `(() => {
     if (parts.length < 3) return "#000000";
     return "#" + parts.slice(0, 3).map((part) => Math.max(0, Math.min(255, Math.round(part))).toString(16).padStart(2, "0")).join("");
   };
+  const sendArtifact = () => {
+    const copy = document.documentElement.cloneNode(true);
+    copy.querySelector("#void-agent-artifact-editor")?.remove();
+    copy.querySelectorAll("[data-va-edit-id]").forEach((item) => item.removeAttribute("data-va-edit-id"));
+    window.parent.postMessage({ type: "void-agent-artifact-edited", html: "<!doctype html>" + copy.outerHTML }, "*");
+  };
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent || !event.data || typeof event.data !== "object") return;
     if (event.data.type === "void-agent-edit-mode") enabled = event.data.enabled === true;
@@ -24,10 +30,24 @@ const EDITOR_SCRIPT = `(() => {
       if (typeof event.data.color === "string" && CSS.supports("color", event.data.color)) element.style.color = event.data.color;
       if (typeof event.data.backgroundColor === "string" && CSS.supports("color", event.data.backgroundColor)) element.style.backgroundColor = event.data.backgroundColor;
       if (Number.isFinite(event.data.fontSize)) element.style.fontSize = Math.max(8, Math.min(96, event.data.fontSize)) + "px";
-      const copy = document.documentElement.cloneNode(true);
-      copy.querySelector("#void-agent-artifact-editor")?.remove();
-      copy.querySelectorAll("[data-va-edit-id]").forEach((item) => item.removeAttribute("data-va-edit-id"));
-      window.parent.postMessage({ type: "void-agent-artifact-edited", html: "<!doctype html>" + copy.outerHTML }, "*");
+      sendArtifact();
+      return;
+    }
+    if (event.data.type === "void-agent-artifact-operation" && selectedId) {
+      const element = document.querySelector('[data-va-edit-id="' + CSS.escape(selectedId) + '"]');
+      if (!element || ["BODY", "HTML", "HEAD", "SCRIPT", "STYLE", "IFRAME"].includes(element.tagName)) return;
+      if (event.data.operation === "remove") element.remove();
+      if (event.data.operation === "move-up" && element.previousElementSibling) element.parentElement?.insertBefore(element, element.previousElementSibling);
+      if (event.data.operation === "move-down" && element.nextElementSibling) element.parentElement?.insertBefore(element.nextElementSibling, element);
+      if (event.data.operation === "add-text") {
+        const parent = element.children.length > 0 ? element : element.parentElement;
+        if (!parent || ["BODY", "HTML", "HEAD"].includes(parent.tagName)) return;
+        const added = document.createElement("p");
+        added.textContent = typeof event.data.text === "string" ? event.data.text.slice(0, 4000) : "New text";
+        parent.insertBefore(added, parent === element ? null : element.nextElementSibling);
+      }
+      selectedId = null;
+      sendArtifact();
     }
   });
   document.addEventListener("click", (event) => {
@@ -125,6 +145,16 @@ export function Preview({ html, iframeRef, onArtifactEdited }: Props) {
     );
   };
 
+  const applyOperation = (
+    operation: "add-text" | "move-up" | "move-down" | "remove",
+  ) => {
+    if (!selection) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "void-agent-artifact-operation", operation, text: "New text" },
+      "*",
+    );
+  };
+
   if (!html) {
     return (
       <div className="preview-empty">
@@ -207,6 +237,18 @@ export function Preview({ html, iframeRef, onArtifactEdited }: Props) {
             />
           </label>
           <button type="submit">Apply edit</button>
+          <button type="button" onClick={() => applyOperation("add-text")}>
+            Add text
+          </button>
+          <button type="button" onClick={() => applyOperation("move-up")}>
+            Move up
+          </button>
+          <button type="button" onClick={() => applyOperation("move-down")}>
+            Move down
+          </button>
+          <button type="button" onClick={() => applyOperation("remove")}>
+            Remove
+          </button>
         </form>
       )}
       <iframe
