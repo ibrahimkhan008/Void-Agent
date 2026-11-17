@@ -157,9 +157,9 @@
   stream because previews serve generated static files. Migration 0092 is
   journaled but has not been applied to an isolated PostgreSQL database.
   The focused runner suite (18 tests), four earlier focused suites (38 tests),
-  `db:check`, targeted Biome, and `git diff --check` pass. The 6 GiB web typecheck still reports three
-  unresolved imports in pre-existing untracked public/legal files; it reports
-  no errors in this App Builder slice.
+  `db:check`, targeted Biome, and `git diff --check` pass. The 6 GiB web
+  typecheck still reports three unresolved imports in pre-existing untracked
+  public/legal files; it reports no errors in this App Builder slice.
 
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
@@ -438,6 +438,20 @@ operator credentials still determine whether an item can be closed.
 
 ## Verification notes
 
+- 2026-11-17 App Builder JavaScript validation: all four focused build runner,
+  API, and repository suites passed (41 tests); the full web suite passed
+  (516 files / 3,389 tests). `pnpm db:check`, targeted Biome, and
+  `git diff --check` passed. The full suite is unit/component/API tests, not
+  real PostgreSQL integration. Generated `app.js` parser behavior is covered
+  through a mocked E2B command; no live E2B sandbox was used. The change is
+  published as `24400fe`.
+- Local integration prerequisites were rechecked on 2026-11-17: Docker CLI is
+  installed but its engine pipe is unavailable; Docker Desktop's executable
+  is absent; WSL exposes only the docker-desktop distro; there is no `psql`,
+  PostgreSQL service, or listener on 127.0.0.1:5432. E2B, Inngest, and SMTP
+  credentials are not present in this process environment. No credential
+  values were inspected. Thus migrations 0089-0092/0091 and external flows
+  remain unverified; production/VPS was not accessed.
 - 2026-11-17 continuation: the complete web Vitest suite passed **505 files / 3,342 tests** after the routing-priority, eCanvas artifact-editor/storage, and orchestrator-checkpoint slices were published. Focused suites, targeted Biome, migration-journal checks, and `git diff --check` also passed for those changes. This is a local unit/component/API suite; it does not establish PostgreSQL integration, browser E2E, live model/provider, Inngest, SMTP, or GitHub webhook verification.
 - 2026-11-17 Gateway fallback slice: focused fallback/BYOK suites passed (2 files / 8 tests), targeted Biome and `git diff --check` passed. A single 6 GiB typecheck reported only the three pre-existing missing imports in preserved, untracked public/legal files; it reported no errors in the fallback changes. No live Gateway/provider failover test was run. AI Gateway's documented `providerOptions.gateway.models` behavior retries configured models when the primary fails or is unavailable; this does not prove recovery after partial output has reached the client.
 - 2026-11-17 Google Forms/Slides connector slice: added owner-bound read-only form-structure and slide-text tools on fixed Google API origins, reusing the already configured OAuth providers/scopes. No form responses are read. Six focused suites (31 tests), targeted Biome, and `git diff --check` pass. A 6 GiB typecheck still reports only the three unresolved imports in preserved untracked public/legal files; no changed connector errors. Live Google OAuth/API access was not tested.
