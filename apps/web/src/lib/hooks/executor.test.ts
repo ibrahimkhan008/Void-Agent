@@ -101,6 +101,7 @@ beforeEach(() => {
   lastHookRunAtValue = null;
   executeAgentRun.mockReset();
   createNotifications.mockReset();
+  evaluateMatchRules.mockClear();
 });
 
 afterEach(() => {
@@ -130,6 +131,13 @@ describe("renderHookPrompt", () => {
     );
     expect(prompt).toContain("Process webhook from ci: build green");
     expect(prompt).not.toContain("{{kind}}");
+  });
+
+  it("reads the normalized source and subject from event metadata", () => {
+    const prompt = renderHookPrompt("{{kind}}: {{subject}}", {
+      normalized: { source: "email", meta: { subject: "Invoice 42" } },
+    });
+    expect(prompt).toContain("email: Invoice 42");
   });
 
   it("caps oversized payloads", () => {
@@ -190,7 +198,9 @@ describe("runHookAgent gates", () => {
 
   it("fails with a notification when the agent is missing", async () => {
     claimReturn = [{ id: "run-1" }];
-    rows.inbound_endpoint = [{ id: "e1", enabled: true, hookConfig: {} }];
+    rows.inbound_endpoint = [
+      { id: "e1", userId: "u1", enabled: true, hookConfig: {} },
+    ];
     rows.hook_run = [RUN];
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("failed");
@@ -202,11 +212,14 @@ describe("runHookAgent gates", () => {
 
   it("executes successfully and records the thread", async () => {
     claimReturn = [{ id: "run-1" }];
-    rows.inbound_endpoint = [{ id: "e1", enabled: true, hookConfig: {} }];
+    rows.inbound_endpoint = [
+      { id: "e1", userId: "u1", enabled: true, hookConfig: {} },
+    ];
     rows.hook_run = [RUN];
     rows.agent = [
       {
         id: "a1",
+        userId: "u1",
         name: "Hook Agent",
         description: null,
         icon: null,
@@ -215,7 +228,15 @@ describe("runHookAgent gates", () => {
       },
     ];
     rows.webhook_event_outbox = [
-      { payload: { normalized: { kind: "webhook", text: "deploy the site" } } },
+      {
+        payload: {
+          normalized: {
+            source: "webhook",
+            text: "deploy the site",
+            meta: { subject: "Release" },
+          },
+        },
+      },
     ];
     executeAgentRun.mockResolvedValue({
       success: true,
@@ -224,6 +245,14 @@ describe("runHookAgent gates", () => {
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("succeeded");
     expect(executeAgentRun).toHaveBeenCalledTimes(1);
+    expect(evaluateMatchRules).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        source: "webhook",
+        text: "deploy the site",
+        meta: { subject: "Release" },
+      }),
+    );
     const [task] = executeAgentRun.mock.calls[0];
     expect(task.inputPrompt).toContain("deploy the site");
     expect(task.userId).toBe("u1");
@@ -233,13 +262,32 @@ describe("runHookAgent gates", () => {
     );
   });
 
+  it("skips a hook whose agent is owned by another user", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [
+      { id: "e1", userId: "u1", enabled: true, hookConfig: {} },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [{ id: "a1", userId: "u2", name: "Other user agent" }];
+    rows.webhook_event_outbox = [{ payload: { normalized: { text: "run" } } }];
+    const result = await runHookAgent("run-1");
+    expect(result).toEqual({
+      status: "skipped",
+      reason: "hook agent ownership changed",
+    });
+    expect(executeAgentRun).not.toHaveBeenCalled();
+  });
+
   it("fails and notifies when the agent run fails", async () => {
     claimReturn = [{ id: "run-1" }];
-    rows.inbound_endpoint = [{ id: "e1", enabled: true, hookConfig: {} }];
+    rows.inbound_endpoint = [
+      { id: "e1", userId: "u1", enabled: true, hookConfig: {} },
+    ];
     rows.hook_run = [RUN];
     rows.agent = [
       {
         id: "a1",
+        userId: "u1",
         name: "Hook Agent",
         description: null,
         icon: null,

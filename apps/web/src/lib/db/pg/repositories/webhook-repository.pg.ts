@@ -67,6 +67,8 @@ export interface UpdateWebhookSubscriptionStatsPatch {
 }
 
 export interface EnqueueOutboxEventInput {
+  /** Stable ID for sources with provider delivery IDs (GitHub redelivery). */
+  id?: string;
   kind: "inbound" | "outbound";
   eventType: string;
   payload: Record<string, unknown>;
@@ -282,14 +284,25 @@ export const webhookRepository = {
     const [row] = await db
       .insert(WebhookEventOutboxTable)
       .values({
+        ...(input.id ? { id: input.id } : {}),
         kind: input.kind,
         eventType: input.eventType,
         payload: input.payload,
         maxAttempts: input.maxAttempts ?? 5,
         nextAttemptAt: input.nextAttemptAt ?? new Date(),
       } satisfies NewWebhookEventOutbox)
+      .onConflictDoNothing({ target: WebhookEventOutboxTable.id })
       .returning();
-    return row as WebhookEventOutbox;
+    if (row) return row as WebhookEventOutbox;
+    // A verified provider retry may race with the first request. The existing
+    // outbox row is the one that will be dispatched, exactly once.
+    const [existing] = await db
+      .select()
+      .from(WebhookEventOutboxTable)
+      .where(eq(WebhookEventOutboxTable.id, input.id!))
+      .limit(1);
+    if (!existing) throw new Error("Outbox event conflict without a row");
+    return existing as WebhookEventOutbox;
   },
 
   /**

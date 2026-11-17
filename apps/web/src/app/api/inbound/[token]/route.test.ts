@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
+import { encrypt } from "lib/security/encryption";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getEndpoint: vi.fn(),
@@ -61,6 +63,8 @@ vi.mock("../../chat/shared.chat", () => ({
 
 import { POST } from "./route";
 
+afterEach(() => vi.unstubAllEnvs());
+
 const endpoint = {
   id: "endpoint-1",
   token: "endpoint-secret-token",
@@ -113,5 +117,79 @@ describe("POST /api/inbound/[token] Slack owner binding", () => {
     expect(mocks.normalizeSlack).not.toHaveBeenCalled();
     expect(mocks.createDelivery).not.toHaveBeenCalled();
     expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/inbound/[token] GitHub delivery", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("ENCRYPTION_MASTER_KEY", "12345678901234567890123456789012");
+    mocks.getEndpoint.mockResolvedValue({
+      ...endpoint,
+      kind: "github",
+      hookConfig: { githubSigningSecretEncrypted: encrypt("github-secret") },
+    });
+    mocks.createDelivery.mockResolvedValue({ id: "delivery-row" });
+    mocks.enqueueOutboxEvent.mockImplementation(async (input) => ({
+      id: input.id,
+    }));
+  });
+
+  it("verifies a signed event and queues a stable delivery ID", async () => {
+    const body = JSON.stringify({
+      repository: { full_name: "owner/repo" },
+      ref: "refs/heads/main",
+      after: "abcdef",
+    });
+    const signature = `sha256=${createHmac("sha256", "github-secret").update(body).digest("hex")}`;
+    const request = new Request("https://void.test/api/inbound/token", {
+      method: "POST",
+      headers: {
+        "x-hub-signature-256": signature,
+        "x-github-delivery": "123e4567-e89b-12d3-a456-426614174000",
+        "x-github-event": "push",
+      },
+      body,
+    });
+    const response = await POST(request, {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(response.status).toBe(202);
+    expect(mocks.createDelivery).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueOutboxEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expect.stringMatching(/^[a-f0-9-]{36}$/),
+        eventType: "inbound.received",
+      }),
+    );
+  });
+
+  it("rejects an invalid signature without storing or queuing", async () => {
+    const response = await POST(
+      new Request("https://void.test/api/inbound/token", {
+        method: "POST",
+        headers: {
+          "x-hub-signature-256": `sha256=${"0".repeat(64)}`,
+        },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ token: endpoint.token }) },
+    );
+    expect(response.status).toBe(401);
+    expect(mocks.createDelivery).not.toHaveBeenCalled();
+    expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized signed delivery before storing it", async () => {
+    const response = await POST(
+      new Request("https://void.test/api/inbound/token", {
+        method: "POST",
+        headers: { "content-length": String(3 * 1024 * 1024) },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ token: endpoint.token }) },
+    );
+    expect(response.status).toBe(413);
+    expect(mocks.createDelivery).not.toHaveBeenCalled();
   });
 });

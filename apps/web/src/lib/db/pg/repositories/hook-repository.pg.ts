@@ -189,7 +189,28 @@ export async function lastHookRunAt(
 }
 
 export type HookMatchField = "source" | "from" | "subject" | "text";
-export type HookMatchOp = "contains" | "equals";
+export type HookMatchOp =
+  | "contains"
+  | "equals"
+  | "startsWith"
+  | "endsWith"
+  | "notContains"
+  | "notEquals";
+
+const HOOK_MATCH_FIELDS = new Set<HookMatchField>([
+  "source",
+  "from",
+  "subject",
+  "text",
+]);
+const HOOK_MATCH_OPS = new Set<HookMatchOp>([
+  "contains",
+  "equals",
+  "startsWith",
+  "endsWith",
+  "notContains",
+  "notEquals",
+]);
 
 /**
  * Void Hooks rule matching (§3.5 "rule matching"): an event triggers the
@@ -207,11 +228,35 @@ export interface EndpointHookConfig {
   cooldownSeconds?: number;
   maxRunsPerDay?: number;
   matchRules?: HookMatchRule[];
+  githubSigningSecretEncrypted?: string;
 }
+
+/** Never return even encrypted provider secrets from owner-facing APIs. */
+export function publicHookConfig(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const { githubSigningSecretEncrypted, ...visible } = raw as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...visible,
+    ...(githubSigningSecretEncrypted
+      ? { githubSigningSecretConfigured: true }
+      : {}),
+  };
+}
+
+const INVALID_STORED_RULE: HookMatchRule = {
+  field: "source",
+  op: "__invalid__" as HookMatchOp,
+  value: "",
+};
 
 export function parseHookConfig(
   raw: unknown,
-): Required<Omit<EndpointHookConfig, "promptTemplate">> &
+): Required<
+  Omit<EndpointHookConfig, "promptTemplate" | "githubSigningSecretEncrypted">
+> &
   Pick<EndpointHookConfig, "promptTemplate"> {
   const config = (raw ?? {}) as EndpointHookConfig;
   return {
@@ -228,13 +273,16 @@ export function parseHookConfig(
         ? Math.floor(config.maxRunsPerDay)
         : 20,
     matchRules: Array.isArray(config.matchRules)
-      ? config.matchRules.filter(
-          (rule): rule is HookMatchRule =>
+      ? config.matchRules.every(
+          (rule) =>
             Boolean(rule) &&
-            typeof rule.field === "string" &&
-            typeof rule.op === "string" &&
-            typeof rule.value === "string",
+            HOOK_MATCH_FIELDS.has(rule.field) &&
+            HOOK_MATCH_OPS.has(rule.op) &&
+            typeof rule.value === "string" &&
+            rule.value.length > 0,
         )
+        ? config.matchRules
+        : [INVALID_STORED_RULE]
       : [],
   };
 }
@@ -249,6 +297,9 @@ export function evaluateMatchRules(
   normalized: Record<string, unknown>,
 ): { matched: boolean; failed?: HookMatchRule } {
   for (const rule of rules) {
+    if (!HOOK_MATCH_FIELDS.has(rule.field) || !HOOK_MATCH_OPS.has(rule.op)) {
+      return { matched: false, failed: rule };
+    }
     // `subject` rides in the per-source meta (webhook payloads carry it
     // inline; email/slack normalizers put it in meta.subject).
     const raw =
@@ -263,8 +314,23 @@ export function evaluateMatchRules(
           ? ""
           : String(raw).toLowerCase();
     const expected = rule.value.toLowerCase();
+    // Unknown stored operators fail closed. Negated rules require the source
+    // field to exist, so a missing field cannot silently satisfy them.
+    const present = raw !== undefined && raw !== null && raw !== "";
     const ok =
-      rule.op === "equals" ? actual === expected : actual.includes(expected);
+      rule.op === "equals"
+        ? actual === expected
+        : rule.op === "contains"
+          ? actual.includes(expected)
+          : rule.op === "startsWith"
+            ? actual.startsWith(expected)
+            : rule.op === "endsWith"
+              ? actual.endsWith(expected)
+              : rule.op === "notContains"
+                ? present && !actual.includes(expected)
+                : rule.op === "notEquals"
+                  ? present && actual !== expected
+                  : false;
     if (!ok) return { matched: false, failed: rule };
   }
   return { matched: true };

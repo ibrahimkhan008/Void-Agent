@@ -16,6 +16,12 @@ import {
   parseSlackEvent,
   validateInboundRequest,
 } from "lib/inbound";
+import {
+  githubOutboxId,
+  normalizeGitHubEvent,
+  verifyGitHubWebhook,
+} from "lib/inbound/github";
+import { decrypt } from "lib/security/encryption";
 import logger from "logger";
 import { handleError } from "../../chat/shared.chat";
 
@@ -59,23 +65,26 @@ export async function POST(req: Request, { params }: RouteParams) {
     return new Response("Missing token", { status: 400 });
   }
 
-  // Read the raw body once. Slack and SES signing need the raw bytes;
-  // we JSON.parse for the webhook / JSON-email branches separately.
-  let rawBody = "";
-  try {
-    rawBody = await req.text();
-  } catch (err) {
-    return new Response(`Failed to read request body: ${errMessage(err)}`, {
-      status: 400,
-    });
-  }
-
   // 1. Resolve endpoint by token. The repo also returns null for
   //    disabled endpoints — we treat that as 404 to avoid leaking
   //    token enumeration.
   const endpoint = await inboundRepository.getInboundEndpointByToken(token);
   if (!endpoint) {
     return new Response("Endpoint not found", { status: 404 });
+  }
+
+  // Read the raw bytes exactly once for provider signature validation, while
+  // bounding this public upload surface before allocating the full payload.
+  let rawBody: string;
+  try {
+    rawBody = await readBoundedBody(
+      req,
+      endpoint.kind === "github" ? 2 * 1024 * 1024 : 10 * 1024 * 1024,
+    );
+  } catch (err) {
+    if (err instanceof BodyTooLargeError)
+      return new Response("Payload too large", { status: 413 });
+    return new Response("Invalid request body", { status: 400 });
   }
 
   // 2. Build a header map (case-insensitive) for both the validator
@@ -90,7 +99,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   //    so we run the validator only for non-Slack kinds. Slack uses
   //    `computeSlackSignature` with the connector's stored secret
   //    later, in the slack branch.
-  if (endpoint.kind !== "slack") {
+  if (endpoint.kind !== "slack" && endpoint.kind !== "github") {
     const validation = validateInboundRequest({
       token,
       providedSecret: headers["x-inbound-secret"] ?? null,
@@ -109,6 +118,9 @@ export async function POST(req: Request, { params }: RouteParams) {
   try {
     if (endpoint.kind === "webhook") {
       return await handleWebhook(endpoint, rawBody, headers, startedAt);
+    }
+    if (endpoint.kind === "github") {
+      return await handleGitHub(endpoint, rawBody, headers, startedAt);
     }
     if (endpoint.kind === "email") {
       return await handleEmail(endpoint, rawBody, headers, startedAt);
@@ -139,6 +151,58 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
     return new Response(handleError(err), { status: 500 });
   }
+}
+
+async function handleGitHub(
+  endpoint: NonNullable<
+    Awaited<ReturnType<typeof inboundRepository.getInboundEndpointByToken>>
+  >,
+  rawBody: string,
+  headers: Record<string, string>,
+  startedAt: number,
+): Promise<Response> {
+  const config = endpoint.hookConfig as Record<string, unknown> | null;
+  const encrypted = config?.githubSigningSecretEncrypted;
+  if (typeof encrypted !== "string" || !encrypted)
+    return new Response("GitHub signing secret unavailable", { status: 401 });
+  let secret: string;
+  try {
+    secret = decrypt(encrypted);
+  } catch {
+    return new Response("GitHub signing secret unavailable", { status: 401 });
+  }
+  if (!verifyGitHubWebhook(rawBody, headers["x-hub-signature-256"], secret)) {
+    return new Response("Invalid GitHub signature", { status: 401 });
+  }
+  const deliveryId = headers["x-github-delivery"];
+  if (!deliveryId || !/^[a-z0-9-]{1,128}$/i.test(deliveryId)) {
+    return new Response("Invalid GitHub delivery ID", { status: 400 });
+  }
+  const event = headers["x-github-event"];
+  if (!event || !/^[a-z_]{1,64}$/i.test(event)) {
+    return new Response("Invalid GitHub event", { status: 400 });
+  }
+  if (event === "ping") return new Response("OK", { status: 200 });
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return new Response("Invalid GitHub JSON", { status: 400 });
+  }
+  let normalized: NormalizedInbound | null;
+  try {
+    normalized = normalizeGitHubEvent(event, deliveryId, payload);
+  } catch {
+    return new Response("Invalid GitHub event payload", { status: 400 });
+  }
+  if (!normalized) return new Response("Event ignored", { status: 200 });
+  return finalize(
+    endpoint,
+    normalized,
+    startedAt,
+    undefined,
+    githubOutboxId(endpoint.id, deliveryId),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +404,7 @@ async function finalize(
   startedAt: number,
   /** Override userId — used for slack (connector's user). Defaults to endpoint owner. */
   userIdOverride?: string,
+  outboxId?: string,
 ): Promise<Response> {
   const userId = userIdOverride ?? endpoint.userId;
   const delivery = await inboundRepository.createInboundDelivery({
@@ -348,6 +413,7 @@ async function finalize(
     payload: normalized as unknown as Record<string, unknown>,
   });
   const event = await webhookRepository.enqueueOutboxEvent({
+    ...(outboxId ? { id: outboxId } : {}),
     kind: "inbound",
     eventType: "inbound.received",
     payload: {
@@ -398,3 +464,35 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 
 const errMessage = (err: unknown): string =>
   err instanceof Error ? err.message : String(err);
+
+class BodyTooLargeError extends Error {}
+
+async function readBoundedBody(
+  request: Request,
+  maxBytes: number,
+): Promise<string> {
+  const length = Number(request.headers.get("content-length"));
+  if (Number.isFinite(length) && length > maxBytes)
+    throw new BodyTooLargeError();
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > maxBytes) {
+      await reader.cancel();
+      throw new BodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+  const joined = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(joined);
+}

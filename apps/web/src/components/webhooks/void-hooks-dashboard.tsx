@@ -64,19 +64,24 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function VoidHooksDashboard() {
-  const { agents } = useAgents({ filters: ["all"] });
+  // Background hooks are bound to owner agents; shared-agent access may be
+  // revoked and cannot be revalidated against an active org at run time.
+  const { agents } = useAgents({ filters: ["mine"] });
   const { data, error, mutate } = useSWR<{
     hooks: HookView[];
     runs: HookRunView[];
   }>("/api/hooks", fetcher);
 
   const [creating, setCreating] = useState(false);
-  const [kind, setKind] = useState<"webhook" | "email" | "slack">("webhook");
+  const [kind, setKind] = useState<"webhook" | "email" | "slack" | "github">(
+    "webhook",
+  );
   const [agentId, setAgentId] = useState<string>("");
   const [promptTemplate, setPromptTemplate] = useState("");
   const [created, setCreated] = useState<{
     inboundUrl: string;
     secret: string;
+    kind: string;
   } | null>(null);
 
   // Default the agent picker to the first available agent once loaded.
@@ -104,7 +109,11 @@ export function VoidHooksDashboard() {
       if (!response.ok) {
         throw new Error(payload?.error ?? "Could not create the hook.");
       }
-      setCreated({ inboundUrl: payload.inboundUrl, secret: payload.secret });
+      setCreated({
+        inboundUrl: `${window.location.origin}${payload.inboundUrl}`,
+        secret: payload.secret,
+        kind,
+      });
       setPromptTemplate("");
       toast.success("Hook created.");
       await mutate();
@@ -178,7 +187,7 @@ export function VoidHooksDashboard() {
             <Select
               value={kind}
               onValueChange={(value) =>
-                setKind(value as "webhook" | "email" | "slack")
+                setKind(value as "webhook" | "email" | "slack" | "github")
               }
             >
               <SelectTrigger className="h-9 w-[130px]">
@@ -188,6 +197,7 @@ export function VoidHooksDashboard() {
                 <SelectItem value="webhook">Webhook</SelectItem>
                 <SelectItem value="email">Email</SelectItem>
                 <SelectItem value="slack">Slack</SelectItem>
+                <SelectItem value="github">GitHub</SelectItem>
               </SelectContent>
             </Select>
             <Select value={agentId} onValueChange={setAgentId}>
@@ -218,6 +228,13 @@ export function VoidHooksDashboard() {
             placeholder="Prompt template (optional) — {{kind}}, {{from}}, {{subject}}, {{text}}, {{json}}"
             className="font-mono text-xs"
           />
+          {kind === "github" ? (
+            <p className="text-xs text-muted-foreground">
+              Add this URL to your repository webhook in GitHub. Set content
+              type to application/json, paste the shown secret, and subscribe to
+              push, pull request, and issue events.
+            </p>
+          ) : null}
         </div>
 
         {/* One-time secret */}
@@ -232,6 +249,12 @@ export function VoidHooksDashboard() {
             <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
               {created.secret}
             </code>
+            {created.kind === "github" ? (
+              <p className="text-xs text-muted-foreground">
+                Paste this secret into GitHub’s webhook Secret field. GitHub
+                signs deliveries with it; keep it private.
+              </p>
+            ) : null}
             <Button
               variant="outline"
               size="sm"

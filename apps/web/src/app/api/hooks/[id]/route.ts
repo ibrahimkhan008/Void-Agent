@@ -1,9 +1,11 @@
 import {
   listHookRuns,
+  parseHookConfig,
+  publicHookConfig,
   updateEndpointHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
 import { withAuth } from "auth/route-guard";
-import { inboundRepository } from "lib/db/repository";
+import { agentRepository, inboundRepository } from "lib/db/repository";
 import { z } from "zod";
 
 /**
@@ -28,7 +30,14 @@ const PatchSchema = z
       .array(
         z.object({
           field: z.enum(["source", "from", "subject", "text"]),
-          op: z.enum(["contains", "equals"]),
+          op: z.enum([
+            "contains",
+            "equals",
+            "startsWith",
+            "endsWith",
+            "notContains",
+            "notEquals",
+          ]),
           value: z.string().min(1).max(400),
         }),
       )
@@ -59,7 +68,9 @@ export const GET = withAuth(async (_request, session, ctx: Params) => {
       agentId: endpoint.agentId,
       token: endpoint.token,
       enabled: endpoint.enabled,
-      hookConfig: (endpoint as { hookConfig?: unknown }).hookConfig ?? {},
+      hookConfig: publicHookConfig(
+        (endpoint as { hookConfig?: unknown }).hookConfig,
+      ),
       createdAt: endpoint.createdAt,
     },
     runs,
@@ -82,12 +93,13 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
   }
   const data = parsed.data;
 
-  if (data.enabled !== undefined || data.agentId !== undefined) {
-    await inboundRepository.updateInboundEndpoint(id, session.user.id, {
-      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
-      ...(data.agentId !== undefined ? { agentId: data.agentId } : {}),
-    });
+  if (
+    data.agentId !== undefined &&
+    !(await agentRepository.checkAccess(data.agentId, session.user.id, true))
+  ) {
+    return Response.json({ error: "Agent not found" }, { status: 404 });
   }
+
   if (
     data.promptTemplate !== undefined ||
     data.cooldownSeconds !== undefined ||
@@ -96,6 +108,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
   ) {
     const current =
       (endpoint as { hookConfig?: Record<string, unknown> }).hookConfig ?? {};
+    const parsedCurrent = parseHookConfig(current);
     await updateEndpointHookConfig(id, session.user.id, {
       promptTemplate:
         data.promptTemplate === undefined
@@ -113,7 +126,24 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
         (typeof current.maxRunsPerDay === "number"
           ? current.maxRunsPerDay
           : undefined),
-      matchRules: data.matchRules ?? undefined,
+      matchRules:
+        data.matchRules === undefined
+          ? parsedCurrent.matchRules
+          : (data.matchRules ?? []),
+      githubSigningSecretEncrypted:
+        typeof current.githubSigningSecretEncrypted === "string"
+          ? current.githubSigningSecretEncrypted
+          : undefined,
+    });
+  }
+
+  // A request may update rules and enable a hook together. Persist the rules
+  // first so the public inbound route cannot observe an enabled endpoint with
+  // stale filtering while the config write is still in flight.
+  if (data.enabled !== undefined || data.agentId !== undefined) {
+    await inboundRepository.updateInboundEndpoint(id, session.user.id, {
+      ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+      ...(data.agentId !== undefined ? { agentId: data.agentId } : {}),
     });
   }
 
@@ -126,7 +156,9 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
           agentId: updated.agentId,
           token: updated.token,
           enabled: updated.enabled,
-          hookConfig: (updated as { hookConfig?: unknown }).hookConfig ?? {},
+          hookConfig: publicHookConfig(
+            (updated as { hookConfig?: unknown }).hookConfig,
+          ),
           createdAt: updated.createdAt,
         }
       : null,

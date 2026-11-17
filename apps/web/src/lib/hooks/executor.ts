@@ -46,6 +46,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * The payload of a `WebhookEventOutboxTable` row (stored as jsonb — see the
  * schema's `Record<string, unknown>`). The inbound ingest path writes its
@@ -66,12 +70,19 @@ export function renderHookPrompt(
   payload: InboundOutboxPayload,
 ): string {
   const normalized = payload.normalized ?? {};
-  const kind = isNonEmptyString(normalized.kind) ? normalized.kind : "webhook";
+  const kind = isNonEmptyString(normalized.source)
+    ? normalized.source
+    : isNonEmptyString(normalized.kind)
+      ? normalized.kind
+      : "webhook";
   const text = isNonEmptyString(normalized.text) ? normalized.text : "";
   const from = isNonEmptyString(normalized.from) ? normalized.from : "";
+  const meta = normalized.meta;
   const subject = isNonEmptyString(normalized.subject)
     ? normalized.subject
-    : "";
+    : isObject(meta) && isNonEmptyString(meta.subject)
+      ? meta.subject
+      : "";
   const json = JSON.stringify(normalized, null, 2);
 
   const header = `You were triggered by a Void Hook (an inbound ${kind} event). Handle the event end to end: do what it asks, verify your work, and summarize the outcome with concrete values.`;
@@ -156,15 +167,7 @@ export async function runHookAgent(runId: string): Promise<{
       text?: string;
       meta?: Record<string, unknown>;
     };
-    const match = evaluateMatchRules(config.matchRules ?? [], {
-      source: normalizedView.source ?? "",
-      from: normalizedView.from ?? "",
-      subject:
-        ((normalizedView.meta as Record<string, unknown> | undefined)?.subject as
-          | string
-          | undefined) ?? "",
-      text: normalizedView.text ?? "",
-    });
+    const match = evaluateMatchRules(config.matchRules ?? [], normalizedView);
     if (!match.matched && match.failed) {
       const reason = `rule not matched: ${match.failed.field} ${match.failed.op} "${match.failed.value}"`;
       await finishHookRun(runId, { status: "skipped", error: reason });
@@ -200,6 +203,11 @@ export async function runHookAgent(runId: string): Promise<{
       await finishHookRun(runId, { status: "failed", error: reason });
       await notifyFailure(run.userId, run.agentId, reason, null);
       return { status: "failed", reason };
+    }
+    if (agent.userId !== run.userId || endpoint.userId !== run.userId) {
+      const reason = "hook agent ownership changed";
+      await finishHookRun(runId, { status: "skipped", error: reason });
+      return { status: "skipped", reason };
     }
 
     const prompt = renderHookPrompt(config.promptTemplate, payload ?? {});

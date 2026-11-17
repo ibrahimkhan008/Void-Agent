@@ -3938,6 +3938,7 @@ export const InboundEndpointTable = pgTable(
           op: string;
           value: string;
         }>;
+        githubSigningSecretEncrypted?: string;
       }>()
       .notNull()
       .default({}),

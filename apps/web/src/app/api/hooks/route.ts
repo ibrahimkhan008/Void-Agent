@@ -1,10 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   listHookRuns,
+  publicHookConfig,
   updateEndpointHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
 import { withAuth } from "auth/route-guard";
-import { inboundRepository } from "lib/db/repository";
+import { agentRepository, inboundRepository } from "lib/db/repository";
+import { encrypt, isEncryptionAvailable } from "lib/security/encryption";
 import { z } from "zod";
 
 /**
@@ -24,7 +26,7 @@ const sha256Hex = (value: string) =>
   createHash("sha256").update(value, "utf8").digest("hex");
 
 const CreateHookSchema = z.object({
-  kind: z.enum(["webhook", "email", "slack"]),
+  kind: z.enum(["webhook", "email", "slack", "github"]),
   agentId: z.string().uuid(),
   /** Optional inbound secret; generated when omitted. */
   secret: z.string().min(16).max(200).optional(),
@@ -35,7 +37,14 @@ const CreateHookSchema = z.object({
     .array(
       z.object({
         field: z.enum(["source", "from", "subject", "text"]),
-        op: z.enum(["contains", "equals"]),
+        op: z.enum([
+          "contains",
+          "equals",
+          "startsWith",
+          "endsWith",
+          "notContains",
+          "notEquals",
+        ]),
         value: z.string().min(1).max(400),
       }),
     )
@@ -56,7 +65,9 @@ export const GET = withAuth(async (_request, session) => {
       agentId: endpoint.agentId,
       token: endpoint.token,
       enabled: endpoint.enabled,
-      hookConfig: (endpoint as { hookConfig?: unknown }).hookConfig ?? {},
+      hookConfig: publicHookConfig(
+        (endpoint as { hookConfig?: unknown }).hookConfig,
+      ),
       createdAt: endpoint.createdAt,
     })),
     runs: runs.map((run) => ({
@@ -81,6 +92,20 @@ export const POST = withAuth(async (request, session) => {
     );
   }
   const data = parsed.data;
+  if (data.kind === "github" && !isEncryptionAvailable()) {
+    return Response.json(
+      { error: "GitHub hooks require ENCRYPTION_MASTER_KEY" },
+      { status: 503 },
+    );
+  }
+
+  // Hooks execute later without a session or active organization. Bind them
+  // only to agents owned by this user; shared-agent access can be revoked.
+  if (
+    !(await agentRepository.checkAccess(data.agentId, session.user.id, true))
+  ) {
+    return Response.json({ error: "Agent not found" }, { status: 404 });
+  }
 
   // The secret is returned ONCE; only its hash is stored.
   const secret = data.secret ?? randomBytes(24).toString("hex");
@@ -91,7 +116,8 @@ export const POST = withAuth(async (request, session) => {
       token,
       kind: data.kind,
       secretHash: sha256Hex(secret),
-      enabled: data.enabled ?? true,
+      // Keep the endpoint inert until its filtering/cooldown config exists.
+      enabled: false,
       threadTemplate: {},
     },
     session.user.id,
@@ -102,7 +128,19 @@ export const POST = withAuth(async (request, session) => {
     cooldownSeconds: data.cooldownSeconds,
     maxRunsPerDay: data.maxRunsPerDay,
     matchRules: data.matchRules,
+    ...(data.kind === "github"
+      ? { githubSigningSecretEncrypted: encrypt(secret) }
+      : {}),
   });
+  if (data.enabled ?? true) {
+    await inboundRepository.updateInboundEndpoint(
+      endpoint.id,
+      session.user.id,
+      {
+        enabled: true,
+      },
+    );
+  }
 
   return Response.json(
     {
@@ -111,12 +149,15 @@ export const POST = withAuth(async (request, session) => {
         kind: endpoint.kind,
         agentId: endpoint.agentId,
         token: endpoint.token,
-        enabled: endpoint.enabled,
+        enabled: data.enabled ?? true,
         hookConfig: {
           promptTemplate: data.promptTemplate,
           cooldownSeconds: data.cooldownSeconds,
           maxRunsPerDay: data.maxRunsPerDay,
           matchRules: data.matchRules,
+          ...(data.kind === "github"
+            ? { githubSigningSecretConfigured: true }
+            : {}),
         },
       },
       // The inbound URL the event source POSTs to, and the signing secret —

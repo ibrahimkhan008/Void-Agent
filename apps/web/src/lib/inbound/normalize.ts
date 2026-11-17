@@ -23,7 +23,7 @@ import type {
 } from "./slack";
 
 export type NormalizedInbound = {
-  source: "webhook" | "email" | "slack";
+  source: "webhook" | "email" | "slack" | "github";
   /** Provider message id, used for dedupe. Optional — webhooks may not have one. */
   externalId?: string;
   /** Human-readable sender ("Alice <alice@example.com>" / "channel-name" / etc.). */
