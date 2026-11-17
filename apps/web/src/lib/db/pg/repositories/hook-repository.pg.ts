@@ -156,8 +156,18 @@ export async function listQueuedHookRuns(limit = 3): Promise<HookRunRow[]> {
   return rows as HookRunRow[];
 }
 
-/** Runs today for one endpoint — the daily-cap check. */
-export async function countHookRunsToday(endpointId: string): Promise<number> {
+/**
+ * Runs today for one endpoint — the daily-cap check. `excludeRunId` omits
+ * the CURRENT run: its own row is created (status queued, not skipped)
+ * before this count runs, and counting it would block the endpoint's first
+ * execution of the day whenever maxRunsPerDay is 1 — and shrink every other
+ * cap by one. Same self-counting trap the cooldown check hit; the pipeline
+ * integration test caught this one.
+ */
+export async function countHookRunsToday(
+  endpointId: string,
+  excludeRunId?: string,
+): Promise<number> {
   const [row] = await pgDb
     .select({ value: count() })
     .from(HookRunTable)
@@ -166,6 +176,7 @@ export async function countHookRunsToday(endpointId: string): Promise<number> {
         eq(HookRunTable.inboundEndpointId, endpointId),
         sql`${HookRunTable.createdAt} >= date_trunc('day', now())`,
         sql`${HookRunTable.status} <> 'skipped'`,
+        excludeRunId ? sql`${HookRunTable.id} <> ${excludeRunId}` : sql`true`,
       ),
     );
   return Number(row?.value ?? 0);

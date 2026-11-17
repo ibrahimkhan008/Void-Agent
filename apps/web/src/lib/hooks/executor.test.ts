@@ -213,6 +213,20 @@ describe("runHookAgent gates", () => {
     expect(executeAgentRun).not.toHaveBeenCalled();
   });
 
+  it("excludes its own queued row from the daily-cap count", async () => {
+    // The run's row is created before the check; counting it would block
+    // the endpoint's first execution of the day when maxRunsPerDay is 1
+    // (caught live by the pipeline integration test).
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [
+      { id: "e1", enabled: true, hookConfig: { maxRunsPerDay: 5 } },
+    ];
+    rows.hook_run = [RUN];
+    countHookRunsTodayValue = 0;
+    await runHookAgent("run-1");
+    expect(countHookRunsToday).toHaveBeenCalledWith("e1", "run-1");
+  });
+
   it("fails with a notification when the agent is missing", async () => {
     claimReturn = [{ id: "run-1" }];
     rows.inbound_endpoint = [

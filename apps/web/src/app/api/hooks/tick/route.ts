@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { inngest } from "@/lib/inngest/client";
 import { webhookRepository } from "lib/db/repository";
-import { dispatchInboundHook } from "lib/hooks/dispatch";
+import { HOOK_AGENT_RUN_EVENT, dispatchInboundHook } from "lib/hooks/dispatch";
 import { runHookAgent } from "lib/hooks/executor";
 import logger from "logger";
 import { NextResponse } from "next/server";
@@ -65,6 +65,19 @@ export async function POST(request: Request) {
     await webhookRepository.markOutboxEventDelivered(event.id);
   }
 
+  // Inbound events without a bound agent can never dispatch a run; retire
+  // them here too so they do not sit pending forever (the Inngest outbox
+  // tick retires them on its own claim path; this route is its own claimer
+  // and must not leak them).
+  for (const event of events) {
+    if (
+      event.kind === "inbound" &&
+      typeof (event.payload as { agentId?: unknown })?.agentId !== "string"
+    ) {
+      await webhookRepository.markOutboxEventDelivered(event.id);
+    }
+  }
+
   // Execute synchronously, bounded: each run is a full agent loop. The
   // backlog (queued runs from earlier ticks) is included so nothing starves
   // when Inngest is not driving the async path.
@@ -85,10 +98,15 @@ export async function POST(request: Request) {
     results.push({ runId, ...result });
   }
 
-  // Anything not executed inline stays queued for the Inngest path.
-  for (const runId of dispatched.slice(results.length)) {
+  // Anything not executed inline stays queued: re-enqueue it so the Inngest
+  // path owns it too, not just the next tick's backlog scan. The budget
+  // check is by runId — results also contains backlog runs, so a naive
+  // `dispatched.slice(results.length)` could re-enqueue nothing (or the
+  // wrong runs) whenever the backlog fills the inline budget.
+  const executedRunIds = new Set(results.map((result) => result.runId));
+  for (const runId of dispatched.filter((id) => !executedRunIds.has(id))) {
     await inngest
-      .send({ name: "void/hooks.agent-run", data: { runId } })
+      .send({ name: HOOK_AGENT_RUN_EVENT, data: { runId } })
       .catch(() => {});
   }
 

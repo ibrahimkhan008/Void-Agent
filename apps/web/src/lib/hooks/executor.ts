@@ -191,8 +191,10 @@ export async function runHookAgent(runId: string): Promise<{
       }
     }
 
-    // Loop prevention 2: daily cap.
-    const runsToday = await countHookRunsToday(run.inboundEndpointId);
+    // Loop prevention 2: daily cap. Exclude this run's own row — it was
+    // created (queued) before the check, and counting it would block the
+    // endpoint's first execution whenever maxRunsPerDay is 1.
+    const runsToday = await countHookRunsToday(run.inboundEndpointId, run.id);
     if (runsToday >= config.maxRunsPerDay) {
       const reason = `daily cap reached (${runsToday}/${config.maxRunsPerDay})`;
       await finishHookRun(runId, { status: "skipped", error: reason });
