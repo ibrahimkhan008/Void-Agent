@@ -44,6 +44,7 @@ describe("direct connector tool registry", () => {
       DefaultToolName.GoogleTasks,
       DefaultToolName.GoogleCalendar,
       DefaultToolName.GitHub,
+      DefaultToolName.GitLab,
       DefaultToolName.Outlook,
       DefaultToolName.Slack,
       DefaultToolName.Notion,

@@ -48,9 +48,10 @@
   presentations (2, MIT), documents (2, MIT), visualize (1, Apache-2.0),
   skill-creator (1, MIT), design (83, Apache-2.0) — all Void-Agent-native
   (ZCode runner references adapted)
-- **Connectors**: 22 first-party wired (Gmail, Drive, Calendar, Docs, Sheets,
-  Forms, Slides, Tasks, Keep, GitHub, Slack, Notion, Outlook, Teams, Jira, Linear, Asana,
-  ClickUp, Freshdesk, Zendesk, Productboard, Zulip) with user-scoped OAuth
+- **Connectors**: 25 first-party wired (Gmail, Drive, Calendar, Docs, Sheets,
+  Forms, Slides, Tasks, Keep, Meet, YouTube, GitHub, GitLab, Slack, Notion,
+  Outlook, Teams, Jira, Linear, Asana, ClickUp, Freshdesk, Zendesk,
+  Productboard, Zulip) with user-scoped OAuth
   and scoped write approvals. Docs/Sheets/Forms/Slides tools are bounded and
   read-only; Google Forms does not fetch response data.
 
@@ -312,6 +313,15 @@
 - ✅ A separate Composio-backed marketplace can list and authorize its live
   toolkit catalog, then provide connected tools to chat when
   `COMPOSIO_API_KEY` is configured.
+- ✅ GitLab.com now has a direct PKCE OAuth flow requesting only `read_api`
+  and `read_user`, plus owner-scoped, read-only project/issue/merge-request
+  tools. Project IDs are validated as numeric path segments, provider fields
+  are allowlisted and bounded, and returned links are restricted to
+  `gitlab.com`. OAuth initiation, fixed API host, tool bounds, and registry
+  wiring have focused tests (4 files / 47 tests). Biome passed. The one web
+  typecheck reports only three unresolved imports in pre-existing untracked
+  public/legal files; no GitLab errors. Provider HTTP and OAuth are mocked;
+  live GitLab OAuth/API verification has not been performed.
 - 🟡 The legacy provider catalog contains 52 names, but it is not a verified
   count of missing integrations: several are available through Composio, and
   direct provider-specific OAuth/credential flows exist for a smaller set.

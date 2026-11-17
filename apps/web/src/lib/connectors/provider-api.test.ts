@@ -144,6 +144,7 @@ describe("connector provider token boundary", () => {
       "/calendar/v3/calendars/primary/events",
     ],
     ["github", "https://api.github.com", "/user/repos"],
+    ["gitlab", "https://gitlab.com", "/api/v4/projects"],
     ["outlook", "https://graph.microsoft.com", "/v1.0/me/messages"],
     ["teams", "https://graph.microsoft.com", "/v1.0/me/chats"],
     ["slack", "https://slack.com", "/api/conversations.list"],

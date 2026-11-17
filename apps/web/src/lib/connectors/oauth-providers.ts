@@ -228,6 +228,21 @@ const github: OAuthProviderConfig = {
     typeof body.login === "string" ? body.login : undefined,
 };
 
+const gitlab: OAuthProviderConfig = {
+  clientIdEnv: "GITLAB_CLIENT_ID",
+  clientSecretEnv: "GITLAB_CLIENT_SECRET",
+  authorizeUrl: "https://gitlab.com/oauth/authorize",
+  tokenUrl: "https://gitlab.com/oauth/token",
+  scopes: ["read_api", "read_user"],
+  pkce: true,
+  identityUrl: "https://gitlab.com/api/v4/user",
+  identityHeaders: (token: string) => ({ Authorization: `Bearer ${token}` }),
+  identityEmail: (body) =>
+    typeof body.email === "string" ? body.email : undefined,
+  identityName: (body) =>
+    typeof body.username === "string" ? body.username : undefined,
+};
+
 const asana: OAuthProviderConfig = {
   clientIdEnv: "ASANA_CLIENT_ID",
   clientSecretEnv: "ASANA_CLIENT_SECRET",
@@ -303,6 +318,7 @@ export const OAUTH_PROVIDER_CONFIG: Partial<
   slack,
   notion,
   github,
+  gitlab,
   asana,
   clickup,
   linear,

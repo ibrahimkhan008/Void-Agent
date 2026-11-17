@@ -152,6 +152,13 @@ describe("connector OAuth", () => {
       "https://app.productboard.com/oauth2/authorize",
       "entities:write",
     ],
+    [
+      "gitlab",
+      "GITLAB_CLIENT_ID",
+      "GITLAB_CLIENT_SECRET",
+      "https://gitlab.com/oauth/authorize",
+      "read_api",
+    ],
   ] as const)(
     "uses a fixed, encrypted OAuth profile for %s",
     async (provider, idKey, secretKey, authUrl, scope) => {
@@ -168,7 +175,8 @@ describe("connector OAuth", () => {
       if (
         provider === "asana" ||
         provider === "linear" ||
-        provider === "productboard"
+        provider === "productboard" ||
+        provider === "gitlab"
       ) {
         expect(url.searchParams.get("code_challenge_method")).toBe("S256");
         expect(mocks.issuedPayload?.verifier).toBeTypeOf("string");

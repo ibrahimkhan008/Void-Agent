@@ -6,6 +6,7 @@ import { createConnectorsListToolForUser } from "./connectors-list-tool";
 import { createDriveToolForUser } from "./drive-tool";
 import { createFreshdeskToolForUser } from "./freshdesk-tool";
 import { createGitHubToolForUser } from "./github-tool";
+import { createGitLabToolForUser } from "./gitlab-tool";
 import { createGmailToolForUser } from "./gmail-tool";
 import { createGoogleDocsToolForUser } from "./google-docs-tool";
 import { createGoogleFormsToolForUser } from "./google-forms-tool";
@@ -41,6 +42,7 @@ export function createConnectorToolsForUser(userId: string) {
     [DefaultToolName.YouTubeConnector]:
       createYouTubeConnectorToolForUser(userId),
     [DefaultToolName.GitHub]: createGitHubToolForUser(userId),
+    [DefaultToolName.GitLab]: createGitLabToolForUser(userId),
     [DefaultToolName.Outlook]: createOutlookToolForUser(userId),
     [DefaultToolName.Slack]: createSlackToolForUser(userId),
     [DefaultToolName.Notion]: createNotionToolForUser(userId),
