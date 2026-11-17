@@ -1,4 +1,4 @@
-import { App as ECanvasApp } from "@/components/canvas/ecanvas/App";
+import ECanvasApp from "@/components/canvas/ecanvas/app-client";
 import { getSession } from "auth/server";
 import { notFound, redirect } from "next/navigation";
 

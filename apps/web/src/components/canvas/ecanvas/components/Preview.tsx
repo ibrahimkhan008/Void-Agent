@@ -94,6 +94,7 @@ const EDITOR_SCRIPT = `(() => {
       window.parent.postMessage({ type: "void-agent-edit-plan-complete", applied }, "*");
     }
   });
+  window.parent.postMessage({ type: "void-agent-editor-ready" }, "*");
   document.addEventListener("click", (event) => {
     if (!enabled) return;
     const target = event.target instanceof Element ? event.target.closest("h1,h2,h3,h4,p,span,button,a,li,td,th,label,small,strong,em,section,article,main,header,footer,nav,div") : null;
@@ -150,6 +151,14 @@ export function Preview({
         applied?: unknown;
       } | null;
       if (!data || typeof data !== "object") return;
+      if (data.type === "void-agent-editor-ready") {
+        // A freshly (re)loaded editor document asked for the current mode.
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "void-agent-edit-mode", enabled: editMode },
+          "*",
+        );
+        return;
+      }
       if (
         data.type === "void-agent-element-selected" &&
         data.selection &&
@@ -184,10 +193,20 @@ export function Preview({
   }, [iframeRef, onArtifactEdited, onEditPlanResult]);
 
   useEffect(() => {
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "void-agent-edit-mode", enabled: editMode },
-      "*",
-    );
+    const postEditMode = () => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "void-agent-edit-mode", enabled: editMode },
+        "*",
+      );
+    };
+    postEditMode();
+    // Every apply reloads the srcdoc document, whose fresh editor script
+    // starts disabled and races the message above. The iframe load event
+    // fires after that script registered, so repost on load — without this,
+    // re-selecting elements after the first apply silently does nothing.
+    const iframe = iframeRef.current;
+    iframe?.addEventListener("load", postEditMode);
+    return () => iframe?.removeEventListener("load", postEditMode);
   }, [editMode, iframeRef, srcDoc]);
 
   const applyEdit = () => {
