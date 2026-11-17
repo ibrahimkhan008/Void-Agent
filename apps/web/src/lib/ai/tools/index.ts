@@ -60,6 +60,8 @@ export enum DefaultToolName {
   GoogleSlides = "google-slides",
   GoogleTasks = "google-tasks",
   GoogleKeep = "google-keep",
+  GoogleMeet = "google-meet",
+  YouTubeConnector = "youtube-connector",
   GoogleCalendar = "google-calendar",
   Outlook = "outlook",
   Slack = "slack",

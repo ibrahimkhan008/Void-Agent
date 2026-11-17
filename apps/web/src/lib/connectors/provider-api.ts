@@ -22,6 +22,8 @@ const API_ORIGINS: Partial<Record<ConnectorProvider, string>> = {
   "google-slides": "https://slides.googleapis.com",
   "google-tasks": "https://tasks.googleapis.com",
   "google-keep": "https://keep.googleapis.com",
+  "google-meet": "https://meet.googleapis.com",
+  youtube: "https://www.googleapis.com",
   github: "https://api.github.com",
   outlook: "https://graph.microsoft.com",
   teams: "https://graph.microsoft.com",

@@ -10,6 +10,7 @@ import { createGmailToolForUser } from "./gmail-tool";
 import { createGoogleDocsToolForUser } from "./google-docs-tool";
 import { createGoogleFormsToolForUser } from "./google-forms-tool";
 import { createGoogleKeepToolForUser } from "./google-keep-tool";
+import { createGoogleMeetToolForUser } from "./google-meet-tool";
 import { createGoogleSheetsToolForUser } from "./google-sheets-tool";
 import { createGoogleSlidesToolForUser } from "./google-slides-tool";
 import { createGoogleTasksToolForUser } from "./google-tasks-tool";
@@ -20,6 +21,7 @@ import { createOutlookToolForUser } from "./outlook-tool";
 import { createProductboardToolForUser } from "./productboard-tool";
 import { createSlackToolForUser } from "./slack-tool";
 import { createTeamsToolForUser } from "./teams-tool";
+import { createYouTubeConnectorToolForUser } from "./youtube-connector-tool";
 import { createZendeskToolForUser } from "./zendesk-tool";
 import { createZulipToolForUser } from "./zulip-tool";
 
@@ -32,9 +34,12 @@ export function createConnectorToolsForUser(userId: string) {
     [DefaultToolName.GoogleSheets]: createGoogleSheetsToolForUser(userId),
     [DefaultToolName.GoogleForms]: createGoogleFormsToolForUser(userId),
     [DefaultToolName.GoogleKeep]: createGoogleKeepToolForUser(userId),
+    [DefaultToolName.GoogleMeet]: createGoogleMeetToolForUser(userId),
     [DefaultToolName.GoogleSlides]: createGoogleSlidesToolForUser(userId),
     [DefaultToolName.GoogleTasks]: createGoogleTasksToolForUser(userId),
     [DefaultToolName.GoogleCalendar]: createCalendarToolForUser(userId),
+    [DefaultToolName.YouTubeConnector]:
+      createYouTubeConnectorToolForUser(userId),
     [DefaultToolName.GitHub]: createGitHubToolForUser(userId),
     [DefaultToolName.Outlook]: createOutlookToolForUser(userId),
     [DefaultToolName.Slack]: createSlackToolForUser(userId),

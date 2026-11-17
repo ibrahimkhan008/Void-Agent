@@ -38,6 +38,8 @@ describe("direct connector tool registry", () => {
       DefaultToolName.GoogleSheets,
       DefaultToolName.GoogleForms,
       DefaultToolName.GoogleKeep,
+      DefaultToolName.GoogleMeet,
+      DefaultToolName.YouTubeConnector,
       DefaultToolName.GoogleSlides,
       DefaultToolName.GoogleTasks,
       DefaultToolName.GoogleCalendar,

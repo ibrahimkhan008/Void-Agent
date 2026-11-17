@@ -284,7 +284,7 @@
   Keep PARTIAL.
 
 ### Connectors
-- ✅ 22 first-party provider tool factories are wired with user-scoped API calls
+- ✅ 24 first-party provider tool factories are wired with user-scoped API calls
   and the existing approval gates for writes. Google Docs, Sheets, Forms, and
   Slides have dedicated bounded, read-only tools, and their API origins are
   fixed in the provider allowlist. Slides text is capped at 60,000 characters;
@@ -295,6 +295,16 @@
   Keep now exposes bounded, paginated note text only; no permissions or
   attachments are returned. Keep API availability may be limited to Google
   Workspace enterprise use, and was not live-verified here.
+- ✅ Google Meet now has a user-bound read-only tool for the account's
+  conference history, available transcripts, and bounded transcript entries.
+  Resource names are validated before path construction and provider response
+  fields are allowlisted. Focused tests pass; no live Google authorization or
+  Meet API request was performed.
+- ✅ YouTube's existing direct Google OAuth connection now lists channels
+  returned by authenticated `mine=true`, then verifies a requested channel is
+  in that owner-scoped list before reading its uploads playlist. Output fields
+  and page sizes are bounded; the tool is read-only. Focused tests pass; no
+  live Google OAuth or YouTube API request was performed.
 - ✅ A separate Composio-backed marketplace can list and authorize its live
   toolkit catalog, then provide connected tools to chat when
   `COMPOSIO_API_KEY` is configured.
@@ -403,7 +413,10 @@ operator credentials still determine whether an item can be closed.
    exist with durable owner-scoped storage. Apply migration 0090 only to
    isolated PostgreSQL and verify model-plan application, browser interaction,
    persistence, and cross-user isolation.
-3. **Connector wiring** — implement real callable tools and scoped approvals
+3. **Connector wiring** — continue selective callable tools for remaining
+   catalog providers. Google Meet and YouTube now have bounded read-only direct
+   tools, but the legacy catalog is not a promise that every provider has a
+   first-party action implementation.
 4. **Fallback live verification** — exercise Gateway provider/model failover
    with an isolated configured organization and confirm the usage attribution;
    partial-output stream recovery remains a separate design gap
@@ -426,6 +439,7 @@ operator credentials still determine whether an item can be closed.
 - 2026-11-17 Google Forms/Slides connector slice: added owner-bound read-only form-structure and slide-text tools on fixed Google API origins, reusing the already configured OAuth providers/scopes. No form responses are read. Six focused suites (31 tests), targeted Biome, and `git diff --check` pass. A 6 GiB typecheck still reports only the three unresolved imports in preserved untracked public/legal files; no changed connector errors. Live Google OAuth/API access was not tested.
 - 2026-11-17 Google Tasks connector slice: adds read-only paginated task-list/task views using the authenticated user's Tasks API, bounded summaries, and a fixed API origin. The OAuth provider/scopes already existed. Included in eight focused suites (38 tests) with registry/origin coverage; targeted Biome and `git diff --check` pass. No live Google account was used.
 - 2026-11-17 Google Keep connector slice: adds bounded, paginated read-only notes using fixed Keep API origin; response excludes permissions and attachments. Included in eight focused suites (38 tests) with registry/origin coverage; targeted Biome and `git diff --check` pass. Google's API overview describes Keep API as for enterprise administration; ordinary consumer-account availability remains unverified.
+- 2026-11-17 Google Meet and YouTube connector slices: added user-scoped read-only Google Meet conference/transcript retrieval and YouTube owner-channel/upload listing. Meet resource names are path-validated and transcript output is capped; YouTube channels are resolved with `mine=true` and requested channels must match that list. Six focused suites passed (41 tests), targeted Biome and `git diff --check` passed. The new tools and the recent Keep/Tasks tools now pass their slice typecheck; the full web typecheck still reports only three unresolved imports in preserved untracked marketing/legal files. These tests mock provider transport; no live OAuth, Google Meet, or YouTube API verification was done.
 - The 6 GiB web typecheck was rerun after the Canvas and orchestrator code changes. It reported only three unresolved imports in pre-existing untracked public/legal files (`public-header` in two pages and `legal-toc` in one); no errors were reported in those changed slices. Those user-owned untracked files were not edited.
 - Docker is unavailable in this environment and no local PostgreSQL binaries/service or listener are present (`127.0.0.1:5432` refused). Migrations 0090 and 0091 were journal-checked only and were not applied. Production/VPS was not accessed.
 - 2026-11-17 targeted Canvas edit: 8 focused eCanvas tests passed, `pnpm db:check` passed, targeted Biome passed with only existing PascalCase filename warnings, and `git diff --check` passed. The model/iframe interaction remains unverified in a browser and no PostgreSQL migration was applied.
