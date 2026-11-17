@@ -118,6 +118,12 @@ describe("connector provider token boundary", () => {
   it.each([
     ["gmail", "https://gmail.googleapis.com", "/gmail/v1/users/me/messages"],
     ["google-drive", "https://www.googleapis.com", "/drive/v3/files"],
+    ["google-docs", "https://docs.googleapis.com", "/v1/documents/doc-1"],
+    [
+      "google-sheets",
+      "https://sheets.googleapis.com",
+      "/v4/spreadsheets/sheet-1/values/A1%3AB2",
+    ],
     [
       "google-calendar",
       "https://www.googleapis.com",

@@ -16,6 +16,8 @@ const API_ORIGINS: Partial<Record<ConnectorProvider, string>> = {
   gmail: "https://gmail.googleapis.com",
   "google-drive": "https://www.googleapis.com",
   "google-calendar": "https://www.googleapis.com",
+  "google-docs": "https://docs.googleapis.com",
+  "google-sheets": "https://sheets.googleapis.com",
   github: "https://api.github.com",
   outlook: "https://graph.microsoft.com",
   teams: "https://graph.microsoft.com",

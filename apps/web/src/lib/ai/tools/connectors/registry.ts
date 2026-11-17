@@ -7,6 +7,8 @@ import { createDriveToolForUser } from "./drive-tool";
 import { createFreshdeskToolForUser } from "./freshdesk-tool";
 import { createGitHubToolForUser } from "./github-tool";
 import { createGmailToolForUser } from "./gmail-tool";
+import { createGoogleDocsToolForUser } from "./google-docs-tool";
+import { createGoogleSheetsToolForUser } from "./google-sheets-tool";
 import { createJiraToolForUser } from "./jira-tool";
 import { createLinearToolForUser } from "./linear-tool";
 import { createNotionToolForUser } from "./notion-tool";
@@ -22,6 +24,8 @@ export function createConnectorToolsForUser(userId: string) {
   return {
     [DefaultToolName.Gmail]: createGmailToolForUser(userId),
     [DefaultToolName.GoogleDrive]: createDriveToolForUser(userId),
+    [DefaultToolName.GoogleDocs]: createGoogleDocsToolForUser(userId),
+    [DefaultToolName.GoogleSheets]: createGoogleSheetsToolForUser(userId),
     [DefaultToolName.GoogleCalendar]: createCalendarToolForUser(userId),
     [DefaultToolName.GitHub]: createGitHubToolForUser(userId),
     [DefaultToolName.Outlook]: createOutlookToolForUser(userId),

@@ -54,6 +54,8 @@ export enum DefaultToolName {
   Sandbox = "sandbox",
   Gmail = "gmail",
   GoogleDrive = "google-drive",
+  GoogleDocs = "google-docs",
+  GoogleSheets = "google-sheets",
   GoogleCalendar = "google-calendar",
   Outlook = "outlook",
   Slack = "slack",

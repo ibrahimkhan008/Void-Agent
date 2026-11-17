@@ -271,7 +271,11 @@
   Keep PARTIAL.
 
 ### Connectors
-- ✅ 16 first-party connector tool factories are wired with scoped approvals.
+- ✅ 18 first-party provider tool factories are wired with user-scoped API calls
+  and the existing approval gates for writes. Google Docs and Sheets now have
+  dedicated bounded, read-only tools, and their API origins are fixed in the
+  provider allowlist. Focused tests cover owner binding, URL construction,
+  text extraction, and result limits.
 - ✅ A separate Composio-backed marketplace can list and authorize its live
   toolkit catalog, then provide connected tools to chat when
   `COMPOSIO_API_KEY` is configured.

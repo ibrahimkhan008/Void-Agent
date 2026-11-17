@@ -34,6 +34,8 @@ describe("direct connector tool registry", () => {
     for (const name of [
       DefaultToolName.Gmail,
       DefaultToolName.GoogleDrive,
+      DefaultToolName.GoogleDocs,
+      DefaultToolName.GoogleSheets,
       DefaultToolName.GoogleCalendar,
       DefaultToolName.GitHub,
       DefaultToolName.Outlook,
