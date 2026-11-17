@@ -131,6 +131,32 @@
   canvas as a proportionally scaled image)
 **Commit**: `2ac3d74`
 
+### App Builder E2B lifecycle ✅
+- Static and bounded agent-refinement modes persist owner-scoped build jobs,
+  capped lifecycle logs, generated files, preview URLs, and sandbox ownership.
+- Builds use the Void Agent-owned `void-agent-web` image, built from the local
+  `e2b.web.Dockerfile` (Node 22), with an authenticated controller and
+  explicitly public app port.
+  `E2B_APP_BUILDER_TEMPLATE` can select another compatible account image.
+- General Python/JavaScript execution defaults to the Void Agent-owned
+  `void-agent-code-interpreter`, built from the local
+  `e2b.docs.Dockerfile`. Definitions live in `scripts/e2b/template.mjs` and
+  `e2b/build/build.ts`; runtime snapshots remain in E2B. Missing owned images
+  fail closed instead of silently falling back to an upstream E2B template.
+- Generated browser JavaScript is syntax-checked without execution. Real SDK
+  command errors are reduced to safe diagnostics so generated source is never
+  copied into logs or error fields.
+- Live verification against isolated PostgreSQL 16.15 and E2B covers create,
+  source upload, HTTP preview and CSP, owner isolation, session persistence,
+  pause/auto-resume, deleted-sandbox rebuild, invalid-JavaScript cleanup, and
+  sandbox termination. Three live integration tests and 86 focused unit/API
+  tests pass.
+- Account inventory found 12 ready private templates. The older public
+  `nextjs-developer`, `vue-developer`, `streamlit-developer`, and
+  `gradio-developer` images all reject secured access; they are not used by
+  App Builder. `navigator-remotion-nextjs` and `navigator-python-docs` are not
+  built in this account.
+
 ### Platform core ✅
 - Multi-model chat (AI SDK 7), capability-based auto-routing, resumable
   streams (Redis), realtime voice, E2B sandboxes, admin console
@@ -141,26 +167,6 @@
 ---
 
 ## 🟡 HALF DONE — exists, exact gaps documented
-
-### App Builder build diagnostics
-- 🟡 Owner-scoped build lifecycle logs are now persisted (20,000-character
-  cap), returned through the existing no-store detail endpoint, and shown
-  live while the build is active. Entries cover generation, sandbox
-  provisioning, source upload, readiness, completion, and safe failure text;
-  raw prompts, credentials, generated source, and sandbox stdout are not
-  copied into the log. Focused repository/runner/API tests and schema checks
-  cover the behavior. Generated `app.js` is now parsed inside the E2B sandbox
-  with Node's syntax-check mode before preview startup, including stored files
-  on preview rebuild. Parser output is never persisted because it may include
-  source text; invalid JavaScript fails the build with a safe diagnostic.
-  This is lifecycle progress output, not a raw stdout
-  stream; the E2B server process currently has no build command output to
-  stream because previews serve generated static files. Migration 0092 is
-  journaled but has not been applied to an isolated PostgreSQL database.
-  The focused runner suite (18 tests), four earlier focused suites (38 tests),
-  `db:check`, targeted Biome, and `git diff --check` pass. The 6 GiB web
-  typecheck still reports three unresolved imports in pre-existing untracked
-  public/legal files; it reports no errors in this App Builder slice.
 
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
@@ -220,10 +226,12 @@
   repeats an incomplete verification stage. Resume now atomically claims a
   failed checkpoint for that owner/thread; a second concurrent resume is
   rejected, and stale running/verifying claims can be reclaimed after ten
-  minutes (the run deadline is six minutes). Migration 0091 and focused query
-  shape tests are present. No isolated PostgreSQL or live model/sandbox resume
-  test was run, so database-level crash recovery and side-effect behavior
-  remain unverified. Keep PARTIAL.
+  minutes (the run deadline is six minutes). Migration 0091 has now been
+  applied to isolated PostgreSQL. Real-database tests verify checkpoint
+  creation/save, cross-user and cross-thread isolation, one-winner concurrent
+  claims, and transaction rollback. No live model/sandbox resume test was run,
+  so end-to-end crash recovery and external side-effect behavior remain
+  unverified. Keep PARTIAL.
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
@@ -236,8 +244,10 @@
   signature and delivery-ID contracts follow [GitHub's webhook validation
   guidance](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
   and [best practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks). This has
-  not been exercised against a real GitHub delivery or isolated PostgreSQL;
-  large deliveries above 2 MiB are rejected rather than persisted.
+  not been exercised against a real GitHub delivery; PostgreSQL hook-run
+  idempotency, payload/depth persistence, and the depth-three constraint now
+  pass isolated-database integration tests. Large deliveries above 2 MiB are
+  rejected rather than persisted.
 - 🟡 Additional content-filter operators are implemented locally:
   startsWith, endsWith, notContains, and notEquals. The API validates them,
   and stored invalid rules fail closed; the implementation and tests are
@@ -256,9 +266,11 @@
   depth limit of three. The queued run is durable before Inngest enqueue; the
   existing hook tick can recover queued children if enqueue fails. Focused API
   and executor tests pass (22 cases), targeted Biome and `db:check` pass. The
-  additive PostgreSQL migration is generated and journaled but has not been
-  applied to a local isolated PostgreSQL database; live Inngest/PostgreSQL
-  behavior is not verified, so this remains PARTIAL.
+  additive PostgreSQL migration has now been applied to isolated PostgreSQL.
+  Real-database tests verify trigger-payload/depth persistence, unique event
+  idempotency, and the depth-three constraint. The outbox-to-Inngest enqueue
+  recovery path and real GitHub delivery still have not been exercised, so
+  this remains PARTIAL.
 
 ### §3.6 Canvas depth
 - ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports
@@ -269,8 +281,9 @@
   owner-scoped list/create/delete APIs and PostgreSQL persistence; the eCanvas
   editor loads comments for the selected Excalidraw element. API tests cover
   validation, session ownership, create/list/delete and not-found behavior.
-  Migration 0089 is journaled but has not been applied to isolated PostgreSQL,
-  so cross-request persistence has not been integration-verified.
+  Migration 0089 has now been applied to isolated PostgreSQL; real-database
+  tests verify cross-query persistence, owner filtering, owner-only deletion,
+  and the body-length constraint.
 - 🟡 The existing artifact preview now has an Edit artifact mode: users can
   select existing text or container elements and update leaf text, text color,
   background color, and font size in place; the editor also adds a text node,
@@ -284,12 +297,13 @@
   sandboxed preview, applies only bounded text/style/insert/remove/reorder
   operations, and persists the resulting HTML through the same owner-scoped
   endpoint. Full-document Refine remains available. Focused plan/protocol/API
-  tests pass. The model-generated plan and iframe interaction have not been
-  browser-tested; migration 0090 has not been applied to isolated PostgreSQL.
-  Keep PARTIAL.
+  tests pass. Migration 0090 has now been applied to isolated PostgreSQL;
+  real-database tests verify owner/canvas upsert persistence and cross-owner
+  isolation, plus the storage-size constraint. The model-generated plan and
+  iframe interaction have not been browser-tested. Keep PARTIAL.
 
 ### Connectors
-- ✅ 24 first-party provider tool factories are wired with user-scoped API calls
+- ✅ 25 first-party provider tool factories are wired with user-scoped API calls
   and the existing approval gates for writes. Google Docs, Sheets, Forms, and
   Slides have dedicated bounded, read-only tools, and their API origins are
   fixed in the provider allowlist. Slides text is capped at 60,000 characters;
@@ -422,11 +436,14 @@ items below describe the remaining half-done work only; live verification and
 operator credentials still determine whether an item can be closed.
 
 1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
+   are implemented; a live provider request and billing behavior still need a
+   configured provider/Gateway environment. App Builder's E2B lifecycle is
+   now live-verified separately and no longer blocks this item.
 2. **Canvas structural editing** — text/style and selected-node
    add/reorder/remove controls plus a natural-language targeted-edit plan now
-   exist with durable owner-scoped storage. Apply migration 0090 only to
-   isolated PostgreSQL and verify model-plan application, browser interaction,
-   persistence, and cross-user isolation.
+   exist with durable owner-scoped storage. PostgreSQL persistence and
+   cross-owner isolation are verified; browser-test the model-plan application
+   and iframe interaction.
 3. **Connector wiring** — continue selective callable tools for remaining
    catalog providers. Google Meet and YouTube now have bounded read-only direct
    tools, but the legacy catalog is not a promise that every provider has a
@@ -434,12 +451,12 @@ operator credentials still determine whether an item can be closed.
 4. **Fallback live verification** — exercise Gateway provider/model failover
    with an isolated configured organization and confirm the usage attribution;
    partial-output stream recovery remains a separate design gap
-5. **Orchestrator checkpoints** — local durable-resume implementation exists;
-   apply migration 0091 to isolated PostgreSQL and test crash recovery,
-   ownership, retry behavior, verification resume, and sandbox side effects.
-6. **Live hook verification** — apply the hook-chaining migration to an
-   isolated PostgreSQL database and verify chained execution, deduplication,
-   ownership, and Inngest recovery; repeat real GitHub-delivery checks.
+5. **Orchestrator checkpoints** — database persistence, owner/thread isolation,
+   rollback, and concurrent single-claim behavior are verified against isolated
+   PostgreSQL. Exercise a model/sandbox resume and crash recovery.
+6. **Live hook verification** — database idempotency and chain-depth limits are
+   verified against isolated PostgreSQL; verify chained execution and recovery
+   through isolated Inngest and repeat real GitHub-delivery checks.
 7. **Notification digests** — code and focused tests exist; verify cron
    registration, PostgreSQL query behavior, and delivery through isolated
    Inngest/SMTP before closing
@@ -448,6 +465,36 @@ operator credentials still determine whether an item can be closed.
 
 ## Verification notes
 
+- 2026-11-17 isolated PostgreSQL verification (latest): provisioned a dedicated
+  PostgreSQL 16.15 + pgvector 0.8.6 cluster bound to `127.0.0.1:55432`, using
+  only database `voidagent_migration_test` in the OS temp directory. Applied
+  all **94** journaled PG migrations through `0092_app_build_logs`; database
+  migration rows equal the journal count, and `pnpm db:check` passes. The new
+  opt-in `half-done-postgres.integration.test.ts` passed **5 real PostgreSQL
+  tests** covering canvas comment/artifact persistence and owner isolation,
+  app-build log persistence/limits and concurrent admission, orchestrator
+  checkpoint persistence/owner-thread isolation/atomic concurrent resume
+  claim/transaction rollback, and hook chain-depth/event-idempotency
+  constraints. With the focused mocked repository tests, **17 tests passed**.
+  The integration command sets a four-connection pool so concurrent admission
+  and checkpoint claims reach PostgreSQL simultaneously rather than being
+  serialized by a single client connection. This verifies database
+  persistence and constraints; it
+  does not verify live E2B, model/provider, browser, GitHub delivery, Inngest,
+  SMTP, or production behavior. Historical entries below saying PostgreSQL
+  was unavailable describe earlier checks and are superseded for these four
+  migrations by this later isolated run.
+  Re-run the opt-in integration suite only against the disposable test cluster
+  by setting `TEST_POSTGRES_URL`, `POSTGRES_URL`, and `DATABASE_URL` to
+  `postgres://postgres@127.0.0.1:55432/voidagent_migration_test`, setting
+  `POSTGRES_POOL_MAX=4`, then running
+  `pnpm --filter web exec vitest run src/lib/db/pg/half-done-postgres.integration.test.ts`.
+- 2026-11-17 half-done focused regression sweep: 34 API, routing/BYOK,
+  orchestrator, App Builder, Hooks, eCanvas, notification, webhook, and export
+  suites passed (**235 tests**). One 6 GiB web typecheck was run after adding
+  the opt-in integration suite. The initially missing shared public header and
+  legal TOC components were subsequently implemented; the current 6 GiB web
+  typecheck passes. The complete test suite was not rerun in this batch.
 - 2026-11-17 App Builder JavaScript validation: all four focused build runner,
   API, and repository suites passed (41 tests); the full web suite passed
   (516 files / 3,389 tests). `pnpm db:check`, targeted Biome, and
@@ -455,6 +502,26 @@ operator credentials still determine whether an item can be closed.
   real PostgreSQL integration. Generated `app.js` parser behavior is covered
   through a mocked E2B command; no live E2B sandbox was used. The change is
   published as `24400fe`.
+- 2026-11-17 App Builder live E2B closure: the E2B account inventory exposes
+  ready private templates. `void-agent-web`, built from the repository's local
+  Node image definition, passed secured creation and became the default App
+  Builder image. `void-agent-code-interpreter`, built from the repository's
+  local interpreter definition, returned `42` from a live Python execution. Three
+  opt-in tests passed against real E2B and isolated PostgreSQL, including
+  public preview HTTP/CSP, authenticated controller files API, persisted
+  ownership, cross-owner denial, pause/auto-resume, killed-sandbox rebuild,
+  real SDK syntax-failure sanitization, and cleanup. Focused runner,
+  repository, and API verification passed 86 tests. The historical statement
+  above about mocked-only E2B evidence is superseded by this live run. The
+  source-built runtimes and application wiring were published in `a94e39d`.
+- 2026-11-17 publication closure: public marketing/legal foundations and the
+  previously missing shared header/TOC components passed the 6 GiB web
+  typecheck and were published in `f5b30f0`. The guarded isolated-PostgreSQL
+  suite was rerun 5/5 with `db:check` passing and published in `822ce26`.
+  A production build then exposed PptxGenJS's guarded Node-core imports in the
+  eCanvas browser bundle. The client-only alias/fallback fix was published in
+  `5fd77e7`; Office export tests pass 4/4, targeted Biome passes, and the
+  production web build completes with all 138 static pages generated.
 - Local integration prerequisites were rechecked on 2026-11-17: Docker CLI is
   installed but its engine pipe is unavailable; Docker Desktop's executable
   is absent; WSL exposes only the docker-desktop distro; there is no `psql`,
