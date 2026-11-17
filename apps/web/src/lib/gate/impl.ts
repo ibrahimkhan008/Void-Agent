@@ -1,4 +1,5 @@
 import "server-only";
+import { sendSmtpEmail } from "@/lib/notifications/send-smtp-email";
 import type {
   BillingContext,
   CreatedUser,
@@ -69,10 +70,12 @@ export async function sendOrgInvitationEmail(
   _invitation: OrganizationInvitation,
 ): Promise<void> {}
 
-/** Likewise for operator notifications such as problem reports. */
+/** Send operator notifications through the configured SMTP relay. */
 export async function sendNotificationEmail(
-  _email: NotificationEmail,
-): Promise<void> {}
+  email: NotificationEmail,
+): Promise<void> {
+  await sendSmtpEmail(email);
+}
 
 /**
  * Likewise for password resets: Better Auth still generates the token-bearing

@@ -29,7 +29,7 @@ import {
 } from "lib/problem-report/notification";
 import { raiseProblemReportIncident } from "lib/problem-report/superlog-incident";
 import globalLogger from "logger";
-import { after, NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 const logger = globalLogger.withDefaults({ message: "ProblemReport: " });
 
@@ -107,8 +107,7 @@ export const POST = withAuth(async (request, session) => {
       body: problemReportEmailBody(emailInput),
     });
   } catch (error) {
-    // The mail transport already swallows its own failures; this only
-    // catches a builder throwing, which must still not lose the stored report.
+    // A missing or failed SMTP relay must not lose the stored report.
     logger.warn("Problem report notification email failed:", error);
   }
 
