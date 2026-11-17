@@ -48,8 +48,8 @@
   presentations (2, MIT), documents (2, MIT), visualize (1, Apache-2.0),
   skill-creator (1, MIT), design (83, Apache-2.0) — all Void-Agent-native
   (ZCode runner references adapted)
-- **Connectors**: 20 first-party wired (Gmail, Drive, Calendar, Docs, Sheets,
-  Forms, Slides, GitHub, Slack, Notion, Outlook, Teams, Jira, Linear, Asana,
+- **Connectors**: 22 first-party wired (Gmail, Drive, Calendar, Docs, Sheets,
+  Forms, Slides, Tasks, Keep, GitHub, Slack, Notion, Outlook, Teams, Jira, Linear, Asana,
   ClickUp, Freshdesk, Zendesk, Productboard, Zulip) with user-scoped OAuth
   and scoped write approvals. Docs/Sheets/Forms/Slides tools are bounded and
   read-only; Google Forms does not fetch response data.
@@ -284,12 +284,17 @@
   Keep PARTIAL.
 
 ### Connectors
-- ✅ 20 first-party provider tool factories are wired with user-scoped API calls
+- ✅ 22 first-party provider tool factories are wired with user-scoped API calls
   and the existing approval gates for writes. Google Docs, Sheets, Forms, and
   Slides have dedicated bounded, read-only tools, and their API origins are
   fixed in the provider allowlist. Slides text is capped at 60,000 characters;
   Forms returns question structure only and does not read responses. Focused
   tests cover owner binding, URL construction, text extraction, and limits.
+  Google Tasks now lists user task lists or bounded task summaries read-only;
+  it does not expose mutation operations or provider-supplied links. Google
+  Keep now exposes bounded, paginated note text only; no permissions or
+  attachments are returned. Keep API availability may be limited to Google
+  Workspace enterprise use, and was not live-verified here.
 - ✅ A separate Composio-backed marketplace can list and authorize its live
   toolkit catalog, then provide connected tools to chat when
   `COMPOSIO_API_KEY` is configured.
@@ -419,6 +424,8 @@ operator credentials still determine whether an item can be closed.
 - 2026-11-17 continuation: the complete web Vitest suite passed **505 files / 3,342 tests** after the routing-priority, eCanvas artifact-editor/storage, and orchestrator-checkpoint slices were published. Focused suites, targeted Biome, migration-journal checks, and `git diff --check` also passed for those changes. This is a local unit/component/API suite; it does not establish PostgreSQL integration, browser E2E, live model/provider, Inngest, SMTP, or GitHub webhook verification.
 - 2026-11-17 Gateway fallback slice: focused fallback/BYOK suites passed (2 files / 8 tests), targeted Biome and `git diff --check` passed. A single 6 GiB typecheck reported only the three pre-existing missing imports in preserved, untracked public/legal files; it reported no errors in the fallback changes. No live Gateway/provider failover test was run. AI Gateway's documented `providerOptions.gateway.models` behavior retries configured models when the primary fails or is unavailable; this does not prove recovery after partial output has reached the client.
 - 2026-11-17 Google Forms/Slides connector slice: added owner-bound read-only form-structure and slide-text tools on fixed Google API origins, reusing the already configured OAuth providers/scopes. No form responses are read. Six focused suites (31 tests), targeted Biome, and `git diff --check` pass. A 6 GiB typecheck still reports only the three unresolved imports in preserved untracked public/legal files; no changed connector errors. Live Google OAuth/API access was not tested.
+- 2026-11-17 Google Tasks connector slice: adds read-only paginated task-list/task views using the authenticated user's Tasks API, bounded summaries, and a fixed API origin. The OAuth provider/scopes already existed. Included in eight focused suites (38 tests) with registry/origin coverage; targeted Biome and `git diff --check` pass. No live Google account was used.
+- 2026-11-17 Google Keep connector slice: adds bounded, paginated read-only notes using fixed Keep API origin; response excludes permissions and attachments. Included in eight focused suites (38 tests) with registry/origin coverage; targeted Biome and `git diff --check` pass. Google's API overview describes Keep API as for enterprise administration; ordinary consumer-account availability remains unverified.
 - The 6 GiB web typecheck was rerun after the Canvas and orchestrator code changes. It reported only three unresolved imports in pre-existing untracked public/legal files (`public-header` in two pages and `legal-toc` in one); no errors were reported in those changed slices. Those user-owned untracked files were not edited.
 - Docker is unavailable in this environment and no local PostgreSQL binaries/service or listener are present (`127.0.0.1:5432` refused). Migrations 0090 and 0091 were journal-checked only and were not applied. Production/VPS was not accessed.
 - 2026-11-17 targeted Canvas edit: 8 focused eCanvas tests passed, `pnpm db:check` passed, targeted Biome passed with only existing PascalCase filename warnings, and `git diff --check` passed. The model/iframe interaction remains unverified in a browser and no PostgreSQL migration was applied.

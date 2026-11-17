@@ -58,6 +58,8 @@ export enum DefaultToolName {
   GoogleSheets = "google-sheets",
   GoogleForms = "google-forms",
   GoogleSlides = "google-slides",
+  GoogleTasks = "google-tasks",
+  GoogleKeep = "google-keep",
   GoogleCalendar = "google-calendar",
   Outlook = "outlook",
   Slack = "slack",

@@ -9,8 +9,10 @@ import { createGitHubToolForUser } from "./github-tool";
 import { createGmailToolForUser } from "./gmail-tool";
 import { createGoogleDocsToolForUser } from "./google-docs-tool";
 import { createGoogleFormsToolForUser } from "./google-forms-tool";
+import { createGoogleKeepToolForUser } from "./google-keep-tool";
 import { createGoogleSheetsToolForUser } from "./google-sheets-tool";
 import { createGoogleSlidesToolForUser } from "./google-slides-tool";
+import { createGoogleTasksToolForUser } from "./google-tasks-tool";
 import { createJiraToolForUser } from "./jira-tool";
 import { createLinearToolForUser } from "./linear-tool";
 import { createNotionToolForUser } from "./notion-tool";
@@ -29,7 +31,9 @@ export function createConnectorToolsForUser(userId: string) {
     [DefaultToolName.GoogleDocs]: createGoogleDocsToolForUser(userId),
     [DefaultToolName.GoogleSheets]: createGoogleSheetsToolForUser(userId),
     [DefaultToolName.GoogleForms]: createGoogleFormsToolForUser(userId),
+    [DefaultToolName.GoogleKeep]: createGoogleKeepToolForUser(userId),
     [DefaultToolName.GoogleSlides]: createGoogleSlidesToolForUser(userId),
+    [DefaultToolName.GoogleTasks]: createGoogleTasksToolForUser(userId),
     [DefaultToolName.GoogleCalendar]: createCalendarToolForUser(userId),
     [DefaultToolName.GitHub]: createGitHubToolForUser(userId),
     [DefaultToolName.Outlook]: createOutlookToolForUser(userId),
