@@ -16,11 +16,36 @@
  * verbatim to Sandbox.create, so a mismatch surfaces at runtime as a 502
  * template_not_available rather than at build time.
  *
- * Community templates (nextjs-developer, vue-developer, streamlit-developer,
- * gradio-developer, code-interpreter-v1) are NOT listed here: they are not
- * built by this repo and must already exist in the E2B account.
+ * The two production defaults are built from Docker definitions in this repo.
+ * Community templates remain compatibility options and are not built here.
  */
 export const CUSTOM_TEMPLATES = [
+  {
+    name: "void-agent-web",
+    dockerfile: "./e2b.web.Dockerfile",
+    kind: "preview",
+    startCommand: "sleep infinity",
+    readyCommand: "node --version",
+    port: 3000,
+    entrypoint: "index.html",
+    packages: ["node@22.11.0"],
+  },
+  {
+    name: "void-agent-code-interpreter",
+    dockerfile: "./e2b.docs.Dockerfile",
+    kind: "execution",
+    startCommand: "sudo --preserve-env=E2B_LOCAL /root/.jupyter/start-up.sh",
+    readyCommand:
+      "curl --fail --silent --show-error http://localhost:49999/health",
+    port: null,
+    entrypoint: "script.py",
+    packages: [
+      "reportlab==4.2.5",
+      "fpdf2==2.8.2",
+      "weasyprint==63.1",
+      "pypdf==5.1.0",
+    ],
+  },
   {
     name: "navigator-remotion-nextjs",
     dockerfile: "./e2b.Dockerfile",
@@ -66,6 +91,12 @@ export const CUSTOM_TEMPLATES = [
       "pypdf==5.1.0",
     ],
   },
+];
+
+/** Owned templates the application uses by default. */
+export const OWNED_RUNTIME_TEMPLATE_NAMES = [
+  "void-agent-web",
+  "void-agent-code-interpreter",
 ];
 
 /**

@@ -21,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   ALL_TEMPLATE_NAMES,
   COMMUNITY_PREVIEW_TEMPLATES,
+  OWNED_RUNTIME_TEMPLATE_NAMES,
 } from "./template.mjs";
 
 // The SDK is a dependency of apps/web (pnpm keeps it under apps/web/node_modules,
@@ -31,12 +32,15 @@ const webRequire = createRequire(
 );
 
 // Derived from scripts/e2b/template.mjs so this list cannot drift from the one
-// the app actually asks for. Set E2B_INCLUDE_CUSTOM_TEMPLATE=1 to also probe
-// custom templates built by this repo.
+// the app actually asks for. Owned runtime images are part of the normal diagnostic;
+// set E2B_INCLUDE_CUSTOM_TEMPLATE=1 to also probe optional custom images.
 const TEMPLATES =
   process.env.E2B_INCLUDE_CUSTOM_TEMPLATE === "1"
     ? ALL_TEMPLATE_NAMES
-    : COMMUNITY_PREVIEW_TEMPLATES.map((template) => template.name);
+    : [
+        ...COMMUNITY_PREVIEW_TEMPLATES.map((template) => template.name),
+        ...OWNED_RUNTIME_TEMPLATE_NAMES,
+      ];
 
 async function main() {
   const apiKey = process.env.E2B_API_KEY;

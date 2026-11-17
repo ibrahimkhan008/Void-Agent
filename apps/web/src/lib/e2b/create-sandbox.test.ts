@@ -96,14 +96,14 @@ describe("isPreviewTemplate / secureForTemplate", () => {
     expect(secureForTemplate("code-interpreter-v1")).toBe(true);
   });
 
-  test("dev-server templates are previews and run insecure for the iframe", () => {
+  test("dev-server templates remain previews with secured controllers", () => {
     for (const t of [
       "nextjs-developer",
       "vue-developer",
       "navigator-remotion-nextjs",
     ]) {
       expect(isPreviewTemplate(t)).toBe(true);
-      expect(secureForTemplate(t)).toBe(false);
+      expect(secureForTemplate(t)).toBe(true);
     }
   });
 });
@@ -118,12 +118,12 @@ describe("createSandbox", () => {
     expect(createMock).toHaveBeenCalledTimes(1);
   });
 
-  test("passes secure=false for preview templates, secure=true for exec", async () => {
+  test("passes secure=true for preview and execution templates", async () => {
     createMock.mockResolvedValue(fakeSandbox());
     await createSandbox("nextjs-developer", { billing });
     expect(createMock).toHaveBeenLastCalledWith(
       "nextjs-developer",
-      expect.objectContaining({ secure: false }),
+      expect.objectContaining({ secure: true }),
     );
     await createSandbox("code-interpreter-v1", { billing });
     expect(createMock).toHaveBeenLastCalledWith(
@@ -195,6 +195,38 @@ describe("createSandbox", () => {
       createSandbox("nextjs-developer", { billing, backoffMs: 0 }),
     ).resolves.toBe(sbx);
     expect(createMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("fails fast with a rebuild instruction for incompatible secured templates", async () => {
+    const error = new Error(
+      "400: Template is not compatible with secured access",
+    );
+    createMock.mockRejectedValue(error);
+    await expect(
+      createSandbox("nextjs-developer", { billing, backoffMs: 0 }),
+    ).rejects.toBe(error);
+    expect(createMock).toHaveBeenCalledOnce();
+    expect(toSandboxErrorResponse(error)).toMatchObject({
+      status: 502,
+      code: "template_requires_rebuild",
+      retryable: false,
+    });
+  });
+
+  test("does not retry or expose details of other HTTP 400 errors", async () => {
+    const error = new Error("400: invalid configuration private-value");
+    createMock.mockRejectedValue(error);
+    await expect(
+      createSandbox("code-interpreter-v1", { billing, backoffMs: 0 }),
+    ).rejects.toBe(error);
+    expect(createMock).toHaveBeenCalledOnce();
+    expect(toSandboxErrorResponse(error)).toMatchObject({
+      status: 400,
+      retryable: false,
+    });
+    expect(toSandboxErrorResponse(error).message).not.toContain(
+      "private-value",
+    );
   });
 
   test("gives up after maxAttempts on persistent retryable error", async () => {

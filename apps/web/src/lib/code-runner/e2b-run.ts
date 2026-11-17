@@ -10,22 +10,18 @@ import {
   type SandboxBillingContext,
   createSandbox,
   errorLabel,
-  isTemplateNotFound,
   toSandboxErrorResponse,
 } from "lib/e2b/create-sandbox";
-import {
-  STOCK_EXECUTION_TEMPLATE_ID,
-  getExecutionTemplateId,
-} from "lib/e2b/sandbox-registry";
+import { getExecutionTemplateId } from "lib/e2b/sandbox-registry";
 import { serverFileStorage } from "lib/file-storage";
 import logger from "lib/logger";
 import { formatBytes } from "lib/utils";
-import { INTERACTIVE_EXECUTION_TIMEOUT_MS } from "./timeouts";
 import type {
   CodeRunnerResult,
   E2BArtifact,
   LogEntry,
 } from "./code-runner.interface";
+import { INTERACTIVE_EXECUTION_TIMEOUT_MS } from "./timeouts";
 
 const DEFAULT_EXECUTION_TIMEOUT_MS = INTERACTIVE_EXECUTION_TIMEOUT_MS;
 
@@ -139,48 +135,17 @@ export type E2BStagedFile = { filename: string; bytes: Buffer };
 /** Working directory the interpreter template runs in; also where files land. */
 const SANDBOX_WORKDIR = "/home/user";
 
-/**
- * Start an execution sandbox, falling back to the stock interpreter when the
- * configured template does not exist in the E2B account.
- *
- * `E2B_EXECUTION_TEMPLATE` names a template without proving it was ever built,
- * so a value that is merely aspirational — or mistyped — used to fail every
- * Python *and* JavaScript run with "Failed to start the sandbox", since both
- * resolve the same id. Degrading to `code-interpreter-v1` costs the
- * preinstalled document libraries (the model is told to pip install when they
- * are absent, and `describeExecutionError` repeats that on a
- * ModuleNotFoundError), which beats executing nothing at all.
- *
- * Logged at error level, not warn: nothing about this is normal, and the log
- * line is the only thing that will tell an operator their env var points at
- * an image that does not exist.
- */
 async function createExecutionSandbox(
   template: string,
   apiKey: string,
   billing: SandboxBillingContext,
 ): Promise<Sandbox> {
-  try {
-    return await createSandbox(template, {
-      apiKey,
-      timeoutMs: EXEC_SANDBOX_TIMEOUT_MS,
-      billing,
-      requestId: randomUUID(),
-    });
-  } catch (err) {
-    if (!isTemplateNotFound(err) || template === STOCK_EXECUTION_TEMPLATE_ID) {
-      throw err;
-    }
-    logger.error(
-      `[e2b] template=${template} does not exist in this E2B account; falling back to ${STOCK_EXECUTION_TEMPLATE_ID}. Build it or unset E2B_EXECUTION_TEMPLATE. error=${errorLabel(err)}`,
-    );
-    return createSandbox(STOCK_EXECUTION_TEMPLATE_ID, {
-      apiKey,
-      timeoutMs: EXEC_SANDBOX_TIMEOUT_MS,
-      billing,
-      requestId: randomUUID(),
-    });
-  }
+  return createSandbox(template, {
+    apiKey,
+    timeoutMs: EXEC_SANDBOX_TIMEOUT_MS,
+    billing,
+    requestId: randomUUID(),
+  });
 }
 
 export async function e2bRun(

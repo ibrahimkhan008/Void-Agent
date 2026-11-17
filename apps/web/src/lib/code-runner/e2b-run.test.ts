@@ -15,10 +15,6 @@ vi.mock("lib/e2b/create-sandbox", () => ({
   createSandbox: createSandboxMock,
   errorLabel: (err: unknown) => String(err),
   toSandboxErrorResponse: (err: unknown) => ({ message: String(err) }),
-  isTemplateNotFound: (err: unknown) =>
-    err instanceof Error && /^\d{3}:/.test(err.message)
-      ? err.message.startsWith("404:")
-      : false,
 }));
 vi.mock("lib/e2b/artifact-files", () => ({
   collectGeneratedFiles: vi.fn().mockResolvedValue([]),
@@ -301,53 +297,29 @@ describe("e2bRun", () => {
     expect(loggerMock.warn).not.toHaveBeenCalled();
   });
 
-  // E2B_EXECUTION_TEMPLATE took production down by naming a template that had
-  // never been built: both Python and JS resolve the same id, so every run
-  // failed. Degrading to the stock interpreter loses the preinstalled document
-  // libraries; it does not lose code execution.
-  test("falls back to the stock interpreter when the template does not exist", async () => {
-    const sbx = {
-      sandboxId: "sbx-3",
-      runCode: vi.fn().mockResolvedValue({
-        logs: { stdout: ["ok"], stderr: [] },
-        results: [],
-        error: undefined,
-      }),
-      kill: vi.fn().mockResolvedValue(undefined),
-    };
-    createSandboxMock
-      .mockRejectedValueOnce(
-        new Error("404: template 'navigator-python-docs' not found"),
-      )
-      .mockResolvedValueOnce(sbx);
+  test("does not fall back to an upstream template when the owned image is missing", async () => {
+    createSandboxMock.mockRejectedValueOnce(
+      new Error("404: template 'void-agent-code-interpreter' not found"),
+    );
     process.env.E2B_API_KEY = "key";
-    process.env.E2B_EXECUTION_TEMPLATE = "navigator-python-docs";
 
     const result = await e2bRun("print(1)", "python", {
       userId: "u1",
       customerId: "c1",
     });
 
-    expect(result.success).toBe(true);
-    expect(createSandboxMock).toHaveBeenCalledTimes(2);
-    expect(createSandboxMock.mock.calls[0]?.[0]).toBe("navigator-python-docs");
-    expect(createSandboxMock.mock.calls[1]?.[0]).toBe("code-interpreter-v1");
-    // The operator's only clue that the env var is wrong.
-    expect(loggerMock.error).toHaveBeenCalledWith(
-      expect.stringContaining("E2B_EXECUTION_TEMPLATE"),
+    expect(result.success).toBe(false);
+    expect(createSandboxMock).toHaveBeenCalledTimes(1);
+    expect(createSandboxMock).toHaveBeenCalledWith(
+      "void-agent-code-interpreter",
+      expect.any(Object),
     );
   });
 
-  test("does not retry the stock interpreter against itself", async () => {
-    // Nothing left to fall back to — one attempt, and the error surfaces.
-    //
-    // The template is pinned rather than left to the registry default: this
-    // case is about the configured template already BEING the fallback, so
-    // leaning on the default made the test silently stop testing that the
-    // day the default moved to navigator-python-docs.
-    process.env.E2B_EXECUTION_TEMPLATE = "code-interpreter-v1";
+  test("does not retry a missing explicit owned override", async () => {
+    process.env.E2B_EXECUTION_TEMPLATE = "void-agent-code-interpreter-canary";
     createSandboxMock.mockRejectedValue(
-      new Error("404: template 'code-interpreter-v1' not found"),
+      new Error("404: template 'void-agent-code-interpreter-canary' not found"),
     );
     process.env.E2B_API_KEY = "key";
 

@@ -55,7 +55,10 @@ vi.mock("lib/e2b/sandbox-ownership", () => ({
 }));
 vi.mock("@e2b/code-interpreter", () => ({
   Sandbox: { setTimeout: mocks.setTimeout, connect: mocks.connect },
+  SandboxNotFoundError: class SandboxNotFoundError extends Error {},
 }));
+
+import { SandboxNotFoundError } from "@e2b/code-interpreter";
 
 // Type-only: erased before vitest runs, so the vi.mock of the repository
 // module is unaffected.
@@ -148,8 +151,11 @@ describe("E2B app build lifecycle", () => {
       previewUrl: "https://preview-3000.e2b.dev",
     });
     expect(mocks.createSandbox).toHaveBeenCalledWith(
-      "nextjs-developer",
+      "void-agent-web",
       expect.objectContaining({
+        secure: true,
+        network: { allowPublicTraffic: true },
+        lifecycle: { onTimeout: "pause", autoResume: true },
         billing: { userId: "owner", customerId: "customer" },
         metadata: { buildId: input.buildId, feature: "app-builder" },
       }),
@@ -248,6 +254,43 @@ describe("E2B app build lifecycle", () => {
     expect(mocks.generateAppPlan).toHaveBeenLastCalledWith(
       input.prompt,
       expect.objectContaining({ mode: undefined }),
+    );
+  });
+
+  it("rejects an HTTP error page even when the sandbox host is reachable", async () => {
+    mocks.waitForSandboxReady.mockResolvedValue({
+      ready: true,
+      lastStatus: 503,
+    });
+    await expect(executeAppBuild(input)).rejects.toThrow(
+      "Preview server was not ready in time",
+    );
+    expect(sandbox.kill).toHaveBeenCalledOnce();
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes SDK command errors containing generated source", async () => {
+    mocks.generateAppPlan.mockResolvedValue({
+      title: "Timer",
+      summary: "A focus timer.",
+      files: [{ path: "app.js", content: "const broken = ;" }],
+    });
+    sandbox.commands.run.mockImplementation(async (command) => {
+      if (command.startsWith("node --check")) {
+        throw new Error("Command exited with code 1: const broken = ;");
+      }
+      return { exitCode: 0 };
+    });
+    await expect(executeAppBuild(input)).rejects.toThrow(
+      "Generated JavaScript failed syntax validation",
+    );
+    expect(sandbox.kill).toHaveBeenCalledOnce();
+    const diagnostics = mocks.updateActiveForOwner.mock.calls.map(
+      ([, , patch]) => patch.error,
+    );
+    expect(JSON.stringify(diagnostics)).not.toContain("const broken");
+    expect(JSON.stringify(mocks.appendLogForOwner.mock.calls)).not.toContain(
+      "const broken",
     );
   });
 
@@ -396,8 +439,11 @@ describe("resumeAppBuild", () => {
     ).resolves.toBe("https://preview-3000.e2b.dev");
     expect(mocks.markState).toHaveBeenCalledWith("sbx_existing", "killed");
     expect(mocks.createSandbox).toHaveBeenCalledWith(
-      "nextjs-developer",
+      "void-agent-web",
       expect.objectContaining({
+        secure: true,
+        network: { allowPublicTraffic: true },
+        lifecycle: { onTimeout: "pause", autoResume: true },
         billing: { userId: "owner", customerId: null },
         metadata: { buildId: build.id, feature: "app-builder" },
       }),
@@ -410,6 +456,17 @@ describe("resumeAppBuild", () => {
       "/home/user/app/server.js",
       expect.stringContaining("http.createServer"),
     );
+  });
+
+  it("rebuilds on the SDK's typed missing-sandbox error without a status prefix", async () => {
+    mocks.connect.mockRejectedValue(
+      new SandboxNotFoundError("Paused sandbox sbx_existing not found"),
+    );
+    await expect(
+      resumeAppBuild({ build, userId: "owner", customerId: null }),
+    ).resolves.toBe("https://preview-3000.e2b.dev");
+    expect(mocks.createSandbox).toHaveBeenCalledOnce();
+    expect(mocks.markState).toHaveBeenCalledWith("sbx_existing", "killed");
   });
 
   it("syntax-checks stored app.js before restarting a rebuilt preview", async () => {

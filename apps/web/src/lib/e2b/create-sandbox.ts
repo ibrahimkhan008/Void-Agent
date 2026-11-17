@@ -62,17 +62,13 @@ export function isPreviewTemplate(template: string): boolean {
 
 /**
  * Whether the sandbox controller (envd) traffic should be authenticated.
- *
- * - Preview templates run with `secure: false` **on purpose**: the browser
- *   loads `https://<getHost(port)>` directly in an `<iframe>` and cannot attach
- *   the envd access token, so secured envd would 401 the preview. The exposed
- *   surface is the user-generated app on its own port, not the controller.
- * - Exec-only templates run with the SDK default `secure: true`: we drive them
- *   entirely through the SDK (which carries the token), never expose the host,
- *   so there is no reason to weaken authentication.
+ * Application-port visibility is controlled separately by
+ * `network.allowPublicTraffic`. E2B now requires secured controller access,
+ * and rejects old templates that cannot support it, so every template uses
+ * the authenticated controller path.
  */
-export function secureForTemplate(template: string): boolean {
-  return !isPreviewTemplate(template);
+export function secureForTemplate(_template: string): boolean {
+  return true;
 }
 
 export type SandboxBillingContext = {
@@ -130,7 +126,8 @@ function isNonRetryable(err: unknown): boolean {
     isTemplateNotFound(err) ||
     err instanceof AuthenticationError ||
     err instanceof RateLimitError ||
-    err instanceof InvalidArgumentError
+    err instanceof InvalidArgumentError ||
+    statusFromError(err) === 400
   );
 }
 
@@ -223,6 +220,19 @@ export function toSandboxErrorResponse(
   err: unknown,
   template?: string,
 ): SandboxErrorResponse {
+  if (
+    statusFromError(err) === 400 &&
+    err instanceof Error &&
+    err.message.includes("Template is not compatible with secured access")
+  ) {
+    return {
+      status: 502,
+      code: "template_requires_rebuild",
+      message:
+        "This sandbox template requires a rebuild to support secured access. Choose a compatible template or rebuild it in E2B.",
+      retryable: false,
+    };
+  }
   if (isTemplateNotFound(err)) {
     return {
       status: 502,
@@ -259,11 +269,11 @@ export function toSandboxErrorResponse(
       retryable: true,
     };
   }
-  if (err instanceof InvalidArgumentError) {
+  if (err instanceof InvalidArgumentError || statusFromError(err) === 400) {
     return {
       status: 400,
       code: "e2b_invalid_argument",
-      message: `Invalid sandbox request: ${errorLabel(err)}`,
+      message: "Invalid sandbox request. Check the sandbox configuration.",
       retryable: false,
     };
   }

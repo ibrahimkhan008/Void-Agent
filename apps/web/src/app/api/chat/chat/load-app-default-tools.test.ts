@@ -219,7 +219,7 @@ describe("create-pdf binding", () => {
   });
 
   it("binds an executable tool when the renderer is available", () => {
-    process.env.E2B_EXECUTION_TEMPLATE = "navigator-python-docs";
+    process.env.E2B_EXECUTION_TEMPLATE = "void-agent-code-interpreter";
 
     const tools = loadDocumentTools("u1");
     expect(tools[DefaultToolName.CreatePdf]?.execute).toBeTypeOf("function");
@@ -228,7 +228,7 @@ describe("create-pdf binding", () => {
   it("leaves the placeholder when there is no user to bill", () => {
     // Without a userId there is nothing to bind, so the unbound entry stays
     // and says so rather than rendering as a nameless user.
-    process.env.E2B_EXECUTION_TEMPLATE = "navigator-python-docs";
+    process.env.E2B_EXECUTION_TEMPLATE = "void-agent-code-interpreter";
 
     expect(loadDocumentTools()).toHaveProperty(DefaultToolName.CreatePdf);
   });

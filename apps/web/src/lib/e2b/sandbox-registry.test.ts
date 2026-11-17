@@ -25,11 +25,8 @@ describe("sandbox template registry", () => {
     expect(getEnabledPreviewTemplate("code-interpreter-v1")).toBeUndefined();
   });
 
-  test("enables the document template now that its image is built", () => {
-    // Enabled only after Actions → Build E2B template published it. An
-    // enabled-but-unbuilt id is not a validation error: it 404s on every
-    // execution at runtime, which is how it took production down once.
-    expect(getSandboxTemplate("navigator-python-docs")?.enabled).toBe(true);
+  test("keeps the unbuilt document template disabled", () => {
+    expect(getSandboxTemplate("navigator-python-docs")?.enabled).toBe(false);
     // Still never a preview — it exposes no dev server to iframe.
     expect(getEnabledPreviewTemplate("navigator-python-docs")).toBeUndefined();
   });
@@ -102,33 +99,24 @@ describe("execution template resolution", () => {
     else process.env.E2B_EXECUTION_TEMPLATE = original;
   });
 
-  test("defaults to the docs image now that it is built", () => {
+  test("defaults to the Void Agent-owned interpreter image", () => {
     delete process.env.E2B_EXECUTION_TEMPLATE;
-    expect(getExecutionTemplateId()).toBe("navigator-python-docs");
-    // Which is what lets create-pdf be offered at all, and what stops the
-    // Python tool telling the model to pip install what is already there.
+    expect(getExecutionTemplateId()).toBe("void-agent-code-interpreter");
     expect(hasPreinstalledDocumentLibraries()).toBe(true);
   });
 
-  test("honours the env override, the deploy-free rollback", () => {
+  test("honours an explicit owned rollout override", () => {
     process.env.E2B_EXECUTION_TEMPLATE = "navigator-python-docs";
     expect(getExecutionTemplateId()).toBe("navigator-python-docs");
-    expect(hasPreinstalledDocumentLibraries()).toBe(true);
+    expect(hasPreinstalledDocumentLibraries()).toBe(false);
 
-    process.env.E2B_EXECUTION_TEMPLATE = "code-interpreter-v1";
-    expect(getExecutionTemplateId()).toBe("code-interpreter-v1");
+    process.env.E2B_EXECUTION_TEMPLATE = "void-agent-code-interpreter-canary";
+    expect(getExecutionTemplateId()).toBe("void-agent-code-interpreter-canary");
   });
 
   test("ignores a blank override rather than asking for template ''", () => {
     process.env.E2B_EXECUTION_TEMPLATE = "   ";
-    expect(getExecutionTemplateId()).toBe("navigator-python-docs");
-  });
-
-  // The rollback path, and the one that matters after an incident: naming the
-  // stock image beats editing the registry and waiting for a deploy.
-  test("the env override still rolls back to the stock interpreter", () => {
-    process.env.E2B_EXECUTION_TEMPLATE = "code-interpreter-v1";
-    expect(getExecutionTemplateId()).toBe("code-interpreter-v1");
-    expect(hasPreinstalledDocumentLibraries()).toBe(false);
+    expect(getExecutionTemplateId()).toBe("void-agent-code-interpreter");
+    expect(hasPreinstalledDocumentLibraries()).toBe(true);
   });
 });

@@ -22,9 +22,7 @@ globs only `apps/*`, `packages/*`, `servers/*`) and outside the root tsconfig â€
 exactly like `e2b/template/`, which is the same arrangement for the Remotion
 sandbox app.
 
-It has no lockfile yet: every version in `package.json` is pinned exactly, so
-`npm install` is reproducible enough to run. Run `npm install` here once and
-commit the `package-lock.json` to make it exact.
+Its committed `package-lock.json` pins the standalone builder dependency tree.
 
 ## Running it by hand
 
@@ -34,15 +32,29 @@ npm install
 E2B_API_KEY=... E2B_TEMPLATE=navigator-python-docs npx tsx build.ts
 ```
 
+To build the two Void Agent-owned runtime templates from the Docker definitions
+stored in this repository:
+
+```bash
+cd e2b/build
+npm install
+E2B_API_KEY=... E2B_TEMPLATE=void-agent-web npx tsx build.ts
+E2B_API_KEY=... E2B_TEMPLATE=void-agent-code-interpreter npx tsx build.ts
+```
+
+The source of truth is `scripts/e2b/template.mjs`. The corresponding local
+images are `e2b.web.Dockerfile` and `e2b.docs.Dockerfile`; neither runtime build
+inherits from the `flare-sh/flare-web` or `code-interpreter-v1` template alias.
+
 `E2B_TEMPLATE` must name an entry in `scripts/e2b/template.mjs`, which is the
 single source of truth for template names, start commands and ready commands â€”
 `sandbox-registry.test.ts` asserts those names match the app's registry.
 
 ## After a build
 
-Building the image is not the same as using it. `getExecutionTemplateId()` still
-returns `code-interpreter-v1` until either `E2B_EXECUTION_TEMPLATE` names the new
-template or its registry entry is flipped to `enabled: true`. Verify first:
+Building an image is not the same as using it. The app defaults to the verified
+`void-agent-web` and `void-agent-code-interpreter` aliases; other custom images
+stay disabled until their registry entry is explicitly enabled. Verify first:
 
 ```bash
 E2B_API_KEY=... pnpm e2b:diagnose            # from the repo root

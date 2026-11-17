@@ -488,10 +488,10 @@ export const loadAppDefaultTools = (opt?: {
           }
         }
         if (updatedTools[DefaultToolName.CreatePdf]) {
-          // Rendering is WeasyPrint inside the sandbox, and only the document
-          // template has it. Offering the tool against the stock interpreter
-          // would mean every call fails on the import, so drop it instead —
-          // the model then reaches for python-execution, which still works.
+          // Rendering is WeasyPrint inside the owned interpreter image.
+          // Offering the tool against the stock fallback would mean every
+          // call fails on import, so drop it there — the model can still use
+          // ordinary Python execution.
           if (hasPreinstalledDocumentLibraries()) {
             updatedTools[DefaultToolName.CreatePdf] = createPdfTool({
               userId: opt.userId,

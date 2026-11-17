@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Sandbox } from "@e2b/code-interpreter";
+import { Sandbox, SandboxNotFoundError } from "@e2b/code-interpreter";
 import {
   type AppBuildMode,
   appPlanSchema,
@@ -19,9 +19,12 @@ import {
   waitForSandboxReady,
 } from "lib/e2b/create-sandbox";
 import { isSandboxOwner } from "lib/e2b/sandbox-ownership";
-import { getEnabledPreviewTemplate } from "lib/e2b/sandbox-registry";
 
-const TEMPLATE = "nextjs-developer";
+// This account-owned web image carries a current envd controller and Node 22.
+// The former public Next.js image predates secured access and E2B refuses to
+// create it. Keep an operator override for a separately rebuilt web image.
+const TEMPLATE =
+  process.env.E2B_APP_BUILDER_TEMPLATE?.trim() || "void-agent-web";
 const PORT = 3000;
 const APP_DIR = "/home/user/app";
 export const STATIC_APP_SERVER_SOURCE = `const http = require("node:http");
@@ -63,11 +66,14 @@ async function validateGeneratedJavaScript(
 
   // Both the executable and file path are constants. Module mode accepts
   // browser-side import/export syntax; --check parses without running code.
-  const result = await sandbox.commands.run(
-    `node --check --input-type=module < ${APP_DIR}/app.js`,
-    { timeoutMs: 10_000 },
-  );
-  if (result.exitCode !== 0) {
+  try {
+    const result = await sandbox.commands.run(
+      `node --check --input-type=module < ${APP_DIR}/app.js`,
+      { timeoutMs: 10_000 },
+    );
+    if (result.exitCode !== 0) throw new Error("Invalid JavaScript");
+  } catch {
+    // The real SDK throws on a nonzero exit and includes stderr in the error.
     // Never surface or persist stdout/stderr: parser output includes source lines.
     throw new Error("Generated JavaScript failed syntax validation");
   }
@@ -147,9 +153,10 @@ export async function executeAppBuild(input: {
       `Generated plan with ${plan.files.length} source file(s)`,
     );
 
-    const template = getEnabledPreviewTemplate(TEMPLATE);
-    if (!template) throw new Error("App preview template is unavailable");
     sandbox = await createSandbox(TEMPLATE, {
+      secure: true,
+      network: { allowPublicTraffic: true },
+      lifecycle: { onTimeout: "pause", autoResume: true },
       billing: {
         userId: input.userId,
         customerId: input.customerId,
@@ -208,7 +215,7 @@ export async function executeAppBuild(input: {
 
     assertNotAborted(input.abortSignal);
     const readiness = await waitForSandboxReady(sandbox, PORT, 45_000);
-    if (!readiness.ready)
+    if (!readiness.ready || readiness.lastStatus !== 200)
       throw new Error("Preview server was not ready in time");
     await pgAppBuildRepository.appendLogForOwner(
       input.buildId,
@@ -308,7 +315,8 @@ export async function resumeAppBuild(input: {
         });
       } catch (error) {
         const missing =
-          error instanceof Error && /^\s*404\s*:/.test(error.message);
+          error instanceof SandboxNotFoundError ||
+          (error instanceof Error && /^\s*404\s*:/.test(error.message));
         if (!missing) {
           throw new Error("The existing preview could not be safely resumed");
         }
@@ -316,7 +324,7 @@ export async function resumeAppBuild(input: {
       }
       if (existing) {
         const ready = await waitForSandboxReady(existing, PORT, 15_000);
-        if (ready.ready) {
+        if (ready.ready && ready.lastStatus === 200) {
           const previewUrl = `https://${existing.getHost(PORT)}`;
           await Sandbox.setTimeout(
             existing.sandboxId,
@@ -358,9 +366,10 @@ export async function resumeAppBuild(input: {
     }
 
     await assertBuildActive(job.id, input.userId);
-    const template = getEnabledPreviewTemplate(TEMPLATE);
-    if (!template) throw new Error("App preview template is unavailable");
     sandbox = await createSandbox(TEMPLATE, {
+      secure: true,
+      network: { allowPublicTraffic: true },
+      lifecycle: { onTimeout: "pause", autoResume: true },
       billing: {
         userId: input.userId,
         customerId: input.customerId,
@@ -413,7 +422,8 @@ export async function resumeAppBuild(input: {
       "Preview server started; waiting for readiness",
     );
     const ready = await waitForSandboxReady(sandbox, PORT, 45_000);
-    if (!ready.ready) throw new Error("Preview server was not ready in time");
+    if (!ready.ready || ready.lastStatus !== 200)
+      throw new Error("Preview server was not ready in time");
     await pgAppBuildRepository.appendLogForOwner(
       job.id,
       input.userId,

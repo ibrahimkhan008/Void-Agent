@@ -7,9 +7,9 @@
  *   E2B_LIVE_SMOKE=1 E2B_API_KEY=... pnpm e2b:smoke
  *   E2B_SMOKE_RUNS=5 may be used before re-enabling a rebuilt template.
  *   E2B_INCLUDE_CUSTOM_TEMPLATE=1 adds the custom preview template.
- *   E2B_INCLUDE_EXECUTION_TEMPLATES=1 adds the execution templates, which run
- *     real code and assert on the files it produced. Required before enabling
- *     navigator-python-docs in the registry.
+ *   E2B_INCLUDE_EXECUTION_TEMPLATES=1 adds the owned interpreter image and
+ *     executes real code. E2B_INCLUDE_CUSTOM_TEMPLATE=1 additionally tests
+ *     optional custom images, including navigator-python-docs.
  */
 
 import { createRequire } from "node:module";
@@ -51,6 +51,13 @@ const CUSTOM_TEMPLATE = {
   content: "export default function Home(){return <main>E2B_SMOKE_OK</main>}",
 };
 
+const VOID_AGENT_WEB_TEMPLATE = {
+  id: "void-agent-web",
+  path: "index.html",
+  port: 3000,
+  content: "<!doctype html><main>E2B_SMOKE_OK</main>",
+};
+
 /**
  * Execution templates have no dev server to poll, so a preview-style check
  * would pass on an image whose code execution is broken. These run real code
@@ -61,6 +68,15 @@ const CUSTOM_TEMPLATE = {
  * one must fail here rather than in production as a ModuleNotFoundError.
  */
 const EXECUTION_TEMPLATES = [
+  {
+    id: "void-agent-code-interpreter",
+    code: "print('E2B_SMOKE_OK')",
+    expectFiles: [],
+    expectOutput: "E2B_SMOKE_OK",
+  },
+];
+
+const CUSTOM_EXECUTION_TEMPLATES = [
   {
     id: "navigator-python-docs",
     // No install line on purpose — an import that needs one is a failed build.
@@ -74,6 +90,7 @@ const EXECUTION_TEMPLATES = [
       "print('E2B_SMOKE_OK')",
     ].join("\n"),
     expectFiles: ["smoke.pdf", "smoke-html.pdf"],
+    expectOutput: "E2B_SMOKE_OK",
   },
 ];
 
@@ -107,6 +124,12 @@ async function smokeExecutionTemplate(Sandbox, template, run, runs) {
     });
     if (execution.error) {
       throw new Error(`${execution.error.name}: ${execution.error.value}`);
+    }
+    const stdout = (execution.logs?.stdout ?? []).join("");
+    if (template.expectOutput && !stdout.includes(template.expectOutput)) {
+      throw new Error(
+        `Expected stdout to contain ${template.expectOutput}; got ${JSON.stringify(stdout)}`,
+      );
     }
     for (const filename of template.expectFiles) {
       await assertPdf(sandbox, filename);
@@ -158,8 +181,8 @@ async function main() {
   const runs = Math.max(1, Number.parseInt(process.env.E2B_SMOKE_RUNS ?? "3"));
   const templates =
     process.env.E2B_INCLUDE_CUSTOM_TEMPLATE === "1"
-      ? [...ENABLED_PREVIEW_TEMPLATES, CUSTOM_TEMPLATE]
-      : ENABLED_PREVIEW_TEMPLATES;
+      ? [...ENABLED_PREVIEW_TEMPLATES, VOID_AGENT_WEB_TEMPLATE, CUSTOM_TEMPLATE]
+      : [...ENABLED_PREVIEW_TEMPLATES, VOID_AGENT_WEB_TEMPLATE];
 
   for (const template of templates) {
     for (let run = 1; run <= runs; run++) {
@@ -187,7 +210,11 @@ async function main() {
   // Gated separately: the execution template must exist in the E2B account
   // before this can pass, and it is built after the preview templates.
   if (process.env.E2B_INCLUDE_EXECUTION_TEMPLATES === "1") {
-    for (const template of EXECUTION_TEMPLATES) {
+    const executionTemplates =
+      process.env.E2B_INCLUDE_CUSTOM_TEMPLATE === "1"
+        ? [...EXECUTION_TEMPLATES, ...CUSTOM_EXECUTION_TEMPLATES]
+        : EXECUTION_TEMPLATES;
+    for (const template of executionTemplates) {
       for (let run = 1; run <= runs; run++) {
         await smokeExecutionTemplate(Sandbox, template, run, runs);
       }
