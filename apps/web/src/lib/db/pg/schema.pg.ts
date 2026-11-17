@@ -1130,6 +1130,7 @@ export const AppBuildTable = pgTable(
     previewUrl: text("preview_url"),
     sandboxId: text("sandbox_id"),
     error: text("error"),
+    buildLog: text("build_log").notNull().default(""),
     createdAt: timestamp("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),

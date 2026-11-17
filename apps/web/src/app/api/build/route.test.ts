@@ -173,9 +173,23 @@ describe("app builder API", () => {
   });
 
   it("lists only the authenticated owner's build collection", async () => {
-    expect(
-      (await GET(new Request("https://app.test/api/build") as never)).status,
-    ).toBe(200);
+    mocks.listForOwner.mockResolvedValue([
+      {
+        id: buildId,
+        status: "ready",
+        buildLog: "internal lifecycle log",
+        files: [{ path: "index.html", content: "private source" }],
+        prompt: "private prompt",
+      },
+    ]);
+    const response = await GET(
+      new Request("https://app.test/api/build") as never,
+    );
+    expect(response.status).toBe(200);
     expect(mocks.listForOwner).toHaveBeenCalledWith("owner");
+    const payload = await response.json();
+    expect(payload.builds[0]).not.toHaveProperty("buildLog");
+    expect(payload.builds[0]).not.toHaveProperty("files");
+    expect(payload.builds[0]).not.toHaveProperty("prompt");
   });
 });

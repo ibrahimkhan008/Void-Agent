@@ -31,7 +31,8 @@ export const GET = withAuth(async (_request, session) => {
     return NextResponse.json(
       {
         builds: builds.map(
-          ({ files: _files, prompt: _prompt, ...build }) => build,
+          ({ files: _files, prompt: _prompt, buildLog: _buildLog, ...build }) =>
+            build,
         ),
       },
       { headers: { "Cache-Control": "private, no-store" } },

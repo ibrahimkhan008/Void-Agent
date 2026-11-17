@@ -89,6 +89,22 @@ describe("owner-scoped build detail lifecycle", () => {
     ).toBe(404);
   });
 
+  it("returns the owner's persisted build log with no-store caching", async () => {
+    mocks.getForOwner.mockResolvedValue({
+      id,
+      userId: "owner",
+      status: "generating",
+      buildLog: "2026-11-17T00:00:00.000Z App generation started\\n",
+    });
+    const response = await GET(req("GET") as never, context);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      build: { buildLog: expect.stringContaining("App generation started") },
+    });
+    expect(mocks.getForOwner).toHaveBeenCalledWith(id, "owner");
+  });
+
   it("requires same-origin before cancellation/deletion", async () => {
     mocks.sameOrigin.mockReturnValue(false);
     expect((await DELETE(req("DELETE") as never, context)).status).toBe(403);

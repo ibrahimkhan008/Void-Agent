@@ -22,6 +22,39 @@ export type CreateAppBuildResult =
   | { status: "active_limit" };
 
 export const pgAppBuildRepository = {
+  async appendLogForOwner(
+    id: string,
+    userId: string,
+    message: string,
+  ): Promise<boolean> {
+    // Only internal, bounded stage messages belong here. Keep the durable
+    // transcript bounded even for a long-running build with repeated retries.
+    const line = `${new Date().toISOString()} ${message
+      .replace(/[\r\n\u0000-\u001f\u007f]/g, " ")
+      .slice(0, 500)}\n`;
+    const [row] = await pgDb
+      .update(AppBuildTable)
+      .set({
+        buildLog: sql`right(${AppBuildTable.buildLog} || ${line}, 20000)`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(AppBuildTable.id, id),
+          eq(AppBuildTable.userId, userId),
+          inArray(AppBuildTable.status, [
+            "queued",
+            "generating",
+            "provisioning",
+            "ready",
+            "failed",
+          ]),
+        ),
+      )
+      .returning({ id: AppBuildTable.id });
+    return Boolean(row);
+  },
+
   async threadOwnedBy(threadId: string, userId: string): Promise<boolean> {
     const [row] = await pgDb
       .select({ id: ChatThreadTable.id })

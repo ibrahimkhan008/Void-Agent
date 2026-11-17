@@ -1,7 +1,7 @@
 "use client";
 
-import { useAppBuild } from "@/hooks/queries/use-app-builds";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { useAppBuild } from "@/hooks/queries/use-app-builds";
 import {
   ArrowLeft,
   ExternalLink,
@@ -196,6 +196,20 @@ export function BuildDetail({ id }: { id: string }) {
         >
           {build.error}
         </div>
+      )}
+
+      {build.buildLog && (
+        <details open={active} className="rounded-lg border p-4">
+          <summary className="cursor-pointer text-sm font-medium">
+            Build log
+          </summary>
+          <pre
+            aria-live="polite"
+            className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 font-mono text-xs text-muted-foreground"
+          >
+            {build.buildLog}
+          </pre>
+        </details>
       )}
 
       {build.previewUrl && build.status === "ready" && (

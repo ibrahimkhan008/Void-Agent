@@ -139,6 +139,22 @@
 
 ## 🟡 HALF DONE — exists, exact gaps documented
 
+### App Builder build diagnostics
+- 🟡 Owner-scoped build lifecycle logs are now persisted (20,000-character
+  cap), returned through the existing no-store detail endpoint, and shown
+  live while the build is active. Entries cover generation, sandbox
+  provisioning, source upload, readiness, completion, and safe failure text;
+  raw prompts, credentials, generated source, and sandbox stdout are not
+  copied into the log. Focused repository/runner/API tests and schema checks
+  cover the behavior. This is lifecycle progress output, not a raw stdout
+  stream; the E2B server process currently has no build command output to
+  stream because previews serve generated static files. Migration 0092 is
+  journaled but has not been applied to an isolated PostgreSQL database.
+  Four focused suites (38 tests), `db:check`, targeted Biome, and
+  `git diff --check` pass. The 6 GiB web typecheck still reports three
+  unresolved imports in pre-existing untracked public/legal files; it reports
+  no errors in this App Builder slice.
+
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
 - 🟡 Hosted-provider keys now have a user settings control under Customize →

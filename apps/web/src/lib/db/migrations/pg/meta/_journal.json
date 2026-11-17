@@ -652,6 +652,13 @@
       "when": 1794915600000,
       "tag": "0091_orchestrator_checkpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1794918621220,
+      "tag": "0092_app_build_logs",
+      "breakpoints": true
     }
   ]
 }

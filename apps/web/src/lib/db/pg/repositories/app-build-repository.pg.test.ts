@@ -204,6 +204,30 @@ describe("owner-scoped reads", () => {
   });
 });
 
+describe("bounded build logs", () => {
+  test("appends sanitized bounded lines only to the owner's build", async () => {
+    h.updateReturning = [{ id: BUILD }];
+    await expect(
+      pgAppBuildRepository.appendLogForOwner(
+        BUILD,
+        USER,
+        "Preview\nready\u0000",
+      ),
+    ).resolves.toBe(true);
+    const predicate = boundValues(h.capturedWhere[0]);
+    expect(predicate).toContain(BUILD);
+    expect(predicate).toContain(USER);
+    expect(h.capturedSet[0].buildLog).toBeDefined();
+    expect(h.capturedSet[0].buildLog.queryChunks).toBeDefined();
+    expect(h.capturedSet[0].updatedAt).toBeInstanceOf(Date);
+
+    h.updateReturning = [];
+    await expect(
+      pgAppBuildRepository.appendLogForOwner(BUILD, OTHER, "no access"),
+    ).resolves.toBe(false);
+  });
+});
+
 describe("status-gated updates", () => {
   test("updateActiveForOwner only touches unsettled builds and returns null otherwise", async () => {
     h.updateReturning = [{ id: BUILD, status: "generating" }];

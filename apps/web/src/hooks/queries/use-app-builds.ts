@@ -25,6 +25,7 @@ export type AppBuildDetail = AppBuildSummary & {
   prompt: string;
   files: { path: string; content: string }[];
   sandboxId: string | null;
+  buildLog: string;
 };
 
 export function useAppBuilds() {

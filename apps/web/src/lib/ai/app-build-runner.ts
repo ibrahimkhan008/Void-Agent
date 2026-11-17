@@ -99,6 +99,11 @@ export async function executeAppBuild(input: {
       },
     );
     if (!started) throw new AppBuildCancelledError();
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "App generation started",
+    );
     const plan = await generateAppPlan(input.prompt, {
       mode: input.mode,
       abortSignal: input.abortSignal ?? AbortSignal.timeout(90_000),
@@ -116,6 +121,11 @@ export async function executeAppBuild(input: {
       },
     );
     if (!provision) throw new AppBuildCancelledError();
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      `Generated plan with ${plan.files.length} source file(s)`,
+    );
 
     const template = getEnabledPreviewTemplate(TEMPLATE);
     if (!template) throw new Error("App preview template is unavailable");
@@ -131,6 +141,11 @@ export async function executeAppBuild(input: {
       requestTimeoutMs: 30_000,
       metadata: { buildId: input.buildId, feature: "app-builder" },
     });
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "Secure preview sandbox provisioned",
+    );
 
     await pgAppBuildRepository.updateForOwner(input.buildId, input.userId, {
       sandboxId: sandbox.sandboxId,
@@ -147,17 +162,32 @@ export async function executeAppBuild(input: {
       await sandbox.files.write(`${APP_DIR}/${file.path}`, file.content);
     }
     await sandbox.files.write(`${APP_DIR}/server.js`, STATIC_APP_SERVER_SOURCE);
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "Generated source files uploaded",
+    );
 
     const start = await sandbox.commands.run(
-      `nohup node ${APP_DIR}/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &`,
+      `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
       { timeoutMs: 10_000 },
     );
     if (start.exitCode !== 0) throw new Error("Preview server did not start");
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "Preview server started; waiting for readiness",
+    );
 
     assertNotAborted(input.abortSignal);
     const readiness = await waitForSandboxReady(sandbox, PORT, 45_000);
     if (!readiness.ready)
       throw new Error("Preview server was not ready in time");
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "Preview server passed readiness check",
+    );
     assertNotAborted(input.abortSignal);
     await assertBuildActive(input.buildId, input.userId);
 
@@ -181,6 +211,11 @@ export async function executeAppBuild(input: {
       { status: "ready", previewUrl },
     );
     if (!saved) throw new Error("App build record disappeared");
+    await pgAppBuildRepository.appendLogForOwner(
+      input.buildId,
+      input.userId,
+      "Build completed successfully",
+    );
     return { previewUrl, files: plan.files };
   } catch (error) {
     if (sandbox) {
@@ -195,6 +230,9 @@ export async function executeAppBuild(input: {
         : error instanceof Error && error.name === "GenerationAbortedError"
           ? "App generation timed out"
           : "The app could not be built. Try a smaller request.";
+    await pgAppBuildRepository
+      .appendLogForOwner(input.buildId, input.userId, safeError)
+      .catch(() => false);
     await pgAppBuildRepository
       .updateActiveForOwner(input.buildId, input.userId, {
         status: "failed",
@@ -226,6 +264,11 @@ export async function resumeAppBuild(input: {
   // or the active-build cap stays consumed forever.
   let sandbox: Sandbox | undefined;
   try {
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Resuming app preview",
+    );
     if (job.sandboxId) {
       if (!(await isSandboxOwner(job.sandboxId, input.userId))) {
         throw new Error("The previous sandbox owner could not be verified");
@@ -271,6 +314,11 @@ export async function resumeAppBuild(input: {
             { status: "ready", previewUrl },
           );
           if (!saved) throw new AppBuildCancelledError();
+          await pgAppBuildRepository.appendLogForOwner(
+            job.id,
+            input.userId,
+            "Preview resumed successfully",
+          );
           return previewUrl;
         }
         // Only replace a sandbox whose owner was verified above.
@@ -297,6 +345,11 @@ export async function resumeAppBuild(input: {
       requestTimeoutMs: 30_000,
       metadata: { buildId: job.id, feature: "app-builder" },
     });
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Secure preview sandbox provisioned",
+    );
     await pgAppBuildRepository.updateForOwner(job.id, input.userId, {
       sandboxId: sandbox.sandboxId,
     });
@@ -310,13 +363,28 @@ export async function resumeAppBuild(input: {
       await sandbox.files.write(`${APP_DIR}/${file.path}`, file.content);
     }
     await sandbox.files.write(`${APP_DIR}/server.js`, STATIC_APP_SERVER_SOURCE);
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Generated source files uploaded",
+    );
     const start = await sandbox.commands.run(
-      `nohup node ${APP_DIR}/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &`,
+      `nohup node ${APP_DIR}/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &`,
       { timeoutMs: 10_000 },
     );
     if (start.exitCode !== 0) throw new Error("Preview server did not start");
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Preview server started; waiting for readiness",
+    );
     const ready = await waitForSandboxReady(sandbox, PORT, 45_000);
     if (!ready.ready) throw new Error("Preview server was not ready in time");
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Preview server passed readiness check",
+    );
     await assertBuildActive(job.id, input.userId);
     const previewUrl = `https://${sandbox.getHost(PORT)}`;
     await Sandbox.setTimeout(sandbox.sandboxId, PREVIEW_IDLE_TIMEOUT_MS, {
@@ -338,6 +406,11 @@ export async function resumeAppBuild(input: {
       { status: "ready", previewUrl },
     );
     if (!saved) throw new AppBuildCancelledError();
+    await pgAppBuildRepository.appendLogForOwner(
+      job.id,
+      input.userId,
+      "Preview resumed successfully",
+    );
     return previewUrl;
   } catch (error) {
     if (sandbox) {
@@ -346,6 +419,15 @@ export async function resumeAppBuild(input: {
         .markState(sandbox.sandboxId, "killed")
         .catch(() => undefined);
     }
+    await pgAppBuildRepository
+      .appendLogForOwner(
+        job.id,
+        input.userId,
+        error instanceof AppBuildCancelledError
+          ? "Build cancelled"
+          : "The app preview could not be resumed",
+      )
+      .catch(() => false);
     await pgAppBuildRepository
       .updateActiveForOwner(job.id, input.userId, {
         status: "failed",

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getForOwner: vi.fn(),
   updateActiveForOwner: vi.fn(),
   updateForOwner: vi.fn(),
+  appendLogForOwner: vi.fn(),
   upsert: vi.fn(),
   markState: vi.fn(),
   createSandbox: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("lib/db/pg/repositories/app-build-repository.pg", () => ({
     getForOwner: mocks.getForOwner,
     updateActiveForOwner: mocks.updateActiveForOwner,
     updateForOwner: mocks.updateForOwner,
+    appendLogForOwner: mocks.appendLogForOwner,
   },
 }));
 vi.mock("lib/db/pg/repositories/sandbox-session-repository.pg", () => ({
@@ -92,6 +94,7 @@ describe("E2B app build lifecycle", () => {
     mocks.getForOwner.mockResolvedValue({ ...input, status: "provisioning" });
     mocks.updateActiveForOwner.mockResolvedValue({ ...input });
     mocks.updateForOwner.mockResolvedValue({ ...input });
+    mocks.appendLogForOwner.mockResolvedValue(true);
     mocks.upsert.mockResolvedValue(undefined);
     mocks.markState.mockResolvedValue(undefined);
     mocks.createSandbox.mockResolvedValue(sandbox);
@@ -118,6 +121,28 @@ describe("E2B app build lifecycle", () => {
     expect(STATIC_APP_SERVER_SOURCE).not.toContain("fetch(");
   });
 
+  it("records bounded lifecycle stages without storing provider or sandbox output", async () => {
+    await executeAppBuild(input);
+
+    expect(
+      mocks.appendLogForOwner.mock.calls.map(([, , message]) => message),
+    ).toEqual([
+      "App generation started",
+      "Generated plan with 1 source file(s)",
+      "Secure preview sandbox provisioned",
+      "Generated source files uploaded",
+      "Preview server started; waiting for readiness",
+      "Preview server passed readiness check",
+      "Build completed successfully",
+    ]);
+    for (const [buildId, userId] of mocks.appendLogForOwner.mock.calls.map(
+      ([buildId, userId]) => [buildId, userId],
+    )) {
+      expect(buildId).toBe(input.buildId);
+      expect(userId).toBe(input.userId);
+    }
+  });
+
   it("generates, writes only approved files, starts the fixed template command, and persists the owner preview", async () => {
     await expect(executeAppBuild(input)).resolves.toMatchObject({
       previewUrl: "https://preview-3000.e2b.dev",
@@ -139,7 +164,7 @@ describe("E2B app build lifecycle", () => {
     );
     expect(sandbox.commands.run).toHaveBeenNthCalledWith(
       2,
-      "nohup node /home/user/app/server.js > /tmp/Void Agent-app-build.log 2>&1 < /dev/null &",
+      "nohup node /home/user/app/server.js > /tmp/void-agent-app-build.log 2>&1 < /dev/null &",
       { timeoutMs: 10_000 },
     );
     expect(mocks.upsert).toHaveBeenCalledWith(
@@ -232,6 +257,7 @@ describe("resumeAppBuild", () => {
     updatedAt: new Date("2026-11-11T00:00:00Z"),
     previewUrl: null,
     error: null,
+    buildLog: "",
     ...storedPlan,
   };
 
@@ -292,6 +318,11 @@ describe("resumeAppBuild", () => {
     });
     expect(existing.kill).not.toHaveBeenCalled();
     expect(mocks.createSandbox).not.toHaveBeenCalled();
+    expect(mocks.appendLogForOwner).toHaveBeenCalledWith(
+      build.id,
+      "owner",
+      "Preview resumed successfully",
+    );
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ sandboxId: "sbx_existing", userId: "owner" }),
     );
