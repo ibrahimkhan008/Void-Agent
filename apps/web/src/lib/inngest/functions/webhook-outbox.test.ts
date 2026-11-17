@@ -1,3 +1,4 @@
+import { HOOK_AGENT_RUN_EVENT } from "lib/hooks/dispatch";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -18,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   signPayload: vi.fn(),
   computeBackoffMs: vi.fn(),
   createFunction: vi.fn(),
+  send: vi.fn(),
+  createHookRun: vi.fn(),
   registration: [] as unknown[][],
 }));
 
@@ -27,6 +30,7 @@ vi.mock("../client", () => ({
       mocks.registration.push(args);
       return { id: (args[0] as { id: string }).id };
     },
+    send: mocks.send,
   },
 }));
 
@@ -36,6 +40,10 @@ vi.mock("logger", () => ({
 
 vi.mock("lib/db/pg/repositories/webhook-repository.pg", () => ({
   webhookRepository: mocks.repo,
+}));
+
+vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
+  createHookRun: mocks.createHookRun,
 }));
 
 vi.mock("lib/webhooks", () => ({
@@ -128,9 +136,81 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.repo.markOutboxEventDelivered).toHaveBeenCalledWith("event-1");
     expect(mocks.deliverWebhook).not.toHaveBeenCalled();
+  });
+
+  it("dispatches the bound agent hook for an inbound event carrying an agent", async () => {
+    const event = makeEvent({
+      payload: {
+        userId: "owner-1",
+        endpointId: "ep-1",
+        agentId: "agent-9",
+        normalized: { source: "github", text: "acme/widgets: push" },
+      },
+    });
+    mocks.repo.claimPendingOutboxEvents.mockResolvedValue([event]);
+    mocks.repo.listWebhookSubscriptions.mockResolvedValue([]);
+    mocks.createHookRun.mockResolvedValue({ created: true, runId: "run-1" });
+
+    const result = await runWebhookOutboxTick();
+
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+      retried: 0,
+      hooksDispatched: 1,
+    });
+    expect(mocks.createHookRun).toHaveBeenCalledWith({
+      eventId: "event-1",
+      inboundEndpointId: "ep-1",
+      agentId: "agent-9",
+      userId: "owner-1",
+    });
+    expect(mocks.send).toHaveBeenCalledWith({
+      name: HOOK_AGENT_RUN_EVENT,
+      data: { runId: "run-1" },
+    });
+    expect(mocks.repo.markOutboxEventDelivered).toHaveBeenCalledWith("event-1");
+  });
+
+  it("does not re-dispatch when the hook run already exists (redelivery)", async () => {
+    const event = makeEvent({
+      payload: { userId: "owner-1", endpointId: "ep-1", agentId: "agent-9" },
+    });
+    mocks.repo.claimPendingOutboxEvents.mockResolvedValue([event]);
+    mocks.repo.listWebhookSubscriptions.mockResolvedValue([]);
+    mocks.createHookRun.mockResolvedValue({ created: false, runId: null });
+
+    const result = await runWebhookOutboxTick();
+
+    expect(result.hooksDispatched).toBe(0);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.repo.markOutboxEventDelivered).toHaveBeenCalledWith("event-1");
+  });
+
+  it("still delivers subscriptions when hook dispatch throws", async () => {
+    const event = makeEvent({
+      payload: { userId: "owner-1", endpointId: "ep-1", agentId: "agent-9" },
+    });
+    mocks.repo.claimPendingOutboxEvents.mockResolvedValue([event]);
+    mocks.repo.listWebhookSubscriptions.mockResolvedValue([makeSubscription()]);
+    mocks.createHookRun.mockRejectedValue(new Error("hook table down"));
+    mocks.deliverWebhook.mockResolvedValue({ ok: true, status: 200 });
+
+    const result = await runWebhookOutboxTick();
+
+    expect(result.hooksDispatched).toBe(0);
+    expect(result.delivered).toBe(1);
+    expect(mocks.deliverWebhook).toHaveBeenCalledTimes(1);
   });
 
   it("signs, delivers, and records a successful delivery", async () => {
@@ -141,7 +221,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.signPayload).toHaveBeenCalledWith(
       expect.stringContaining('"eventType":"inbound.received"'),
       "secret",
@@ -187,7 +273,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 0, failed: 0, retried: 1 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 0,
+      failed: 0,
+      retried: 1,
+      hooksDispatched: 0,
+    });
     expect(mocks.repo.markWebhookDeliveryFailed).toHaveBeenCalledWith(
       "delivery-sub-1",
       "HTTP 500 boom",
@@ -218,7 +310,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 0,
+      failed: 1,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.repo.failOutboxEvent).toHaveBeenCalledWith(
       "event-1",
       "exceeded max attempts (5)",
@@ -234,7 +332,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 0,
+      failed: 1,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.repo.failOutboxEvent).toHaveBeenCalledWith(
       "event-1",
       "payload missing userId",
@@ -252,7 +356,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.repo.createWebhookDelivery).not.toHaveBeenCalled();
     expect(mocks.deliverWebhook).not.toHaveBeenCalled();
     expect(mocks.repo.markOutboxEventDelivered).toHaveBeenCalledWith("event-1");
@@ -271,7 +381,13 @@ describe("webhook outbox tick (zip-main outbox-worker port)", () => {
 
     const result = await runWebhookOutboxTick();
 
-    expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0, retried: 0 , hooksDispatched: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+      retried: 0,
+      hooksDispatched: 0,
+    });
     expect(mocks.deliverWebhook).not.toHaveBeenCalled();
     expect(mocks.repo.createWebhookDelivery).not.toHaveBeenCalled();
   });

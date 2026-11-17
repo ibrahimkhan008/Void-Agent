@@ -192,4 +192,96 @@ describe("POST /api/inbound/[token] GitHub delivery", () => {
     expect(response.status).toBe(413);
     expect(mocks.createDelivery).not.toHaveBeenCalled();
   });
+
+  const signedRequest = (
+    event: string,
+    body: string,
+    deliveryId = "123e4567-e89b-12d3-a456-426614174000",
+  ) => {
+    const signature = `sha256=${createHmac("sha256", "github-secret")
+      .update(body)
+      .digest("hex")}`;
+    return new Request("https://void.test/api/inbound/token", {
+      method: "POST",
+      headers: {
+        "x-hub-signature-256": signature,
+        "x-github-delivery": deliveryId,
+        "x-github-event": event,
+      },
+      body,
+    });
+  };
+
+  it("acks the GitHub ping without storing or queuing anything", async () => {
+    const response = await POST(signedRequest("ping", "{}"), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.createDelivery).not.toHaveBeenCalled();
+    expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+  });
+
+  it("acks signed unsupported events as ignored without queuing", async () => {
+    const body = JSON.stringify({
+      action: "started",
+      repository: { full_name: "owner/repo" },
+    });
+    const response = await POST(signedRequest("star", body), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("Event ignored");
+    expect(mocks.createDelivery).not.toHaveBeenCalled();
+    expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed delivery and event headers", async () => {
+    const body = JSON.stringify({ repository: { full_name: "owner/repo" } });
+    const badDelivery = await POST(signedRequest("push", body, "bad id!"), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(badDelivery.status).toBe(400);
+    expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+
+    const badEvent = await POST(signedRequest("push;drop", body), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(badEvent.status).toBe(400);
+    expect(mocks.enqueueOutboxEvent).not.toHaveBeenCalled();
+  });
+
+  it("queues the same stable outbox id when GitHub redelivers", async () => {
+    const body = JSON.stringify({
+      action: "opened",
+      repository: { full_name: "owner/repo" },
+      pull_request: { title: "Fix login", body: "Updates callback" },
+      sender: { login: "alice" },
+    });
+    const first = await POST(signedRequest("pull_request", body), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    const second = await POST(signedRequest("pull_request", body), {
+      params: Promise.resolve({ token: endpoint.token }),
+    });
+    expect(first.status).toBe(202);
+    expect(second.status).toBe(202);
+    const firstCall = mocks.enqueueOutboxEvent.mock.calls[0][0] as {
+      id: string;
+    };
+    const secondCall = mocks.enqueueOutboxEvent.mock.calls[1][0] as {
+      id: string;
+    };
+    expect(secondCall.id).toBe(firstCall.id);
+    expect(firstCall.id).toMatch(/^[a-f0-9-]{36}$/);
+    expect(firstCall.eventType).toBe("inbound.received");
+    expect(firstCall.payload).toMatchObject({
+      agentId: "agent-1",
+      endpointId: "endpoint-1",
+      normalized: expect.objectContaining({
+        source: "github",
+        from: "alice",
+        meta: expect.objectContaining({ repository: "owner/repo" }),
+      }),
+    });
+  });
 });

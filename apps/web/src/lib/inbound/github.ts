@@ -48,9 +48,16 @@ export function normalizeGitHubEvent(
     event === "push"
       ? string(body.ref) || "push"
       : string(item?.title) || `${event} ${action || "event"}`;
+  const commitMessages = Array.isArray(body.commits)
+    ? body.commits
+        .map((commit) => string(object(commit)?.message))
+        .filter((message): message is string => Boolean(message))
+    : [];
   const description =
     event === "push"
-      ? `Pushed ${string(body.after) || "new commits"} to ${subject}`
+      ? `Pushed ${string(body.after) || "new commits"} to ${subject}${
+          commitMessages.length ? `\n${commitMessages.join("\n")}` : ""
+        }`
       : string(item?.body) || "";
   const text = `${repositoryName}: ${event}${action ? ` ${action}` : ""} — ${subject}${description ? `\n${description}` : ""}`;
   return {

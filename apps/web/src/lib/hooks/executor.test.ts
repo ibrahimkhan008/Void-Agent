@@ -279,6 +279,69 @@ describe("runHookAgent gates", () => {
     );
   });
 
+  it("executes a GitHub-triggered run with repository context", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [
+      { id: "e1", userId: "u1", enabled: true, hookConfig: {} },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [
+      {
+        id: "a1",
+        userId: "u1",
+        name: "Hook Agent",
+        description: null,
+        icon: null,
+        model: null,
+        organizationId: null,
+      },
+    ];
+    rows.webhook_event_outbox = [
+      {
+        payload: {
+          normalized: {
+            source: "github",
+            from: "octodev",
+            text: "acme/widgets: push — refs/heads/main\nPushed d3adb33f to refs/heads/main\nFix the inventory query",
+            meta: {
+              repository: "acme/widgets",
+              event: "push",
+              action: null,
+              subject: "refs/heads/main",
+            },
+          },
+        },
+      },
+    ];
+    executeAgentRun.mockResolvedValue({
+      success: true,
+      threadId: "thread-gh",
+    });
+    const result = await runHookAgent("run-1");
+    expect(result.status).toBe("succeeded");
+    expect(evaluateMatchRules).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        source: "github",
+        text: expect.stringContaining("Fix the inventory query"),
+        meta: expect.objectContaining({
+          repository: "acme/widgets",
+          event: "push",
+          subject: "refs/heads/main",
+        }),
+      }),
+    );
+    const [task] = executeAgentRun.mock.calls[0];
+    expect(task.inputPrompt).toContain("an inbound github event");
+    expect(task.inputPrompt).toContain("From: octodev");
+    expect(task.inputPrompt).toContain("Subject: refs/heads/main");
+    expect(task.inputPrompt).toContain("Fix the inventory query");
+    expect(finishHookRunMock).toHaveBeenLastCalledWith(
+      "run-1",
+      expect.objectContaining({ status: "succeeded", threadId: "thread-gh" }),
+    );
+  });
+
   it("queues owner-scoped follow-up hooks after success", async () => {
     claimReturn = [{ id: "run-1" }];
     const targetId = "00000000-0000-4000-8000-000000000002";
