@@ -7,6 +7,10 @@ import {
 
 const preferences = {
   notifications: {
+    desktopEnabled: false,
+    onlyWhenAway: false,
+    hideTaskDetails: false,
+    weeklyEngagementEnabled: false,
     emailEnabled: true,
     emailDigestEnabled: true,
     emailScheduledSuccess: true,

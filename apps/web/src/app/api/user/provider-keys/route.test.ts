@@ -60,7 +60,7 @@ describe("/api/user/provider-keys", () => {
       "sk-ant-secret",
     );
     const status = await GET(
-      new Request("http://localhost/api/user/provider-keys"),
+      new NextRequest("http://localhost/api/user/provider-keys"),
     );
     expect(JSON.stringify(await status.json())).not.toContain("encrypted:");
   });
