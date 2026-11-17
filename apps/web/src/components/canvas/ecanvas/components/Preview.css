@@ -33,3 +33,80 @@
   background: white;
   display: block;
 }
+
+.artifact-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.artifact-edit-toolbar,
+.artifact-element-editor {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font-size: 11px;
+}
+
+.artifact-edit-toolbar button,
+.artifact-element-editor button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.artifact-edit-toolbar button.active {
+  border-color: var(--accent, #5684ff);
+}
+
+.artifact-edit-toolbar span {
+  color: var(--text-muted);
+}
+
+.artifact-element-editor {
+  top: 52px;
+  align-items: end;
+  flex-wrap: wrap;
+  max-width: min(680px, calc(100% - 20px));
+}
+
+.artifact-element-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-muted);
+}
+
+.artifact-element-editor input:not([type="color"]) {
+  width: 100px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.artifact-element-editor label:first-child {
+  flex: 1 1 200px;
+}
+
+.artifact-element-editor label:first-child input {
+  width: 100%;
+}
+
+.artifact-editing {
+  cursor: crosshair;
+}

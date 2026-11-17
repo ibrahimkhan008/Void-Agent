@@ -4695,6 +4695,31 @@ export const CanvasCommentTable = pgTable(
   ],
 );
 
+// Private, durable generated/edited artifact HTML for an eCanvas workspace.
+export const EcanvasArtifactTable = pgTable(
+  "ecanvas_artifact",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    canvasId: uuid("canvas_id").notNull(),
+    html: text("html").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("ecanvas_artifact_owner_canvas_idx").on(
+      table.userId,
+      table.canvasId,
+    ),
+    check(
+      "ecanvas_artifact_html_bytes_check",
+      sql`octet_length(${table.html}) <= 524288`,
+    ),
+  ],
+);
+
 export type CanvasComment = typeof CanvasCommentTable.$inferSelect;
 export type NewCanvasComment = typeof CanvasCommentTable.$inferInsert;
 

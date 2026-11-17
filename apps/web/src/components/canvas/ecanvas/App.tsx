@@ -306,6 +306,27 @@ export function App({ canvasId }: { canvasId: string }) {
     );
   }, []);
 
+  const handleArtifactEdited = useCallback(
+    async (html: string) => {
+      setLastHTML(html);
+      setStatusMessage("Saving artifact edit…");
+      try {
+        const response = await fetch(`/api/ecanvas/${canvasId}/content`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ html }),
+        });
+        if (!response.ok) throw new Error("Save failed");
+        setStatusMessage("Artifact edit saved");
+      } catch {
+        setStatusMessage(
+          "Edit applied to this preview, but could not be saved",
+        );
+      }
+    },
+    [canvasId],
+  );
+
   const handleDownloadZip = useCallback(async () => {
     if (!lastHTML || downloading) return;
 
@@ -570,6 +591,7 @@ export function App({ canvasId }: { canvasId: string }) {
             if (html) {
               setTimeout(() => {
                 setLastHTML(html);
+                void handleArtifactEdited(html);
                 setGenerating(false);
                 addChip({ role: "assistant", text: "OK: generated" });
               }, 500);
@@ -588,7 +610,14 @@ export function App({ canvasId }: { canvasId: string }) {
         addChip({ role: "assistant", text: "ERR:" + err.message });
       }
     },
-    [modelId, canvasId, generating, getSelectedFrameImages, addChip],
+    [
+      modelId,
+      canvasId,
+      generating,
+      getSelectedFrameImages,
+      addChip,
+      handleArtifactEdited,
+    ],
   );
 
   const handleRefine = useCallback(
@@ -678,6 +707,7 @@ export function App({ canvasId }: { canvasId: string }) {
             if (html) {
               setTimeout(() => {
                 setLastHTML(html);
+                void handleArtifactEdited(html);
                 setGenerating(false);
                 addChip({ role: "assistant", text: "OK: refined" });
               }, 500);
@@ -704,6 +734,7 @@ export function App({ canvasId }: { canvasId: string }) {
       capturePreview,
       getSelectedFrameImages,
       addChip,
+      handleArtifactEdited,
     ],
   );
 
@@ -898,6 +929,7 @@ ${SYSTEM_PROMPT}`;
         if (html) {
           setTimeout(() => {
             setLastHTML(html);
+            void handleArtifactEdited(html);
             setGenerating(false);
             setIteration((i) => i + 1);
             addChip({ role: "assistant", text: "OK: plan complete" });
@@ -912,7 +944,14 @@ ${SYSTEM_PROMPT}`;
         addChip({ role: "assistant", text: "ERR: " + err.message });
       }
     },
-    [modelId, generating, getSelectedFrameImages, addChip, runPlanPhase],
+    [
+      modelId,
+      generating,
+      getSelectedFrameImages,
+      addChip,
+      runPlanPhase,
+      handleArtifactEdited,
+    ],
   );
 
   const handlePlanRefine = useCallback(
@@ -1083,6 +1122,7 @@ ${SYSTEM_PROMPT}`;
         if (html) {
           setTimeout(() => {
             setLastHTML(html);
+            void handleArtifactEdited(html);
             setGenerating(false);
             setIteration((i) => i + 1);
             addChip({ role: "assistant", text: "OK: plan refine complete" });
@@ -1105,6 +1145,7 @@ ${SYSTEM_PROMPT}`;
       getSelectedFrameImages,
       addChip,
       runPlanPhase,
+      handleArtifactEdited,
     ],
   );
 
@@ -1159,7 +1200,11 @@ ${SYSTEM_PROMPT}`;
         <ResizeHandle onResize={handleResize} />
         <div className="panel-right">
           <div className="preview-container">
-            <Preview html={lastHTML} iframeRef={previewRef} />
+            <Preview
+              html={lastHTML}
+              iframeRef={previewRef}
+              onArtifactEdited={handleArtifactEdited}
+            />
             {generating && !planMode && (
               <StreamOverlay
                 streamText={streamText}

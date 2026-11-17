@@ -1,9 +1,9 @@
 import { getSession } from "auth/server";
 import {
-  MAX_HTML_BYTES,
-  getCanvasContent,
-  setCanvasContent,
-} from "lib/ecanvas/content-store";
+  getEcanvasArtifact,
+  upsertEcanvasArtifact,
+} from "lib/db/pg/repositories/ecanvas-artifact-repository.pg";
+import { MAX_HTML_BYTES } from "lib/ecanvas/content-store";
 import { readBoundedJson } from "lib/notifications/contracts";
 import { checkApiRateLimit } from "lib/rate-limit/api-rate-limit";
 import { hasSameOrigin } from "lib/security/same-origin";
@@ -21,10 +21,21 @@ export async function GET(
   const { canvasId } = await params;
   if (!CANVAS_ID_PATTERN.test(canvasId))
     return Response.json({ error: "Invalid canvas ID" }, { status: 400 });
-  return Response.json(
-    { html: getCanvasContent(session.user.id, canvasId) },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  try {
+    const html = await getEcanvasArtifact({
+      userId: session.user.id,
+      canvasId,
+    });
+    return Response.json(
+      { html },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch {
+    return Response.json(
+      { error: "Unable to load canvas artifact" },
+      { status: 503 },
+    );
+  }
 }
 
 export async function POST(
@@ -69,13 +80,20 @@ export async function POST(
       { status: 413 },
     );
 
-  if (!setCanvasContent(session.user.id, canvasId, html))
+  try {
+    await upsertEcanvasArtifact({
+      userId: session.user.id,
+      canvasId,
+      html,
+    });
     return Response.json(
-      { error: "HTML exceeds its size limit" },
-      { status: 413 },
+      { stored: true },
+      { headers: { "Cache-Control": "no-store" } },
     );
-  return Response.json(
-    { stored: true },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  } catch {
+    return Response.json(
+      { error: "Unable to save canvas artifact" },
+      { status: 503 },
+    );
+  }
 }

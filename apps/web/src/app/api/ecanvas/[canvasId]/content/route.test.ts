@@ -3,15 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   session: { user: { id: "user-1" } } as any,
   get: vi.fn(),
-  set: vi.fn(),
+  save: vi.fn(),
   rate: vi.fn(),
 }));
 
 vi.mock("auth/server", () => ({ getSession: () => mocks.session }));
 vi.mock("lib/ecanvas/content-store", () => ({
   MAX_HTML_BYTES: 512 * 1024,
-  getCanvasContent: (...args: unknown[]) => mocks.get(...args),
-  setCanvasContent: (...args: unknown[]) => mocks.set(...args),
+}));
+vi.mock("lib/db/pg/repositories/ecanvas-artifact-repository.pg", () => ({
+  getEcanvasArtifact: (...args: unknown[]) => mocks.get(...args),
+  upsertEcanvasArtifact: (...args: unknown[]) => mocks.save(...args),
 }));
 vi.mock("lib/rate-limit/api-rate-limit", () => ({
   checkApiRateLimit: (...args: unknown[]) => mocks.rate(...args),
@@ -31,12 +33,12 @@ const request = (body: unknown, origin = "https://voidagent.test") =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.session = { user: { id: "user-1" } };
-  mocks.get.mockReturnValue("<main>private</main>");
-  mocks.set.mockReturnValue(true);
+  mocks.get.mockResolvedValue("<main>private</main>");
+  mocks.save.mockResolvedValue({ updatedAt: new Date() });
   mocks.rate.mockResolvedValue({ allowed: true });
 });
 
-describe("eCanvas temporary content API", () => {
+describe("eCanvas artifact API", () => {
   it("requires a signed-in user and reads only that user's canvas key", async () => {
     mocks.session = null;
     expect(
@@ -46,7 +48,7 @@ describe("eCanvas temporary content API", () => {
     const response = await GET(new Request("https://voidagent.test"), context);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(mocks.get).toHaveBeenCalledWith("user-1", canvasId);
+    expect(mocks.get).toHaveBeenCalledWith({ userId: "user-1", canvasId });
   });
 
   it("requires same-origin mutations and stores validated bounded HTML", async () => {
@@ -61,11 +63,26 @@ describe("eCanvas temporary content API", () => {
     expect((await POST(request({ html: "<p>x</p>" }), context)).status).toBe(
       200,
     );
-    expect(mocks.set).toHaveBeenCalledWith("user-1", canvasId, "<p>x</p>");
+    expect(mocks.save).toHaveBeenCalledWith({
+      userId: "user-1",
+      canvasId,
+      html: "<p>x</p>",
+    });
     expect(
       (await POST(request({ html: "x".repeat(512 * 1024 + 1) }), context))
         .status,
     ).toBe(413);
     expect((await POST(request(null), context)).status).toBe(400);
+  });
+
+  it("returns a service error when durable artifact storage fails", async () => {
+    mocks.get.mockRejectedValueOnce(new Error("database unavailable"));
+    mocks.save.mockRejectedValueOnce(new Error("database unavailable"));
+    expect(
+      (await GET(new Request("https://voidagent.test"), context)).status,
+    ).toBe(503);
+    expect((await POST(request({ html: "<p>x</p>" }), context)).status).toBe(
+      503,
+    );
   });
 });

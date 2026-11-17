@@ -227,8 +227,18 @@
   validation, session ownership, create/list/delete and not-found behavior.
   Migration 0089 is journaled but has not been applied to isolated PostgreSQL,
   so cross-request persistence has not been integration-verified.
-- ❌ Structural artifact editing ("make slide 3 darker" edits the existing
-  artifact instead of regenerating)
+- 🟡 The existing artifact preview now has an Edit artifact mode: users can
+  select existing text or container elements and update leaf text, text color,
+  background color, and font size in place. Edits are returned from the
+  sandboxed preview, size-checked, and saved through the authenticated,
+  owner-scoped eCanvas content endpoint. Generated and edited artifacts now
+  use owner/canvas-keyed PostgreSQL storage (migration 0090) instead of the
+  former process-local cache. Focused protocol and API tests pass. This does
+  not yet support adding/removing/reordering elements or applying
+  natural-language targeted edits; the model Refine action still returns a
+  complete replacement HTML document. Migration 0090 has not been applied to
+  an isolated database and browser end-to-end checks remain outstanding. Keep
+  PARTIAL.
 
 ### Connectors
 - ✅ 16 first-party connector tool factories are wired with scoped approvals.
@@ -335,8 +345,10 @@ items below describe the remaining half-done work only; live verification and
 operator credentials still determine whether an item can be closed.
 
 1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
-2. **Canvas structural editing** — comments now have a local implementation;
-   verify persistence on isolated PostgreSQL and build genuine targeted edits.
+2. **Canvas structural editing** — in-place text/style edits and durable
+   owner-scoped storage now exist; add/reorder/remove and natural-language
+   targeted edits remain. Apply migration 0090 only to isolated PostgreSQL and
+   verify browser interaction, persistence, and cross-user isolation.
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume
