@@ -36,6 +36,8 @@ describe("direct connector tool registry", () => {
       DefaultToolName.GoogleDrive,
       DefaultToolName.GoogleDocs,
       DefaultToolName.GoogleSheets,
+      DefaultToolName.GoogleForms,
+      DefaultToolName.GoogleSlides,
       DefaultToolName.GoogleCalendar,
       DefaultToolName.GitHub,
       DefaultToolName.Outlook,

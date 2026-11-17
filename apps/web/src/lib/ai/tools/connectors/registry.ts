@@ -8,7 +8,9 @@ import { createFreshdeskToolForUser } from "./freshdesk-tool";
 import { createGitHubToolForUser } from "./github-tool";
 import { createGmailToolForUser } from "./gmail-tool";
 import { createGoogleDocsToolForUser } from "./google-docs-tool";
+import { createGoogleFormsToolForUser } from "./google-forms-tool";
 import { createGoogleSheetsToolForUser } from "./google-sheets-tool";
+import { createGoogleSlidesToolForUser } from "./google-slides-tool";
 import { createJiraToolForUser } from "./jira-tool";
 import { createLinearToolForUser } from "./linear-tool";
 import { createNotionToolForUser } from "./notion-tool";
@@ -26,6 +28,8 @@ export function createConnectorToolsForUser(userId: string) {
     [DefaultToolName.GoogleDrive]: createDriveToolForUser(userId),
     [DefaultToolName.GoogleDocs]: createGoogleDocsToolForUser(userId),
     [DefaultToolName.GoogleSheets]: createGoogleSheetsToolForUser(userId),
+    [DefaultToolName.GoogleForms]: createGoogleFormsToolForUser(userId),
+    [DefaultToolName.GoogleSlides]: createGoogleSlidesToolForUser(userId),
     [DefaultToolName.GoogleCalendar]: createCalendarToolForUser(userId),
     [DefaultToolName.GitHub]: createGitHubToolForUser(userId),
     [DefaultToolName.Outlook]: createOutlookToolForUser(userId),

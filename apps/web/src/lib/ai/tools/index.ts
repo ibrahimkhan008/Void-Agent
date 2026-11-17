@@ -56,6 +56,8 @@ export enum DefaultToolName {
   GoogleDrive = "google-drive",
   GoogleDocs = "google-docs",
   GoogleSheets = "google-sheets",
+  GoogleForms = "google-forms",
+  GoogleSlides = "google-slides",
   GoogleCalendar = "google-calendar",
   Outlook = "outlook",
   Slack = "slack",

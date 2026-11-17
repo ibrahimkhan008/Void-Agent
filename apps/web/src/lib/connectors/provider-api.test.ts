@@ -119,6 +119,12 @@ describe("connector provider token boundary", () => {
     ["gmail", "https://gmail.googleapis.com", "/gmail/v1/users/me/messages"],
     ["google-drive", "https://www.googleapis.com", "/drive/v3/files"],
     ["google-docs", "https://docs.googleapis.com", "/v1/documents/doc-1"],
+    ["google-forms", "https://forms.googleapis.com", "/v1/forms/form-1"],
+    [
+      "google-slides",
+      "https://slides.googleapis.com",
+      "/v1/presentations/slide-1",
+    ],
     [
       "google-sheets",
       "https://sheets.googleapis.com",
