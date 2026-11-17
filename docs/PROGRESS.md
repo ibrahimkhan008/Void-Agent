@@ -181,17 +181,17 @@
   this. Existing app credit accounting also remains unchanged, so actual
   provider billing attribution still needs live verification before this is
   considered complete.
-- 🟡 Automatic routing now supports user-selected Balanced, Lower cost, and
-  Faster priorities under Customize → Instructions. Cost chooses the lowest
-  sum of configured input and output token rates among eligible
-  candidates no more than 8 task-fit points below the best candidate (equal
-  one-million-token input/output units; this is a rate comparison, not a
-  per-turn spend forecast). Faster uses the catalog's
-  admin-maintained `fast`/`balanced`/`slow` tier within the same quality band;
-  it is not a live latency measurement. Capability, retention, region,
-  organization allowlist/price policy, and thread pinning remain hard gates.
-  Route unit tests cover quality tradeoffs; live org routing has not been
-  verified. Keep PARTIAL until an isolated configured org verifies each tier.
+- ✅ Automatic routing priorities (Balanced / Lower cost / Faster) are
+  verified against a real configured organization (2026-11-18, `79f42a6`):
+  the isolated-PostgreSQL drill seeds member + policy + catalog deployments
+  with distinct latency tiers and prices + task profiles spanning the
+  8-point quality band, drives resolveAutomaticRoute through the real
+  user-preferences read path, and asserts each tier — Balanced takes the
+  best task fit, Lower cost takes the cheapest candidate inside the band,
+  Faster takes the configured fast tier — with every decision audited in
+  model_route_audit. Capability/retention/region/allowlist/price/thread-
+  pinning remain hard gates. The live provider call itself remains
+  operator-side (needs provider keys).
 
 ### §3.1 Fallback chains — mid-stream retry
 - ✅ Resolution-time consumption (org policy refusal → chain walk)
@@ -432,14 +432,15 @@
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
   visible to callers; stored problem reports remain intact. Focused transport,
   gate, and report-route tests pass. No live SMTP delivery has been verified.
-- 🟡 Per-user daily email digests are implemented locally: opted-in users can
-  choose a generic daily summary instead of immediate delivery for enabled
-  scheduled-run and hook-failure events. An Inngest daily cron groups verified
-  recipients, applies event preferences, and never includes notification
-  titles or bodies. Three digest unit tests plus immediate-delivery suppression
-  tests pass. This has not been verified with a live Inngest registration,
-  PostgreSQL database, or SMTP server; delivery remains best-effort and should
-  stay PARTIAL until those integrations are exercised.
+- ✅ Daily digest query layer is verified against real PostgreSQL
+  (2026-11-18, `79f42a6`): the digest cron's exact query (24h window,
+  notification ⋈ user join, digest-type filter) plus the recipient
+  aggregation run against seeded rows — the verified opted-in user groups
+  with the correct count, while events outside the window, opted-out and
+  unverified users, and non-digest event types are all excluded, and the
+  summary email stays generic (count only, no titles/bodies). **Still
+  outstanding (operator-side):** live SMTP delivery and a live Inngest
+  registration — both need credentials.
 - ⏸️ Telegram and outbound Slack are deferred per user direction; they are
   not required in the current work scope.
 
