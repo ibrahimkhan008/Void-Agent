@@ -3,6 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+const { createHookRunMock, inngestSendMock } = vi.hoisted(() => ({
+  createHookRunMock: vi.fn(),
+  inngestSendMock: vi.fn(),
+}));
+
 /**
  * pgDb stub: dispatches by drizzle table name. Tests populate `rows` per
  * table; `claimReturn` is what the conditional queued→running UPDATE returns.
@@ -51,14 +56,17 @@ const parseHookConfig = vi.fn((raw: unknown) => {
     promptTemplate?: string;
     cooldownSeconds?: number;
     maxRunsPerDay?: number;
+    chainOnSuccess?: string[];
   };
   return {
     promptTemplate: config.promptTemplate,
     cooldownSeconds: config.cooldownSeconds ?? 60,
     maxRunsPerDay: config.maxRunsPerDay ?? 20,
+    chainOnSuccess: config.chainOnSuccess ?? [],
   };
 });
 vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
+  createHookRun: (...args: unknown[]) => createHookRunMock(...args),
   getHookRunById: async () => RUN,
   evaluateMatchRules: (...args: unknown[]) => evaluateMatchRules(...args),
   finishHookRun: (...args: unknown[]) => finishHookRunMock(...args),
@@ -71,6 +79,9 @@ vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
 const executeAgentRun = vi.fn();
 vi.mock("@/lib/scheduled-tasks/runner", () => ({
   executeAgentRun: (...args: unknown[]) => executeAgentRun(...args),
+}));
+vi.mock("@/lib/inngest/client", () => ({
+  inngest: { send: (...args: unknown[]) => inngestSendMock(...args) },
 }));
 const createNotifications = vi.fn();
 vi.mock("@/lib/notifications/create-notifications", () => ({
@@ -85,6 +96,8 @@ const RUN = {
   userId: "u1",
   status: "queued",
   threadId: null,
+  triggerPayload: null,
+  chainDepth: 0,
   error: null,
   startedAt: null,
   finishedAt: null,
@@ -102,6 +115,10 @@ beforeEach(() => {
   executeAgentRun.mockReset();
   createNotifications.mockReset();
   evaluateMatchRules.mockClear();
+  createHookRunMock.mockReset();
+  createHookRunMock.mockResolvedValue({ created: true, runId: "child-run" });
+  inngestSendMock.mockReset();
+  inngestSendMock.mockResolvedValue({});
 });
 
 afterEach(() => {
@@ -260,6 +277,125 @@ describe("runHookAgent gates", () => {
       "run-1",
       expect.objectContaining({ status: "succeeded", threadId: "thread-1" }),
     );
+  });
+
+  it("queues owner-scoped follow-up hooks after success", async () => {
+    claimReturn = [{ id: "run-1" }];
+    const targetId = "00000000-0000-4000-8000-000000000002";
+    rows.inbound_endpoint = [
+      {
+        id: "e1",
+        userId: "u1",
+        enabled: true,
+        hookConfig: { chainOnSuccess: [targetId] },
+      },
+      {
+        id: targetId,
+        userId: "u1",
+        enabled: true,
+        agentId: "a2",
+        hookConfig: {},
+      },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [
+      {
+        id: "a1",
+        userId: "u1",
+        name: "Parent",
+        description: null,
+        icon: null,
+        model: null,
+        organizationId: null,
+      },
+      {
+        id: "a2",
+        userId: "u1",
+        name: "Child",
+        description: null,
+        icon: null,
+        model: null,
+        organizationId: null,
+      },
+    ];
+    rows.webhook_event_outbox = [
+      { payload: { normalized: { source: "webhook", text: "start" } } },
+    ];
+    executeAgentRun.mockResolvedValue({ success: true, threadId: null });
+
+    const result = await runHookAgent("run-1");
+
+    expect(result.status).toBe("succeeded");
+    expect(createHookRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: `chain:run-1:${targetId}`,
+        inboundEndpointId: targetId,
+        agentId: "a2",
+        userId: "u1",
+        chainDepth: 1,
+        triggerPayload: expect.objectContaining({
+          normalized: expect.objectContaining({ source: "hook_chain" }),
+        }),
+      }),
+    );
+    expect(inngestSendMock).toHaveBeenCalledWith({
+      name: "void/hooks.agent-run",
+      data: { runId: "child-run" },
+    });
+  });
+
+  it("stops hook chains after three hops", async () => {
+    claimReturn = [{ id: "run-1" }];
+    RUN.chainDepth = 3;
+    rows.inbound_endpoint = [
+      {
+        id: "e1",
+        userId: "u1",
+        enabled: true,
+        hookConfig: { chainOnSuccess: ["e2"] },
+      },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [{ id: "a1", userId: "u1", name: "Parent" }];
+    rows.webhook_event_outbox = [
+      { payload: { normalized: { text: "start" } } },
+    ];
+    executeAgentRun.mockResolvedValue({ success: true, threadId: null });
+
+    await runHookAgent("run-1");
+
+    expect(createHookRunMock).not.toHaveBeenCalled();
+    RUN.chainDepth = 0;
+  });
+
+  it("does not enqueue a chained hook owned by another user", async () => {
+    claimReturn = [{ id: "run-1" }];
+    const foreignHookId = "00000000-0000-4000-8000-000000000004";
+    rows.inbound_endpoint = [
+      {
+        id: "e1",
+        userId: "u1",
+        enabled: true,
+        hookConfig: { chainOnSuccess: [foreignHookId] },
+      },
+      {
+        id: foreignHookId,
+        userId: "u2",
+        enabled: true,
+        agentId: "a2",
+        hookConfig: {},
+      },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [{ id: "a1", userId: "u1", name: "Parent" }];
+    rows.webhook_event_outbox = [
+      { payload: { normalized: { text: "start" } } },
+    ];
+    executeAgentRun.mockResolvedValue({ success: true, threadId: null });
+
+    await runHookAgent("run-1");
+
+    expect(createHookRunMock).not.toHaveBeenCalled();
   });
 
   it("skips a hook whose agent is owned by another user", async () => {

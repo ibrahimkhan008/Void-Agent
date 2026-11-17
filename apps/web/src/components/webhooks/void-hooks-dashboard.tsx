@@ -41,6 +41,7 @@ interface HookView {
     promptTemplate?: string;
     cooldownSeconds?: number;
     maxRunsPerDay?: number;
+    chainOnSuccess?: string[];
   };
   createdAt: string;
 }
@@ -150,6 +151,28 @@ export function VoidHooksDashboard() {
         return;
       }
       toast.success("Hook deleted.");
+      await mutate();
+    },
+    [mutate],
+  );
+
+  const updateHookChain = useCallback(
+    async (hook: HookView, chainOnSuccess: string[]) => {
+      if (chainOnSuccess.length > 3) {
+        toast.error("A hook can chain to at most three hooks.");
+        await mutate();
+        return;
+      }
+      const response = await fetch(`/api/hooks/${hook.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chainOnSuccess }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        toast.error(payload?.error ?? "Could not update the hook chain.");
+        return;
+      }
       await mutate();
     },
     [mutate],
@@ -311,6 +334,37 @@ export function VoidHooksDashboard() {
                       cooldown {hook.hookConfig.cooldownSeconds ?? 60}s · cap{" "}
                       {hook.hookConfig.maxRunsPerDay ?? 20}/day
                     </p>
+                    <label className="flex flex-col gap-1 pt-1 text-[11px] text-muted-foreground">
+                      Run up to 3 enabled hooks after success (chains stop at 3
+                      hops):
+                      <select
+                        aria-label={`Hooks to run after ${agentName} succeeds`}
+                        className="min-h-16 max-w-sm rounded-md border bg-background px-2 py-1 text-foreground"
+                        disabled={!hook.enabled}
+                        multiple
+                        value={hook.hookConfig.chainOnSuccess ?? []}
+                        onChange={(event) =>
+                          updateHookChain(
+                            hook,
+                            [...event.currentTarget.selectedOptions].map(
+                              (option) => option.value,
+                            ),
+                          )
+                        }
+                      >
+                        {hooks
+                          .filter(
+                            (target) => target.id !== hook.id && target.enabled,
+                          )
+                          .map((target) => (
+                            <option key={target.id} value={target.id}>
+                              {agents?.find(
+                                (agent) => agent.id === target.agentId,
+                              )?.name ?? target.kind}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Button

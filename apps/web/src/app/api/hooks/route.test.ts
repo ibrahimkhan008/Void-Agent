@@ -30,6 +30,7 @@ vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
   publicHookConfig: (raw: Record<string, unknown>) => raw,
   parseHookConfig: (raw: Record<string, unknown>) => ({
     matchRules: raw.matchRules ?? [],
+    chainOnSuccess: raw.chainOnSuccess ?? [],
   }),
   updateEndpointHookConfig: (...args: unknown[]) =>
     updateEndpointHookConfig(...args),
@@ -148,5 +149,65 @@ describe("hook agent ownership", () => {
     expect(updateEndpointHookConfig.mock.invocationCallOrder[0]).toBeLessThan(
       updateInboundEndpoint.mock.invocationCallOrder[0],
     );
+  });
+
+  it("only allows chaining to another enabled owned hook", async () => {
+    const targetId = "00000000-0000-4000-8000-000000000002";
+    listInboundEndpoints.mockResolvedValue([
+      { id: "hook-1", userId: "owner", enabled: true, hookConfig: {} },
+      {
+        id: targetId,
+        userId: "owner",
+        agentId: AGENT_ID,
+        enabled: true,
+        hookConfig: {},
+      },
+    ]);
+    checkAccess.mockResolvedValue(true);
+
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/hooks/hook-1", {
+        method: "PATCH",
+        body: JSON.stringify({ chainOnSuccess: [targetId] }),
+      }),
+      { params: Promise.resolve({ id: "hook-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkAccess).toHaveBeenCalledWith(AGENT_ID, "owner", true);
+    expect(updateEndpointHookConfig).toHaveBeenCalledWith(
+      "hook-1",
+      "owner",
+      expect.objectContaining({ chainOnSuccess: [targetId] }),
+    );
+  });
+
+  it("rejects self-chains and chains to hooks outside the owner list", async () => {
+    const targetId = "00000000-0000-4000-8000-000000000002";
+    const sourceId = "00000000-0000-4000-8000-000000000003";
+    listInboundEndpoints.mockResolvedValue([
+      { id: sourceId, userId: "owner", enabled: true, hookConfig: {} },
+    ]);
+    const selfResponse = await PATCH(
+      new NextRequest(`http://localhost/api/hooks/${sourceId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ chainOnSuccess: [sourceId] }),
+      }),
+      { params: Promise.resolve({ id: sourceId }) },
+    );
+    expect(selfResponse.status).toBe(400);
+
+    listInboundEndpoints.mockResolvedValue([
+      { id: sourceId, userId: "owner", enabled: true, hookConfig: {} },
+    ]);
+    const foreignResponse = await PATCH(
+      new NextRequest(`http://localhost/api/hooks/${sourceId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ chainOnSuccess: [targetId] }),
+      }),
+      { params: Promise.resolve({ id: sourceId }) },
+    );
+    expect(foreignResponse.status).toBe(400);
+    expect(updateEndpointHookConfig).not.toHaveBeenCalled();
   });
 });

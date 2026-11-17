@@ -3938,6 +3938,7 @@ export const InboundEndpointTable = pgTable(
           op: string;
           value: string;
         }>;
+        chainOnSuccess?: string[];
         githubSigningSecretEncrypted?: string;
       }>()
       .notNull()
@@ -3978,6 +3979,8 @@ export const HookRunTable = pgTable(
       .notNull()
       .default("queued"),
     threadId: uuid("thread_id"),
+    triggerPayload: jsonb("trigger_payload").$type<Record<string, unknown>>(),
+    chainDepth: integer("chain_depth").notNull().default(0),
     error: text("error"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
@@ -3992,6 +3995,10 @@ export const HookRunTable = pgTable(
     index("hook_run_endpoint_created_idx").on(
       table.inboundEndpointId,
       table.createdAt,
+    ),
+    check(
+      "hook_run_chain_depth_check",
+      sql`${table.chainDepth} BETWEEN 0 AND 3`,
     ),
   ],
 );

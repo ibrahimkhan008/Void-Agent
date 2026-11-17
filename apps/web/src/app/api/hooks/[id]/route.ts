@@ -44,6 +44,7 @@ const PatchSchema = z
       .max(6)
       .nullable()
       .optional(),
+    chainOnSuccess: z.array(z.string().uuid()).max(3).optional(),
   })
   .strip();
 
@@ -100,11 +101,50 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
     return Response.json({ error: "Agent not found" }, { status: 404 });
   }
 
+  if (data.chainOnSuccess !== undefined) {
+    const ownedEndpoints = await inboundRepository.listInboundEndpoints(
+      session.user.id,
+    );
+    const selected = [...new Set(data.chainOnSuccess)];
+    const invalidTarget = selected.some((targetId) => {
+      if (targetId === id) return true;
+      const target = ownedEndpoints.find(
+        (candidate) => candidate.id === targetId,
+      );
+      return !target || !target.enabled;
+    });
+    if (invalidTarget) {
+      return Response.json(
+        { error: "Chained hooks must be other enabled hooks you own." },
+        { status: 400 },
+      );
+    }
+    for (const targetId of selected) {
+      const target = ownedEndpoints.find(
+        (candidate) => candidate.id === targetId,
+      );
+      if (
+        !target ||
+        !(await agentRepository.checkAccess(
+          target.agentId,
+          session.user.id,
+          true,
+        ))
+      ) {
+        return Response.json(
+          { error: "Chained hooks must use agents you own." },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   if (
     data.promptTemplate !== undefined ||
     data.cooldownSeconds !== undefined ||
     data.maxRunsPerDay !== undefined ||
-    data.matchRules !== undefined
+    data.matchRules !== undefined ||
+    data.chainOnSuccess !== undefined
   ) {
     const current =
       (endpoint as { hookConfig?: Record<string, unknown> }).hookConfig ?? {};
@@ -130,6 +170,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
         data.matchRules === undefined
           ? parsedCurrent.matchRules
           : (data.matchRules ?? []),
+      chainOnSuccess: data.chainOnSuccess ?? parsedCurrent.chainOnSuccess,
       githubSigningSecretEncrypted:
         typeof current.githubSigningSecretEncrypted === "string"
           ? current.githubSigningSecretEncrypted

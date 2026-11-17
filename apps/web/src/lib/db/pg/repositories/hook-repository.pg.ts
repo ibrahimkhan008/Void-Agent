@@ -26,6 +26,8 @@ export interface HookRunRow {
   userId: string;
   status: HookRunStatus;
   threadId: string | null;
+  triggerPayload: Record<string, unknown> | null;
+  chainDepth: number;
   error: string | null;
   startedAt: Date | null;
   finishedAt: Date | null;
@@ -42,6 +44,8 @@ export async function createHookRun(input: {
   inboundEndpointId: string;
   agentId: string;
   userId: string;
+  triggerPayload?: Record<string, unknown> | null;
+  chainDepth?: number;
 }): Promise<{ created: boolean; runId: string | null; run?: HookRunRow }> {
   const inserted = await pgDb
     .insert(HookRunTable)
@@ -51,6 +55,8 @@ export async function createHookRun(input: {
       agentId: input.agentId,
       userId: input.userId,
       status: "queued",
+      triggerPayload: input.triggerPayload ?? null,
+      chainDepth: input.chainDepth ?? 0,
     })
     .onConflictDoNothing({ target: HookRunTable.eventId })
     .returning();
@@ -125,6 +131,8 @@ export async function listHookRuns(
       userId: HookRunTable.userId,
       status: HookRunTable.status,
       threadId: HookRunTable.threadId,
+      triggerPayload: HookRunTable.triggerPayload,
+      chainDepth: HookRunTable.chainDepth,
       error: HookRunTable.error,
       startedAt: HookRunTable.startedAt,
       finishedAt: HookRunTable.finishedAt,
@@ -228,6 +236,7 @@ export interface EndpointHookConfig {
   cooldownSeconds?: number;
   maxRunsPerDay?: number;
   matchRules?: HookMatchRule[];
+  chainOnSuccess?: string[];
   githubSigningSecretEncrypted?: string;
 }
 
@@ -283,6 +292,13 @@ export function parseHookConfig(
         )
         ? config.matchRules
         : [INVALID_STORED_RULE]
+      : [],
+    chainOnSuccess: Array.isArray(config.chainOnSuccess)
+      ? [
+          ...new Set(
+            config.chainOnSuccess.filter((id) => typeof id === "string"),
+          ),
+        ].slice(0, 3)
       : [],
   };
 }

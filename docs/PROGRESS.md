@@ -196,7 +196,15 @@
   endpoint disabled until configuration is saved. Focused route, matcher, and
   executor tests plus the full web suite and TypeScript pass. Live
   webhook/PostgreSQL verification has not been repeated for these edits.
-- ❌ Cross-hook chaining
+- 🟡 **Cross-hook chaining** is implemented locally: an owner can configure up
+  to three enabled hooks to run after a successful hook, each child run has a
+  deterministic idempotency key, bounded parent-result context, and a database
+  depth limit of three. The queued run is durable before Inngest enqueue; the
+  existing hook tick can recover queued children if enqueue fails. Focused API
+  and executor tests pass (22 cases), targeted Biome and `db:check` pass. The
+  additive PostgreSQL migration is generated and journaled but has not been
+  applied to a local isolated PostgreSQL database; live Inngest/PostgreSQL
+  behavior is not verified, so this remains PARTIAL.
 
 ### §3.6 Canvas depth
 - ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports
@@ -316,7 +324,9 @@ operator credentials still determine whether an item can be closed.
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume
-6. **Hook chaining and live GitHub/PostgreSQL verification**
+6. **Live hook verification** — apply the hook-chaining migration to an
+   isolated PostgreSQL database and verify chained execution, deduplication,
+   ownership, and Inngest recovery; repeat real GitHub-delivery checks.
 7. **Notification digests** — code and focused tests exist; verify cron
    registration, PostgreSQL query behavior, and delivery through isolated
    Inngest/SMTP before closing

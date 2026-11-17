@@ -3,6 +3,7 @@ import { pgDb } from "@/lib/db/pg/db.pg";
 import {
   type HookRunRow,
   countHookRunsToday,
+  createHookRun,
   evaluateMatchRules,
   finishHookRun,
   getHookRunById,
@@ -11,12 +12,16 @@ import {
 } from "@/lib/db/pg/repositories/hook-repository.pg";
 import {
   AgentTable,
+  ChatMessageTable,
+  ChatThreadTable,
   HookRunTable,
   InboundEndpointTable,
 } from "@/lib/db/pg/schema.pg";
+import { HOOK_AGENT_RUN_EVENT } from "@/lib/hooks/dispatch";
+import { inngest } from "@/lib/inngest/client";
 import { createNotifications } from "@/lib/notifications/create-notifications";
 import { executeAgentRun } from "@/lib/scheduled-tasks/runner";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import logger from "logger";
 
 /**
@@ -41,6 +46,7 @@ import logger from "logger";
 
 /** Bounds on one rendered prompt so a huge payload cannot blow the context. */
 const MAX_PROMPT_CHARS = 24_000;
+const MAX_HOOK_CHAIN_DEPTH = 3;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
@@ -156,7 +162,7 @@ export async function runHookAgent(runId: string): Promise<{
 
     // Re-read the event payload ONCE — it drives both the rule evaluation
     // and the prompt render.
-    const payload = await loadEventPayload(run.eventId);
+    const payload = run.triggerPayload ?? (await loadEventPayload(run.eventId));
 
     // §3.5 rule matching: every rule must match the normalized payload
     // (AND semantics). A non-matching event is recorded as skipped so the
@@ -234,6 +240,17 @@ export async function runHookAgent(runId: string): Promise<{
         status: "succeeded",
         threadId: result.threadId,
       });
+      await queueChainedHookRuns({
+        run,
+        endpoint,
+        chainOnSuccess: config.chainOnSuccess ?? [],
+        threadId: result.threadId,
+      }).catch((error) => {
+        logger.error(
+          `[hooks] failed to queue chained runs from ${runId}`,
+          error instanceof Error ? error.message : error,
+        );
+      });
       return { status: "succeeded" };
     }
 
@@ -257,8 +274,8 @@ export async function runHookAgent(runId: string): Promise<{
 }
 
 /**
- * The outbox event row carries the normalized payload; the hook_run only
- * stores the id. Load it back for the prompt render.
+ * Normal inbound runs resolve payload data from the outbox. Chained runs
+ * carry their bounded parent summary in hook_run.trigger_payload instead.
  */
 async function loadEventPayload(
   eventId: string,
@@ -270,6 +287,140 @@ async function loadEventPayload(
     .where(eq(WebhookEventOutboxTable.id, eventId))
     .limit(1);
   return (row?.payload as InboundOutboxPayload) ?? null;
+}
+
+/**
+ * Queue up to three owner-scoped follow-up hooks. A child is stored as a
+ * normal queued hook_run with a deterministic event key, so retries and the
+ * synchronous/Inngest drivers share the existing atomic claim. Chains stop
+ * after three hops even if the configured graph contains a cycle.
+ */
+async function queueChainedHookRuns(input: {
+  run: HookRunRow;
+  endpoint: typeof InboundEndpointTable.$inferSelect;
+  chainOnSuccess: string[];
+  threadId: string | null;
+}): Promise<void> {
+  if (
+    !input.chainOnSuccess.length ||
+    input.run.chainDepth >= MAX_HOOK_CHAIN_DEPTH
+  ) {
+    return;
+  }
+
+  const targetIds = [...new Set(input.chainOnSuccess)]
+    .filter((id) => id !== input.endpoint.id)
+    .slice(0, 3);
+  if (!targetIds.length) return;
+
+  const targetRows = await pgDb
+    .select()
+    .from(InboundEndpointTable)
+    .where(
+      and(
+        inArray(InboundEndpointTable.id, targetIds),
+        eq(InboundEndpointTable.userId, input.run.userId),
+        eq(InboundEndpointTable.enabled, true),
+      ),
+    )
+    .limit(3);
+  const targets = targetRows.filter(
+    (target) =>
+      targetIds.includes(target.id) &&
+      target.id !== input.endpoint.id &&
+      target.userId === input.run.userId &&
+      target.enabled,
+  );
+  const parentSummary = await loadHookThreadSummary(
+    input.run.userId,
+    input.threadId,
+  );
+
+  for (const target of targets) {
+    const [agent] = await pgDb
+      .select({ id: AgentTable.id, userId: AgentTable.userId })
+      .from(AgentTable)
+      .where(eq(AgentTable.id, target.agentId))
+      .limit(1);
+    if (!agent || agent.userId !== input.run.userId) continue;
+
+    const queued = await createHookRun({
+      eventId: `chain:${input.run.id}:${target.id}`,
+      inboundEndpointId: target.id,
+      agentId: target.agentId,
+      userId: input.run.userId,
+      chainDepth: input.run.chainDepth + 1,
+      triggerPayload: {
+        normalized: {
+          source: "hook_chain",
+          kind: "hook_chain",
+          text: parentSummary,
+          meta: {
+            parentRunId: input.run.id,
+            parentThreadId: input.threadId,
+          },
+        },
+      },
+    });
+    if (!queued.created || !queued.runId) continue;
+
+    // The queued row is durable before enqueue. If Inngest is unavailable,
+    // the authenticated hook tick can pick it up from the shared backlog.
+    await inngest
+      .send({ name: HOOK_AGENT_RUN_EVENT, data: { runId: queued.runId } })
+      .catch((error) => {
+        logger.error(
+          `[hooks] failed to enqueue chained run ${queued.runId}`,
+          error instanceof Error ? error.message : error,
+        );
+      });
+  }
+}
+
+async function loadHookThreadSummary(
+  userId: string,
+  threadId: string | null,
+): Promise<string> {
+  if (!threadId) return "The previous hook completed successfully.";
+  const [ownedThread] = await pgDb
+    .select({ id: ChatThreadTable.id })
+    .from(ChatThreadTable)
+    .where(
+      and(eq(ChatThreadTable.id, threadId), eq(ChatThreadTable.userId, userId)),
+    )
+    .limit(1);
+  if (!ownedThread) return "The previous hook completed successfully.";
+
+  const [lastAssistantMessage] = await pgDb
+    .select({ parts: ChatMessageTable.parts })
+    .from(ChatMessageTable)
+    .where(
+      and(
+        eq(ChatMessageTable.threadId, threadId),
+        eq(ChatMessageTable.role, "assistant"),
+      ),
+    )
+    .orderBy(desc(ChatMessageTable.createdAt))
+    .limit(1);
+  const parts = Array.isArray(lastAssistantMessage?.parts)
+    ? lastAssistantMessage.parts
+    : [];
+  const text = parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        typeof part === "object" &&
+        part !== null &&
+        "type" in part &&
+        part.type === "text" &&
+        "text" in part &&
+        typeof part.text === "string",
+    )
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+  return text
+    ? `Previous hook result:\n${text.slice(0, 8_000)}`
+    : "The previous hook completed successfully.";
 }
 
 async function notifyFailure(
