@@ -202,13 +202,13 @@
 
 ### Notifications
 - ✅ In-app + Web Push (VAPID)
-- 🟡 Operator problem-report email now uses an optional TLS-required SMTP
+- 🟡 Operator problem reports, organization invitations, and password resets
+  now use an optional TLS-required SMTP
   transport (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optional paired
   `SMTP_USER`/`SMTP_PASSWORD`). Missing relay settings and send failures are
-  visible to the caller; the stored report remains intact. Focused transport
-  and report-route tests pass. No live SMTP delivery has been verified.
-- ❌ User-facing email delivery remains unwired; password-reset and
-  organization-invitation mail are explicit no-ops in the community gate.
+  visible to callers; stored problem reports remain intact. Focused transport,
+  gate, and report-route tests pass. No live SMTP delivery has been verified.
+- ❌ Per-user notification email preferences/digests are not implemented.
 - ⏸️ Telegram and outbound Slack are deferred per user direction; they are
   not required in the current work scope.
 
@@ -306,10 +306,10 @@ operator credentials still determine whether an item can be closed.
   documented `X-Hub-Signature-256` verification and
   `X-GitHub-Delivery` deduplication are implemented, but no live delivery or
   real PostgreSQL outbox race was verified.
-- A later operator-email slice added SMTP delivery for problem reports and
-  passed 8 focused tests (transport plus report route). No SMTP server was
-  contacted. The updated full suite passed after this edit; the production
-  build predates the SMTP change.
+- SMTP delivery is implemented for problem reports, invitations, and
+  password resets; transport, community-gate, and problem-report route tests
+  cover those paths. No SMTP server was contacted. The latest full suite and
+  production build predate the invitation/reset wiring.
 - Suite: **493 files / 3,267 tests** green (the post-marketing-extraction
   baseline; the public-site tests moved to `apps/marketing` with their files)
 - Built-in skills: **122 across 8 packs** verified via `/api/skills/built-in`

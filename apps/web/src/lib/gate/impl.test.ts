@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const getSession = vi.fn();
+const sendSmtpEmail = vi.fn();
+vi.mock("@/lib/notifications/send-smtp-email", () => ({
+  sendSmtpEmail: (...args: unknown[]) => sendSmtpEmail(...args),
+}));
 vi.mock("@/lib/auth/auth-instance", () => ({
   getSession: () => getSession(),
 }));
@@ -13,6 +17,9 @@ import {
   getBillingContext,
   requireBillingContext,
   requireFeature,
+  sendNotificationEmail,
+  sendOrgInvitationEmail,
+  sendPasswordResetEmail,
 } from "./impl";
 import { checkMeteredFeature, trackUsage } from "./metering";
 
@@ -61,5 +68,33 @@ describe("community gate", () => {
         idempotencyKey: "msg_1",
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("delivers operator, invitation, and password reset mail via SMTP", async () => {
+    await sendNotificationEmail({
+      to: "ops@example.test",
+      subject: "Report",
+      body: "Issue",
+    });
+    await sendOrgInvitationEmail({
+      email: "new@example.test",
+      invitedByUsername: "A",
+      invitedByEmail: "a@example.test",
+      teamName: "Team",
+      inviteLink: "https://void.test/invite/token",
+    });
+    await sendPasswordResetEmail({
+      email: "new@example.test",
+      name: "New User",
+      resetUrl: "https://void.test/reset/token",
+    });
+    expect(sendSmtpEmail).toHaveBeenCalledTimes(3);
+    expect(sendSmtpEmail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        to: "new@example.test",
+        subject: "Reset your Void Agent password",
+        body: expect.stringContaining("https://void.test/reset/token"),
+      }),
+    );
   });
 });

@@ -62,13 +62,16 @@ export async function requireFeature(
 /** No CRM to sync new accounts into. */
 export async function onUserCreated(_user: CreatedUser): Promise<void> {}
 
-/**
- * No transactional email provider is configured in this edition, so
- * invitations are created without a mail being sent — share the link directly.
- */
+/** Send an organization invitation through the configured SMTP relay. */
 export async function sendOrgInvitationEmail(
-  _invitation: OrganizationInvitation,
-): Promise<void> {}
+  invitation: OrganizationInvitation,
+): Promise<void> {
+  await sendSmtpEmail({
+    to: invitation.email,
+    subject: `Invitation to join ${invitation.teamName}`,
+    body: `${invitation.invitedByUsername} (${invitation.invitedByEmail}) invited you to join ${invitation.teamName}.\n\nAccept the invitation: ${invitation.inviteLink}`,
+  });
+}
 
 /** Send operator notifications through the configured SMTP relay. */
 export async function sendNotificationEmail(
@@ -77,11 +80,13 @@ export async function sendNotificationEmail(
   await sendSmtpEmail(email);
 }
 
-/**
- * Likewise for password resets: Better Auth still generates the token-bearing
- * URL, but nothing delivers it. Self-hosters who need self-service reset
- * should wire their own provider here.
- */
+/** Send the token-bearing password reset link through the configured relay. */
 export async function sendPasswordResetEmail(
-  _email: PasswordResetEmail,
-): Promise<void> {}
+  email: PasswordResetEmail,
+): Promise<void> {
+  await sendSmtpEmail({
+    to: email.email,
+    subject: "Reset your Void Agent password",
+    body: `Hello${email.name ? ` ${email.name}` : ""},\n\nUse the link below to reset your password. If you did not request a reset, ignore this email.\n\n${email.resetUrl}`,
+  });
+}
