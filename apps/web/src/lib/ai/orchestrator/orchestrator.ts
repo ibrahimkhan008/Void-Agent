@@ -21,6 +21,15 @@ import {
   createExaContentsTool,
   createExaSearchTool,
 } from "lib/ai/tools/web/web-search";
+import {
+  type StoredOrchestratorResult,
+  type StoredOrchestratorWorker,
+  createOrchestratorCheckpoint,
+  getOrchestratorCheckpoint,
+  saveOrchestratorCheckpoint,
+} from "lib/db/pg/repositories/orchestrator-checkpoint-repository.pg";
+import { generateUUID } from "lib/utils";
+import globalLogger from "logger";
 import { z } from "zod";
 
 /**
@@ -69,6 +78,7 @@ export interface OrchestratorWorkerResult {
 export type OrchestratorToolOutput =
   | {
       status: "planning";
+      runId: string;
       objective: string;
       workers: Array<{ key: string; name: string; role: string }>;
     }
@@ -97,6 +107,7 @@ export type OrchestratorToolOutput =
     }
   | {
       status: "done";
+      runId: string;
       objective: string;
       workers: OrchestratorWorkerResult[];
       report: string;
@@ -106,7 +117,7 @@ export type OrchestratorToolOutput =
         failedChecks: string[];
       } | null;
     }
-  | { status: "failed"; error: string };
+  | { status: "failed"; error: string; runId?: string };
 
 const MAX_WORKERS = 4;
 const WORKER_STEPS = 14;
@@ -245,31 +256,50 @@ export function planWorkerWaves<
   return waves;
 }
 
-export const orchestratorSchema = z.object({
-  objective: z
-    .string()
-    .min(1)
-    .max(4_000)
-    .describe("The overall objective the worker team must achieve"),
-  workers: z
-    .array(workerSchema)
-    .min(1)
-    .max(MAX_WORKERS)
-    .optional()
-    .describe(
-      "Optional worker team. Omit to let the orchestrator plan workers from the objective.",
-    ),
-  verificationCriteria: z
-    .string()
-    .max(4_000)
-    .optional()
-    .describe(
-      "When set: after the build workers finish, a Test & Analyze worker verifies the outputs against these criteria and the result is reported. Repaired is not verified.",
-    ),
-});
+export const orchestratorSchema = z
+  .object({
+    objective: z
+      .string()
+      .min(1)
+      .max(4_000)
+      .optional()
+      .describe(
+        "The overall objective; required for a new run, loaded from the checkpoint when resuming",
+      ),
+    resumeRunId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe("Resume a prior checkpoint belonging to this user and chat"),
+    workers: z
+      .array(workerSchema)
+      .min(1)
+      .max(MAX_WORKERS)
+      .optional()
+      .describe(
+        "Optional worker team. Omit to let the orchestrator plan workers from the objective.",
+      ),
+    verificationCriteria: z
+      .string()
+      .max(4_000)
+      .optional()
+      .describe(
+        "When set: after the build workers finish, a Test & Analyze worker verifies the outputs against these criteria and the result is reported. Repaired is not verified.",
+      ),
+  })
+  .superRefine((input, context) => {
+    if (!input.resumeRunId && !input.objective?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["objective"],
+        message: "Objective is required for a new run",
+      });
+    }
+  });
 
 export interface OrchestratorDeps {
   model: LanguageModel;
+  userId?: string;
   customerId?: string;
   entityId?: string;
   projectId?: string;
@@ -397,7 +427,10 @@ async function runWorker(
         });
       }
 
-      const summary = await collectSummary(lastMessage);
+      const summary = (await collectSummary(lastMessage)).slice(
+        0,
+        MAX_PROMPT_CHARS,
+      );
       if (!summary) {
         lastError = "The worker finished without a summary.";
         continue;
@@ -487,18 +520,79 @@ and dependent workers receive prerequisite summaries after those workers finish.
 Omit workers when you want the orchestrator to decompose the objective itself.
 When you provide verificationCriteria, a Test
 worker independently checks the build outputs against them after the build
-finishes (repaired is not verified).`,
+finishes (repaired is not verified). Checkpoints are saved between dependency
+waves. If a run fails, resume with its runId and resumeRunId; only unfinished
+or failed workers rerun.`,
     inputSchema: orchestratorSchema,
     execute: async function* (
-      { objective, workers: suppliedWorkers, verificationCriteria },
+      {
+        objective: requestedObjective,
+        workers: suppliedWorkers,
+        verificationCriteria: requestedVerificationCriteria,
+        resumeRunId,
+      },
       { abortSignal },
     ) {
       const runSignal = AbortSignal.any([
         ...(abortSignal ? [abortSignal] : []),
         AbortSignal.timeout(OVERALL_RUN_MS),
       ]);
+      const runId = resumeRunId ?? generateUUID();
+      let objective = requestedObjective ?? "";
+      let verificationCriteria = requestedVerificationCriteria;
       let workers = suppliedWorkers;
-      if (!workers) {
+      let workerResults: OrchestratorWorkerResult[] = [];
+
+      if (!deps.userId || !deps.threadId) {
+        yield {
+          status: "failed" as const,
+          error:
+            "Orchestrator checkpoints require an authenticated chat thread",
+        };
+        return;
+      }
+
+      if (resumeRunId) {
+        try {
+          const checkpoint = await getOrchestratorCheckpoint({
+            id: resumeRunId,
+            userId: deps.userId,
+            threadId: deps.threadId,
+          });
+          if (!checkpoint) {
+            yield {
+              status: "failed" as const,
+              runId,
+              error:
+                "No resumable orchestration checkpoint was found for this chat",
+            };
+            return;
+          }
+          if (checkpoint.status === "done") {
+            yield {
+              status: "failed" as const,
+              runId,
+              error: "This orchestration checkpoint is already complete",
+            };
+            return;
+          }
+          objective = checkpoint.objective;
+          workers = checkpoint.workers as OrchestratorWorkerPlan[];
+          workerResults =
+            checkpoint.completedWorkers as OrchestratorWorkerResult[];
+          verificationCriteria =
+            requestedVerificationCriteria ??
+            checkpoint.verificationCriteria ??
+            undefined;
+        } catch (error) {
+          yield {
+            status: "failed" as const,
+            runId,
+            error: `Unable to load checkpoint: ${error instanceof Error ? error.message : String(error)}`,
+          };
+          return;
+        }
+      } else if (!workers) {
         try {
           const planned = await generateText({
             model: deps.model,
@@ -519,6 +613,13 @@ finishes (repaired is not verified).`,
           return;
         }
       }
+      if (!workers) {
+        yield {
+          status: "failed" as const,
+          error: "No worker plan was available",
+        };
+        return;
+      }
       try {
         planWorkerWaves(workers);
       } catch (error) {
@@ -528,8 +629,28 @@ finishes (repaired is not verified).`,
         };
         return;
       }
+      if (!resumeRunId) {
+        try {
+          await createOrchestratorCheckpoint({
+            id: runId,
+            userId: deps.userId,
+            threadId: deps.threadId,
+            objective,
+            workers: workers as StoredOrchestratorWorker[],
+            verificationCriteria,
+          });
+        } catch (error) {
+          yield {
+            status: "failed" as const,
+            runId,
+            error: `Unable to save orchestration checkpoint: ${error instanceof Error ? error.message : String(error)}`,
+          };
+          return;
+        }
+      }
       yield {
         status: "planning" as const,
+        runId,
         objective,
         workers: workers.map((w) => ({
           key: w.key,
@@ -542,12 +663,26 @@ finishes (repaired is not verified).`,
       // Overall run clock: bounded like the unattended browser path.
 
       try {
-        const workerResults: OrchestratorWorkerResult[] = [];
         const allWorkers = (async () => {
-          const completed = new Map<string, OrchestratorWorkerResult>();
+          const completed = new Map<string, OrchestratorWorkerResult>(
+            workerResults.map((result) => [result.key, result]),
+          );
           for (const wave of planWorkerWaves(workers)) {
             const results = await Promise.all(
               wave.map(async (plan) => {
+                const saved = completed.get(plan.key);
+                if (saved?.status === "succeeded") {
+                  sink.push({
+                    status: "worker-done",
+                    workerKey: saved.key,
+                    workerName: saved.name,
+                    role: saved.role,
+                    workerStatus: saved.status,
+                    summary: saved.summary,
+                    attempts: saved.attempts,
+                  });
+                  return saved;
+                }
                 const prerequisites = (plan.dependsOn ?? [])
                   .map((key) => completed.get(key))
                   .filter((result): result is OrchestratorWorkerResult =>
@@ -592,8 +727,19 @@ finishes (repaired is not verified).`,
             );
             for (const result of results) {
               completed.set(result.key, result);
-              workerResults.push(result);
+              const existingIndex = workerResults.findIndex(
+                (saved) => saved.key === result.key,
+              );
+              if (existingIndex < 0) workerResults.push(result);
+              else workerResults[existingIndex] = result;
             }
+            await saveOrchestratorCheckpoint({
+              id: runId,
+              userId: deps.userId as string,
+              threadId: deps.threadId as string,
+              completedWorkers: workerResults as StoredOrchestratorResult[],
+              status: "running",
+            });
           }
           return workerResults;
         })();
@@ -633,6 +779,13 @@ finishes (repaired is not verified).`,
             (w) => w.role === "build" && w.status === "succeeded",
           )
         ) {
+          await saveOrchestratorCheckpoint({
+            id: runId,
+            userId: deps.userId,
+            threadId: deps.threadId,
+            completedWorkers: workerResults as StoredOrchestratorResult[],
+            status: "verifying",
+          });
           yield {
             status: "verifying" as const,
             criteria: verificationCriteria,
@@ -683,12 +836,27 @@ finishes (repaired is not verified).`,
           failedWorkers.length
             ? `\nFailed workers: ${failedWorkers.map((w) => w.name).join(", ")} — their tasks are NOT done.`
             : "",
+          failedWorkers.length || (verification && !verification.passed)
+            ? `\nResume ID: ${runId}`
+            : "",
         ]
           .filter(Boolean)
           .join("\n");
 
+        await saveOrchestratorCheckpoint({
+          id: runId,
+          userId: deps.userId,
+          threadId: deps.threadId,
+          completedWorkers: workerResults as StoredOrchestratorResult[],
+          status:
+            failedWorkers.length || (verification && !verification.passed)
+              ? "failed"
+              : "done",
+        });
+
         yield {
           status: "done" as const,
+          runId,
           objective,
           workers: workerResults,
           report,
@@ -696,7 +864,19 @@ finishes (repaired is not verified).`,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        yield { status: "failed" as const, error: message };
+        await saveOrchestratorCheckpoint({
+          id: runId,
+          userId: deps.userId,
+          threadId: deps.threadId,
+          completedWorkers: workerResults as StoredOrchestratorResult[],
+          status: "failed",
+        }).catch((checkpointError) => {
+          globalLogger.warn(
+            "Could not save failed orchestrator checkpoint",
+            checkpointError,
+          );
+        });
+        yield { status: "failed" as const, runId, error: message };
       }
     },
     toModelOutput: ({ output }) => ({
@@ -705,7 +885,7 @@ finishes (repaired is not verified).`,
         output.status === "done"
           ? output.report
           : output.status === "failed"
-            ? `The orchestration failed: ${output.error}`
+            ? `The orchestration failed: ${output.error}${output.runId ? ` Resume ID: ${output.runId}` : ""}`
             : output.status === "verification"
               ? `Verification ${output.passed ? "PASSED" : "FAILED"}: ${output.summary}`
               : "Worker team in progress.",

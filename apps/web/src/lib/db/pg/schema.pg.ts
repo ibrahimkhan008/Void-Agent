@@ -4720,6 +4720,64 @@ export const EcanvasArtifactTable = pgTable(
   ],
 );
 
+// Durable resumable state for one chat orchestrator invocation.
+export const OrchestratorCheckpointTable = pgTable(
+  "orchestrator_checkpoint",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => ChatThreadTable.id, { onDelete: "cascade" }),
+    objective: text("objective").notNull(),
+    workers: jsonb("workers").notNull().$type<
+      Array<{
+        key: string;
+        role: string;
+        name: string;
+        task: string;
+        dependsOn?: string[];
+      }>
+    >(),
+    completedWorkers: jsonb("completed_workers")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<
+        Array<{
+          key: string;
+          name: string;
+          role: string;
+          status: "succeeded" | "failed";
+          summary: string;
+          attempts: number;
+          toolCallCount: number;
+        }>
+      >(),
+    verificationCriteria: text("verification_criteria"),
+    status: varchar("status", { length: 16 }).notNull().default("running"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("orchestrator_checkpoint_owner_thread_idx").on(
+      table.userId,
+      table.threadId,
+      table.updatedAt,
+    ),
+    check(
+      "orchestrator_checkpoint_status_check",
+      sql`${table.status} IN ('running', 'verifying', 'failed', 'done')`,
+    ),
+    check(
+      "orchestrator_checkpoint_objective_length_check",
+      sql`length(trim(${table.objective})) BETWEEN 1 AND 8000`,
+    ),
+  ],
+);
+
 export type CanvasComment = typeof CanvasCommentTable.$inferSelect;
 export type NewCanvasComment = typeof CanvasCommentTable.$inferInsert;
 

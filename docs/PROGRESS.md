@@ -180,7 +180,13 @@
   run concurrently; dependent workers receive prior summaries and skip when
   a prerequisite fails. Focused schema/planner tests and typecheck pass;
   no live model-run verification has been performed for this change.
-- ❌ Checkpoints between stages
+- 🟡 Durable checkpoints are now written between dependency waves. Failed runs
+  expose a resume ID; resuming requires the same authenticated user and chat,
+  reuses successful worker summaries, retries failed/unstarted work, and
+  repeats an incomplete verification stage. Migration 0091 and focused schema
+  tests are present. No isolated PostgreSQL or live model/sandbox resume test
+  was run, so persistence, crash recovery, and side-effect behavior remain
+  unverified. Keep PARTIAL.
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
@@ -351,7 +357,9 @@ operator credentials still determine whether an item can be closed.
    verify browser interaction, persistence, and cross-user isolation.
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
-5. **Orchestrator checkpoints** — durable stage state and safe resume
+5. **Orchestrator checkpoints** — local durable-resume implementation exists;
+   apply migration 0091 to isolated PostgreSQL and test crash recovery,
+   ownership, retry behavior, verification resume, and sandbox side effects.
 6. **Live hook verification** — apply the hook-chaining migration to an
    isolated PostgreSQL database and verify chained execution, deduplication,
    ownership, and Inngest recovery; repeat real GitHub-delivery checks.

@@ -1395,6 +1395,7 @@ export async function POST(request: Request) {
           ? {
               [OrchestratorToolName]: createOrchestratorTool({
                 model,
+                userId: session.user.id,
                 customerId: customerId ?? undefined,
                 entityId,
                 projectId: thread?.projectId ?? undefined,

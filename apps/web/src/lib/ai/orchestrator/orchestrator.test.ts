@@ -61,6 +61,18 @@ describe("orchestratorSchema", () => {
       orchestratorSchema.safeParse({ objective: "Build a report" }).success,
     ).toBe(true);
   });
+
+  it("requires an objective for a new run and accepts a scoped resume ID", () => {
+    expect(orchestratorSchema.safeParse({}).success).toBe(false);
+    expect(
+      orchestratorSchema.safeParse({
+        resumeRunId: "217c9e15-a2d5-4e68-9d2a-16bc1532ff56",
+      }).success,
+    ).toBe(true);
+    expect(
+      orchestratorSchema.safeParse({ resumeRunId: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
 });
 
 describe("worker dependency ordering", () => {
