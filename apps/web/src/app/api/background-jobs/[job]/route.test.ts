@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   outboxTick: vi.fn(),
   dailyDigest: vi.fn(),
+  sentinelTick: vi.fn(),
+  sentinelRepair: vi.fn(),
 }));
 
 vi.mock("@/lib/inngest/functions/webhook-outbox", () => ({
@@ -10,6 +12,12 @@ vi.mock("@/lib/inngest/functions/webhook-outbox", () => ({
 }));
 vi.mock("@/lib/notifications/digest-cron", () => ({
   runDailyDigest: (...args: unknown[]) => mocks.dailyDigest(...args),
+}));
+vi.mock("@/lib/sentinel/probe", () => ({
+  runSentinelTick: (...args: unknown[]) => mocks.sentinelTick(...args),
+}));
+vi.mock("@/lib/sentinel/repair", () => ({
+  processSentinelIncidents: (...args: unknown[]) => mocks.sentinelRepair(...args),
 }));
 
 import { POST } from "./route";
@@ -87,6 +95,35 @@ describe("POST /api/background-jobs/[job]", () => {
       skipped: false,
       recipients: 2,
       sent: 2,
+    });
+  });
+
+  it("runs the sentinel probe + repair pipeline", async () => {
+    mocks.sentinelTick.mockResolvedValue({
+      checked: 2,
+      newIncidents: 1,
+      confirmed: 0,
+      stillBroken: 1,
+      errors: 0,
+    });
+    mocks.sentinelRepair.mockResolvedValue({
+      processed: 1,
+      diagnosed: 0,
+      proposed: 1,
+      autoDeployed: 0,
+      skipped: 0,
+      failed: 0,
+    });
+    const response = await POST(tick("sentinel"), {
+      params: Promise.resolve({ job: "sentinel" }),
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      job: "sentinel",
+      checked: 2,
+      newIncidents: 1,
+      repair: { proposed: 1 },
     });
   });
 

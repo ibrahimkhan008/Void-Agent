@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { runWebhookOutboxTick } from "@/lib/inngest/functions/webhook-outbox";
 import { runDailyDigest } from "@/lib/notifications/digest-cron";
+import { runSentinelTick } from "@/lib/sentinel/probe";
+import { processSentinelIncidents } from "@/lib/sentinel/repair";
 import logger from "logger";
 import { NextResponse } from "next/server";
 
@@ -18,9 +20,12 @@ export const maxDuration = 300;
  *                  runs) and delivers webhook subscriptions. Minute cadence.
  *   email-digest — the daily generic notification summary (09:00 cadence,
  *                  SMTP-gated; no-op when SMTP is unset).
+ *   sentinel     — probes every enabled published-site monitor, opens
+ *                  incidents on failures, and runs the mode-gated repair
+ *                  pipeline (suggest / repair-approval / autonomous).
  */
 
-const JOB_NAMES = new Set(["outbox-tick", "email-digest"]);
+const JOB_NAMES = new Set(["outbox-tick", "email-digest", "sentinel"]);
 
 function authorize(request: Request): Response | null {
   const secret = process.env.SCHEDULED_TASK_SECRET;
@@ -62,6 +67,15 @@ export async function POST(
     if (job === "outbox-tick") {
       const result = await runWebhookOutboxTick();
       return NextResponse.json({ job, ...result });
+    }
+    if (job === "sentinel") {
+      const probe = await runSentinelTick();
+      const repair = await processSentinelIncidents();
+      return NextResponse.json({
+        job,
+        ...probe,
+        repair,
+      });
     }
     const result = await runDailyDigest();
     return NextResponse.json({ job, ...result });

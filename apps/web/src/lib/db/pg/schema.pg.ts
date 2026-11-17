@@ -4855,6 +4855,113 @@ export const CodeReviewRepoSettingTable = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Void Sentinel (master prompt §3.10): autonomous monitoring + repair for
+// published sites. Monitors probe the public URL on a cadence; detected
+// failures open incidents; the mode gates how far automation goes
+// (monitor → suggest → repair-with-approval → autonomous-within-limits).
+// ---------------------------------------------------------------------------
+
+export const SentinelMonitorTable = pgTable(
+  "sentinel_monitor",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    mode: varchar("mode", { length: 20 }).notNull().default("monitor"),
+    enabled: boolean("enabled").notNull().default(true),
+    intervalSeconds: integer("interval_seconds").notNull().default(300),
+    assertions: jsonb("assertions")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<
+        Array<{ type: "status" | "contains" | "not_contains"; value: string }>
+      >(),
+    lastStatus: varchar("last_status", { length: 12 })
+      .notNull()
+      .default("unknown"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    unique("sentinel_monitor_user_slug_unique").on(table.userId, table.slug),
+    index("sentinel_monitor_user_idx").on(table.userId, table.slug),
+    index("sentinel_monitor_enabled_idx").on(
+      table.enabled,
+      table.lastCheckedAt,
+    ),
+    check(
+      "sentinel_monitor_mode_check",
+      sql`${table.mode} IN ('monitor', 'suggest', 'repair_approval', 'autonomous')`,
+    ),
+    check(
+      "sentinel_monitor_last_status_check",
+      sql`${table.lastStatus} IN ('healthy', 'broken', 'unknown')`,
+    ),
+    check(
+      "sentinel_monitor_interval_check",
+      sql`${table.intervalSeconds} BETWEEN 60 AND 86400`,
+    ),
+  ],
+);
+
+export const SentinelIncidentTable = pgTable(
+  "sentinel_incident",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    monitorId: uuid("monitor_id")
+      .notNull()
+      .references(() => SentinelMonitorTable.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("open"),
+    failureSignature: text("failure_signature").notNull(),
+    diagnosis: text("diagnosis"),
+    fixSummary: text("fix_summary"),
+    fixHtml: text("fix_html"),
+    deployedVersion: integer("deployed_version"),
+    previousVersion: integer("previous_version"),
+    verification:
+      jsonb("verification").$type<
+        Array<{ type: string; passed: boolean; detail?: string }>
+      >(),
+    detectedAt: timestamp("detected_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("sentinel_incident_user_idx").on(table.userId, table.detectedAt),
+    index("sentinel_incident_open_idx").on(table.monitorId, table.status),
+    check(
+      "sentinel_incident_status_check",
+      sql`${table.status} IN ('open', 'diagnosed', 'fix_proposed', 'fix_deployed', 'resolved', 'rolled_back', 'closed')`,
+    ),
+    check(
+      "sentinel_incident_slug_check",
+      sql`${table.slug} ~ '^[A-Za-z0-9_-]{1,200}$'`,
+    ),
+  ],
+);
+
+export type SentinelMonitor = typeof SentinelMonitorTable.$inferSelect;
+export type SentinelIncident = typeof SentinelIncidentTable.$inferSelect;
+
 export type CodeReviewUserPrefs = typeof CodeReviewUserPrefsTable.$inferSelect;
 export type CodeReviewRepoSetting =
   typeof CodeReviewRepoSettingTable.$inferSelect;
