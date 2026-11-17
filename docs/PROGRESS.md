@@ -232,18 +232,22 @@
   run concurrently; dependent workers receive prior summaries and skip when
   a prerequisite fails. Focused schema/planner tests and typecheck pass;
   no live model-run verification has been performed for this change.
-- 🟡 Durable checkpoints are now written between dependency waves. Failed runs
-  expose a resume ID; resuming requires the same authenticated user and chat,
-  reuses successful worker summaries, retries failed/unstarted work, and
-  repeats an incomplete verification stage. Resume now atomically claims a
-  failed checkpoint for that owner/thread; a second concurrent resume is
-  rejected, and stale running/verifying claims can be reclaimed after ten
-  minutes (the run deadline is six minutes). Migration 0091 has now been
-  applied to isolated PostgreSQL. Real-database tests verify checkpoint
-  creation/save, cross-user and cross-thread isolation, one-winner concurrent
-  claims, and transaction rollback. No live model/sandbox resume test was run,
-  so end-to-end crash recovery and external side-effect behavior remain
-  unverified. Keep PARTIAL.
+- ✅ Durable checkpoints are fully drilled end to end (2026-11-18,
+  `cb9f905`): a controlled-model crash/recovery drill against isolated
+  PostgreSQL — no live AI provider key involved, because
+  `OrchestratorDeps.model` is injected. Run 1 crashes the tester worker
+  mid-stream the way real providers fail (the stream errors; an error part
+  would be converted to summary text by the UI stream's default onError and
+  the worker would falsely succeed — the drill pins the difference); the
+  checkpoint persists `failed` with the succeeded builder and the failed
+  tester (attempts 2), and the report carries the Resume ID. The resume then
+  claims the checkpoint atomically, reuses the succeeded worker WITHOUT
+  re-executing it (model-call ledger proves exactly one builder call across
+  both runs), retries the failed worker successfully, re-runs the
+  verification gate (VERDICT: PASS), and lands the run and checkpoint on
+  `done`. Opt-in via TEST_POSTGRES_URL. Sandbox execution inside workers is
+  not re-drilled here: the orchestrator core never calls E2B itself and E2B
+  was live-verified separately (App Builder closure).
 
 ### §3.5 Hooks depth
 - ✅ Webhook/email/Slack inbound, rule matching, idempotent execution
@@ -292,7 +296,12 @@
 - ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports
   are client-side downloads; each frame becomes one slide/page and retains
   its image aspect ratio. Focused aspect-ratio tests and exporter typecheck
-  pass; generated Office files have not yet been smoke-opened in Office.
+  pass. **Office smoke-open drill closed** (2026-11-18, `cb9f905`): the real
+  export modules run in Node against real PNG frames and the produced files
+  open in actual Microsoft Office via COM automation — PowerPoint reports 2
+  slides with 1 picture shape each, Word reports 2 inline images and finds
+  both frame labels in the document text. Opt-in via OFFICE_COM_SMOKE=1
+  (Windows + Office only).
 - 🟡 Per-element comments are implemented locally with authenticated,
   owner-scoped list/create/delete APIs and PostgreSQL persistence; the eCanvas
   editor loads comments for the selected Excalidraw element. API tests cover
@@ -488,9 +497,9 @@ operator credentials still determine whether an item can be closed.
 4. **Fallback live verification** — exercise Gateway provider/model failover
    with an isolated configured organization and confirm the usage attribution;
    partial-output stream recovery remains a separate design gap
-5. **Orchestrator checkpoints** — database persistence, owner/thread isolation,
-   rollback, and concurrent single-claim behavior are verified against isolated
-   PostgreSQL. Exercise a model/sandbox resume and crash recovery.
+5. ~~**Orchestrator checkpoints**~~ — CLOSED in code (2026-11-18): the
+   crash → checkpoint → resume → done drill (claim/reuse/retry/verification)
+   runs against isolated PostgreSQL with controlled models (`cb9f905`).
 6. ~~**Live hook verification**~~ — CLOSED in code (2026-11-18): chained
    execution, enqueue-recovery, cap/cooldown gates and delivery→run are
    proven by the pipeline integration suite against isolated PostgreSQL
