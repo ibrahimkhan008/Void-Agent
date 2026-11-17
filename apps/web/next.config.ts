@@ -1,6 +1,15 @@
+import { createRequire } from "node:module";
+import path from "node:path";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+
+const require = createRequire(import.meta.url);
+const pptxGenEntry = require.resolve("pptxgenjs");
+const pptxGenBrowserBundle = path.join(
+  path.dirname(pptxGenEntry),
+  "pptxgen.bundle.js",
+);
 
 const BUILD_OUTPUT = process.env.NEXT_STANDALONE_OUTPUT
   ? "standalone"
@@ -79,6 +88,30 @@ const getConfig = () => {
     experimental: {
       taint: true,
       authInterrupts: true,
+    },
+    webpack: (config, { isServer, webpack }) => {
+      // PptxGenJS retains guarded node:fs/node:https imports in its browser
+      // bundle. Rewrite only the client build so Webpack can apply fallbacks.
+      if (!isServer) {
+        config.resolve.alias = {
+          ...config.resolve.alias,
+          pptxgenjs: pptxGenBrowserBundle,
+        };
+        config.resolve.fallback = {
+          ...config.resolve.fallback,
+          fs: false,
+          https: false,
+        };
+        config.plugins.push(
+          new webpack.NormalModuleReplacementPlugin(
+            /^node:(fs|https)$/,
+            (resource) => {
+              resource.request = resource.request.replace(/^node:/, "");
+            },
+          ),
+        );
+      }
+      return config;
     },
     headers: async () => [
       {
