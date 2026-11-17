@@ -45,6 +45,8 @@ export const ScheduledTaskCreateSchema = z
 
 export const ScheduledTaskUpdateSchema = z
   .object({
+    executionMode: z.enum(["agent", "chat", "cloud-agent"]).optional(),
+    agentId: z.string().uuid().nullable().optional(),
     name: z.string().max(200).optional(),
     description: z.string().max(2000).nullish(),
     cronExpression: z.string().min(1).max(100).optional(),

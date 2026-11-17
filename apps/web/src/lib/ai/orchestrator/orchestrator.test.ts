@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { orchestratorSchema } from "./orchestrator";
+import { orchestratorSchema, planWorkerWaves } from "./orchestrator";
 
 describe("orchestratorSchema", () => {
   const worker = {
@@ -54,5 +54,39 @@ describe("orchestratorSchema", () => {
       workers: [],
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it("allows the orchestrator to plan workers from an objective", () => {
+    expect(
+      orchestratorSchema.safeParse({ objective: "Build a report" }).success,
+    ).toBe(true);
+  });
+});
+
+describe("worker dependency ordering", () => {
+  it("runs independent workers together before their dependent worker", () => {
+    const waves = planWorkerWaves([
+      { key: "research" },
+      { key: "build", dependsOn: ["research"] },
+      { key: "inspect" },
+      { key: "test", dependsOn: ["build"] },
+    ]);
+    expect(waves.map((wave) => wave.map((worker) => worker.key))).toEqual([
+      ["research", "inspect"],
+      ["build"],
+      ["test"],
+    ]);
+  });
+
+  it("rejects unknown dependencies and cycles", () => {
+    expect(() =>
+      planWorkerWaves([{ key: "a", dependsOn: ["missing"] }]),
+    ).toThrow("Invalid dependency");
+    expect(() =>
+      planWorkerWaves([
+        { key: "a", dependsOn: ["b"] },
+        { key: "b", dependsOn: ["a"] },
+      ]),
+    ).toThrow("cycle");
   });
 });

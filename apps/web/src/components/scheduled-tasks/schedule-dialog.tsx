@@ -236,8 +236,9 @@ export function ScheduleDialog({
       const payload = {
         taskType,
         executionMode,
-        ...(executionMode === "agent" && effectiveAgentId
-          ? { agentId: effectiveAgentId }
+        ...(effectiveAgentId ? { agentId: effectiveAgentId } : {}),
+        ...(allowExecutionModeChange && !effectiveAgentId
+          ? { agentId: null }
           : {}),
         name: scheduleName || undefined,
         description: description || null,

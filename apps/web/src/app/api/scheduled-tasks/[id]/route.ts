@@ -1,14 +1,15 @@
-import { NextResponse } from "next/server";
-import { withAuth } from "auth/route-guard";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { ScheduledTaskTable } from "@/lib/db/pg/schema.pg";
-import { eq, and } from "drizzle-orm";
+import { agentRepository } from "@/lib/db/repository";
+import { sanitizeCredentialAliases } from "@/lib/scheduled-tasks/browser-grants";
 import {
   ScheduledTaskUpdateSchema,
   computeNextRunAt,
   isValidCron,
 } from "@/lib/scheduled-tasks/schedule-validation";
-import { sanitizeCredentialAliases } from "@/lib/scheduled-tasks/browser-grants";
+import { withAuth } from "auth/route-guard";
+import { and, eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 
 /**
  * GET /api/scheduled-tasks/[id]
@@ -67,6 +68,8 @@ export const PATCH = withAuth(
         );
       }
       const {
+        executionMode,
+        agentId,
         name,
         description,
         cronExpression,
@@ -91,6 +94,44 @@ export const PATCH = withAuth(
 
       if (!existingTask) {
         return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      }
+
+      const effectiveMode = executionMode ?? existingTask.executionMode;
+      const effectiveAgentId =
+        agentId === undefined ? existingTask.agentId : agentId;
+      if (effectiveMode === "agent" && !effectiveAgentId) {
+        return NextResponse.json(
+          { error: "Custom Agent mode requires an agent" },
+          { status: 400 },
+        );
+      }
+      if (
+        effectiveMode === "cloud-agent" &&
+        (executionMode !== undefined || enabled === true) &&
+        !process.env.E2B_API_KEY?.trim()
+      ) {
+        return NextResponse.json(
+          { error: "Cloud Agent schedules require E2B to be configured" },
+          { status: 503 },
+        );
+      }
+      const activeOrganizationId = (
+        session.session as { activeOrganizationId?: string | null } | undefined
+      )?.activeOrganizationId;
+      if (
+        effectiveAgentId &&
+        (agentId !== undefined || executionMode !== undefined) &&
+        !(await agentRepository.checkAccess(
+          effectiveAgentId,
+          session.user.id,
+          false,
+          activeOrganizationId,
+        ))
+      ) {
+        return NextResponse.json(
+          { error: "Agent not found or access denied" },
+          { status: 404 },
+        );
       }
 
       // Validate the effective cron/timezone pair after this update.
@@ -122,26 +163,30 @@ export const PATCH = withAuth(
 
       // Aliases name a capability, so they are checked against the caller's
       // organization rather than taken from the client.
-      const activeOrganizationId = (
-        session.session as { activeOrganizationId?: string | null } | undefined
-      )?.activeOrganizationId;
-      const grantedAliases = await sanitizeCredentialAliases({
-        organizationId: activeOrganizationId,
-        aliases: browserCredentialAliases,
-      });
+      const grantedAliases =
+        effectiveMode === "agent"
+          ? await sanitizeCredentialAliases({
+              organizationId: activeOrganizationId,
+              aliases: browserCredentialAliases,
+            })
+          : [];
 
       // Update task
       const [updatedTask] = await pgDb
         .update(ScheduledTaskTable)
         .set({
+          ...(executionMode !== undefined && { executionMode }),
+          ...(agentId !== undefined && { agentId }),
           ...(name !== undefined && { name }),
           ...(description !== undefined && { description }),
           ...(cronExpression !== undefined && { cronExpression }),
           ...(timezone !== undefined && { timezone }),
           ...(inputPrompt !== undefined && { inputPrompt }),
-          ...(browserAutomationEnabled !== undefined && {
-            browserAutomationEnabled,
-          }),
+          ...(effectiveMode !== "agent"
+            ? { browserAutomationEnabled: false }
+            : browserAutomationEnabled !== undefined
+              ? { browserAutomationEnabled }
+              : {}),
           ...(grantedAliases !== null && {
             browserCredentialAliases: grantedAliases,
           }),

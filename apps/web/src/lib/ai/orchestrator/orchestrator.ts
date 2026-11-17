@@ -1,8 +1,10 @@
 import "server-only";
 import {
   type LanguageModel,
+  Output,
   type UIMessage,
   tool as createTool,
+  generateText,
   readUIMessageStream,
   stepCountIs,
   streamText,
@@ -51,6 +53,7 @@ export interface OrchestratorWorkerPlan {
   role: OrchestratorWorkerRole;
   name: string;
   task: string;
+  dependsOn?: string[];
 }
 
 export interface OrchestratorWorkerResult {
@@ -206,7 +209,41 @@ const workerSchema = z.object({
     .min(1)
     .max(8_000)
     .describe("Self-contained task with ALL context the worker needs"),
+  dependsOn: z
+    .array(z.string().max(24))
+    .max(3)
+    .optional()
+    .describe("Keys of workers that must finish before this worker starts"),
 });
+
+/** Topological waves keep independent workers parallel while honoring prerequisites. */
+export function planWorkerWaves<
+  T extends Pick<OrchestratorWorkerPlan, "key" | "dependsOn">,
+>(workers: T[]): T[][] {
+  const byKey = new Map(workers.map((worker) => [worker.key, worker]));
+  if (byKey.size !== workers.length)
+    throw new Error("Worker keys must be unique");
+  for (const worker of workers) {
+    for (const key of worker.dependsOn ?? []) {
+      if (key === worker.key || !byKey.has(key)) {
+        throw new Error(`Invalid dependency ${key} for worker ${worker.key}`);
+      }
+    }
+  }
+  const done = new Set<string>();
+  const waves: T[][] = [];
+  while (done.size < workers.length) {
+    const wave = workers.filter(
+      (worker) =>
+        !done.has(worker.key) &&
+        (worker.dependsOn ?? []).every((key) => done.has(key)),
+    );
+    if (!wave.length) throw new Error("Worker dependencies contain a cycle");
+    waves.push(wave);
+    for (const worker of wave) done.add(worker.key);
+  }
+  return waves;
+}
 
 export const orchestratorSchema = z.object({
   objective: z
@@ -218,8 +255,9 @@ export const orchestratorSchema = z.object({
     .array(workerSchema)
     .min(1)
     .max(MAX_WORKERS)
+    .optional()
     .describe(
-      "The worker team. Keep tasks independent so they can run in parallel.",
+      "Optional worker team. Omit to let the orchestrator plan workers from the objective.",
     ),
   verificationCriteria: z
     .string()
@@ -443,15 +481,53 @@ Workers (max ${MAX_WORKERS}):
 Use this when the objective genuinely needs MULTIPLE specialists working at
 once (research + build + test, or several independent build pieces). Do NOT
 use it for a single-step task you can do directly. Keep worker tasks
-independent and self-contained — they run in parallel and cannot see each
-other's work while running. When you provide verificationCriteria, a Test
+independent and self-contained when possible. Use dependsOn keys only when a
+worker truly needs another worker's result: independent workers run in parallel,
+and dependent workers receive prerequisite summaries after those workers finish.
+Omit workers when you want the orchestrator to decompose the objective itself.
+When you provide verificationCriteria, a Test
 worker independently checks the build outputs against them after the build
 finishes (repaired is not verified).`,
     inputSchema: orchestratorSchema,
     execute: async function* (
-      { objective, workers, verificationCriteria },
+      { objective, workers: suppliedWorkers, verificationCriteria },
       { abortSignal },
     ) {
+      const runSignal = AbortSignal.any([
+        ...(abortSignal ? [abortSignal] : []),
+        AbortSignal.timeout(OVERALL_RUN_MS),
+      ]);
+      let workers = suppliedWorkers;
+      if (!workers) {
+        try {
+          const planned = await generateText({
+            model: deps.model,
+            abortSignal: runSignal,
+            prompt: `Decompose this objective into 1-${MAX_WORKERS} role-scoped workers. Use research, build, and test roles. Give each a concrete self-contained task. Use dependsOn only where one worker needs another's output. Keep independent tasks parallel.\n\nObjective: ${objective}\nVerification criteria: ${verificationCriteria ?? "none"}`,
+            output: Output.object({
+              schema: z.object({
+                workers: z.array(workerSchema).min(1).max(MAX_WORKERS),
+              }),
+            }),
+          });
+          workers = planned.output.workers;
+        } catch (error) {
+          yield {
+            status: "failed" as const,
+            error: `Unable to plan workers: ${error instanceof Error ? error.message : String(error)}`,
+          };
+          return;
+        }
+      }
+      try {
+        planWorkerWaves(workers);
+      } catch (error) {
+        yield {
+          status: "failed" as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+        return;
+      }
       yield {
         status: "planning" as const,
         objective,
@@ -464,21 +540,63 @@ finishes (repaired is not verified).`,
 
       const sink = createFrameSink();
       // Overall run clock: bounded like the unattended browser path.
-      const runSignal = AbortSignal.any([
-        ...(abortSignal ? [abortSignal] : []),
-        AbortSignal.timeout(OVERALL_RUN_MS),
-      ]);
 
       try {
         const workerResults: OrchestratorWorkerResult[] = [];
-        const allWorkers = Promise.all(
-          workers.map((plan) =>
-            runWorker(sink, plan, deps, runSignal).then((result) => {
+        const allWorkers = (async () => {
+          const completed = new Map<string, OrchestratorWorkerResult>();
+          for (const wave of planWorkerWaves(workers)) {
+            const results = await Promise.all(
+              wave.map(async (plan) => {
+                const prerequisites = (plan.dependsOn ?? [])
+                  .map((key) => completed.get(key))
+                  .filter((result): result is OrchestratorWorkerResult =>
+                    Boolean(result),
+                  );
+                const failed = prerequisites.find(
+                  (result) => result.status === "failed",
+                );
+                if (failed) {
+                  const result: OrchestratorWorkerResult = {
+                    key: plan.key,
+                    name: plan.name,
+                    role: plan.role,
+                    status: "failed",
+                    summary: `Prerequisite ${failed.name} failed; worker did not run`,
+                    attempts: 0,
+                    toolCallCount: 0,
+                  };
+                  sink.push({
+                    status: "worker-done",
+                    workerKey: plan.key,
+                    workerName: plan.name,
+                    role: plan.role,
+                    workerStatus: "failed",
+                    summary: result.summary,
+                    attempts: 0,
+                  });
+                  return result;
+                }
+                const handoff = prerequisites.length
+                  ? `\n\nPrerequisite worker results:\n${prerequisites
+                      .map((result) => `[${result.name}] ${result.summary}`)
+                      .join("\n\n")}`.slice(0, MAX_PROMPT_CHARS)
+                  : "";
+                return runWorker(
+                  sink,
+                  { ...plan, task: `${plan.task}${handoff}` },
+                  deps,
+                  runSignal,
+                );
+              }),
+            );
+            for (const result of results) {
+              completed.set(result.key, result);
               workerResults.push(result);
-              return result;
-            }),
-          ),
-        );
+            }
+          }
+          return workerResults;
+        })();
 
         // Drain interleaved worker frames until every lane finishes.
         let open = workers.length;
@@ -501,7 +619,7 @@ finishes (repaired is not verified).`,
             yield tail;
           }
         }
-        await allWorkers.catch(() => {});
+        await allWorkers;
 
         // Verification gate (Stage 08 — repaired ≠ verified).
         let verification: {
