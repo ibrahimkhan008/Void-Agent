@@ -44,6 +44,14 @@ export function normalizeGitHubEvent(
   const item = object(
     event === "pull_request" ? body.pull_request : body.issue,
   );
+  // AI Code Review: the pull/issue number drives the unattended review flow
+  // (executor posts the review back to this exact PR).
+  const itemNumber =
+    event === "push"
+      ? null
+      : typeof item?.number === "number" && Number.isInteger(item.number)
+        ? item.number
+        : null;
   const subject =
     event === "push"
       ? string(body.ref) || "push"
@@ -72,6 +80,7 @@ export function normalizeGitHubEvent(
       event,
       action: action || null,
       subject,
+      ...(itemNumber !== null ? { pullNumber: itemNumber } : {}),
     },
   };
 }

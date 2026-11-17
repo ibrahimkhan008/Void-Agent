@@ -4779,6 +4779,86 @@ export const OrchestratorCheckpointTable = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// AI Code Review (ChatGPT Codex-style): personal preferences + per-repo
+// automatic review settings. Enabling a repo provisions a GitHub webhook
+// through the Void Hooks pipeline; the executor posts the review unattended
+// because the user pre-authorized it by enabling the repository.
+// ---------------------------------------------------------------------------
+
+export const CodeReviewUserPrefsTable = pgTable(
+  "code_review_user_prefs",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    reviewTrigger: varchar("review_trigger", { length: 20 })
+      .notNull()
+      .default("pr_open"),
+    exhaustiveReview: boolean("exhaustive_review").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    check(
+      "code_review_user_prefs_trigger_check",
+      sql`${table.reviewTrigger} IN ('pr_open', 'every_push', 'smart_detect')`,
+    ),
+  ],
+);
+
+export const CodeReviewRepoSettingTable = pgTable(
+  "code_review_repo_setting",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    repository: text("repository").notNull(),
+    autoReview: boolean("auto_review").notNull().default(false),
+    // NULL = follow personal preferences.
+    reviewTrigger: varchar("review_trigger", { length: 20 }),
+    exhaustiveReview: boolean("exhaustive_review"),
+    reviewInstructions: text("review_instructions"),
+    // Provisioned Void Hooks endpoint + GitHub webhook id (for teardown).
+    endpointId: uuid("endpoint_id"),
+    webhookId: bigint("webhook_id", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("code_review_repo_setting_user_repo_unique").on(
+      table.userId,
+      table.repository,
+    ),
+    index("code_review_repo_setting_user_idx").on(
+      table.userId,
+      table.repository,
+    ),
+    check(
+      "code_review_repo_setting_repo_check",
+      sql`${table.repository} ~ '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$'`,
+    ),
+    check(
+      "code_review_repo_setting_trigger_check",
+      sql`${table.reviewTrigger} IS NULL OR ${table.reviewTrigger} IN ('pr_open', 'every_push', 'smart_detect')`,
+    ),
+    check(
+      "code_review_repo_setting_instructions_check",
+      sql`${table.reviewInstructions} IS NULL OR length(${table.reviewInstructions}) BETWEEN 1 AND 4000`,
+    ),
+  ],
+);
+
+export type CodeReviewUserPrefs = typeof CodeReviewUserPrefsTable.$inferSelect;
+export type CodeReviewRepoSetting =
+  typeof CodeReviewRepoSettingTable.$inferSelect;
+
 export type CanvasComment = typeof CanvasCommentTable.$inferSelect;
 export type NewCanvasComment = typeof CanvasCommentTable.$inferInsert;
 

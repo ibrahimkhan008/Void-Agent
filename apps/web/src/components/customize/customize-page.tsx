@@ -6,6 +6,7 @@ import {
   UserInstructionsContent,
 } from "@/components/chat-preferences-content";
 import { ConnectorSettings } from "@/components/connectors/connector-settings";
+import { CodeReviewSettingsContent } from "@/components/customize/code-review-settings";
 import type { MarketplaceMcpServer } from "@/components/mcp-marketplace";
 import { MemoryManager } from "@/components/memory/memory-manager";
 import { SkillsSearchDialog } from "@/components/skills/skills-search-dialog";
@@ -43,7 +44,8 @@ type Tab =
   | "agents"
   | "instructions"
   | "memory"
-  | "notes";
+  | "notes"
+  | "code-review";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "skills", label: "Skills" },
@@ -52,6 +54,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "instructions", label: "Instructions" },
   { id: "memory", label: "Memory" },
   { id: "notes", label: "Notes" },
+  { id: "code-review", label: "Code Review" },
 ];
 
 type Toolkit = {
@@ -672,6 +675,7 @@ export function CustomizePage({
         />
       ) : null}
       {tab === "instructions" ? <UserInstructionsContent /> : null}
+      {tab === "code-review" ? <CodeReviewSettingsContent /> : null}
       {tab === "memory" ? <MemoryManager /> : null}
       {tab === "notes" ? <SavedNotesContent /> : null}
     </main>

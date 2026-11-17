@@ -3,9 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { createHookRunMock, inngestSendMock } = vi.hoisted(() => ({
+const {
+  createHookRunMock,
+  inngestSendMock,
+  connectorApiMock,
+  resolveEffectiveMock,
+} = vi.hoisted(() => ({
   createHookRunMock: vi.fn(),
   inngestSendMock: vi.fn(),
+  connectorApiMock: vi.fn(),
+  resolveEffectiveMock: vi.fn(),
 }));
 
 /**
@@ -87,6 +94,22 @@ const createNotifications = vi.fn();
 vi.mock("@/lib/notifications/create-notifications", () => ({
   createNotifications: (...args: unknown[]) => createNotifications(...args),
 }));
+vi.mock("lib/connectors/provider-api", () => ({
+  callConnectorApi: (...args: unknown[]) => connectorApiMock(...args),
+  ConnectorApiError: class ConnectorApiError extends Error {},
+}));
+vi.mock("@/lib/db/pg/repositories/code-review-repository.pg", () => ({
+  codeReviewRepository: {
+    resolveEffective: (...args: unknown[]) => resolveEffectiveMock(...args),
+    getRepoSetting: vi.fn(async () => null),
+    getUserPrefs: vi.fn(async () => ({
+      userId: "u1",
+      reviewTrigger: "pr_open",
+      exhaustiveReview: false,
+      updatedAt: new Date(),
+    })),
+  },
+}));
 
 const RUN = {
   id: "run-1",
@@ -114,6 +137,8 @@ beforeEach(() => {
   lastHookRunAtValue = null;
   executeAgentRun.mockReset();
   createNotifications.mockReset();
+  connectorApiMock.mockReset();
+  resolveEffectiveMock.mockReset();
   evaluateMatchRules.mockClear();
   createHookRunMock.mockReset();
   createHookRunMock.mockResolvedValue({ created: true, runId: "child-run" });
@@ -519,6 +544,225 @@ describe("runHookAgent gates", () => {
     const result = await runHookAgent("run-1");
     expect(result.status).toBe("failed");
     expect(result.reason).toContain("model unavailable");
+    expect(createNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "hook_run_failure" }),
+    );
+  });
+});
+
+describe("runHookAgent — AI Code Review path", () => {
+  const reviewEndpoint = {
+    id: "e1",
+    userId: "u1",
+    agentId: "a1",
+    enabled: true,
+    hookConfig: {
+      codeReview: { repository: "acme/widgets" },
+      cooldownSeconds: 0,
+      maxRunsPerDay: 10,
+    },
+  };
+  const agentRow = {
+    id: "a1",
+    userId: "u1",
+    name: "Code Reviewer",
+    description: null,
+    icon: null,
+    model: null,
+    organizationId: null,
+  };
+  const prPayload = {
+    normalized: {
+      source: "github",
+      text: "acme/widgets: pull_request opened",
+      meta: {
+        repository: "acme/widgets",
+        event: "pull_request",
+        action: "opened",
+        subject: "Fix inventory",
+        pullNumber: 42,
+      },
+    },
+  };
+
+  beforeEach(() => {
+    resolveEffectiveMock.mockResolvedValue({
+      autoReview: true,
+      reviewTrigger: "pr_open",
+      exhaustiveReview: false,
+      reviewInstructions: "Focus on SQL injection.",
+    });
+    connectorApiMock.mockImplementation(
+      async (_userId: string, _provider: string, path: string) => {
+        if (path.endsWith("/pulls/42")) {
+          return {
+            title: "Fix inventory",
+            user: { login: "octodev" },
+            head: { ref: "fix/inventory", sha: "abc123def456" },
+            base: { ref: "main" },
+            body: "Fixes the query.",
+          };
+        }
+        if (path.endsWith("/pulls/42/files")) {
+          return [
+            {
+              filename: "src/inventory.sql",
+              additions: 4,
+              deletions: 1,
+              status: "modified",
+              patch: "+ SELECT id FROM inventory;",
+            },
+          ];
+        }
+        if (path.endsWith("/contents/AGENTS.md")) {
+          return {
+            encoding: "base64",
+            content: Buffer.from(
+              "Always parameterize queries.",
+              "utf8",
+            ).toString("base64"),
+          };
+        }
+        if (path.endsWith("/contents/SECURITY.md")) {
+          throw new Error("not found");
+        }
+        if (path.endsWith("/pulls/42/reviews")) {
+          return { id: 9_001 };
+        }
+        throw new Error(`unexpected path ${path}`);
+      },
+    );
+    executeAgentRun.mockResolvedValue({
+      success: true,
+      threadId: "0d9c1c2a-0000-4000-8000-000000000001",
+    });
+  });
+
+  it("reviews the PR and posts the summary unattended", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [reviewEndpoint];
+    rows.hook_run = [RUN];
+    rows.agent = [agentRow];
+    rows.webhook_event_outbox = [{ payload: prPayload }];
+    rows.chat_message = [
+      {
+        parts: [
+          {
+            type: "text",
+            text: "Found 1 issue: unparameterized query.\nVerdict: changes requested",
+          },
+        ],
+      },
+    ];
+
+    const result = await runHookAgent("run-1");
+    expect(result.status).toBe("succeeded");
+
+    // The prompt carried the diff, the guidance file and the owner instructions.
+    const [task] = executeAgentRun.mock.calls[0];
+    expect(task.inputPrompt).toContain("acme/widgets");
+    expect(task.inputPrompt).toContain("PR #42: Fix inventory");
+    expect(task.inputPrompt).toContain("+ SELECT id FROM inventory;");
+    expect(task.inputPrompt).toContain("Always parameterize queries.");
+    expect(task.inputPrompt).toContain("Focus on SQL injection.");
+
+    // The review was posted as a COMMENT event with the thread answer.
+    const reviewCall = connectorApiMock.mock.calls.find((call) =>
+      String(call[2]).endsWith("/pulls/42/reviews"),
+    );
+    expect(reviewCall).toBeDefined();
+    expect(reviewCall[3]).toMatchObject({
+      method: "POST",
+      body: {
+        event: "COMMENT",
+        body: expect.stringContaining("Verdict: changes requested"),
+      },
+    });
+    expect(finishHookRunMock).toHaveBeenLastCalledWith(
+      "run-1",
+      expect.objectContaining({ status: "succeeded" }),
+    );
+  });
+
+  it("skips events the trigger does not cover", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [reviewEndpoint];
+    rows.hook_run = [RUN];
+    rows.agent = [agentRow];
+    rows.chat_message = [];
+    rows.webhook_event_outbox = [
+      {
+        payload: {
+          normalized: {
+            source: "github",
+            meta: {
+              repository: "acme/widgets",
+              event: "pull_request",
+              action: "closed",
+              subject: "Fix inventory",
+              pullNumber: 42,
+            },
+          },
+        },
+      },
+    ];
+
+    const result = await runHookAgent("run-1");
+    expect(result.status).toBe("skipped");
+    expect(result.reason).toContain("trigger not matched");
+    expect(executeAgentRun).not.toHaveBeenCalled();
+    expect(connectorApiMock).not.toHaveBeenCalled();
+  });
+
+  it("skips when code review is disabled for the repository", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [reviewEndpoint];
+    rows.hook_run = [RUN];
+    rows.agent = [agentRow];
+    resolveEffectiveMock.mockResolvedValue({
+      autoReview: false,
+      reviewTrigger: "pr_open",
+      exhaustiveReview: false,
+      reviewInstructions: null,
+    });
+
+    const result = await runHookAgent("run-1");
+    expect(result.status).toBe("skipped");
+    expect(result.reason).toContain("code review disabled");
+    expect(executeAgentRun).not.toHaveBeenCalled();
+  });
+
+  it("fails the run and notifies when posting the review fails", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [reviewEndpoint];
+    rows.hook_run = [RUN];
+    rows.agent = [agentRow];
+    rows.webhook_event_outbox = [{ payload: prPayload }];
+    rows.chat_message = [
+      { parts: [{ type: "text", text: "Verdict: safe to merge" }] },
+    ];
+    connectorApiMock.mockImplementation(
+      async (_userId: string, _provider: string, path: string) => {
+        if (path.endsWith("/pulls/42/reviews")) {
+          throw new Error("github 502");
+        }
+        if (path.endsWith("/pulls/42")) {
+          return {
+            title: "Fix inventory",
+            user: { login: "octodev" },
+            head: { ref: "fix/inventory", sha: "abc123def456" },
+            base: { ref: "main" },
+            body: "",
+          };
+        }
+        if (path.endsWith("/pulls/42/files")) return [];
+        throw new Error(`unexpected path ${path}`);
+      },
+    );
+
+    const result = await runHookAgent("run-1");
+    expect(result.status).toBe("failed");
+    expect(result.reason).toContain("github 502");
     expect(createNotifications).toHaveBeenCalledWith(
       expect.objectContaining({ type: "hook_run_failure" }),
     );

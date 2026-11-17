@@ -205,6 +205,7 @@ describe("GitHub webhook payload shapes (GitHub-realistic fixtures)", () => {
       event: "pull_request",
       action: "opened",
       subject: "Add the widget inventory page",
+      pullNumber: 42,
     });
   });
 

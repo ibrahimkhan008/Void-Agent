@@ -11,7 +11,8 @@ type CustomizeTab =
   | "agents"
   | "instructions"
   | "memory"
-  | "notes";
+  | "notes"
+  | "code-review";
 
 const tabs = new Set<CustomizeTab>([
   "skills",
@@ -20,6 +21,7 @@ const tabs = new Set<CustomizeTab>([
   "instructions",
   "memory",
   "notes",
+  "code-review",
 ]);
 
 export default async function CustomizeRoute({

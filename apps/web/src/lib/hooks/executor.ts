@@ -23,6 +23,7 @@ import { createNotifications } from "@/lib/notifications/create-notifications";
 import { executeAgentRun } from "@/lib/scheduled-tasks/runner";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import logger from "logger";
+import { runCodeReviewRun } from "./code-review-run";
 
 /**
  * Void Hooks (master prompt §3.5) — the event-driven agent executor.
@@ -156,6 +157,24 @@ export async function runHookAgent(runId: string): Promise<{
       const reason = "endpoint disabled";
       await finishHookRun(runId, { status: "skipped", error: reason });
       return { status: "skipped", reason };
+    }
+
+    // AI Code Review endpoints take the dedicated unattended path: the user
+    // enabling automatic review pre-authorizes posting review comments, so
+    // no HITL token or generic match rules apply here.
+    const hookConfigRaw = isObject(endpoint.hookConfig)
+      ? endpoint.hookConfig
+      : null;
+    const codeReviewScope = isObject(hookConfigRaw?.codeReview)
+      ? hookConfigRaw.codeReview
+      : null;
+    if (typeof codeReviewScope?.repository === "string") {
+      return runCodeReviewRun({
+        runId,
+        run,
+        endpoint,
+        repository: codeReviewScope.repository,
+      });
     }
 
     const config = parseHookConfig(endpoint.hookConfig);
