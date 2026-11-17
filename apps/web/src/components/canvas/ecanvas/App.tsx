@@ -447,6 +447,50 @@ export function App({ canvasId }: { canvasId: string }) {
     setStatusMessage(exported ? "SVG exported" : "SVG export failed");
   }, [canvasId]);
 
+  const handleExportOffice = useCallback(
+    async (format: "pptx" | "docx") => {
+      const api = editorRef.current;
+      if (!api) return;
+      setStatusMessage(`Exporting ${format.toUpperCase()}…`);
+      try {
+        const sources = getSources(api).filter(
+          (source) => source.kind === "frame",
+        );
+        const images: { base64: string; label: string }[] = [];
+        if (sources.length > 0) {
+          for (const source of sources) {
+            const base64 = await exportSourceAsPng(api, source.id);
+            if (base64) images.push({ base64, label: source.name });
+          }
+        } else {
+          const base64 = await exportAllAsPng(api);
+          if (base64) images.push({ base64, label: "Full canvas" });
+        }
+
+        if (images.length === 0) {
+          setStatusMessage("Add content to the canvas before exporting");
+          return;
+        }
+
+        const exporter = await import("./lib/office-export");
+        const fileName = canvasId ? `canvas-${canvasId}` : "canvas";
+        const exported =
+          format === "pptx"
+            ? await exporter.exportImagesAsPptx(images, fileName)
+            : await exporter.exportImagesAsDocx(images, fileName);
+        setStatusMessage(
+          exported
+            ? `${format.toUpperCase()} exported`
+            : `${format.toUpperCase()} export failed`,
+        );
+      } catch (error) {
+        console.error(`${format.toUpperCase()} export failed`, error);
+        setStatusMessage(`${format.toUpperCase()} export failed`);
+      }
+    },
+    [canvasId],
+  );
+
   const capturePreview = useCallback(async (): Promise<string | null> => {
     const iframe = previewRef.current;
     if (!iframe) return null;
@@ -1164,6 +1208,20 @@ ${SYSTEM_PROMPT}`;
                   onClick={handleExportSvg}
                 >
                   SVG
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  aria-label="Export canvas as PowerPoint"
+                  onClick={() => void handleExportOffice("pptx")}
+                >
+                  PPTX
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  aria-label="Export canvas as Word document"
+                  onClick={() => void handleExportOffice("docx")}
+                >
+                  DOCX
                 </button>
                 <button
                   className="btn btn-secondary"

@@ -116,9 +116,11 @@
   `reasonCode: fallback_chain`
 **Commit**: `4c03397`
 
-### §3.6 Canvas ✅ (exports complete except PPTX/DOCX)
+### §3.6 Canvas ✅ (export formats)
 - Excalidraw workspace + AI generation + preview panel
-- Exports: **PNG / ZIP / XLSX / PDF / SVG** (SVG = still-editable vectors)
+- Exports: **PNG / ZIP / XLSX / PDF / SVG / PPTX / DOCX** (SVG remains
+  editable vector content; Office exports place each frame or the full
+  canvas as a proportionally scaled image)
 **Commit**: `2ac3d74`
 
 ### Platform core ✅
@@ -184,8 +186,10 @@
 - ❌ Cross-hook chaining
 
 ### §3.6 Canvas depth
-- ✅ Workspace, AI generation, preview, 5 export formats
-- ❌ PPTX/DOCX export routes
+- ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports
+  are client-side downloads; each frame becomes one slide/page and retains
+  its image aspect ratio. Focused aspect-ratio tests and exporter typecheck
+  pass; generated Office files have not yet been smoke-opened in Office.
 - ❌ Per-element comments
 - ❌ Structural artifact editing ("make slide 3 darker" edits the existing
   artifact instead of regenerating)
@@ -294,7 +298,7 @@ items below describe the remaining half-done work only; live verification and
 operator credentials still determine whether an item can be closed.
 
 1. **BYOK-hosted** — encrypted per-user keys and provider-specific model paths
-2. **Canvas PPTX/DOCX exports, comments, and structural editing**
+2. **Canvas per-element comments and structural editing**
 3. **Connector wiring** — implement real callable tools and scoped approvals
 4. **Mid-stream fallback retry** — avoid duplicate persisted messages
 5. **Orchestrator checkpoints** — durable stage state and safe resume
