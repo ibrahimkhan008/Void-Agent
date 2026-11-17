@@ -324,8 +324,20 @@
   endpoint. Full-document Refine remains available. Focused plan/protocol/API
   tests pass. Migration 0090 has now been applied to isolated PostgreSQL;
   real-database tests verify owner/canvas upsert persistence and cross-owner
-  isolation, plus the storage-size constraint. The model-generated plan and
-  iframe interaction have not been browser-tested. Keep PARTIAL.
+  isolation, plus the storage-size constraint. **Browser drill closed**
+  (2026-11-18, `bf57543`): the live editor drill — dev server on a dedicated
+  dev database, signed-in session, artifact seeded without a model through
+  the owner-scoped content API — verified the full edit-mode flow (element
+  selection postMessage → parent form → text edit applied in-frame and
+  auto-saved → Add text → Remove → full-reload persistence + content API)
+  and caught TWO real bugs now fixed: /ecanvas/[canvasId] 500ed on every
+  visit (Excalidraw touches window during SSR — the editor now loads through
+  a client-only dynamic wrapper), and re-selecting elements after the first
+  applied edit silently did nothing (the reloaded srcdoc document raced the
+  edit-mode postMessage; the parent now reposts on the iframe load event and
+  answers an editor-ready handshake). The model-plan generation itself still
+  needs an AI provider key at use time, but the iframe interaction it drives
+  is the one proven here.
 
 ### Connectors
 - ✅ 25 first-party provider tool factories are wired with user-scoped API calls
