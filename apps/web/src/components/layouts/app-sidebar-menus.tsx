@@ -112,15 +112,15 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
           </SidebarMenuItem>
 
           <SidebarMenuItem className="mb-1">
-            <Link href="/devices" onClick={() => setOpenMobile(false)}>
+            <Link href="/sandbox" onClick={() => setOpenMobile(false)}>
               <SidebarMenuButton
-                isActive={pathname === "/devices"}
+                isActive={pathname === "/sandbox"}
                 className="font-semibold"
-                tooltip="Devices"
+                tooltip="Sandbox"
               >
                 <MonitorSmartphone className="size-4" />
                 <span className="group-data-[collapsible=icon]:hidden">
-                  Devices
+                  Sandbox
                 </span>
               </SidebarMenuButton>
             </Link>

@@ -3,7 +3,7 @@ import { getSession } from "auth/server";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Void Devices" };
+export const metadata = { title: "Sandbox" };
 
 export default async function DevicesRoute() {
   const session = await getSession();

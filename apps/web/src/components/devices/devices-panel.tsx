@@ -134,7 +134,7 @@ export function DevicesPanel() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-lg font-semibold">Void Devices</h2>
+        <h2 className="text-lg font-semibold">Sandbox</h2>
         <p className="text-sm text-muted-foreground">
           Your sandbox machines and plan usage. Usage resets weekly on Monday
           (UTC); swarm launches reset daily.
@@ -148,7 +148,7 @@ export function DevicesPanel() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading your devices…</p>
+        <p className="text-sm text-muted-foreground">Loading your sandboxes…</p>
       ) : null}
 
       {!loading && payload && !payload.e2bConfigured ? (
