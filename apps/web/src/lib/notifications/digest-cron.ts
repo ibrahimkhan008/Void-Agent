@@ -9,7 +9,7 @@ import {
   groupDailyDigestRecipients,
 } from "@/lib/notifications/daily-digest";
 import { sendSmtpEmail } from "@/lib/notifications/send-smtp-email";
-import { and, gte, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import logger from "logger";
 
 /**

@@ -342,7 +342,14 @@ export function CodeReviewSettingsContent() {
                       <div className="flex items-center justify-between gap-4">
                         <p className="text-sm font-medium">Review</p>
                         <Select
-                          value={draft.exhaustiveReview ?? "follow"}
+                          value={
+                            draft.exhaustiveReview === null ||
+                            draft.exhaustiveReview === undefined
+                              ? "follow"
+                              : draft.exhaustiveReview
+                                ? "exhaustive"
+                                : "standard"
+                          }
                           onValueChange={(value) =>
                             setDraft({
                               ...draft,

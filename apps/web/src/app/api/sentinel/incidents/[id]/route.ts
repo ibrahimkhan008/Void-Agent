@@ -7,9 +7,9 @@ export const maxDuration = 120;
 
 /** POST /api/sentinel/incidents/[id] — action: approve | rollback | close. */
 export const POST = withAuth(
-  async (request, session, context?: { params?: Promise<{ id: string }> }) => {
-    const params = (await context?.params) ?? { id: "" };
-    const incidentId = params.id ?? "";
+  async (request, session, context: { params: Promise<{ id: string }> }) => {
+    const params = await context.params;
+    const incidentId = params.id;
     const body = (await request.json().catch(() => null)) as {
       action?: string;
     } | null;
@@ -50,8 +50,8 @@ export const POST = withAuth(
 
 /** GET /api/sentinel/incidents/[id] — one incident (owner-scoped). */
 export const GET = withAuth(
-  async (_request, session, context?: { params?: Promise<{ id: string }> }) => {
-    const params = (await context?.params) ?? { id: "" };
+  async (_request, session, context: { params: Promise<{ id: string }> }) => {
+    const params = await context.params;
     const incident = await sentinelRepository.getIncident(
       session.user.id,
       params.id,

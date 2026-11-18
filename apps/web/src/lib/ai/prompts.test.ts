@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 const { memoryRepositoryMock } = vi.hoisted(() => ({
   memoryRepositoryMock: { getAll: vi.fn() },
 }));
 vi.mock("lib/db/repository", () => ({
   memoryRepository: memoryRepositoryMock,
+}));
+vi.mock("@/lib/db/pg/repositories/user-records-repository.pg", () => ({
+  userRecordsForAgentContext: vi.fn(async () => null),
 }));
 import { getVoiceAppToolDefinitions } from "lib/voice/app-tool-definitions";
 import {

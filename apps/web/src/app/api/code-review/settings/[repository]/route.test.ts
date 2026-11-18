@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -57,7 +58,7 @@ const putRequest = (body: unknown, _repository = "acme%2Fwidgets") =>
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }) as NextRequest;
 
 describe("PUT /api/code-review/settings/[repository]", () => {
   it("provisions the pipeline when autoReview is on", async () => {
@@ -139,9 +140,12 @@ describe("PUT /api/code-review/settings/[repository]", () => {
 
 describe("DELETE /api/code-review/settings/[repository]", () => {
   it("removes the pipeline and the settings row", async () => {
-    const response = await DELETE(new Request("https://void.test/api/x"), {
-      params: Promise.resolve({ repository: "acme%2Fwidgets" }),
-    });
+    const response = await DELETE(
+      new Request("https://void.test/api/x") as NextRequest,
+      {
+        params: Promise.resolve({ repository: "acme%2Fwidgets" }),
+      },
+    );
     expect(response.status).toBe(200);
     expect(mocks.remove).toHaveBeenCalledWith("owner-1", "acme/widgets");
   });

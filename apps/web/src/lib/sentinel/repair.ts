@@ -1,7 +1,7 @@
 import "server-only";
 
 import { pgDb } from "@/lib/db/pg/db.pg";
-import { publishedPageRepository } from "@/lib/db/pg/repositories/published-page-repository.pg";
+import { pgPublishedPageRepository as publishedPageRepository } from "@/lib/db/pg/repositories/published-page-repository.pg";
 import { sentinelRepository } from "@/lib/db/pg/repositories/sentinel-repository.pg";
 import {
   AgentTable,

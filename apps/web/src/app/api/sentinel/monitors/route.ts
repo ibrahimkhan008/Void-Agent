@@ -4,7 +4,7 @@ import {
   sentinelRepository,
 } from "@/lib/db/pg/repositories/sentinel-repository.pg";
 import { withAuth } from "auth/route-guard";
-import { publishedPageRepository } from "lib/db/pg/repositories/published-page-repository.pg";
+import { pgPublishedPageRepository as publishedPageRepository } from "lib/db/pg/repositories/published-page-repository.pg";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 60;

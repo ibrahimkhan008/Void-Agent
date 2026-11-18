@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * itself is not exercised (no relay in this environment).
  */
 
+import type { UserPreferences } from "app-types/user";
 import { pgClient, pgDb } from "../db/pg/db.pg";
 import { NotificationTable, UserTable } from "../db/pg/schema.pg";
 import {
@@ -48,13 +49,13 @@ const optedInPrefs = {
     emailScheduledFailure: true,
     emailHookFailure: true,
   },
-};
+} as UserPreferences;
 const optedOutPrefs = {
   notifications: {
     emailEnabled: true,
     emailDigestEnabled: false,
   },
-};
+} as UserPreferences;
 
 integration("daily digest query layer (isolated PostgreSQL)", () => {
   beforeAll(async () => {
@@ -63,28 +64,28 @@ integration("daily digest query layer (isolated PostgreSQL)", () => {
         "Use only loopback voidagent_migration_test on port 55432 with POSTGRES_POOL_MAX >= 2",
       );
     }
-    await pgDb.insert(UserTable).values([
-      {
+    await Promise.all([
+      pgDb.insert(UserTable).values({
         id: optedIn,
         name: "Digest opt-in",
         email: `${optedIn}@test.invalid`,
         emailVerified: true,
         preferences: optedInPrefs,
-      },
-      {
+      }),
+      pgDb.insert(UserTable).values({
         id: optedOut,
         name: "Digest opt-out",
         email: `${optedOut}@test.invalid`,
         emailVerified: true,
         preferences: optedOutPrefs,
-      },
-      {
+      }),
+      pgDb.insert(UserTable).values({
         id: unverified,
         name: "Digest unverified",
         email: `${unverified}@test.invalid`,
         emailVerified: false,
         preferences: optedInPrefs,
-      },
+      }),
     ]);
     const now = Date.now();
     await pgDb.insert(NotificationTable).values([

@@ -22,10 +22,10 @@ export const PUT = withAuth(
   async (
     request,
     session,
-    context?: { params?: Promise<{ repository: string }> },
+    context: { params: Promise<{ repository: string }> },
   ) => {
-    const params = (await context?.params) ?? { repository: "" };
-    const repository = decodeURIComponent(params.repository ?? "");
+    const params = await context.params;
+    const repository = decodeURIComponent(params.repository);
     const userId = session.user.id;
     if (!REPOSITORY_PATTERN.test(repository)) {
       return NextResponse.json(
@@ -126,10 +126,10 @@ export const DELETE = withAuth(
   async (
     _request,
     session,
-    context?: { params?: Promise<{ repository: string }> },
+    context: { params: Promise<{ repository: string }> },
   ) => {
-    const params = (await context?.params) ?? { repository: "" };
-    const repository = decodeURIComponent(params.repository ?? "");
+    const params = await context.params;
+    const repository = decodeURIComponent(params.repository);
     const userId = session.user.id;
     if (!REPOSITORY_PATTERN.test(repository)) {
       return NextResponse.json(

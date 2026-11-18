@@ -74,7 +74,7 @@ vi.mock("@/lib/db/pg/repositories/sentinel-repository.pg", () => ({
 }));
 
 vi.mock("@/lib/db/pg/repositories/published-page-repository.pg", () => ({
-  publishedPageRepository: {
+  pgPublishedPageRepository: {
     publish: (...args: unknown[]) => mocks.publish(...args),
     selectLiveBySlug: (...args: unknown[]) => mocks.selectLiveBySlug(...args),
     selectOwnerIdBySlug: (...args: unknown[]) =>
@@ -173,7 +173,7 @@ describe("probe transition matrix", () => {
 
 describe("probe", () => {
   it("fetches the public page and evaluates the assertions", async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => ({
       status: 200,
       text: async () => "<html><body>Inventory OK</body></html>",
     }));

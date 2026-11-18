@@ -47,12 +47,12 @@ function authorize(request: Request): Response | null {
 
 export async function POST(
   request: Request,
-  context?: { params?: Promise<{ job: string }> },
+  context: { params: Promise<{ job: string }> },
 ) {
   const unauthorized = authorize(request);
   if (unauthorized) return unauthorized;
 
-  const params = (await context?.params) ?? { job: "" };
+  const params = await context.params;
   const job = params.job ?? "";
   if (!JOB_NAMES.has(job)) {
     return NextResponse.json(

@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -33,7 +34,7 @@ vi.mock("@/lib/db/pg/repositories/sentinel-repository.pg", () => ({
 }));
 
 vi.mock("@/lib/db/pg/repositories/published-page-repository.pg", () => ({
-  publishedPageRepository: {
+  pgPublishedPageRepository: {
     selectOwnerIdBySlug: (...args: unknown[]) =>
       mocks.selectOwnerIdBySlug(...args),
   },
@@ -71,12 +72,14 @@ const jsonRequest = (body: unknown) =>
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }) as NextRequest;
 
 describe("/api/sentinel/monitors", () => {
   it("lists monitors and incidents for the owner", async () => {
     mocks.repo.listMonitors.mockResolvedValue([{ id: "mon-1", slug: "site" }]);
-    const response = await listRoute(new Request("https://void.test/api/x"));
+    const response = await listRoute(
+      new Request("https://void.test/api/x") as NextRequest,
+    );
     const payload = (await response.json()) as {
       monitors: unknown[];
       incidents: unknown[];
@@ -127,7 +130,7 @@ describe("/api/sentinel/incidents/[id]", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "approve" }),
-      }),
+      }) as NextRequest,
       { params: Promise.resolve({ id: "inc-1" }) },
     );
     expect(response.status).toBe(200);
@@ -141,7 +144,7 @@ describe("/api/sentinel/incidents/[id]", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "rollback" }),
-      }),
+      }) as NextRequest,
       { params: Promise.resolve({ id: "inc-1" }) },
     );
     expect(response.status).toBe(200);
@@ -154,7 +157,7 @@ describe("/api/sentinel/incidents/[id]", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "detonate" }),
-      }),
+      }) as NextRequest,
       { params: Promise.resolve({ id: "inc-1" }) },
     );
     expect(response.status).toBe(400);

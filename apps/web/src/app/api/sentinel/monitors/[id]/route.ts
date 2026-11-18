@@ -7,8 +7,8 @@ import { NextResponse } from "next/server";
 
 /** PATCH /api/sentinel/monitors/[id] — mode, enabled, assertions, interval. */
 export const PATCH = withAuth(
-  async (request, session, context?: { params?: Promise<{ id: string }> }) => {
-    const params = (await context?.params) ?? { id: "" };
+  async (request, session, context: { params: Promise<{ id: string }> }) => {
+    const params = await context.params;
     const body = (await request.json().catch(() => null)) as {
       mode?: string;
       enabled?: boolean;
@@ -45,8 +45,8 @@ export const PATCH = withAuth(
 
 /** DELETE /api/sentinel/monitors/[id] — detach the Sentinel. */
 export const DELETE = withAuth(
-  async (_request, session, context?: { params?: Promise<{ id: string }> }) => {
-    const params = (await context?.params) ?? { id: "" };
+  async (_request, session, context: { params: Promise<{ id: string }> }) => {
+    const params = await context.params;
     const deleted = await sentinelRepository.deleteMonitor(
       session.user.id,
       params.id,
