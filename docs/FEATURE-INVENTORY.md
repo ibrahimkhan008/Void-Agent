@@ -25,7 +25,7 @@
 | 10 | Void Visualizer | ✅ DONE (native charts + sanitized Mermaid incl. gantt) |
 | 11 | Void Deploy | ✅ DONE (uptime monitor shipped; build/runtime logs intentionally N/A for static publishing; third-party hosting integrations not built) |
 | 12 | Void Sentinel | ❌ NEVER STARTED |
-| 13 | Void Cloud | ❌ NEVER STARTED |
+| 13 | Void Cloud | ❌ **DROPPED FROM SCOPE** (user decision — see §13) |
 | 14 | Void Devices | ❌ NEVER STARTED (managed per-user sandbox machines — web-based, no desktop daemon; substrate live via E2B) |
 | 15 | Void Connect | ✅ DONE (25 first-party connectors live-exercise pending; Composio demoted to optional marketplace) |
 | 16 | Void Skills | ✅ DONE (122 vendored skills / 8 packs + native engineering pack; GitHub-repo import works through the URL path) |
@@ -247,9 +247,9 @@ for the exact verification scope.
 
 ## 13. Void Cloud — Infrastructure Management
 
-**Status: ❌ NEVER STARTED.**
+**Status: ❌ DROPPED FROM SCOPE (user decision, 2026-11-18).**
 
-- ❌ Connect cloud infrastructure, manage VPS/dedicated servers, remote terminal, execute commands, Docker containers/Compose, remote files, services, deployments, server logs, infrastructure monitoring/diagnostics/automation — zero code.
+Void Agent is web-based and operates in the sandbox machines the platform provides — managing users' rented servers/VPSs (remote terminal, Docker, services on their infrastructure) is out of the product vision. The agent's execution surface is: E2B sandboxes, published-site monitoring (Sentinel), and connector tools. This section is retained in the inventory only as a recorded scope decision.
 
 ## 14. Void Devices — Managed Sandbox Environments
 
@@ -321,7 +321,7 @@ for the exact verification scope.
 ## Net deltas from this vision (the honest remaining list)
 
 1. ❌ **Void Sentinel** — the largest missing module.
-2. ❌ **Void Cloud** and **Void Devices** — missing (Devices is web-native: per-user persistent sandbox machines layered on the live E2B substrate; Cloud is provider-API infrastructure management).
+2. ❌ **Void Devices** — per-user persistent sandbox machines layered on the live E2B substrate (Void Cloud dropped from scope).
 3. ✅ **Write-capable swarms (bounded artifact fan-out)** — up to four
    concurrent workers write isolated, capped text artifacts; prerequisite
    workers can hand files to dependent builders/verifiers; identical paths are

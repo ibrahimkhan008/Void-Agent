@@ -588,12 +588,15 @@ Autonomous monitoring + repair for published sites, complete as a v1:
   was DB-state derived only; Sentinel's probes are the first real network
   monitoring. Remaining NEVER STARTED: §3.11 Cloud & Devices.
 
-### §3.11 Void Cloud & Devices
-Authorized connections to user infrastructure: VPSs, dedicated servers,
-workstations, development machines. Remote terminal, Docker management,
-file operations, deployment, service management — least-privilege, scoped,
-explicit authorization. The voice-device auth module is unrelated hardware
-pairing, not this.
+### §3.11 Void Cloud — ❌ DROPPED FROM SCOPE (user decision, 2026-11-18)
+Managing users' rented servers (remote terminal, Docker, services on their
+infrastructure) is out of the product vision: Void Agent is web-based and
+operates in the sandbox machines the platform provides. Recorded in
+docs/FEATURE-INVENTORY.md §13.
+
+### §3.14 Void Devices — never started (reframed: per-user persistent
+sandbox machines on the E2B substrate; see FEATURE-INVENTORY.md §14). The
+voice-device auth module is unrelated hardware pairing, not this.
 
 ### Write-capable swarms (Stage 06 generalization) — implemented, focused verified
 The orchestrator supports up to four concurrent workers with isolated text
