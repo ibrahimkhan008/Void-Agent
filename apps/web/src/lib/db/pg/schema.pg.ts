@@ -3943,6 +3943,7 @@ export const InboundEndpointTable = pgTable(
           op: string;
           value: string;
         }>;
+        eventTypes?: string[];
         chainOnSuccess?: string[];
         githubSigningSecretEncrypted?: string;
         codeReview?: { repository?: string; [key: string]: unknown };

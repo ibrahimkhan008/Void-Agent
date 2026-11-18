@@ -22,7 +22,7 @@ import {
   type StoredOrchestratorResult,
   type StoredOrchestratorWorker,
   claimOrchestratorCheckpoint,
-  createOrchestratorCheckpoint,
+  createOrchestratorCheckpointWithinQuota,
   getOrchestratorCheckpoint,
   saveOrchestratorCheckpoint,
 } from "lib/db/pg/repositories/orchestrator-checkpoint-repository.pg";
@@ -724,7 +724,7 @@ workers rerun.`,
       }
       if (!resumeRunId) {
         try {
-          await createOrchestratorCheckpoint({
+          await createOrchestratorCheckpointWithinQuota({
             id: runId,
             userId: deps.userId,
             threadId: deps.threadId,

@@ -16,6 +16,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+const planner = vi.hoisted(() => ({
+  workers: [] as Array<Record<string, unknown>>,
+}));
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return {
+    ...actual,
+    generateText: vi.fn(async () => ({ output: { workers: planner.workers } })),
+  };
+});
+
 import { pgClient, pgDb } from "../../db/pg/db.pg";
 import {
   ChatThreadTable,
@@ -140,6 +151,7 @@ const makeControlledModel = () => {
   };
   return {
     model,
+    promptOrder: () => [...state.prompts],
     callsFor: (needle: string) =>
       state.prompts.filter((prompt) => prompt.includes(needle)).length,
   };
@@ -160,6 +172,7 @@ integration("Orchestrator crash/recovery drill (isolated PostgreSQL)", () => {
       id: userId,
       name: "Orchestrator drill owner",
       email: `${userId}@test.invalid`,
+      tier: "voidagent-pro",
     });
     await pgDb.insert(ChatThreadTable).values({
       id: threadId,
@@ -322,5 +335,44 @@ integration("Orchestrator crash/recovery drill (isolated PostgreSQL)", () => {
     for (const worker of checkpoint.completedWorkers) {
       expect(worker.status).toBe("succeeded");
     }
+  });
+
+  it("self-decomposes with the model output and runs dependency waves in order", async () => {
+    planner.workers = [
+      { ...WORKERS[0] },
+      { ...WORKERS[1], dependsOn: ["build-a"] },
+    ];
+    const before = controlled.promptOrder().length;
+    const frames = await run({
+      objective: "Model-plan a write then verify task",
+      verificationCriteria: CRITERIA,
+    });
+    const planning = frames.find((frame) => frame.status === "planning") as {
+      runId: string;
+      workers: Array<{ key: string }>;
+    };
+    expect(planning.workers.map((worker) => worker.key)).toEqual([
+      "build-a",
+      "test-b",
+    ]);
+    const taskPrompts = controlled.promptOrder().slice(before);
+    const buildPromptIndex = taskPrompts.findIndex((prompt) =>
+      prompt.includes("Write the inventory module"),
+    );
+    const testPromptIndex = taskPrompts.findIndex((prompt) =>
+      prompt.includes("Test the inventory module"),
+    );
+    expect(buildPromptIndex).toBeGreaterThanOrEqual(0);
+    expect(testPromptIndex).toBeGreaterThan(buildPromptIndex);
+    const [checkpoint] = await pgDb
+      .select()
+      .from(OrchestratorCheckpointTable)
+      .where(eq(OrchestratorCheckpointTable.id, planning.runId))
+      .limit(1);
+    expect(checkpoint.workers).toMatchObject([
+      { key: "build-a" },
+      { key: "test-b", dependsOn: ["build-a"] },
+    ]);
+    expect(checkpoint.status).toBe("done");
   });
 });

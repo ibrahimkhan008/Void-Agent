@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { pgClient, pgDb } from "./db.pg";
 import { pgAppBuildRepository } from "./repositories/app-build-repository.pg";
@@ -14,6 +14,7 @@ import {
 import {
   claimOrchestratorCheckpoint,
   createOrchestratorCheckpoint,
+  createOrchestratorCheckpointWithinQuota,
   getOrchestratorCheckpoint,
   saveOrchestratorCheckpoint,
 } from "./repositories/orchestrator-checkpoint-repository.pg";
@@ -23,6 +24,7 @@ import {
   ChatThreadTable,
   HookRunTable,
   InboundEndpointTable,
+  OrchestratorCheckpointTable,
   UserTable,
 } from "./schema.pg";
 
@@ -100,6 +102,55 @@ integration("half-done features against isolated PostgreSQL", () => {
         .where(sql`${UserTable.id} IN (${userA}, ${userB})`);
       await pgClient.end({ timeout: 5 });
     }
+  });
+
+  it("enforces a free-tier daily swarm quota atomically across concurrent starts", async () => {
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 3 }, (_, index) =>
+        createOrchestratorCheckpointWithinQuota({
+          id: crypto.randomUUID(),
+          userId: userA,
+          threadId: threadA,
+          objective: `quota run ${index}`,
+          workers: [
+            {
+              key: "research",
+              role: "research",
+              name: "Research",
+              task: "Inspect",
+            },
+          ],
+        }),
+      ),
+    );
+    const firstFailure = attempts.find(
+      (attempt): attempt is PromiseRejectedResult =>
+        attempt.status === "rejected",
+    );
+    if (
+      firstFailure &&
+      attempts.every((attempt) => attempt.status === "rejected")
+    ) {
+      throw firstFailure.reason;
+    }
+    expect(
+      attempts.filter((attempt) => attempt.status === "fulfilled"),
+    ).toHaveLength(2);
+    const rejected = attempts.filter(
+      (attempt): attempt is PromiseRejectedResult =>
+        attempt.status === "rejected",
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({
+      name: "OrchestratorDailyQuotaError",
+      limit: 2,
+      used: 2,
+    });
+    const checkpoints = await pgDb
+      .select({ id: OrchestratorCheckpointTable.id })
+      .from(OrchestratorCheckpointTable)
+      .where(eq(OrchestratorCheckpointTable.userId, userA));
+    expect(checkpoints).toHaveLength(2);
   });
 
   it("persists comments and artifacts across queries while enforcing owner filters", async () => {
