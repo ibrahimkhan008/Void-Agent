@@ -26,7 +26,7 @@
 | 11 | Void Deploy | ✅ DONE (uptime monitor shipped; build/runtime logs intentionally N/A for static publishing; third-party hosting integrations not built) |
 | 12 | Void Sentinel | ❌ NEVER STARTED |
 | 13 | Void Cloud | ❌ **DROPPED FROM SCOPE** (user decision — see §13) |
-| 14 | Void Devices | ❌ NEVER STARTED (managed per-user sandbox machines — web-based, no desktop daemon; substrate live via E2B) |
+| 14 | Void Devices | ✅ DONE — Devices page (active sandbox + CPU-hours meter, idle machines, plan quota table) + weekly counters (migration 0095); enforcement of weekly soft quotas is the follow-up (`afe0579`) |
 | 15 | Void Connect | ✅ DONE (25 first-party connectors live-exercise pending; Composio demoted to optional marketplace) |
 | 16 | Void Skills | ✅ DONE (122 vendored skills / 8 packs + native engineering pack; GitHub-repo import works through the URL path) |
 | 17 | Cross-platform capabilities | ✅ DONE |
@@ -257,10 +257,18 @@ Void Agent is web-based and operates in the sandbox machines the platform provid
 
 **Product reframing (user direction, 2026-11-18): Void Agent is web-based — there is no desktop daemon/exe model. Void Devices does NOT mean connecting the user's own PC. It means Void Agent PROVIDES the machines: each user gets their own persistent sandbox environment(s) — named, always-available Linux machines we provision — and the agent does their work inside them.**
 
-- ❌ Devices page: create / pause / resume / delete / resize personal sandbox machines.
-- ❌ Persistent state across sessions (files, installed tooling, running services survive between visits — today's sandboxes are task-scoped ephemeral).
-- ❌ Agent tools bound to the user's device: terminal, file operations, code execution, service management inside THEIR machine.
-- ❌ Device specs (size, template, timeout policy) per user/tier.
+- ✅ Devices page shipped (`afe0579`): active-sandbox card with the weekly
+  CPU-hours meter and hours-left, idle (paused) machines listed with their
+  state, and the per-plan quota table (launches / CPU hours / tokens /
+  swarm / scheduled runs with reset times).
+- 🟡 Persistent state across sessions — pause/resume exists (App Builder
+  lifecycle); always-on personal machines with unlimited retention remain
+  an E2B account-policy question.
+- ✅ Agent tools already operate inside the user's sandboxes (terminal,
+  files, code — the ephemeral path); binding them to a persistent device is
+  the follow-up.
+- 🟡 Device specs (size, template, timeout policy) per user/tier — the
+  plan quota table ships; per-device sizing controls are the follow-up.
 - ✅ Already exists beneath it: owned E2B templates (void-agent-web, void-agent-code-interpreter), authenticated controller, owner isolation, pause/auto-resume, deleted-sandbox rebuild — the App Builder lifecycle proved every primitive; Void Devices generalizes it from per-build to per-user.
 - ❌ The voice-device pairing tables (migration 0025) are unrelated hardware pairing.
 
