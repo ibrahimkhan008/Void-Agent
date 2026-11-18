@@ -1,16 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { useState, useMemo } from "react";
 import {
   ArrowDownUp,
-  Download,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eye,
   FileSpreadsheet,
 } from "lucide-react";
+import * as React from "react";
+import { useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -18,8 +19,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -28,15 +35,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { JsonViewPopup } from "../json-view-popup";
 import { Checkbox } from "ui/checkbox";
+import { JsonViewPopup } from "../json-view-popup";
 
 // Column configuration interface
 interface Column {
@@ -56,7 +56,8 @@ export interface InteractiveTableProps {
 // Sort direction type
 type SortDirection = "asc" | "desc" | null;
 
-// Lazy load XLSX library from CDN
+// Lazy load the locally vendored SheetJS bundle to avoid a runtime CDN
+// dependency and keep exports available in offline/self-hosted deployments.
 const loadXLSX = async () => {
   if (typeof window === "undefined") {
     throw new Error("XLSX can only be loaded in browser environment");
@@ -67,11 +68,10 @@ const loadXLSX = async () => {
     return (window as any).XLSX;
   }
 
-  // Load XLSX from CDN
+  // Load the version-pinned bundle served by this application.
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src =
-      "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+    script.src = "/vendor/sheetjs/xlsx.full.min.js";
     script.onload = () => {
       if ((window as any).XLSX) {
         resolve((window as any).XLSX);
