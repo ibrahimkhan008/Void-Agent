@@ -1,9 +1,10 @@
 import "server-only";
 
-import { z } from "zod";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { ProjectMemberTable, ProjectTable } from "@/lib/db/pg/schema.pg";
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { AGENTSET_EMBEDDING_PROFILE_IDS } from "@/types/project";
+import { z } from "zod";
 import type { ProjectActor } from "./access";
 
 export const CreateProjectSchema = z.object({
@@ -28,7 +29,7 @@ export async function createProject(
   actor: ProjectActor,
   input: CreateProjectInput,
 ) {
-  return pgDb.transaction(async (tx) => {
+  const project = await pgDb.transaction(async (tx) => {
     const [created] = await tx
       .insert(ProjectTable)
       .values({
@@ -56,4 +57,14 @@ export async function createProject(
 
     return created;
   });
+  await publishInternalHookEvent({
+    userId: actor.userId,
+    eventType: "project.created",
+    sourceId: project.id,
+    text: `Project created: ${project.name}`,
+    meta: { projectId: project.id, name: project.name },
+  }).catch((error) =>
+    console.error("[hooks] project.created enqueue failed", error),
+  );
+  return project;
 }

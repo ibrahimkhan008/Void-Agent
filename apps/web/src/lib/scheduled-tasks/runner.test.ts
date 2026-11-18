@@ -1,13 +1,18 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 // The runner imports these at module load; the executeAgentRun path under test
 // does not touch them, so trivial stubs are enough to let the module import.
 vi.mock("@/lib/db/pg/db.pg", () => ({ pgDb: {} }));
+const internalEventMock = vi.hoisted(() => ({ fn: vi.fn(async () => 0) }));
+vi.mock("@/lib/hooks/internal-events", () => ({
+  publishInternalHookEvent: internalEventMock.fn,
+}));
 vi.mock("@/lib/push/send-push-to-user", () => ({
   sendPushToUser: vi.fn(),
 }));
 
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { executeAgentRun, isValidUUID } from "./runner";
 
 const TASK = {
@@ -66,6 +71,7 @@ function streamResponse(
 
 describe("executeAgentRun", () => {
   beforeEach(() => {
+    internalEventMock.fn.mockClear();
     process.env.SCHEDULED_TASK_SECRET = "secret";
     process.env.NEXT_PUBLIC_BASE_URL = "https://staging.example.com";
   });
@@ -84,6 +90,12 @@ describe("executeAgentRun", () => {
       success: true,
       threadId: "33333333-3333-3333-3333-333333333333",
     });
+    expect(publishInternalHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "agent.run.completed",
+        userId: TASK.userId,
+      }),
+    );
     // Loopback carries the scheduled-task auth header + the agent's model.
     const [, init] = fetchMock.mock.calls[0]!;
     expect(

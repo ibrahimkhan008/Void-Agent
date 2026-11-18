@@ -1,3 +1,4 @@
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { pgDb } from "../db.pg";
 import { ProjectBrainPageTable, ProjectBrainRevisionTable } from "../schema.pg";
@@ -150,6 +151,15 @@ export async function saveUserRecord(
       changeNote: changeNote ?? "Record created",
       userId,
     });
+    await publishInternalHookEvent({
+      userId,
+      eventType: "memory.record.updated",
+      sourceId: `${slug}:1`,
+      text: `User memory record ${slug} changed (revision 1).`,
+      meta: { slug, revision: 1, scope: "global" },
+    }).catch((error) =>
+      console.error("[hooks] memory.record.updated enqueue failed", error),
+    );
     return { revision: 1 };
   }
 
@@ -172,6 +182,15 @@ export async function saveUserRecord(
     changeNote: changeNote?.trim() ? changeNote.trim() : null,
     userId,
   });
+  await publishInternalHookEvent({
+    userId,
+    eventType: "memory.record.updated",
+    sourceId: `${slug}:${nextRevision}`,
+    text: `User memory record ${slug} changed (revision ${nextRevision}).`,
+    meta: { slug, revision: nextRevision, scope: "global" },
+  }).catch((error) =>
+    console.error("[hooks] memory.record.updated enqueue failed", error),
+  );
   return { revision: nextRevision };
 }
 
@@ -347,6 +366,20 @@ export async function applyProposal(
       changeNote: proposal.changeNote ?? "Applied from approved proposal",
       userId: resolvedByUserId,
     });
+    await publishInternalHookEvent({
+      userId: resolvedByUserId,
+      eventType: "memory.record.updated",
+      sourceId: `${proposal.projectId}:${proposal.slug}:${nextRevision}`,
+      text: `Project memory record ${proposal.slug} changed (revision ${nextRevision}).`,
+      meta: {
+        scope: "project",
+        projectId: proposal.projectId,
+        slug: proposal.slug,
+        revision: nextRevision,
+      },
+    }).catch((error) =>
+      console.error("[hooks] memory.record.updated enqueue failed", error),
+    );
   } else {
     await saveUserRecord(
       proposal.userId,

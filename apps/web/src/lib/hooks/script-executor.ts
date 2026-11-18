@@ -114,8 +114,12 @@ export async function executeHookScript(input: {
       timeoutMs: HOOK_SCRIPT_SANDBOX_TTL_MS,
       billing: { userId: input.userId, customerId: null },
       requestId: `hook-script-${randomUUID()}`,
+      // The Code Interpreter SDK accepts IPv4 CIDRs only. `allowInternetAccess`
+      // disables Internet access for the sandbox (including IPv6); the IPv4
+      // deny rule is retained as defense in depth without sending an invalid
+      // `::/0` rule that E2B rejects before sandbox creation.
       allowInternetAccess: false,
-      network: { allowOut: [], denyOut: ["0.0.0.0/0", "::/0"] },
+      network: { allowOut: [], denyOut: ["0.0.0.0/0"] },
     });
 
     const execution = await sandbox.runCode(source, {

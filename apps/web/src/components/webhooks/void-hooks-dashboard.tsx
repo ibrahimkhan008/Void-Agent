@@ -1,6 +1,7 @@
 "use client";
 
 import { useAgents } from "@/hooks/queries/use-agents";
+import { INTERNAL_HOOK_EVENT_TYPES } from "@/lib/hooks/event-types";
 import { fetcher } from "lib/utils";
 import { Loader, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -46,6 +47,7 @@ interface HookView {
     cooldownSeconds?: number;
     maxRunsPerDay?: number;
     chainOnSuccess?: string[];
+    eventTypes?: string[];
   };
   createdAt: string;
 }
@@ -78,9 +80,10 @@ export function VoidHooksDashboard() {
   }>("/api/hooks", fetcher);
 
   const [creating, setCreating] = useState(false);
-  const [kind, setKind] = useState<"webhook" | "email" | "slack" | "github">(
-    "webhook",
-  );
+  const [kind, setKind] = useState<
+    "webhook" | "email" | "slack" | "github" | "event"
+  >("webhook");
+  const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [agentId, setAgentId] = useState<string>("");
   const [promptTemplate, setPromptTemplate] = useState("");
   const [scriptLanguage, setScriptLanguage] = useState<
@@ -94,9 +97,10 @@ export function VoidHooksDashboard() {
   >("javascript");
   const [editScriptSource, setEditScriptSource] = useState("");
   const [created, setCreated] = useState<{
-    inboundUrl: string;
-    secret: string;
+    inboundUrl?: string;
+    secret?: string;
     kind: string;
+    eventTypes?: string[];
   } | null>(null);
 
   // Default the agent picker to the first available agent once loaded.
@@ -118,6 +122,7 @@ export function VoidHooksDashboard() {
           kind,
           agentId,
           promptTemplate: promptTemplate.trim() || undefined,
+          eventTypes: kind === "event" ? eventTypes : undefined,
           script: scriptEnabled
             ? { language: scriptLanguage, source: scriptSource }
             : undefined,
@@ -128,9 +133,12 @@ export function VoidHooksDashboard() {
         throw new Error(payload?.error ?? "Could not create the hook.");
       }
       setCreated({
-        inboundUrl: `${window.location.origin}${payload.inboundUrl}`,
+        inboundUrl: payload.inboundUrl
+          ? `${window.location.origin}${payload.inboundUrl}`
+          : undefined,
         secret: payload.secret,
         kind,
+        eventTypes: payload.eventTypes,
       });
       setPromptTemplate("");
       setScriptSource("");
@@ -145,6 +153,7 @@ export function VoidHooksDashboard() {
   }, [
     agentId,
     kind,
+    eventTypes,
     mutate,
     promptTemplate,
     scriptEnabled,
@@ -249,8 +258,9 @@ export function VoidHooksDashboard() {
             )}
           </CardTitle>
           <CardDescription>
-            Inbound events run an agent, optionally after a JavaScript,
-            TypeScript, or Python script step in an isolated sandbox.
+            Inbound and internal events run an agent, optionally after a
+            JavaScript, TypeScript, or Python script step in an isolated
+            sandbox.
           </CardDescription>
         </div>
       </CardHeader>
@@ -260,9 +270,7 @@ export function VoidHooksDashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={kind}
-              onValueChange={(value) =>
-                setKind(value as "webhook" | "email" | "slack" | "github")
-              }
+              onValueChange={(value) => setKind(value as typeof kind)}
             >
               <SelectTrigger className="h-9 w-[130px]">
                 <SelectValue />
@@ -272,6 +280,7 @@ export function VoidHooksDashboard() {
                 <SelectItem value="email">Email</SelectItem>
                 <SelectItem value="slack">Slack</SelectItem>
                 <SelectItem value="github">GitHub</SelectItem>
+                <SelectItem value="event">Internal event</SelectItem>
               </SelectContent>
             </Select>
             <Select value={agentId} onValueChange={setAgentId}>
@@ -299,6 +308,34 @@ export function VoidHooksDashboard() {
               Create hook
             </Button>
           </div>
+          {kind === "event" ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium">Trigger events</p>
+              <select
+                aria-label="Internal events"
+                className="min-h-24 w-full max-w-xl rounded-md border bg-background px-2 py-1 text-xs text-foreground"
+                multiple
+                value={eventTypes}
+                onChange={(event) =>
+                  setEventTypes(
+                    [...event.currentTarget.selectedOptions].map(
+                      (option) => option.value,
+                    ),
+                  )
+                }
+              >
+                {INTERNAL_HOOK_EVENT_TYPES.map((eventType) => (
+                  <option key={eventType} value={eventType}>
+                    {eventType}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                Only events produced by actions in your own account trigger this
+                hook. Select one or more.
+              </p>
+            </div>
+          ) : null}
           <Textarea
             value={promptTemplate}
             onChange={(event) => setPromptTemplate(event.target.value)}
@@ -366,31 +403,44 @@ export function VoidHooksDashboard() {
         {created ? (
           <div className="space-y-2 rounded-xl border border-primary/40 p-3">
             <p className="text-sm font-medium">
-              Hook created — inbound URL and signing secret (shown once):
+              {created.kind === "event"
+                ? "Internal event hook created."
+                : "Hook created — inbound URL and signing secret (shown once):"}
             </p>
-            <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
-              {created.inboundUrl}
-            </code>
-            <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
-              {created.secret}
-            </code>
+            {created.inboundUrl ? (
+              <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
+                {created.inboundUrl}
+              </code>
+            ) : null}
+            {created.secret ? (
+              <code className="block overflow-x-auto rounded bg-muted p-2 text-xs">
+                {created.secret}
+              </code>
+            ) : null}
+            {created.eventTypes?.length ? (
+              <p className="text-xs text-muted-foreground">
+                Listening for: {created.eventTypes.join(", ")}
+              </p>
+            ) : null}
             {created.kind === "github" ? (
               <p className="text-xs text-muted-foreground">
                 Paste this secret into GitHub’s webhook Secret field. GitHub
                 signs deliveries with it; keep it private.
               </p>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard
-                  .writeText(`${created.inboundUrl}\n${created.secret}`)
-                  .then(() => toast.success("Copied."));
-              }}
-            >
-              Copy both
-            </Button>
+            {created.inboundUrl && created.secret ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard
+                    .writeText(`${created.inboundUrl}\n${created.secret}`)
+                    .then(() => toast.success("Copied."));
+                }}
+              >
+                Copy both
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
@@ -429,9 +479,15 @@ export function VoidHooksDashboard() {
                         {hook.enabled ? "enabled" : "paused"}
                       </span>
                     </p>
-                    <code className="block max-w-full truncate rounded bg-muted px-2 py-1 text-[11px]">
-                      /api/inbound/{hook.token}
-                    </code>
+                    {hook.kind === "event" ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Events: {(hook.hookConfig.eventTypes ?? []).join(", ")}
+                      </p>
+                    ) : (
+                      <code className="block max-w-full truncate rounded bg-muted px-2 py-1 text-[11px]">
+                        /api/inbound/{hook.token}
+                      </code>
+                    )}
                     <p className="text-[11px] text-muted-foreground">
                       cooldown {hook.hookConfig.cooldownSeconds ?? 60}s · cap{" "}
                       {hook.hookConfig.maxRunsPerDay ?? 20}/day

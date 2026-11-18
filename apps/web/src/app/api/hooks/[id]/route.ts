@@ -4,6 +4,7 @@ import {
   publicHookConfig,
   updateEndpointHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
+import { INTERNAL_HOOK_EVENT_TYPES } from "@/lib/hooks/event-types";
 import { withAuth } from "auth/route-guard";
 import { agentRepository, inboundRepository } from "lib/db/repository";
 import { z } from "zod";
@@ -51,6 +52,7 @@ const PatchSchema = z
       .max(6)
       .nullable()
       .optional(),
+    eventTypes: z.array(z.enum(INTERNAL_HOOK_EVENT_TYPES)).max(8).optional(),
     chainOnSuccess: z.array(z.string().uuid()).max(3).optional(),
   })
   .strip();
@@ -152,6 +154,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
     data.cooldownSeconds !== undefined ||
     data.maxRunsPerDay !== undefined ||
     data.matchRules !== undefined ||
+    data.eventTypes !== undefined ||
     data.chainOnSuccess !== undefined
   ) {
     const current =
@@ -182,6 +185,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
         data.matchRules === undefined
           ? parsedCurrent.matchRules
           : (data.matchRules ?? []),
+      eventTypes: data.eventTypes ?? parsedCurrent.eventTypes,
       chainOnSuccess: data.chainOnSuccess ?? parsedCurrent.chainOnSuccess,
       githubSigningSecretEncrypted:
         typeof current.githubSigningSecretEncrypted === "string"

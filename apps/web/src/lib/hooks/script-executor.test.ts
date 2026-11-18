@@ -48,7 +48,7 @@ describe("executeHookScript", () => {
       expect.objectContaining({
         allowInternetAccess: false,
         secure: true,
-        network: { allowOut: [], denyOut: ["0.0.0.0/0", "::/0"] },
+        network: { allowOut: [], denyOut: ["0.0.0.0/0"] },
         billing: { userId: "user-1", customerId: null },
       }),
     );

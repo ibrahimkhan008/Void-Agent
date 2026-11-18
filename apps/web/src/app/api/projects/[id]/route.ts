@@ -1,12 +1,13 @@
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import { z } from "zod";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { ProjectTable } from "@/lib/db/pg/schema.pg";
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import {
   requireProjectAccess,
   toProjectErrorResponse,
 } from "@/lib/projects/access";
+import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 
 const UpdateProjectSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
@@ -36,7 +37,10 @@ export async function PATCH(
 ) {
   try {
     const { id: projectId } = await params;
-    await requireProjectAccess({ projectId, minRole: "editor" });
+    const { actor, project: previous } = await requireProjectAccess({
+      projectId,
+      minRole: "editor",
+    });
     const parsed = UpdateProjectSchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -57,6 +61,22 @@ export async function PATCH(
       .where(eq(ProjectTable.id, projectId))
       .returning();
 
+    if (project) {
+      await publishInternalHookEvent({
+        userId: actor.userId,
+        eventType: "project.updated",
+        sourceId: `${project.id}:${project.updatedAt.toISOString()}`,
+        text: `Project updated: ${project.name}`,
+        meta: {
+          projectId: project.id,
+          name: project.name,
+          previousName: previous.name,
+        },
+      }).catch((error) =>
+        console.error("[hooks] project.updated enqueue failed", error),
+      );
+    }
+
     return NextResponse.json({ project });
   } catch (error) {
     return toProjectErrorResponse(error);
@@ -69,8 +89,20 @@ export async function DELETE(
 ) {
   try {
     const { id: projectId } = await params;
-    await requireProjectAccess({ projectId, minRole: "owner" });
+    const { actor, project } = await requireProjectAccess({
+      projectId,
+      minRole: "owner",
+    });
     await pgDb.delete(ProjectTable).where(eq(ProjectTable.id, projectId));
+    await publishInternalHookEvent({
+      userId: actor.userId,
+      eventType: "project.deleted",
+      sourceId: projectId,
+      text: `Project deleted: ${project.name}`,
+      meta: { projectId, name: project.name },
+    }).catch((error) =>
+      console.error("[hooks] project.deleted enqueue failed", error),
+    );
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return toProjectErrorResponse(error);

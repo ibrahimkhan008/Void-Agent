@@ -1,10 +1,12 @@
+import { randomUUID } from "node:crypto";
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { withAuth } from "auth/route-guard";
-import { createWorkflowExecutor } from "lib/ai/workflow/executor/workflow-executor";
-import { workflowRepository } from "lib/db/repository";
-import { encodeWorkflowEvent } from "lib/ai/workflow/shared.workflow";
-import logger from "logger";
 import { colorize } from "consola/utils";
+import { createWorkflowExecutor } from "lib/ai/workflow/executor/workflow-executor";
+import { encodeWorkflowEvent } from "lib/ai/workflow/shared.workflow";
+import { workflowRepository } from "lib/db/repository";
 import { safeJSONParse, toAny } from "lib/utils";
+import logger from "logger";
 
 export const POST = withAuth(
   async (request, session, { params }: { params: Promise<{ id: string }> }) => {
@@ -41,6 +43,7 @@ export const POST = withAuth(
     });
 
     const encoder = new TextEncoder();
+    const executionId = randomUUID();
 
     const stream = new ReadableStream({
       start(controller) {
@@ -91,10 +94,31 @@ export const POST = withAuth(
               timeout: 1000 * 60 * 5,
             },
           )
-          .then((result) => {
+          .then(async (result) => {
             if (!result.isOk) {
               logger.error("Workflow execution error:", result.error);
+              return;
             }
+            if (isAborted) return;
+            await publishInternalHookEvent({
+              userId: session.user.id,
+              eventType: "workflow.run.completed",
+              sourceId: executionId,
+              text: `Workflow completed: ${workflow.name}`,
+              meta: {
+                workflowId: id,
+                workflowName: workflow.name,
+                executionId,
+              },
+            }).catch((error) =>
+              logger.error(
+                "[hooks] workflow.run.completed enqueue failed",
+                error,
+              ),
+            );
+          })
+          .catch((error) => {
+            logger.error("Workflow execution failed:", error);
           });
       },
     });

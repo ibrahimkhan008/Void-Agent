@@ -39,12 +39,22 @@ vi.mock("@/lib/inngest/client", () => ({
   },
 }));
 
-const executeAgentRun = vi.hoisted(() => ({ fn: vi.fn() }));
+const executeAgentRun = vi.hoisted(() => ({
+  fn: vi.fn<
+    (
+      ...args: unknown[]
+    ) => Promise<{ success: boolean; threadId: string | null }>
+  >(async (..._args: unknown[]) => ({ success: true, threadId: null })),
+}));
 vi.mock("@/lib/scheduled-tasks/runner", () => ({
   executeAgentRun: (...args: unknown[]) => executeAgentRun.fn(...args),
 }));
 
-const notifications = vi.hoisted(() => ({ fn: vi.fn(async () => []) }));
+const notifications = vi.hoisted(() => ({
+  fn: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(
+    async (..._args: unknown[]) => [],
+  ),
+}));
 vi.mock("@/lib/notifications/create-notifications", () => ({
   createNotifications: (...args: unknown[]) => notifications.fn(...args),
 }));
@@ -73,6 +83,10 @@ import { githubOutboxId } from "../inbound/github";
 import { encrypt } from "../security/encryption";
 import { HOOK_AGENT_RUN_EVENT } from "./dispatch";
 import { runHookAgent } from "./executor";
+import {
+  internalHookEventId,
+  publishInternalHookEvent,
+} from "./internal-events";
 
 const configuredUrl = process.env.TEST_POSTGRES_URL;
 const isAllowedIsolatedDb = (() => {
@@ -102,6 +116,8 @@ const capEndpointId = crypto.randomUUID();
 const chainParentEndpointId = crypto.randomUUID();
 const chainChildEndpointId = crypto.randomUUID();
 const disabledEndpointId = crypto.randomUUID();
+const internalEndpointId = crypto.randomUUID();
+const internalEventSourceId = crypto.randomUUID();
 
 const GITHUB_SECRET = "hooks-e2e-github-signing-secret";
 const DELIVERY = "b3f7c2a0-1111-4222-8333-c444d555e666";
@@ -257,6 +273,19 @@ integration("Void Hooks end-to-end pipeline (isolated PostgreSQL)", () => {
         enabled: false,
         hookConfig: { cooldownSeconds: 0, maxRunsPerDay: 10 },
       },
+      {
+        id: internalEndpointId,
+        userId,
+        agentId,
+        token: crypto.randomUUID(),
+        kind: "event",
+        enabled: true,
+        hookConfig: {
+          eventTypes: ["project.created"],
+          cooldownSeconds: 0,
+          maxRunsPerDay: 10,
+        },
+      },
     ]);
   });
 
@@ -267,11 +296,25 @@ integration("Void Hooks end-to-end pipeline (isolated PostgreSQL)", () => {
       await pgDb
         .delete(WebhookEventOutboxTable)
         .where(
-          eq(
-            WebhookEventOutboxTable.id,
-            githubOutboxId(githubEndpointId, DELIVERY),
+          and(
+            eq(
+              WebhookEventOutboxTable.id,
+              githubOutboxId(githubEndpointId, DELIVERY),
+            ),
+            eq(WebhookEventOutboxTable.kind, "inbound"),
           ),
         );
+      await pgDb.delete(WebhookEventOutboxTable).where(
+        eq(
+          WebhookEventOutboxTable.id,
+          internalHookEventId({
+            userId,
+            endpointId: internalEndpointId,
+            eventType: "project.created",
+            sourceId: internalEventSourceId,
+          }),
+        ),
+      );
       await pgDb.delete(UserTable).where(eq(UserTable.id, userId));
       await pgClient.end({ timeout: 5 });
     }
@@ -337,6 +380,46 @@ integration("Void Hooks end-to-end pipeline (isolated PostgreSQL)", () => {
       .where(eq(WebhookEventOutboxTable.id, eventId))
       .limit(1);
     expect(outboxAfter.status).toBe("delivered");
+  });
+
+  it("publishes a selected internal event once and dispatches it through the outbox", async () => {
+    const eventInput = {
+      userId,
+      eventType: "project.created" as const,
+      sourceId: internalEventSourceId,
+      text: "Project created: test project",
+      meta: { projectId: crypto.randomUUID(), name: "test project" },
+    };
+    expect(await publishInternalHookEvent(eventInput)).toBe(1);
+    expect(await publishInternalHookEvent(eventInput)).toBe(1);
+    const eventId = internalHookEventId({
+      userId,
+      endpointId: internalEndpointId,
+      eventType: eventInput.eventType,
+      sourceId: eventInput.sourceId,
+    });
+    const [outbox] = await pgDb
+      .select({
+        eventType: WebhookEventOutboxTable.eventType,
+        payload: WebhookEventOutboxTable.payload,
+      })
+      .from(WebhookEventOutboxTable)
+      .where(eq(WebhookEventOutboxTable.id, eventId))
+      .limit(1);
+    expect(outbox?.eventType).toBe("internal.project.created");
+    expect(outbox?.payload).toMatchObject({
+      userId,
+      endpointId: internalEndpointId,
+      agentId,
+      normalized: { source: "project.created", text: eventInput.text },
+    });
+    const result = await runWebhookOutboxTick();
+    expect(result.hooksDispatched).toBe(1);
+    expect(await hookRunByEvent(eventId)).toMatchObject({
+      status: "queued",
+      agentId,
+      userId,
+    });
   });
 
   it("never double-runs a redelivered GitHub event", async () => {

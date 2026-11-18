@@ -274,6 +274,7 @@ export async function runHookAgent(runId: string): Promise<{
         model: agent.model ?? null,
         organizationId: agent.organizationId ?? null,
       },
+      { emitInternalHookEvent: false },
     );
 
     if (result.success) {

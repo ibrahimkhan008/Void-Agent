@@ -98,6 +98,56 @@ describe("hook agent ownership", () => {
     );
   });
 
+  it("creates an internal event hook without exposing an inbound secret", async () => {
+    checkAccess.mockResolvedValue(true);
+    createInboundEndpoint.mockResolvedValue({
+      id: "hook-event",
+      token: "event-token",
+      kind: "event",
+      agentId: AGENT_ID,
+    });
+    const response = await POST(
+      new NextRequest("http://localhost/api/hooks", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "event",
+          agentId: AGENT_ID,
+          eventTypes: ["project.created", "workflow.run.completed"],
+        }),
+      }),
+    );
+    const body = await response.json();
+    expect(response.status).toBe(201);
+    expect(body).not.toHaveProperty("secret");
+    expect(body).not.toHaveProperty("inboundUrl");
+    expect(body.hook.hookConfig.eventTypes).toEqual([
+      "project.created",
+      "workflow.run.completed",
+    ]);
+    expect(updateEndpointHookConfig).toHaveBeenCalledWith(
+      "hook-event",
+      "owner",
+      expect.objectContaining({
+        eventTypes: ["project.created", "workflow.run.completed"],
+      }),
+    );
+    expect(createInboundEndpoint).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "event", secretHash: null }),
+      "owner",
+    );
+  });
+
+  it("requires event subscriptions for an internal event hook", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/hooks", {
+        method: "POST",
+        body: JSON.stringify({ kind: "event", agentId: AGENT_ID }),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(createInboundEndpoint).not.toHaveBeenCalled();
+  });
+
   it("updates an existing script without dropping it on later config edits", async () => {
     const script = { language: "python", source: "print(payload)" };
     listInboundEndpoints.mockResolvedValue([

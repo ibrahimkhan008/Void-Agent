@@ -1,16 +1,12 @@
 import "server-only";
 
-import {
-  ConnectorApiError,
-  callConnectorApi,
-} from "@/lib/connectors/provider-api";
+import { callConnectorApi } from "@/lib/connectors/provider-api";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { codeReviewRepository } from "@/lib/db/pg/repositories/code-review-repository.pg";
 import {
   type HookRunRow,
   countHookRunsToday,
   finishHookRun,
-  getHookRunById,
   lastHookRunAt,
   parseHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";

@@ -251,6 +251,7 @@ export interface EndpointHookConfig {
   cooldownSeconds?: number;
   maxRunsPerDay?: number;
   matchRules?: HookMatchRule[];
+  eventTypes?: string[];
   chainOnSuccess?: string[];
   githubSigningSecretEncrypted?: string;
 }
@@ -284,7 +285,7 @@ export function parseHookConfig(
     "promptTemplate" | "githubSigningSecretEncrypted" | "script"
   >
 > &
-  Pick<EndpointHookConfig, "promptTemplate" | "script"> {
+  Pick<EndpointHookConfig, "promptTemplate" | "script" | "eventTypes"> {
   const config = (raw ?? {}) as EndpointHookConfig;
   return {
     script:
@@ -324,6 +325,13 @@ export function parseHookConfig(
             config.chainOnSuccess.filter((id) => typeof id === "string"),
           ),
         ].slice(0, 3)
+      : [],
+    eventTypes: Array.isArray(config.eventTypes)
+      ? [
+          ...new Set(
+            config.eventTypes.filter((event) => typeof event === "string"),
+          ),
+        ].slice(0, 16)
       : [],
   };
 }

@@ -1,3 +1,4 @@
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { pgDb } from "lib/db/pg/db.pg";
 import { ProjectBrainPageTable, ProjectBrainRevisionTable } from "../schema.pg";
@@ -215,6 +216,15 @@ export async function saveProjectRecord(
     changeNote: changeNote?.trim() ? changeNote.trim() : null,
     userId,
   });
+  await publishInternalHookEvent({
+    userId,
+    eventType: "project.record.updated",
+    sourceId: `${projectId}:${slug}:${nextRevision}`,
+    text: `Project record ${slug} changed (revision ${nextRevision}).`,
+    meta: { projectId, slug, revision: nextRevision },
+  }).catch((error) =>
+    console.error("[hooks] project.record.updated enqueue failed", error),
+  );
   return { revision: nextRevision };
 }
 
@@ -294,6 +304,20 @@ export async function restoreRecordRevision(
     changeNote: `Restored revision ${revision}`,
     userId,
   });
+  await publishInternalHookEvent({
+    userId,
+    eventType: "project.record.restored",
+    sourceId: `${projectId}:${slug}:${nextRevision}`,
+    text: `Project record ${slug} restored (revision ${nextRevision}).`,
+    meta: {
+      projectId,
+      slug,
+      revision: nextRevision,
+      restoredRevision: revision,
+    },
+  }).catch((error) =>
+    console.error("[hooks] project.record.restored enqueue failed", error),
+  );
   return { revision: nextRevision };
 }
 

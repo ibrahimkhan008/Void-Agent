@@ -7,6 +7,7 @@ import {
   ScheduledTaskTable,
   UserTable,
 } from "@/lib/db/pg/schema.pg";
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { createNotifications } from "@/lib/notifications/create-notifications";
 import { eq, sql } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
@@ -146,8 +147,28 @@ export async function loadScheduledTaskContext(
 export async function executeAgentRun(
   task: RunnableTask,
   agent: RunnableAgent,
+  options: { emitInternalHookEvent?: boolean } = {},
 ): Promise<ScheduledRunResult> {
-  return executeScheduledRun({ ...task, executionMode: "agent" }, agent);
+  const result = await executeScheduledRun(
+    { ...task, executionMode: "agent" },
+    agent,
+  );
+  if (
+    result.success &&
+    options.emitInternalHookEvent !== false &&
+    task.agentId
+  ) {
+    await publishInternalHookEvent({
+      userId: task.userId,
+      eventType: "agent.run.completed",
+      sourceId: result.threadId ?? task.id,
+      text: `Agent run completed: ${agent.name}`,
+      meta: { agentId: task.agentId, threadId: result.threadId },
+    }).catch((error) =>
+      logger.error("[hooks] agent.run.completed enqueue failed", error),
+    );
+  }
+  return result;
 }
 
 /** Executes a regular Chat AI, Cloud Agent, or legacy custom-agent schedule. */

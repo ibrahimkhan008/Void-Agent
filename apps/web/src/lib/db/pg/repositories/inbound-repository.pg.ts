@@ -33,7 +33,7 @@ export interface CreateInboundEndpointInput {
   agentId: string;
   token: string;
   secretHash?: string | null;
-  kind: "webhook" | "email" | "slack" | "github";
+  kind: "webhook" | "email" | "slack" | "github" | "event";
   threadTemplate?: Record<string, unknown>;
   enabled?: boolean;
 }
@@ -42,7 +42,7 @@ export interface UpdateInboundEndpointInput {
   /** Void Hooks: rebind which agent this hook drives. */
   agentId?: string;
   secretHash?: string | null;
-  kind?: "webhook" | "email" | "slack" | "github";
+  kind?: "webhook" | "email" | "slack" | "github" | "event";
   threadTemplate?: Record<string, unknown>;
   enabled?: boolean;
 }

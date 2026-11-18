@@ -767,6 +767,7 @@ describe("runHookAgent — AI Code Review path", () => {
       String(call[2]).endsWith("/pulls/42/reviews"),
     );
     expect(reviewCall).toBeDefined();
+    if (!reviewCall) throw new Error("Expected GitHub review request");
     expect(reviewCall[3]).toMatchObject({
       method: "POST",
       body: {

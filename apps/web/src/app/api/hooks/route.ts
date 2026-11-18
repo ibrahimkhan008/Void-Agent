@@ -4,6 +4,7 @@ import {
   publicHookConfig,
   updateEndpointHookConfig,
 } from "@/lib/db/pg/repositories/hook-repository.pg";
+import { INTERNAL_HOOK_EVENT_TYPES } from "@/lib/hooks/event-types";
 import { withAuth } from "auth/route-guard";
 import { agentRepository, inboundRepository } from "lib/db/repository";
 import { encrypt, isEncryptionAvailable } from "lib/security/encryption";
@@ -26,7 +27,7 @@ const sha256Hex = (value: string) =>
   createHash("sha256").update(value, "utf8").digest("hex");
 
 const CreateHookSchema = z.object({
-  kind: z.enum(["webhook", "email", "slack", "github"]),
+  kind: z.enum(["webhook", "email", "slack", "github", "event"]),
   agentId: z.string().uuid(),
   /** Optional inbound secret; generated when omitted. */
   secret: z.string().min(16).max(200).optional(),
@@ -56,6 +57,7 @@ const CreateHookSchema = z.object({
     )
     .max(6)
     .optional(),
+  eventTypes: z.array(z.enum(INTERNAL_HOOK_EVENT_TYPES)).max(8).optional(),
   enabled: z.boolean().optional(),
 });
 
@@ -104,6 +106,12 @@ export const POST = withAuth(async (request, session) => {
       { status: 503 },
     );
   }
+  if (data.kind === "event" && !data.eventTypes?.length) {
+    return Response.json(
+      { error: "Select at least one internal event for this hook." },
+      { status: 400 },
+    );
+  }
 
   // Hooks execute later without a session or active organization. Bind them
   // only to agents owned by this user; shared-agent access can be revoked.
@@ -114,14 +122,17 @@ export const POST = withAuth(async (request, session) => {
   }
 
   // The secret is returned ONCE; only its hash is stored.
-  const secret = data.secret ?? randomBytes(24).toString("hex");
+  const secret =
+    data.kind === "event"
+      ? undefined
+      : (data.secret ?? randomBytes(24).toString("hex"));
   const token = `vhk_${randomBytes(12).toString("hex")}`;
   const endpoint = await inboundRepository.createInboundEndpoint(
     {
       agentId: data.agentId,
       token,
       kind: data.kind,
-      secretHash: sha256Hex(secret),
+      secretHash: secret ? sha256Hex(secret) : null,
       // Keep the endpoint inert until its filtering/cooldown config exists.
       enabled: false,
       threadTemplate: {},
@@ -135,8 +146,9 @@ export const POST = withAuth(async (request, session) => {
     cooldownSeconds: data.cooldownSeconds,
     maxRunsPerDay: data.maxRunsPerDay,
     matchRules: data.matchRules,
+    eventTypes: data.kind === "event" ? data.eventTypes : undefined,
     ...(data.kind === "github"
-      ? { githubSigningSecretEncrypted: encrypt(secret) }
+      ? { githubSigningSecretEncrypted: encrypt(secret!) }
       : {}),
   });
   if (data.enabled ?? true) {
@@ -163,6 +175,7 @@ export const POST = withAuth(async (request, session) => {
           cooldownSeconds: data.cooldownSeconds,
           maxRunsPerDay: data.maxRunsPerDay,
           matchRules: data.matchRules,
+          eventTypes: data.kind === "event" ? data.eventTypes : undefined,
           ...(data.kind === "github"
             ? { githubSigningSecretConfigured: true }
             : {}),
@@ -170,8 +183,9 @@ export const POST = withAuth(async (request, session) => {
       },
       // The inbound URL the event source POSTs to, and the signing secret —
       // both shown once at creation.
-      inboundUrl: `/api/inbound/${endpoint.token}`,
-      secret,
+      ...(data.kind === "event"
+        ? { eventTypes: data.eventTypes }
+        : { inboundUrl: `/api/inbound/${endpoint.token}`, secret }),
     },
     { status: 201 },
   );

@@ -1,11 +1,12 @@
 import {
-  type ProjectRecordSlug,
   PROJECT_RECORDS,
+  type ProjectRecordSlug,
   listRecordRevisions,
   restoreRecordRevision,
   saveProjectRecord,
   setProjectRecordContext,
 } from "@/lib/db/pg/repositories/project-records-repository.pg";
+import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import {
   requireProjectAccess,
   toProjectErrorResponse,
@@ -73,6 +74,15 @@ export async function PUT(request: Request, { params }: Params) {
       body?.changeNote ?? null,
       actor.userId,
     );
+    await publishInternalHookEvent({
+      userId: actor.userId,
+      eventType: "project.record.updated",
+      sourceId: `${projectId}:${slug}:${result.revision}`,
+      text: `Project record ${slug} changed (revision ${result.revision}).`,
+      meta: { projectId, slug, revision: result.revision },
+    }).catch((error) =>
+      console.error("[hooks] project.record.updated enqueue failed", error),
+    );
     return NextResponse.json({ ok: true, revision: result.revision, role });
   } catch (err) {
     return toProjectErrorResponse(err);
@@ -102,6 +112,20 @@ export async function POST(request: Request, { params }: Params) {
       slug,
       revision,
       actor.userId,
+    );
+    await publishInternalHookEvent({
+      userId: actor.userId,
+      eventType: "project.record.restored",
+      sourceId: `${projectId}:${slug}:${result.revision}`,
+      text: `Project record ${slug} restored (revision ${result.revision}).`,
+      meta: {
+        projectId,
+        slug,
+        revision: result.revision,
+        restoredRevision: revision,
+      },
+    }).catch((error) =>
+      console.error("[hooks] project.record.restored enqueue failed", error),
     );
     return NextResponse.json({ ok: true, revision: result.revision, role });
   } catch (err) {
