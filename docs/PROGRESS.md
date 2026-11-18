@@ -620,9 +620,12 @@ Sentinel, Hooks, Notifications, and organization errors; it reported no errors
 in the orchestrator implementation. Two unused imports found in this run were
 removed afterwards; typecheck was not rerun. This is text artifact generation,
 not writes into a shared E2B filesystem or the user's repository, and no
-generated source execution is claimed. Tier-based daily swarm quotas
-(2/15/50/200) remain unenforced. No live model/E2B or PostgreSQL swarm drill
-was run.
+generated source execution is claimed. **Tier-based daily swarm quotas
+(2/15/50/200) are now ENFORCED** (`a078711`): every new orchestration
+checkpoint transactionally reserves per-tier daily capacity (UTC reset +
+resume semantics), with isolated-PostgreSQL tests proving concurrent
+enforcement and model-planned dependency waves. No live model/E2B swarm
+drill was run.
 
 ---
 
