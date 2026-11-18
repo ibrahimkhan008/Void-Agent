@@ -7,6 +7,7 @@ import {
   useReferralEnabled,
 } from "@/components/gate";
 import { useThemeStyle } from "@/hooks/use-theme-style";
+import { useWorkspaceSwitcher } from "@/hooks/use-workspace-switcher";
 import { IS_CLOUD_EDITION } from "@/lib/edition";
 import { BasicUser } from "app-types/user";
 import { authClient } from "auth/client";
@@ -14,6 +15,7 @@ import { BASE_THEMES } from "lib/const";
 import { getUserAvatar } from "lib/user/utils";
 import { capitalizeFirstLetter, cn, fetcher } from "lib/utils";
 import {
+  Building2,
   ChartNoAxesColumn,
   ChevronRight,
   ChevronsUpDown,
@@ -66,6 +68,8 @@ export function AppSidebarUserInner(props: {
   const appStoreMutate = appStore((state) => state.mutate);
   const t = useTranslations("Layout");
   const referralEnabled = useReferralEnabled();
+  const { organizations, isSwitching, switchWorkspace } =
+    useWorkspaceSwitcher();
 
   const logout = () => {
     authClient.signOut().finally(() => {
@@ -179,6 +183,40 @@ export function AppSidebarUserInner(props: {
       <DropdownMenuSeparator />
 
       <WorkspaceMenuSection />
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger
+          className="flex items-center"
+          icon={<ChevronRight className="size-4 ml-2" />}
+        >
+          <Building2 className="mr-2 size-4 text-foreground" />
+          <span className="mr-auto">Organizations</span>
+        </DropdownMenuSubTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuSubContent className="w-60">
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <a href="/organization/settings">Organization settings</a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {(organizations ?? []).map(
+              (organization: { id: string; name: string }) => (
+                <DropdownMenuItem
+                  key={organization.id}
+                  disabled={isSwitching}
+                  className="cursor-pointer"
+                  onClick={() => void switchWorkspace(organization.id)}
+                >
+                  {organization.name}
+                </DropdownMenuItem>
+              ),
+            )}
+            {(!organizations || organizations.length === 0) && (
+              <DropdownMenuItem disabled>
+                No organizations found
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuPortal>
+      </DropdownMenuSub>
       {IS_CLOUD_EDITION && referralEnabled && (
         <>
           <DropdownMenuSeparator />
