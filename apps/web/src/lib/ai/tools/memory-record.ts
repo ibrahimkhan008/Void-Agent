@@ -19,6 +19,9 @@ const GLOBAL_SLUGS = [
 ] as const;
 
 const PROJECT_SLUGS: string[] = PROJECT_RECORDS.map((r) => r.slug);
+const PROJECT_SLUG_HELP = PROJECT_RECORDS.map(
+  (record) => `${record.slug} (${record.title})`,
+).join(", ");
 
 export const MemoryRecordToolName = "propose-record";
 
@@ -62,8 +65,7 @@ export const createMemoryRecordTool = (
         },
         slug: {
           type: "string",
-          description:
-            "The record to write. Project scope: memory | todo | dont | rules | style | architecture | decisions | security | deployment. Global scope: memory | persona | behavior | skills | preferences. Required.",
+          description: `The record to write. Project scope slugs: ${PROJECT_SLUG_HELP}. Global scope slugs: ${GLOBAL_SLUGS.join(", ")}. Required.`,
         },
         title: {
           type: "string",
