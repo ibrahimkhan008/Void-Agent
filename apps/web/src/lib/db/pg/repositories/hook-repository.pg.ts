@@ -244,6 +244,10 @@ export interface HookMatchRule {
 
 export interface EndpointHookConfig {
   promptTemplate?: string;
+  script?: {
+    language: "javascript" | "typescript" | "python";
+    source: string;
+  };
   cooldownSeconds?: number;
   maxRunsPerDay?: number;
   matchRules?: HookMatchRule[];
@@ -275,11 +279,21 @@ const INVALID_STORED_RULE: HookMatchRule = {
 export function parseHookConfig(
   raw: unknown,
 ): Required<
-  Omit<EndpointHookConfig, "promptTemplate" | "githubSigningSecretEncrypted">
+  Omit<
+    EndpointHookConfig,
+    "promptTemplate" | "githubSigningSecretEncrypted" | "script"
+  >
 > &
-  Pick<EndpointHookConfig, "promptTemplate"> {
+  Pick<EndpointHookConfig, "promptTemplate" | "script"> {
   const config = (raw ?? {}) as EndpointHookConfig;
   return {
+    script:
+      config.script &&
+      ["javascript", "typescript", "python"].includes(config.script.language) &&
+      typeof config.script.source === "string" &&
+      config.script.source.length <= 16_000
+        ? config.script
+        : undefined,
     promptTemplate:
       typeof config.promptTemplate === "string" && config.promptTemplate.trim()
         ? config.promptTemplate

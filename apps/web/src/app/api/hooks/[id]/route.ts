@@ -24,6 +24,13 @@ const PatchSchema = z
     enabled: z.boolean().optional(),
     agentId: z.string().uuid().optional(),
     promptTemplate: z.string().max(8_000).nullable().optional(),
+    script: z
+      .object({
+        language: z.enum(["javascript", "typescript", "python"]),
+        source: z.string().min(1).max(16_000),
+      })
+      .nullable()
+      .optional(),
     cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
     maxRunsPerDay: z.number().int().min(1).max(1_000).optional(),
     matchRules: z
@@ -141,6 +148,7 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
 
   if (
     data.promptTemplate !== undefined ||
+    data.script !== undefined ||
     data.cooldownSeconds !== undefined ||
     data.maxRunsPerDay !== undefined ||
     data.matchRules !== undefined ||
@@ -156,6 +164,10 @@ export const PATCH = withAuth(async (request, session, ctx: Params) => {
             ? current.promptTemplate
             : undefined
           : (data.promptTemplate ?? undefined),
+      script:
+        data.script === undefined
+          ? parsedCurrent.script
+          : (data.script ?? undefined),
       cooldownSeconds:
         data.cooldownSeconds ??
         (typeof current.cooldownSeconds === "number"

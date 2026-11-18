@@ -3932,6 +3932,10 @@ export const InboundEndpointTable = pgTable(
     hookConfig: jsonb("hook_config")
       .$type<{
         promptTemplate?: string;
+        script?: {
+          language: "javascript" | "typescript" | "python";
+          source: string;
+        };
         cooldownSeconds?: number;
         maxRunsPerDay?: number;
         matchRules?: Array<{
@@ -3941,6 +3945,7 @@ export const InboundEndpointTable = pgTable(
         }>;
         chainOnSuccess?: string[];
         githubSigningSecretEncrypted?: string;
+        codeReview?: { repository?: string; [key: string]: unknown };
       }>()
       .notNull()
       .default({}),

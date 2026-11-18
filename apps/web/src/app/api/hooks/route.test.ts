@@ -31,6 +31,7 @@ vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
   parseHookConfig: (raw: Record<string, unknown>) => ({
     matchRules: raw.matchRules ?? [],
     chainOnSuccess: raw.chainOnSuccess ?? [],
+    script: raw.script,
   }),
   updateEndpointHookConfig: (...args: unknown[]) =>
     updateEndpointHookConfig(...args),
@@ -72,6 +73,64 @@ describe("hook agent ownership", () => {
     expect(updateInboundEndpoint).toHaveBeenCalledWith("hook-1", "owner", {
       enabled: true,
     });
+  });
+
+  it("persists a bounded JavaScript hook script in the owner config", async () => {
+    checkAccess.mockResolvedValue(true);
+    createInboundEndpoint.mockResolvedValue({
+      id: "hook-script",
+      token: "token",
+      kind: "webhook",
+      agentId: AGENT_ID,
+    });
+    const script = { language: "typescript", source: "console.log(payload)" };
+    const response = await POST(
+      new NextRequest("http://localhost/api/hooks", {
+        method: "POST",
+        body: JSON.stringify({ kind: "webhook", agentId: AGENT_ID, script }),
+      }),
+    );
+    expect(response.status).toBe(201);
+    expect(updateEndpointHookConfig).toHaveBeenCalledWith(
+      "hook-script",
+      "owner",
+      expect.objectContaining({ script }),
+    );
+  });
+
+  it("updates an existing script without dropping it on later config edits", async () => {
+    const script = { language: "python", source: "print(payload)" };
+    listInboundEndpoints.mockResolvedValue([
+      { id: "hook-1", userId: "owner", hookConfig: { script } },
+    ]);
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/hooks/hook-1", {
+        method: "PATCH",
+        body: JSON.stringify({ promptTemplate: "Handle event" }),
+      }),
+      { params: Promise.resolve({ id: "hook-1" }) },
+    );
+    expect(response.status).toBe(200);
+    expect(updateEndpointHookConfig).toHaveBeenCalledWith(
+      "hook-1",
+      "owner",
+      expect.objectContaining({ script }),
+    );
+  });
+
+  it("rejects scripts over the API source limit", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/hooks", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "webhook",
+          agentId: AGENT_ID,
+          script: { language: "python", source: "x".repeat(16_001) },
+        }),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(createInboundEndpoint).not.toHaveBeenCalled();
   });
 
   it("refuses to create a hook for another user's agent", async () => {

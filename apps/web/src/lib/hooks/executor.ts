@@ -24,6 +24,7 @@ import { executeAgentRun } from "@/lib/scheduled-tasks/runner";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import logger from "logger";
 import { runCodeReviewRun } from "./code-review-run";
+import { executeHookScript } from "./script-executor";
 
 /**
  * Void Hooks (master prompt §3.5) — the event-driven agent executor.
@@ -237,7 +238,26 @@ export async function runHookAgent(runId: string): Promise<{
       return { status: "skipped", reason };
     }
 
-    const prompt = renderHookPrompt(config.promptTemplate, payload ?? {});
+    let prompt = renderHookPrompt(config.promptTemplate, payload ?? {});
+    if (config.script) {
+      const scriptResult = await executeHookScript({
+        script: config.script,
+        payload: payload ?? {},
+        userId: run.userId,
+      });
+      if (!scriptResult.success) {
+        const reason = `hook script failed: ${scriptResult.error ?? "execution failed"}`;
+        await finishHookRun(runId, { status: "failed", error: reason });
+        await notifyFailure(run.userId, run.agentId, reason, null);
+        return { status: "failed", reason };
+      }
+      const scriptOutputPrefix = `\n\nOutput from the user hook script (${config.script.language}):\n`;
+      const outputBudget = Math.max(
+        0,
+        MAX_PROMPT_CHARS - prompt.length - scriptOutputPrefix.length,
+      );
+      prompt = `${prompt.slice(0, MAX_PROMPT_CHARS - scriptOutputPrefix.length)}${scriptOutputPrefix}${scriptResult.output.slice(0, outputBudget)}`;
+    }
 
     const result = await executeAgentRun(
       {

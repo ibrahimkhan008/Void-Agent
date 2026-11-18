@@ -31,6 +31,12 @@ const CreateHookSchema = z.object({
   /** Optional inbound secret; generated when omitted. */
   secret: z.string().min(16).max(200).optional(),
   promptTemplate: z.string().max(8_000).optional(),
+  script: z
+    .object({
+      language: z.enum(["javascript", "typescript", "python"]),
+      source: z.string().min(1).max(16_000),
+    })
+    .optional(),
   cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
   maxRunsPerDay: z.number().int().min(1).max(1_000).optional(),
   matchRules: z
@@ -125,6 +131,7 @@ export const POST = withAuth(async (request, session) => {
 
   await updateEndpointHookConfig(endpoint.id, session.user.id, {
     promptTemplate: data.promptTemplate,
+    script: data.script,
     cooldownSeconds: data.cooldownSeconds,
     maxRunsPerDay: data.maxRunsPerDay,
     matchRules: data.matchRules,
@@ -152,6 +159,7 @@ export const POST = withAuth(async (request, session) => {
         enabled: data.enabled ?? true,
         hookConfig: {
           promptTemplate: data.promptTemplate,
+          script: data.script,
           cooldownSeconds: data.cooldownSeconds,
           maxRunsPerDay: data.maxRunsPerDay,
           matchRules: data.matchRules,

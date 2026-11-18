@@ -39,6 +39,10 @@ interface HookView {
   enabled: boolean;
   hookConfig: {
     promptTemplate?: string;
+    script?: {
+      language: "javascript" | "typescript" | "python";
+      source: string;
+    };
     cooldownSeconds?: number;
     maxRunsPerDay?: number;
     chainOnSuccess?: string[];
@@ -79,6 +83,16 @@ export function VoidHooksDashboard() {
   );
   const [agentId, setAgentId] = useState<string>("");
   const [promptTemplate, setPromptTemplate] = useState("");
+  const [scriptLanguage, setScriptLanguage] = useState<
+    "javascript" | "typescript" | "python"
+  >("javascript");
+  const [scriptSource, setScriptSource] = useState("");
+  const [scriptEnabled, setScriptEnabled] = useState(false);
+  const [editingScriptId, setEditingScriptId] = useState<string | null>(null);
+  const [editScriptLanguage, setEditScriptLanguage] = useState<
+    "javascript" | "typescript" | "python"
+  >("javascript");
+  const [editScriptSource, setEditScriptSource] = useState("");
   const [created, setCreated] = useState<{
     inboundUrl: string;
     secret: string;
@@ -104,6 +118,9 @@ export function VoidHooksDashboard() {
           kind,
           agentId,
           promptTemplate: promptTemplate.trim() || undefined,
+          script: scriptEnabled
+            ? { language: scriptLanguage, source: scriptSource }
+            : undefined,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -116,6 +133,8 @@ export function VoidHooksDashboard() {
         kind,
       });
       setPromptTemplate("");
+      setScriptSource("");
+      setScriptEnabled(false);
       toast.success("Hook created.");
       await mutate();
     } catch (err) {
@@ -123,7 +142,15 @@ export function VoidHooksDashboard() {
     } finally {
       setCreating(false);
     }
-  }, [agentId, kind, mutate, promptTemplate]);
+  }, [
+    agentId,
+    kind,
+    mutate,
+    promptTemplate,
+    scriptEnabled,
+    scriptLanguage,
+    scriptSource,
+  ]);
 
   const toggleEnabled = useCallback(
     async (hook: HookView) => {
@@ -178,6 +205,31 @@ export function VoidHooksDashboard() {
     [mutate],
   );
 
+  const saveHookScript = useCallback(
+    async (hook: HookView) => {
+      const response = await fetch(`/api/hooks/${hook.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script: editScriptSource.trim()
+            ? { language: editScriptLanguage, source: editScriptSource }
+            : null,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        toast.error(payload?.error ?? "Could not update the hook script.");
+        return;
+      }
+      setEditingScriptId(null);
+      toast.success(
+        editScriptSource.trim() ? "Hook script saved." : "Hook script removed.",
+      );
+      await mutate();
+    },
+    [editScriptLanguage, editScriptSource, mutate],
+  );
+
   const hooks = data?.hooks ?? [];
   const runs = data?.runs ?? [];
 
@@ -197,9 +249,8 @@ export function VoidHooksDashboard() {
             )}
           </CardTitle>
           <CardDescription>
-            Inbound events run an agent: point a webhook (or email/Slack source)
-            at the hook URL and every event executes it — with cooldown and
-            daily-cap loop prevention.
+            Inbound events run an agent, optionally after a JavaScript,
+            TypeScript, or Python script step in an isolated sandbox.
           </CardDescription>
         </div>
       </CardHeader>
@@ -235,7 +286,11 @@ export function VoidHooksDashboard() {
                 ))}
               </SelectContent>
             </Select>
-            <Button size="sm" onClick={createHook} disabled={creating}>
+            <Button
+              size="sm"
+              onClick={createHook}
+              disabled={creating || (scriptEnabled && !scriptSource.trim())}
+            >
               {creating ? (
                 <Loader className="mr-1.5 size-3.5 animate-spin" />
               ) : (
@@ -251,6 +306,53 @@ export function VoidHooksDashboard() {
             placeholder="Prompt template (optional) — {{kind}}, {{from}}, {{subject}}, {{text}}, {{json}}"
             className="font-mono text-xs"
           />
+          <div className="space-y-2 rounded-lg border p-2">
+            <label className="flex items-center gap-2 text-xs font-medium">
+              <input
+                type="checkbox"
+                checked={scriptEnabled}
+                onChange={(event) => setScriptEnabled(event.target.checked)}
+              />
+              Run a user script in an isolated E2B sandbox before the agent
+            </label>
+            {scriptEnabled ? (
+              <>
+                <Select
+                  value={scriptLanguage}
+                  onValueChange={(value) =>
+                    setScriptLanguage(value as typeof scriptLanguage)
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="javascript">JavaScript</SelectItem>
+                    <SelectItem value="typescript">TypeScript</SelectItem>
+                    <SelectItem value="python">Python</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Textarea
+                  value={scriptSource}
+                  onChange={(event) => setScriptSource(event.target.value)}
+                  rows={6}
+                  maxLength={16_000}
+                  placeholder={
+                    scriptLanguage === "python"
+                      ? "# Event data is available as payload\nprint(payload)"
+                      : "// Event data is available as payload\nconsole.log(payload);"
+                  }
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  The script receives the event as <code>payload</code>.
+                  Print/log output is passed to the agent. Network access is
+                  disabled; each run is limited to 30 seconds and 16,000 source
+                  characters. E2B_API_KEY is required.
+                </p>
+              </>
+            ) : null}
+          </div>
           {kind === "github" ? (
             <p className="text-xs text-muted-foreground">
               Add this URL to your repository webhook in GitHub. Set content
@@ -334,6 +436,81 @@ export function VoidHooksDashboard() {
                       cooldown {hook.hookConfig.cooldownSeconds ?? 60}s · cap{" "}
                       {hook.hookConfig.maxRunsPerDay ?? 20}/day
                     </p>
+                    <div className="space-y-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingScriptId(
+                            editingScriptId === hook.id ? null : hook.id,
+                          );
+                          setEditScriptLanguage(
+                            hook.hookConfig.script?.language ?? "javascript",
+                          );
+                          setEditScriptSource(
+                            hook.hookConfig.script?.source ?? "",
+                          );
+                        }}
+                      >
+                        {hook.hookConfig.script ? "Edit script" : "Add script"}
+                      </Button>
+                      {hook.hookConfig.script ? (
+                        <span className="ml-2 text-[11px] text-muted-foreground">
+                          {hook.hookConfig.script.language} script enabled
+                        </span>
+                      ) : null}
+                      {editingScriptId === hook.id ? (
+                        <div className="max-w-2xl space-y-2">
+                          <Select
+                            value={editScriptLanguage}
+                            onValueChange={(value) =>
+                              setEditScriptLanguage(
+                                value as typeof editScriptLanguage,
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-8 w-[150px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="javascript">
+                                JavaScript
+                              </SelectItem>
+                              <SelectItem value="typescript">
+                                TypeScript
+                              </SelectItem>
+                              <SelectItem value="python">Python</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Textarea
+                            value={editScriptSource}
+                            onChange={(event) =>
+                              setEditScriptSource(event.target.value)
+                            }
+                            rows={5}
+                            maxLength={16_000}
+                            placeholder="Script receives event data as payload. Print/log output is passed to the agent."
+                            className="font-mono text-xs"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => saveHookScript(hook)}
+                              disabled={editScriptSource.length > 16_000}
+                            >
+                              Save script
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingScriptId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                     <label className="flex flex-col gap-1 pt-1 text-[11px] text-muted-foreground">
                       Run up to 3 enabled hooks after success (chains stop at 3
                       hops):

@@ -8,11 +8,13 @@ const {
   inngestSendMock,
   connectorApiMock,
   resolveEffectiveMock,
+  executeHookScriptMock,
 } = vi.hoisted(() => ({
   createHookRunMock: vi.fn(),
   inngestSendMock: vi.fn(),
   connectorApiMock: vi.fn(),
   resolveEffectiveMock: vi.fn(),
+  executeHookScriptMock: vi.fn(),
 }));
 
 /**
@@ -64,12 +66,17 @@ const parseHookConfig = vi.fn((raw: unknown) => {
     cooldownSeconds?: number;
     maxRunsPerDay?: number;
     chainOnSuccess?: string[];
+    script?: {
+      language: "javascript" | "typescript" | "python";
+      source: string;
+    };
   };
   return {
     promptTemplate: config.promptTemplate,
     cooldownSeconds: config.cooldownSeconds ?? 60,
     maxRunsPerDay: config.maxRunsPerDay ?? 20,
     chainOnSuccess: config.chainOnSuccess ?? [],
+    script: config.script,
   };
 });
 vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
@@ -86,6 +93,9 @@ vi.mock("@/lib/db/pg/repositories/hook-repository.pg", () => ({
 const executeAgentRun = vi.fn();
 vi.mock("@/lib/scheduled-tasks/runner", () => ({
   executeAgentRun: (...args: unknown[]) => executeAgentRun(...args),
+}));
+vi.mock("./script-executor", () => ({
+  executeHookScript: (...args: unknown[]) => executeHookScriptMock(...args),
 }));
 vi.mock("@/lib/inngest/client", () => ({
   inngest: { send: (...args: unknown[]) => inngestSendMock(...args) },
@@ -136,6 +146,7 @@ beforeEach(() => {
   countHookRunsTodayValue = 0;
   lastHookRunAtValue = null;
   executeAgentRun.mockReset();
+  executeHookScriptMock.mockReset();
   createNotifications.mockReset();
   connectorApiMock.mockReset();
   resolveEffectiveMock.mockReset();
@@ -316,6 +327,91 @@ describe("runHookAgent gates", () => {
       "run-1",
       expect.objectContaining({ status: "succeeded", threadId: "thread-1" }),
     );
+  });
+
+  it("runs a configured user script before the agent and passes its output", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [
+      {
+        id: "e1",
+        userId: "u1",
+        enabled: true,
+        hookConfig: {
+          script: {
+            language: "javascript",
+            source: "console.log(payload.text)",
+          },
+        },
+      },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [
+      {
+        id: "a1",
+        userId: "u1",
+        name: "Hook Agent",
+        description: null,
+        icon: null,
+        model: null,
+        organizationId: null,
+      },
+    ];
+    rows.webhook_event_outbox = [
+      { payload: { normalized: { source: "webhook", text: "hello" } } },
+    ];
+    executeHookScriptMock.mockResolvedValue({
+      success: true,
+      output: "transformed event",
+      executionTimeMs: 20,
+    });
+    executeAgentRun.mockResolvedValue({
+      success: true,
+      threadId: "thread-script",
+    });
+
+    const result = await runHookAgent("run-1");
+
+    expect(result.status).toBe("succeeded");
+    expect(executeHookScriptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        script: { language: "javascript", source: "console.log(payload.text)" },
+        userId: "u1",
+      }),
+    );
+    expect(executeAgentRun.mock.calls[0][0].inputPrompt).toContain(
+      "transformed event",
+    );
+  });
+
+  it("fails the hook and does not invoke the agent when the script fails", async () => {
+    claimReturn = [{ id: "run-1" }];
+    rows.inbound_endpoint = [
+      {
+        id: "e1",
+        userId: "u1",
+        enabled: true,
+        hookConfig: {
+          script: { language: "python", source: "raise RuntimeError('no')" },
+        },
+      },
+    ];
+    rows.hook_run = [RUN];
+    rows.agent = [{ id: "a1", userId: "u1", name: "Hook Agent" }];
+    rows.webhook_event_outbox = [
+      { payload: { normalized: { text: "hello" } } },
+    ];
+    executeHookScriptMock.mockResolvedValue({
+      success: false,
+      output: "",
+      error: "runtime error",
+      executionTimeMs: 10,
+    });
+
+    const result = await runHookAgent("run-1");
+
+    expect(result.status).toBe("failed");
+    expect(result.reason).toContain("runtime error");
+    expect(executeAgentRun).not.toHaveBeenCalled();
   });
 
   it("executes a GitHub-triggered run with repository context", async () => {
