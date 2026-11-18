@@ -1,6 +1,9 @@
 # Void Agent — Progress Ledger
 
-> **Last verified: 2026-11-17** — every claim below was grep-checked against
+> **Last verified: 2026-11-18** — implementation and available local checks
+> were rerun for organization management, orchestrator quotas/planning, and
+> internal hook events. External provider verification limits are stated inline.
+> Every claim below was grep-checked against
 > `origin/main` and live-verified where the environment allowed. This is the
 > authoritative status document: what is done, what is half done, what is
 > broken, and what has never been started. Refresh after every module ships
@@ -9,6 +12,29 @@
 > Tiers: **✅ DONE** (implemented + verified) · **🟡 HALF DONE** (exists,
 > specific gaps) · **❌ NEVER STARTED** (zero code) · plus a regression
 > section (currently closed) and the operator-side checklist.
+
+## Latest verification — 2026-11-18
+
+- `pnpm --filter web typecheck`: PASS.
+- `pnpm --filter web test`: PASS, 531 test files passed / 8 skipped;
+  3,514 tests passed / 30 skipped. E2B live-script and database-backed
+  integration files are opt-in and skipped in this default full-suite run.
+- Isolated PostgreSQL 16.15 integrations at
+  `127.0.0.1:55432/voidagent_migration_test`: PASS, 3 files / 18 tests
+  covering daily quota contention, controlled-model planner/dependency waves,
+  hook event idempotency, and signed inbound/outbox dispatch.
+- `pnpm db:check`: PASS. `pnpm exec biome check` on all changed source files:
+  PASS; Biome formatting and lint hooks also passed for each feature commit.
+  `git diff --check`: PASS before final documentation refresh.
+- `NODE_OPTIONS=--max-old-space-size=8192 pnpm --filter web build:local`:
+  PASS. Build emitted existing dynamic-require warnings from the E2B SDK and
+  attempted DB-backed route reads during static generation against localhost
+  port 5432 (connection refused); generation completed and routes remained
+  dynamically rendered. No production database was used.
+- Not verified: live LLM provider run, real GitHub-server webhook delivery,
+  SMTP invitation delivery, authenticated browser E2E. A live E2B probe was
+  not retried after its request was rejected before sandbox creation; E2B's
+  published security guidance requires written consent before further tests.
 
 ---
 
@@ -177,7 +203,7 @@
 
 ## 🟡 HALF DONE — exists, exact gaps documented
 
-### Organization management UI — implemented, pending functional verification
+### Organization management UI — implemented; local flows verified
 - The authenticated `/organization/settings` page shows the active
   organization, member list, owner/admin-only invite controls, pending invite
   management, and member removal (excluding self-removal). Pending invite links
@@ -189,13 +215,14 @@
 - UI errors and loading states are surfaced; mutations report failures rather
   than silently appearing successful. Server-side Better Auth permissions
   remain authoritative.
-- **Not yet fully verified:** no browser end-to-end flow or live invitation
-  email was run. The most recent repository-wide typecheck attempt reported
-  pre-existing failures; it preceded the latest UI refinements and was not
-  repeated. SMTP delivery still requires operator credentials.
-- **Next verification:** run a web typecheck when the known baseline errors
-  are cleared, then exercise organization switch, invitation send/accept/
-  decline/cancel, and member removal in an isolated test organization.
+- **Verified locally (2026-11-18):** six UI interaction tests cover invite
+  send/cancel, member removal with self-removal excluded, acceptance,
+  decline, active-workspace switching, and visible handling of switch
+  failures. Full web typecheck passes and the full suite includes these tests.
+- **Remaining external/UI check:** no browser-driven flow against a live
+  authenticated workspace was run, and SMTP email delivery still requires
+  operator credentials. Invitation links and acceptance/decline behavior are
+  locally covered; live mail delivery is not claimed.
 
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
@@ -251,15 +278,19 @@
 
 ### §3.2/3.4 Orchestrator depth
 - ✅ Role-scoped parallel workers with verification
-- 🟡 Autonomous **self-decomposition** is implemented locally: callers may
-  omit workers and the orchestrator asks its model for a bounded worker plan,
-  validates dependencies, then executes it. Schema/planner tests and
-  typecheck pass; a live model-driven run has not been verified.
-- 🟡 Cross-worker dependency ordering is implemented locally through
-  `dependsOn` worker keys and topological waves. Independent workers still
-  run concurrently; dependent workers receive prior summaries and skip when
-  a prerequisite fails. Focused schema/planner tests and typecheck pass;
-  no live model-run verification has been performed for this change.
+- ✅ Autonomous **self-decomposition** and cross-worker dependency ordering
+  were verified in a controlled-model integration run against isolated
+  PostgreSQL (2026-11-18): the planner returned dependent workers, persisted
+  execution followed dependency waves, and checkpoints recorded the run. This
+  is a model fixture, not a live provider run. Callers may omit workers and
+  the orchestrator asks its model for a bounded worker plan, validates
+  dependencies, then executes it. Independent workers still run concurrently;
+  dependent workers receive prior summaries and skip when a prerequisite fails.
+- ✅ Daily tier quotas are enforced atomically with checkpoint creation,
+  persisted in the user's existing preferences JSON (no migration): free 2,
+  voidagent-pro 15, max 50, enterprise 200 runs per UTC day. Isolated
+  PostgreSQL contention tests verify concurrent calls cannot exceed the
+  allowance; resumes do not consume another run. Focused quota tests pass.
 - ✅ Durable checkpoints are fully drilled end to end (2026-11-18,
   `cb9f905`): a controlled-model crash/recovery drill against isolated
   PostgreSQL — no live AI provider key involved, because
@@ -319,6 +350,23 @@
   through the same executor, and a depth-3 run queues nothing. The tick's
   queued-orphan recovery (enqueue failed → row stays durable → tick executes
   it) is proven end-to-end.
+- ✅ **Internal event hooks** (2026-11-18): owners can subscribe event-kind
+  endpoints to project create/update/delete, project record save/restore,
+  global/project memory record changes, successful agent runs, and saved
+  workflow completion. Events enter the existing durable idempotent outbox;
+  hook-origin agent runs suppress their own completion event to prevent
+  recursion. Isolated PostgreSQL verifies duplicate publication and dispatch.
+- Event publication is best-effort: a temporary hook catalog/outbox failure
+  is logged and cannot turn an already-committed project or memory update into
+  an apparent mutation failure; unit coverage verifies this recovery path.
+- 🟡 **User script runtime and external delivery:** JS/TS/Python scripts are
+  implemented with bounded input/output, secured access, no outbound network,
+  timeout and cleanup; unit tests mock E2B. A live E2B attempt was rejected
+  before sandbox creation because the request included unsupported `::/0`.
+  The request was corrected to IPv4 deny-all while retaining disabled network,
+  but was not retried because E2B's security guidance requires prior written
+  consent. No real GitHub-server delivery was run; local HMAC route and
+  PostgreSQL outbox/dispatch verification passed.
 
 ### §3.6 Canvas depth
 - ✅ Workspace, AI generation, preview, 7 export formats. PPTX/DOCX exports

@@ -16,9 +16,9 @@
 | 1 | Void Intelligence — Multi-Model AI | ✅ DONE (BYOK live request pending operator keys) |
 | 2 | Void Agents — Autonomous AI Agents | ✅ DONE (browser automation enablement = operator env) |
 | 3 | Void Memory — Persistent Context | ✅ DONE (10 versioned project records, including BOUNDARIES.md) |
-| 4 | Void Orchestrator | ✅ DONE (conflict resolution between worker outputs is implicit, not explicit) |
+| 4 | Void Orchestrator | ✅ DONE (controlled-model + isolated-PostgreSQL planner/dependency and quota drills; live model provider not exercised) |
 | 5 | Void Automations | ✅ DONE (Inngest-optional; systemd timers documented) |
-| 6 | Void Hooks | 🟡 (agent-trigger pipeline and optional JS/TS/Python script step implemented; focused tests pass; live E2B execution remains unverified) |
+| 6 | Void Hooks | 🟡 (internal project/memory/agent/workflow events and script support implemented; live E2B and GitHub delivery remain unverified) |
 | 7 | Void Studio — Creative Workspace | ✅ DONE (artifact version history is single-slot updated_at, not full revision history) |
 | 8 | Void Canvas — Visual Editing | ✅ DONE (browser drill verified; model-plan edits need a provider key at use time) |
 | 9 | Void Motion — Video/Motion | 🟡 (text-to-video ✓; image-to-video, timeline/keyframe editing UI not built — Motion ships as a 29-skill capability pack) |
@@ -42,11 +42,12 @@ copied for manual sharing when SMTP delivery is unavailable.
 the sign-in callback, supports acceptance/decline, and activates the joined
 organization. The account menu exposes organization settings and the existing
 workspace switcher. Loading/error states are surfaced and server-side Better
-Auth permissions remain authoritative. This code is implemented but not fully
-verified: no browser end-to-end flow or live invitation-email delivery was
-run. A repository-wide typecheck attempted before the latest UI refinements
-reported existing errors; it was not rerun afterward. See `docs/PROGRESS.md`
-for the next verification steps.
+Auth permissions remain authoritative. Six local UI interaction tests cover
+send/cancel invitation, member removal, accept/decline, workspace switching,
+and surfaced switch failures; full web typecheck and full suite pass. No
+browser-driven authenticated workspace flow or real invitation-email delivery
+was run, so SMTP still requires operator credentials. See `docs/PROGRESS.md`
+for the exact verification scope.
 
 ---
 
@@ -113,6 +114,12 @@ for the next verification steps.
 - ✅ Manage task dependencies (prerequisite-failure skip + handoff summaries).
 - ✅ Handle failed tasks and retries (one retry with the failure reason attached).
 - ✅ Resume interrupted workflows (durable checkpoints, atomic claim, reuse of succeeded workers — drill-verified).
+- ✅ Daily per-tier run quotas (free 2, voidagent-pro 15, max 50, enterprise
+  200 per UTC day) are atomically reserved with checkpoint creation in the
+  existing user-preferences JSON. Isolated PostgreSQL contention verifies the
+  limit cannot be raced; resuming does not consume another run. No schema
+  migration is required. Self-decomposition and dependency ordering pass a
+  controlled-model isolated-PostgreSQL run; no live provider model was used.
 - ✅ Integrate outputs from multiple agents (consolidated report).
 - 🟡 Resolve conflicting results — integration merges summaries; explicit conflict resolution is not a separate mechanism.
 - ✅ Maintain execution checkpoints.
@@ -150,11 +157,15 @@ for the next verification steps.
 - ✅ Optional JavaScript, TypeScript, and Python script step before agent execution. Scripts receive the normalized event as `payload`; stdout/result output is capped at 12,000 characters and passed to the agent. Execution uses the account-owned `void-agent-code-interpreter` template, secured controller access, disabled outbound network, 30-second runtime timeout, 16,000-character source and 24,000-character payload limits, and unconditional sandbox cleanup. Hook creation and owner-scoped updates expose script configuration.
 - 🟡 Hooks that execute tools / launch workflows — indirectly: the triggered agent runs tools; direct tool-execution hooks are not a separate mechanism.
 - ✅ Hooks that react to GitHub events (push/pull_request/issues — validated against GitHub-realistic payloads; commit-content rules work).
-- 🟡 Hooks that react to project changes — partially (project-scoped endpoints exist; project-change events are not a distinct trigger source).
-- 🟡 Hooks for agent/workflow/verification/deployment events — not a distinct event source today (agent events notify; they don't trigger hooks).
-- 🟡 Hooks for memory updates — the agent can propose memory updates during a hook run; dedicated memory hooks are not separate.
+- ✅ Internal project events: create/update/delete plus project record save/restore.
+- ✅ Internal memory-record events: project and global user record changes.
+- ✅ Successful agent-run and saved-workflow completion events; hook-origin
+  agent runs suppress recursive completion triggers.
+- 🟡 Verification: these events are owner-scoped, durable and idempotent; the
+  isolated PostgreSQL pipeline verifies duplicate publication and dispatch.
+  No live GitHub-server delivery was exercised.
 - ✅ Hooks for schedules and external integrations (webhook/email/Slack inbound).
-- 🟡 Live E2B script run — not verified; focused tests mock the sandbox boundary. E2B's current security page requests prior written consent before tests against its service, so no provider call was made.
+- 🟡 Live E2B script run — not verified; focused tests mock the sandbox boundary. One live attempt was rejected before sandbox creation due to an unsupported IPv6 deny CIDR. The corrected network-disabled request was not retried because E2B's current security guidance requests prior written consent before further testing.
 - ✅ Webhook-based triggers.
 - ✅ Scoped permissions (owner-owns-agent, owner-scoped tokens).
 - ✅ Execution timeouts (run clock); ✅ rate limits (cooldown + daily cap).
@@ -320,10 +331,12 @@ for the next verification steps.
    deduplicated and conflicting writes are withheld; successful artifacts are
    included in the scoped checkpoint and downloadable from chat. Focused tests
    pass. This does not provide a shared E2B filesystem, mutate the user's
-   repository, execute generated source, or enforce the documented daily tier
-   quotas (2/15/50/200).
-4. 🟡 **Hooks as user scripts** — implementation and focused tests are complete; live E2B runtime verification remains outstanding.
+   repository, or execute generated source. Daily tier quotas (2/15/50/200)
+   are now atomically enforced and tested against isolated PostgreSQL; the
+   self-planner/dependency integration uses a controlled model rather than a
+   live model provider.
+4. 🟡 **Hooks as user scripts** — implementation and focused tests are complete; live E2B runtime verification remains outstanding pending E2B written consent. Internal project/memory/agent/workflow event triggers are implemented and isolated-PostgreSQL verified.
 5. 🟡 **Motion editing surface** — video generation exists; timeline/keyframe editing does not.
 6. 🟡 **Artifact revision history** — full version history for artifacts (Deploy already has versioned history).
-7. 🟡 **Org management UI** — implemented; typecheck and browser-flow verification remain.
+7. 🟡 **Org management UI** — implemented; six interaction flows, full web typecheck, and full suite pass. Authenticated browser E2E and real SMTP delivery remain unverified.
 8. 🔒 Live-provider drills (BYOK request, fallback provider drill, connector live OAuth, SMTP delivery) — blocked on operator credentials/accounts, not code.
