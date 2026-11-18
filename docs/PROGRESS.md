@@ -594,9 +594,33 @@ infrastructure) is out of the product vision: Void Agent is web-based and
 operates in the sandbox machines the platform provides. Recorded in
 docs/FEATURE-INVENTORY.md §13.
 
-### §3.14 Void Devices — never started (reframed: per-user persistent
-sandbox machines on the E2B substrate; see FEATURE-INVENTORY.md §14). The
-voice-device auth module is unrelated hardware pairing, not this.
+### §3.14 Void Devices ✅ BUILT (2026-11-19, `afe0579`)
+The user-facing layer over the platform's sandbox machines (reframed:
+web-based, the PLATFORM provides the machines — no desktop daemon).
+- **Devices page** (/devices + sidebar item): ACTIVE sandbox card (live
+  state, vCPU/RAM, started-ago, sandbox id, CPU-hours meter with hours
+  left until reset, Pause via the owner-checked route), IDLE machines
+  (paused sandboxes kept with state), and the PLAN USAGE table.
+- **Plan usage table**: Cloud Agent launches/week, Sandbox CPU hours/week,
+  Agent tokens/week, Swarm launches/day (resets daily), Scheduled
+  runs/week — each with used/limit progress + reset time (weekly resets
+  Monday 00:00 UTC) and an upgrade link.
+- **Counters** (migration 0095 plan_usage + repository): agent_launches at
+  executeAgentRun entry, scheduled_runs for non-agent scheduled
+  executions, agent_tokens from the chat billing block's usage object;
+  sandbox CPU hours computed on demand from the user's RUNNING sandboxes
+  (E2B list filtered by the billingUserId metadata, clamped to the week
+  start); swarm launches displayed from the orchestrator daily quota.
+  All increments fire-and-forget. Weekly metrics are display-only soft
+  quotas (the swarm daily quota is transactionally enforced); enforcement
+  is the follow-up.
+- **Plan limits**: the 'What each plan includes' table as code keyed by
+  the six subscription tiers (Free → free, Plus → voidagent-pro, Pro →
+  voidagent-max, Scale → voidagent-enterprises*).
+- **Tests**: 10 (plan mapping incl. unknown-tier fallback, Monday-UTC
+  week-key/reset math, payload assembly with week-clamped CPU hours and
+  the sandbox split). Typecheck 0, biome 0; scheduled-tasks + chat suites
+  green (151).
 
 ### Write-capable swarms (Stage 06 generalization) — implemented, focused verified
 The orchestrator supports up to four concurrent workers with isolated text
