@@ -27,6 +27,7 @@ import {
   bigint,
   boolean,
   check,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -34,6 +35,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -4968,6 +4970,44 @@ export const SentinelIncidentTable = pgTable(
 
 export type SentinelMonitor = typeof SentinelMonitorTable.$inferSelect;
 export type SentinelIncident = typeof SentinelIncidentTable.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Weekly plan-usage counters for the Devices page (per-plan quota table).
+// Weekly metrics reset Monday 00:00 UTC; swarm launches are counted
+// separately by the orchestrator daily quota (user preferences).
+// ---------------------------------------------------------------------------
+
+export const PlanUsageTable = pgTable(
+  "plan_usage",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    metric: varchar("metric", { length: 40 }).notNull(),
+    periodKey: varchar("period_key", { length: 10 }).notNull(),
+    used: doublePrecision("used").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.metric, table.periodKey],
+      name: "plan_usage_user_metric_period_pk",
+    }),
+    index("plan_usage_user_metric_idx").on(
+      table.userId,
+      table.metric,
+      table.periodKey,
+    ),
+    check(
+      "plan_usage_metric_check",
+      sql`${table.metric} IN ('agent_launches', 'scheduled_runs', 'agent_tokens')`,
+    ),
+  ],
+);
+
+export type PlanUsage = typeof PlanUsageTable.$inferSelect;
 
 export type CodeReviewUserPrefs = typeof CodeReviewUserPrefsTable.$inferSelect;
 export type CodeReviewRepoSetting =

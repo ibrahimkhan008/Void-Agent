@@ -2,6 +2,7 @@ import "server-only";
 import { parseAgentModel } from "@/lib/ai/agent-model";
 import { SCHEDULED_TASK_ID_HEADER } from "@/lib/chat/run-mode";
 import { pgDb } from "@/lib/db/pg/db.pg";
+import { planUsageRepository } from "@/lib/db/pg/repositories/plan-usage-repository.pg";
 import {
   AgentTable,
   ScheduledTaskTable,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/db/pg/schema.pg";
 import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
 import { createNotifications } from "@/lib/notifications/create-notifications";
+import { weekKey } from "@/lib/plan/limits";
 import { eq, sql } from "drizzle-orm";
 import { generateUUID } from "lib/utils";
 import logger from "logger";
@@ -149,6 +151,14 @@ export async function executeAgentRun(
   agent: RunnableAgent,
   options: { emitInternalHookEvent?: boolean } = {},
 ): Promise<ScheduledRunResult> {
+  // Void Devices quota counter (Cloud Agent launches / week). Fire-and-forget:
+  // a counting failure must never block the run.
+  void planUsageRepository.increment(
+    task.userId,
+    "agent_launches",
+    weekKey(),
+    1,
+  );
   const result = await executeScheduledRun(
     { ...task, executionMode: "agent" },
     agent,
@@ -179,6 +189,17 @@ export async function executeScheduledRun(
   const threadId = isValidUUID(task.lastChatThreadId)
     ? task.lastChatThreadId
     : generateUUID();
+
+  // Void Devices quota counter (Scheduled runs / week) for non-agent
+  // scheduled executions; agent-mode launches are counted by executeAgentRun.
+  if ((task.executionMode ?? "agent") !== "agent") {
+    void planUsageRepository.increment(
+      task.userId,
+      "scheduled_runs",
+      weekKey(),
+      1,
+    );
+  }
 
   const executionMode = task.executionMode ?? "agent";
   if (executionMode === "agent" && !agent) {

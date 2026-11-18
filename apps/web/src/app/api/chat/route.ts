@@ -13,6 +13,8 @@ import {
 } from "ai";
 import { eq } from "drizzle-orm";
 
+import { planUsageRepository } from "@/lib/db/pg/repositories/plan-usage-repository.pg";
+import { weekKey } from "@/lib/plan/limits";
 import {
   getModelInstance,
   isToolCallUnsupportedModel,
@@ -2217,6 +2219,13 @@ export async function POST(request: Request) {
                 } catch (err) {
                   logger.error("[billing] Failed to track token usage", err);
                 }
+                // Void Devices quota counter (Agent tokens / week).
+                void planUsageRepository.increment(
+                  session.user.id,
+                  "agent_tokens",
+                  weekKey(),
+                  (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+                );
               } else {
                 logger.warn(
                   "[billing] Incomplete usage data - cannot calculate user tokens",

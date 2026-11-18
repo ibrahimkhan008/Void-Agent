@@ -13,7 +13,12 @@ import { useStartNewChat } from "@/hooks/use-start-new-chat";
 import { BasicUser } from "app-types/user";
 import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
 import { getIsUserAdmin } from "lib/user/utils";
-import { BookOpen, CalendarClock, SlidersHorizontal } from "lucide-react";
+import {
+  BookOpen,
+  CalendarClock,
+  MonitorSmartphone,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -101,6 +106,21 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <CalendarClock className="size-4" />
                 <span className="group-data-[collapsible=icon]:hidden">
                   Schedules
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem className="mb-1">
+            <Link href="/devices" onClick={() => setOpenMobile(false)}>
+              <SidebarMenuButton
+                isActive={pathname === "/devices"}
+                className="font-semibold"
+                tooltip="Devices"
+              >
+                <MonitorSmartphone className="size-4" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Devices
                 </span>
               </SidebarMenuButton>
             </Link>
