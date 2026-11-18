@@ -42,26 +42,42 @@ export function AcceptOrganizationInvitation({
 
   async function respond(accept: boolean) {
     setBusy(true);
-    const result = accept
-      ? await authClient.organization.acceptInvitation({ invitationId })
-      : await authClient.organization.rejectInvitation({ invitationId });
-    if (result.error) {
+    try {
+      const result = accept
+        ? await authClient.organization.acceptInvitation({ invitationId })
+        : await authClient.organization.rejectInvitation({ invitationId });
+      if (result.error)
+        throw new Error(
+          result.error.message ?? "Could not process this invitation.",
+        );
+      if (accept) {
+        const orgId = (
+          result.data as { member?: { organizationId?: string } } | null
+        )?.member?.organizationId;
+        if (!orgId)
+          throw new Error(
+            "Invitation accepted, but the workspace could not be identified.",
+          );
+        const active = await authClient.organization.setActive({
+          organizationId: orgId,
+        });
+        if (active.error)
+          throw new Error(
+            active.error.message ??
+              "Could not switch to the invited workspace.",
+          );
+        window.location.assign("/");
+      } else {
+        setError("Invitation declined.");
+      }
+    } catch (err) {
       const message =
-        result.error.message ?? "Could not process this invitation.";
+        err instanceof Error
+          ? err.message
+          : "Could not process this invitation.";
       setError(message);
       toast.error(message);
-      setBusy(false);
-      return;
-    }
-    if (accept) {
-      const orgId = (
-        result.data as { member?: { organizationId?: string } } | null
-      )?.member?.organizationId;
-      if (orgId)
-        await authClient.organization.setActive({ organizationId: orgId });
-      window.location.assign("/");
-    } else {
-      setError("Invitation declined.");
+    } finally {
       setBusy(false);
     }
   }
