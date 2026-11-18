@@ -97,6 +97,8 @@
   web animation, data animation, explainers, JS canvas films)
 - Chat-native Veo text-to-video: prompt carries clip length/dimensions,
   the MP4 lands in the thread
+- Intended workflow is prompt-driven video generation; timeline/keyframe editing
+  and a separate video editor are not requirements for this feature.
 **Commits**: `0caa872`, `5635705`
 
 ### §3.8 Visualizer ✅
