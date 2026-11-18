@@ -1,3 +1,4 @@
+import { ChatComposer } from "@/components/chat-composer";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { BrandButton } from "@/components/ui/brand-button";
 import { DitherCanvas } from "@/components/ui/dither-canvas";
@@ -174,6 +175,22 @@ export default function DesignSystemPage() {
                 drifting Bayer-8×8 dither (ink #3C3C3C @ 37%, gamma 1.4, 2px
                 dots). Static under prefers-reduced-motion.
               </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <Eyebrow>Chat composer — AffectUI classic rebuild</Eyebrow>
+          <div className="bs-tray p-4">
+            <div className="p-6 space-y-10">
+              <div>
+                <p className="text-sm text-(--bs-paper)/55 mb-3">Light theme</p>
+                <ChatComposer theme="light" />
+              </div>
+              <div className="dark p-8 rounded-2xl bg-neutral-950">
+                <p className="text-sm text-neutral-400 mb-3">Dark theme</p>
+                <ChatComposer theme="dark" />
+              </div>
             </div>
           </div>
         </section>

@@ -686,575 +686,585 @@ export default function PromptInput({
             embedded ? "px-0" : "px-4",
           )}
         >
-          <div className="shadow-lg overflow-hidden rounded-4xl backdrop-blur-sm transition-all duration-200 bg-muted/60 relative flex w-full flex-col cursor-text z-10 items-stretch focus-within:bg-muted hover:bg-muted focus-within:ring-muted hover:ring-muted">
-            {mentions.length > 0 && (
-              <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-col gap-4 mx-2 my-2">
-                {mentions.map((mention, i) => {
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      {mention.type === "workflow" ||
-                      mention.type === "agent" ? (
-                        <Avatar
-                          className="size-6 p-1 ring ring-border rounded-full flex-shrink-0"
-                          style={mention.icon?.style}
-                        >
-                          <AvatarImage
-                            src={
-                              mention.icon?.value ||
-                              EMOJI_DATA[i % EMOJI_DATA.length]
-                            }
-                          />
-                          <AvatarFallback>
-                            {mention.name.slice(0, 1)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <Button className="size-6 flex items-center justify-center ring ring-border rounded-full flex-shrink-0 p-0.5">
-                          {mention.type == "mcpServer" ? (
-                            <MCPIcon className="size-3.5" />
-                          ) : mention.type == "skill" ? (
-                            <Sparkles className="size-3.5" />
-                          ) : mention.type == "knowledgeBase" ? (
-                            <LibraryBig className="size-3.5" />
-                          ) : (
-                            <DefaultToolIcon
-                              name={mention.name as DefaultToolName}
-                              className="size-3.5"
-                            />
-                          )}
-                        </Button>
-                      )}
-
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-sm font-semibold truncate">
-                          {mention.name}
-                        </span>
-                        {mention.description ? (
-                          <span className="text-muted-foreground text-xs truncate">
-                            {mention.description}
-                          </span>
-                        ) : mention.type === "knowledgeBase" ? (
-                          <span className="text-muted-foreground text-xs truncate">
-                            {t("KnowledgeBase.chipDescription")}
-                          </span>
-                        ) : null}
-                      </div>
-                      <Button
-                        variant={"ghost"}
-                        size={"icon"}
-                        disabled={!threadId}
-                        className="rounded-full hover:bg-input! flex-shrink-0"
-                        onClick={() => {
-                          deleteMention(mention);
-                        }}
-                      >
-                        <XIcon />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div
-              className={cn(
-                "flex flex-col gap-3.5 pt-3 pb-5 md:pt-2 md:pb-4",
-                embedded ? "px-3" : "px-5",
-              )}
-            >
-              {/* `text-base` pins the editor at 16px — iOS Safari auto-zooms
-                  on focus below that. Taller minimum on small screens so the
-                  composer reads as a real writing surface. */}
-              <div className="relative text-base min-h-[3rem] md:min-h-[2rem]">
-                <ChatMentionInput
-                  input={input}
-                  onChange={setInput}
-                  onChangeMention={onChangeMention}
-                  onEnter={submit}
-                  placeholder={placeholder ?? t("placeholder")}
-                  ref={editorRef}
-                  disabledMention={disabledMention}
-                  onFocus={onFocus}
-                  autofocus={autoFocusInput}
-                />
-              </div>
-              <div
-                className={cn(
-                  "flex w-full items-center z-30 min-w-0",
-                  toolbarCompact ? "gap-0.5" : "gap-1",
-                )}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.mp3,.wav,.m4a,.ogg,.mp4,.webm,.mov"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  disabled={!threadId}
-                />
-
-                <DropdownMenu
-                  open={isUploadDropdownOpen}
-                  onOpenChange={setIsUploadDropdownOpen}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={"ghost"}
-                      size={"sm"}
-                      className={cn(
-                        "rounded-full hover:bg-input! data-[state=open]:bg-input! flex-shrink-0",
-                        toolbarCompact ? "size-7 p-0 mr-0.5" : "p-2! mr-2",
-                      )}
-                      disabled={!threadId}
-                    >
-                      <PlusIcon
-                        className={toolbarCompact ? "size-3.5" : undefined}
-                      />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  {/* Reserve room for the mobile browser toolbar so the menu is
-                      not placed (or flipped) into the area it covers. */}
-                  <DropdownMenuContent
-                    align="start"
-                    side="top"
-                    collisionPadding={{ top: 12, bottom: 88 }}
-                  >
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      disabled={!canUploadFiles}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <PaperclipIcon className="mr-2 size-4" />
-                      {t("uploadImage")}
-                    </DropdownMenuItem>
-
-                    <KnowledgeBaseMenu
-                      attachedIds={attachedKnowledgeBaseIds}
-                      onToggle={onToggleKnowledgeBase}
-                      onAddDocuments={openKnowledgeBaseDialog}
-                    />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {maskTarget && (
-                  <ImageMaskEditor
-                    open
-                    imageUrl={maskTarget.url}
-                    imageName={maskTarget.name}
-                    applying={isApplyingMask}
-                    onOpenChange={(open) => {
-                      if (!open) setMaskTarget(null);
-                    }}
-                    onApply={applyMask}
-                  />
-                )}
-                <KnowledgeBaseDialog
-                  open={isKnowledgeBaseDialogOpen}
-                  onOpenChange={setIsKnowledgeBaseDialogOpen}
-                  initialTarget={knowledgeBaseDialogTarget}
-                  onDone={onKnowledgeBaseDialogDone}
-                />
-
-                {!toolDisabled &&
-                  (imageToolModel ? (
-                    <Button
-                      variant={"ghost"}
-                      size={"sm"}
-                      className="rounded-full hover:bg-input! p-2! group/image-generator text-primary flex-shrink-0"
-                      onClick={() => handleGenerateImage()}
-                    >
-                      <ImagesIcon className="size-3.5" />
-                      {isAutoImageModel(imageToolModel)
-                        ? t("imageModelAuto")
-                        : resolveImageModel(imageToolModel).name}
-                      <XIcon className="size-3 group-hover/image-generator:opacity-100 opacity-0 transition-opacity duration-200" />
-                    </Button>
-                  ) : (
-                    <>
-                      <ToolModeDropdown
-                        compact={toolbarCompact}
-                        className={cn(
-                          "flex-shrink-0",
-                          toolbarCompact ? "mr-0.5" : "mr-2",
-                        )}
-                      />
-                      <ToolSelectDropdown
-                        compact={toolbarCompact}
-                        hideToolCount={toolbarCompact}
-                        className={cn(
-                          "flex-shrink-0 min-w-0",
-                          toolbarCompact ? "mr-0.5" : "mr-1 min-[475px]:mr-2",
-                        )}
-                        align="start"
-                        side="top"
-                        onSelectWorkflow={onSelectWorkflow}
-                        onSelectAgent={onSelectAgent}
-                        onSelectSkill={onSelectSkill}
-                        onGenerateImage={handleGenerateImage}
-                        mentions={mentions}
-                        projectId={projectInfo?.id}
-                      />
-                    </>
-                  ))}
-
-                <div className="flex-1 min-w-0" />
-
-                <div className="flex items-center flex-shrink-0 min-w-0">
-                  {!embedded && projectInfo && showProjectContextBadge && (
-                    <ProjectContextBadge
-                      projectId={projectInfo.id}
-                      projectName={projectInfo.name}
-                      iconOnly
-                      className={toolbarCompact ? "mr-0.5" : "mr-1"}
-                    />
-                  )}
-
-                  {!embedded && contextUsage && (
-                    <ChatContextMeter
-                      usage={contextUsage}
-                      usageModel={contextUsageModel}
-                      selectedModel={chatModel}
-                      autoRouting={autoRouting}
-                      className={toolbarCompact ? "mr-0.5" : "mr-1"}
-                    />
-                  )}
-
-                  <SelectModel
-                    onSelect={setChatModel}
-                    currentModel={chatModel}
-                    side="top"
-                    align="end"
-                  >
-                    <Button
-                      variant={"ghost"}
-                      size={"sm"}
-                      className={cn(
-                        // overflow-hidden matters: the label below is a flex
-                        // child whose min-width defaults to min-content, and
-                        // with `whitespace-nowrap` from buttonVariants that is
-                        // the full model id. Without a clip here a long name
-                        // ("gemini-2.5-flash-preview-…") paints straight out of
-                        // the max-w box and across the mic and send buttons.
-                        "rounded-full group data-[state=open]:bg-input! hover:bg-input! flex-shrink-0 overflow-hidden",
-                        toolbarCompact
-                          ? "h-7 px-2 mr-0.5 max-w-[72px] sm:max-w-[120px] text-xs"
-                          : "mr-2 min-[475px]:mr-3 max-w-[90px] min-[450px]:max-w-[120px] sm:max-w-[180px]",
-                      )}
-                      data-testid="model-selector-button"
-                    >
-                      {autoRouting ? (
-                        <span
-                          className="text-foreground group-data-[state=open]:text-foreground truncate min-w-0"
-                          data-testid="selected-model-name"
-                        >
-                          Automatic
-                        </span>
-                      ) : chatModel?.model ? (
-                        <>
-                          {!embedded &&
-                            (chatModel.provider === "openai" ? (
-                              <OpenAIIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
-                            ) : chatModel.provider === "xai" ? (
-                              <GrokIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
-                            ) : chatModel.provider === "anthropic" ? (
-                              <ClaudeIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
-                            ) : chatModel.provider === "google" ? (
-                              <GeminiIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
-                            ) : null)}
-                          <span
-                            className="text-foreground group-data-[state=open]:text-foreground truncate min-w-0"
-                            data-testid="selected-model-name"
-                          >
-                            {chatModel.model}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">model</span>
-                      )}
-
-                      <ChevronDown
-                        className={cn(
-                          "flex-shrink-0",
-                          toolbarCompact ? "size-2.5" : "size-3",
-                        )}
-                      />
-                    </Button>
-                  </SelectModel>
-                </div>
-
-                {/* Mic and send sit side by side so dictation can be stopped
-                    and the transcript edited before sending. */}
-                <div
-                  className={cn(
-                    "flex items-center flex-shrink-0",
-                    toolbarCompact ? "gap-1" : "gap-1.5 mr-0 min-[450px]:mr-2",
-                  )}
-                >
-                  {!voiceDisabled && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          onClick={toggleListening}
-                          aria-label={
-                            isListening
-                              ? t("stopDictation")
-                              : t("voiceDictation")
-                          }
-                          className={cn(
-                            "rounded-full flex-shrink-0 transition-all duration-200",
-                            toolbarCompact ? "size-11" : "size-9",
-                            isListening &&
-                              "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50",
-                          )}
-                        >
-                          {/* A filled square while recording reads as "stop"
-                              at a glance, which the pulsing mic did not. */}
-                          {isListening ? (
-                            <Square
-                              className={cn(
-                                "fill-current animate-pulse",
-                                toolbarCompact ? "size-[18px]" : "size-4",
-                              )}
-                            />
-                          ) : (
-                            <MicIcon
-                              className={toolbarCompact ? "size-5" : "size-4"}
-                            />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {isListening ? t("stopDictation") : t("voiceDictation")}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-
-                  {isLoading ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          onClick={onStop}
-                          aria-label="Disconnect from the current response"
-                          className={cn(
-                            "rounded-full flex-shrink-0 text-muted-foreground hover:bg-accent-foreground hover:text-accent transition-all duration-200",
-                            toolbarCompact ? "size-11" : "size-9",
-                          )}
-                        >
-                          <Square
-                            className={cn(
-                              "fill-current",
-                              toolbarCompact ? "size-[18px]" : "size-4",
-                            )}
-                          />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Disconnect</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Button
-                      size="icon"
-                      onClick={submit}
-                      disabled={input.trim().length === 0}
-                      aria-label={t("sendMessage")}
-                      className={cn(
-                        "rounded-full flex-shrink-0 bg-brand text-white hover:bg-brand/90 transition-all duration-200",
-                        "disabled:opacity-40 disabled:cursor-not-allowed",
-                        toolbarCompact ? "size-11" : "size-9",
-                      )}
-                    >
-                      <ArrowUp
-                        className={toolbarCompact ? "size-5" : "size-4"}
-                      />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Uploaded Files Preview - Below Input */}
-              {uploadedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {uploadedFiles.map((file) => {
-                    const isImage = file.mimeType.startsWith("image/");
-                    const imageSrc =
-                      file.previewUrl || file.url || file.dataUrl || "";
-                    const displayName = file.name;
-                    const displayExt =
-                      file.name.split(".").pop()?.toUpperCase() || "FILE";
-                    // Narrower than "we can read this": the button posts to
-                    // /api/storage/ingest, which handles CSV only. It used to
-                    // show for PDFs, whose request the route rejected.
-                    const isSummarizable = isSummarizeSupported(file.mimeType);
+          <div className="rounded-[25px] bg-muted/40 p-1.5">
+            <div className="shadow-[0_0.83px_1.67px_rgba(0,0,0,0.4)] overflow-hidden rounded-[18px] transition-all duration-200 bg-card relative flex w-full flex-col cursor-text z-10 items-stretch ring-1 ring-border">
+              {mentions.length > 0 && (
+                <div className="bg-input rounded-b-sm rounded-t-3xl p-3 flex flex-col gap-4 mx-2 my-2">
+                  {mentions.map((mention, i) => {
                     return (
-                      <div
-                        key={file.id}
-                        className="relative group rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-all"
-                      >
-                        {isImage ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={imageSrc}
-                            alt={file.name}
-                            className="w-24 h-24 object-cover"
-                          />
+                      <div key={i} className="flex items-center gap-2">
+                        {mention.type === "workflow" ||
+                        mention.type === "agent" ? (
+                          <Avatar
+                            className="size-6 p-1 ring ring-border rounded-full flex-shrink-0"
+                            style={mention.icon?.style}
+                          >
+                            <AvatarImage
+                              src={
+                                mention.icon?.value ||
+                                EMOJI_DATA[i % EMOJI_DATA.length]
+                              }
+                            />
+                            <AvatarFallback>
+                              {mention.name.slice(0, 1)}
+                            </AvatarFallback>
+                          </Avatar>
                         ) : (
-                          <div className="w-32 h-28 flex flex-col items-center justify-center bg-muted px-2 py-3 text-center">
-                            <FileIcon className="size-8 text-muted-foreground mb-1" />
-                            <span className="text-xs font-medium text-muted-foreground line-clamp-2 w-full">
-                              {displayName}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground/80">
-                              {displayExt}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Upload Progress Overlay */}
-                        {file.isUploading && (
-                          <div className="absolute inset-0 bg-background/90 flex rounded-lg flex-col items-center justify-center backdrop-blur-sm">
-                            <Loader2 className="size-6 animate-spin text-foreground mb-2" />
-                            <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary transition-all duration-300"
-                                style={{ width: `${file.progress || 0}%` }}
+                          <Button className="size-6 flex items-center justify-center ring ring-border rounded-full flex-shrink-0 p-0.5">
+                            {mention.type == "mcpServer" ? (
+                              <MCPIcon className="size-3.5" />
+                            ) : mention.type == "skill" ? (
+                              <Sparkles className="size-3.5" />
+                            ) : mention.type == "knowledgeBase" ? (
+                              <LibraryBig className="size-3.5" />
+                            ) : (
+                              <DefaultToolIcon
+                                name={mention.name as DefaultToolName}
+                                className="size-3.5"
                               />
-                            </div>
-                            <span className="text-foreground text-xs mt-1">
-                              {file.progress || 0}%
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Hover Actions */}
-                        <div
-                          className={cn(
-                            "absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity flex items-center justify-center rounded-lg",
-                            file.isUploading
-                              ? "opacity-0"
-                              : "opacity-0 group-hover:opacity-100",
-                          )}
-                        >
-                          <div className="flex gap-2 items-center">
-                            {isSummarizable && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="secondary"
-                                    size="icon"
-                                    className="rounded-full"
-                                    onClick={async () => {
-                                      try {
-                                        const url = file.url || file.dataUrl;
-                                        if (!url) {
-                                          toast.error("No file URL available");
-                                          return;
-                                        }
-                                        const res = await fetch(
-                                          "/api/storage/ingest",
-                                          {
-                                            method: "POST",
-                                            headers: {
-                                              "Content-Type":
-                                                "application/json",
-                                            },
-                                            body: JSON.stringify({ url }),
-                                          },
-                                        );
-                                        if (!res.ok) {
-                                          const e = await res
-                                            .json()
-                                            .catch(() => ({}));
-                                          toast.error(
-                                            e.error || "Failed to ingest file",
-                                          );
-                                          return;
-                                        }
-                                        const data = await res.json();
-                                        // Append preview text to input for the user to send
-                                        setInput(
-                                          `${input ? input + "\n\n" : ""}${data.text}`,
-                                        );
-                                      } catch (_err) {
-                                        toast.error("Failed to ingest file");
-                                      }
-                                    }}
-                                  >
-                                    <FileTextIcon className="size-4" />
-                                    <span className="sr-only">Summarize</span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Summarize</TooltipContent>
-                              </Tooltip>
                             )}
-                            {isImage && file.url && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant={
-                                      file.mask ? "default" : "secondary"
-                                    }
-                                    size="icon"
-                                    className="rounded-full"
-                                    onClick={() => setMaskTarget(file)}
-                                    disabled={file.isUploading}
-                                  >
-                                    <Paintbrush className="size-4" />
-                                    <span className="sr-only">
-                                      {t("MaskEditor.open")}
-                                    </span>
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {file.mask
-                                    ? t("MaskEditor.edit")
-                                    : t("MaskEditor.open")}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="rounded-full bg-background/80 hover:bg-background"
-                              onClick={() => deleteFile(file.id)}
-                              disabled={file.isUploading}
-                            >
-                              <XIcon className="size-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Masked badge: the next send edits only the painted
-                            region of this photo. Click removes the mask. */}
-                        {file.mask && !file.isUploading && (
-                          <button
-                            type="button"
-                            onClick={() => setFileMask(file.id, undefined)}
-                            title={t("MaskEditor.remove")}
-                            className="absolute bottom-1 left-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground shadow"
-                          >
-                            <Paintbrush className="size-3" />
-                            {t("MaskEditor.badge")}
-                          </button>
-                        )}
-
-                        {/* Cancel Upload Button (Top Right) */}
-                        {file.isUploading && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 size-6 rounded-full bg-background/60 hover:bg-background/80 backdrop-blur-sm"
-                            onClick={() => deleteFile(file.id)}
-                          >
-                            <XIcon className="size-3" />
                           </Button>
                         )}
+
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-sm font-semibold truncate">
+                            {mention.name}
+                          </span>
+                          {mention.description ? (
+                            <span className="text-muted-foreground text-xs truncate">
+                              {mention.description}
+                            </span>
+                          ) : mention.type === "knowledgeBase" ? (
+                            <span className="text-muted-foreground text-xs truncate">
+                              {t("KnowledgeBase.chipDescription")}
+                            </span>
+                          ) : null}
+                        </div>
+                        <Button
+                          variant={"ghost"}
+                          size={"icon"}
+                          disabled={!threadId}
+                          className="rounded-full hover:bg-input! flex-shrink-0"
+                          onClick={() => {
+                            deleteMention(mention);
+                          }}
+                        >
+                          <XIcon />
+                        </Button>
                       </div>
                     );
                   })}
                 </div>
+              )}
+              <div
+                className={cn(
+                  "flex flex-col gap-3.5 pt-3 pb-5 md:pt-2 md:pb-4",
+                  embedded ? "px-3" : "px-5",
+                )}
+              >
+                {/* 19.8px matches the AffectUI composer scale and stays above
+                  the 16px iOS auto-zoom floor. */}
+                <div className="relative text-[19.8px] leading-[1.45] min-h-[3rem] md:min-h-[2rem]">
+                  <ChatMentionInput
+                    input={input}
+                    onChange={setInput}
+                    onChangeMention={onChangeMention}
+                    onEnter={submit}
+                    placeholder={placeholder ?? t("placeholder")}
+                    ref={editorRef}
+                    disabledMention={disabledMention}
+                    onFocus={onFocus}
+                    autofocus={autoFocusInput}
+                  />
+                </div>
+                <div
+                  className={cn(
+                    "flex w-full items-center z-30 min-w-0",
+                    toolbarCompact ? "gap-0.5" : "gap-1",
+                  )}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.mp3,.wav,.m4a,.ogg,.mp4,.webm,.mov"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    disabled={!threadId}
+                  />
+
+                  <DropdownMenu
+                    open={isUploadDropdownOpen}
+                    onOpenChange={setIsUploadDropdownOpen}
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant={"ghost"}
+                        size={"sm"}
+                        className={cn(
+                          "rounded-full hover:bg-input! data-[state=open]:bg-input! flex-shrink-0",
+                          toolbarCompact ? "size-7 p-0 mr-0.5" : "p-2! mr-2",
+                        )}
+                        disabled={!threadId}
+                      >
+                        <PlusIcon
+                          className={toolbarCompact ? "size-3.5" : undefined}
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    {/* Reserve room for the mobile browser toolbar so the menu is
+                      not placed (or flipped) into the area it covers. */}
+                    <DropdownMenuContent
+                      align="start"
+                      side="top"
+                      collisionPadding={{ top: 12, bottom: 88 }}
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        disabled={!canUploadFiles}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <PaperclipIcon className="mr-2 size-4" />
+                        {t("uploadImage")}
+                      </DropdownMenuItem>
+
+                      <KnowledgeBaseMenu
+                        attachedIds={attachedKnowledgeBaseIds}
+                        onToggle={onToggleKnowledgeBase}
+                        onAddDocuments={openKnowledgeBaseDialog}
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {maskTarget && (
+                    <ImageMaskEditor
+                      open
+                      imageUrl={maskTarget.url}
+                      imageName={maskTarget.name}
+                      applying={isApplyingMask}
+                      onOpenChange={(open) => {
+                        if (!open) setMaskTarget(null);
+                      }}
+                      onApply={applyMask}
+                    />
+                  )}
+                  <KnowledgeBaseDialog
+                    open={isKnowledgeBaseDialogOpen}
+                    onOpenChange={setIsKnowledgeBaseDialogOpen}
+                    initialTarget={knowledgeBaseDialogTarget}
+                    onDone={onKnowledgeBaseDialogDone}
+                  />
+
+                  {!toolDisabled &&
+                    (imageToolModel ? (
+                      <Button
+                        variant={"ghost"}
+                        size={"sm"}
+                        className="rounded-full hover:bg-input! p-2! group/image-generator text-primary flex-shrink-0"
+                        onClick={() => handleGenerateImage()}
+                      >
+                        <ImagesIcon className="size-3.5" />
+                        {isAutoImageModel(imageToolModel)
+                          ? t("imageModelAuto")
+                          : resolveImageModel(imageToolModel).name}
+                        <XIcon className="size-3 group-hover/image-generator:opacity-100 opacity-0 transition-opacity duration-200" />
+                      </Button>
+                    ) : (
+                      <>
+                        <ToolModeDropdown
+                          compact={toolbarCompact}
+                          className={cn(
+                            "flex-shrink-0",
+                            toolbarCompact ? "mr-0.5" : "mr-2",
+                          )}
+                        />
+                        <ToolSelectDropdown
+                          compact={toolbarCompact}
+                          hideToolCount={toolbarCompact}
+                          className={cn(
+                            "flex-shrink-0 min-w-0",
+                            toolbarCompact ? "mr-0.5" : "mr-1 min-[475px]:mr-2",
+                          )}
+                          align="start"
+                          side="top"
+                          onSelectWorkflow={onSelectWorkflow}
+                          onSelectAgent={onSelectAgent}
+                          onSelectSkill={onSelectSkill}
+                          onGenerateImage={handleGenerateImage}
+                          mentions={mentions}
+                          projectId={projectInfo?.id}
+                        />
+                      </>
+                    ))}
+
+                  <div className="flex-1 min-w-0" />
+
+                  <div className="flex items-center flex-shrink-0 min-w-0">
+                    <SelectModel
+                      onSelect={setChatModel}
+                      currentModel={chatModel}
+                      side="top"
+                      align="end"
+                    >
+                      <Button
+                        variant={"ghost"}
+                        size={"sm"}
+                        className={cn(
+                          // overflow-hidden matters: the label below is a flex
+                          // child whose min-width defaults to min-content, and
+                          // with `whitespace-nowrap` from buttonVariants that is
+                          // the full model id. Without a clip here a long name
+                          // ("gemini-2.5-flash-preview-…") paints straight out of
+                          // the max-w box and across the mic and send buttons.
+                          "rounded-full group data-[state=open]:bg-input! hover:bg-input! flex-shrink-0 overflow-hidden",
+                          toolbarCompact
+                            ? "h-7 px-2 mr-0.5 max-w-[72px] sm:max-w-[120px] text-xs"
+                            : "mr-2 min-[475px]:mr-3 max-w-[90px] min-[450px]:max-w-[120px] sm:max-w-[180px]",
+                        )}
+                        data-testid="model-selector-button"
+                      >
+                        {autoRouting ? (
+                          <span
+                            className="text-foreground group-data-[state=open]:text-foreground truncate min-w-0"
+                            data-testid="selected-model-name"
+                          >
+                            Automatic
+                          </span>
+                        ) : chatModel?.model ? (
+                          <>
+                            {!embedded &&
+                              (chatModel.provider === "openai" ? (
+                                <OpenAIIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
+                              ) : chatModel.provider === "xai" ? (
+                                <GrokIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
+                              ) : chatModel.provider === "anthropic" ? (
+                                <ClaudeIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
+                              ) : chatModel.provider === "google" ? (
+                                <GeminiIcon className="size-3 opacity-0 group-data-[state=open]:opacity-100 group-hover:opacity-100 flex-shrink-0" />
+                              ) : null)}
+                            <span
+                              className="text-foreground group-data-[state=open]:text-foreground truncate min-w-0"
+                              data-testid="selected-model-name"
+                            >
+                              {chatModel.model}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">model</span>
+                        )}
+
+                        <ChevronDown
+                          className={cn(
+                            "flex-shrink-0",
+                            toolbarCompact ? "size-2.5" : "size-3",
+                          )}
+                        />
+                      </Button>
+                    </SelectModel>
+                  </div>
+
+                  {/* Mic and send sit side by side so dictation can be stopped
+                    and the transcript edited before sending. */}
+                  <div
+                    className={cn(
+                      "flex items-center flex-shrink-0",
+                      toolbarCompact
+                        ? "gap-1"
+                        : "gap-1.5 mr-0 min-[450px]:mr-2",
+                    )}
+                  >
+                    {!voiceDisabled && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            onClick={toggleListening}
+                            aria-label={
+                              isListening
+                                ? t("stopDictation")
+                                : t("voiceDictation")
+                            }
+                            className={cn(
+                              "rounded-full flex-shrink-0 transition-all duration-200",
+                              toolbarCompact ? "size-11" : "size-9",
+                              isListening &&
+                                "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50",
+                            )}
+                          >
+                            {/* A filled square while recording reads as "stop"
+                              at a glance, which the pulsing mic did not. */}
+                            {isListening ? (
+                              <Square
+                                className={cn(
+                                  "fill-current animate-pulse",
+                                  toolbarCompact ? "size-[18px]" : "size-4",
+                                )}
+                              />
+                            ) : (
+                              <MicIcon
+                                className={toolbarCompact ? "size-5" : "size-4"}
+                              />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {isListening
+                            ? t("stopDictation")
+                            : t("voiceDictation")}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {isLoading ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            onClick={onStop}
+                            aria-label="Disconnect from the current response"
+                            className={cn(
+                              "rounded-full flex-shrink-0 text-muted-foreground hover:bg-accent-foreground hover:text-accent transition-all duration-200",
+                              toolbarCompact ? "size-11" : "size-9",
+                            )}
+                          >
+                            <Square
+                              className={cn(
+                                "fill-current",
+                                toolbarCompact ? "size-[18px]" : "size-4",
+                              )}
+                            />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Disconnect</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Button
+                        size="icon"
+                        onClick={submit}
+                        disabled={input.trim().length === 0}
+                        aria-label={t("sendMessage")}
+                        className={cn(
+                          "rounded-[8.64px] flex-shrink-0 bg-brand text-white hover:bg-brand/90 transition-all duration-200",
+                          "disabled:opacity-40 disabled:cursor-not-allowed",
+                          toolbarCompact ? "size-11" : "size-9",
+                        )}
+                      >
+                        <ArrowUp
+                          className={toolbarCompact ? "size-5" : "size-4"}
+                        />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Uploaded Files Preview - Below Input */}
+                {uploadedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {uploadedFiles.map((file) => {
+                      const isImage = file.mimeType.startsWith("image/");
+                      const imageSrc =
+                        file.previewUrl || file.url || file.dataUrl || "";
+                      const displayName = file.name;
+                      const displayExt =
+                        file.name.split(".").pop()?.toUpperCase() || "FILE";
+                      // Narrower than "we can read this": the button posts to
+                      // /api/storage/ingest, which handles CSV only. It used to
+                      // show for PDFs, whose request the route rejected.
+                      const isSummarizable = isSummarizeSupported(
+                        file.mimeType,
+                      );
+                      return (
+                        <div
+                          key={file.id}
+                          className="relative group rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-all"
+                        >
+                          {isImage ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={imageSrc}
+                              alt={file.name}
+                              className="w-24 h-24 object-cover"
+                            />
+                          ) : (
+                            <div className="w-32 h-28 flex flex-col items-center justify-center bg-muted px-2 py-3 text-center">
+                              <FileIcon className="size-8 text-muted-foreground mb-1" />
+                              <span className="text-xs font-medium text-muted-foreground line-clamp-2 w-full">
+                                {displayName}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground/80">
+                                {displayExt}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Upload Progress Overlay */}
+                          {file.isUploading && (
+                            <div className="absolute inset-0 bg-background/90 flex rounded-lg flex-col items-center justify-center backdrop-blur-sm">
+                              <Loader2 className="size-6 animate-spin text-foreground mb-2" />
+                              <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-primary transition-all duration-300"
+                                  style={{ width: `${file.progress || 0}%` }}
+                                />
+                              </div>
+                              <span className="text-foreground text-xs mt-1">
+                                {file.progress || 0}%
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Hover Actions */}
+                          <div
+                            className={cn(
+                              "absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity flex items-center justify-center rounded-lg",
+                              file.isUploading
+                                ? "opacity-0"
+                                : "opacity-0 group-hover:opacity-100",
+                            )}
+                          >
+                            <div className="flex gap-2 items-center">
+                              {isSummarizable && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="secondary"
+                                      size="icon"
+                                      className="rounded-full"
+                                      onClick={async () => {
+                                        try {
+                                          const url = file.url || file.dataUrl;
+                                          if (!url) {
+                                            toast.error(
+                                              "No file URL available",
+                                            );
+                                            return;
+                                          }
+                                          const res = await fetch(
+                                            "/api/storage/ingest",
+                                            {
+                                              method: "POST",
+                                              headers: {
+                                                "Content-Type":
+                                                  "application/json",
+                                              },
+                                              body: JSON.stringify({ url }),
+                                            },
+                                          );
+                                          if (!res.ok) {
+                                            const e = await res
+                                              .json()
+                                              .catch(() => ({}));
+                                            toast.error(
+                                              e.error ||
+                                                "Failed to ingest file",
+                                            );
+                                            return;
+                                          }
+                                          const data = await res.json();
+                                          // Append preview text to input for the user to send
+                                          setInput(
+                                            `${input ? input + "\n\n" : ""}${data.text}`,
+                                          );
+                                        } catch (_err) {
+                                          toast.error("Failed to ingest file");
+                                        }
+                                      }}
+                                    >
+                                      <FileTextIcon className="size-4" />
+                                      <span className="sr-only">Summarize</span>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Summarize</TooltipContent>
+                                </Tooltip>
+                              )}
+                              {isImage && file.url && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant={
+                                        file.mask ? "default" : "secondary"
+                                      }
+                                      size="icon"
+                                      className="rounded-full"
+                                      onClick={() => setMaskTarget(file)}
+                                      disabled={file.isUploading}
+                                    >
+                                      <Paintbrush className="size-4" />
+                                      <span className="sr-only">
+                                        {t("MaskEditor.open")}
+                                      </span>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {file.mask
+                                      ? t("MaskEditor.edit")
+                                      : t("MaskEditor.open")}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-full bg-background/80 hover:bg-background"
+                                onClick={() => deleteFile(file.id)}
+                                disabled={file.isUploading}
+                              >
+                                <XIcon className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Masked badge: the next send edits only the painted
+                            region of this photo. Click removes the mask. */}
+                          {file.mask && !file.isUploading && (
+                            <button
+                              type="button"
+                              onClick={() => setFileMask(file.id, undefined)}
+                              title={t("MaskEditor.remove")}
+                              className="absolute bottom-1 left-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground shadow"
+                            >
+                              <Paintbrush className="size-3" />
+                              {t("MaskEditor.badge")}
+                            </button>
+                          )}
+
+                          {/* Cancel Upload Button (Top Right) */}
+                          {file.isUploading && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-1 right-1 size-6 rounded-full bg-background/60 hover:bg-background/80 backdrop-blur-sm"
+                              onClick={() => deleteFile(file.id)}
+                            >
+                              <XIcon className="size-3" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Foot row (AffectUI pattern): project context on the left,
+                context meter on the right — below the card, inside the tray. */}
+            <div className="flex items-center justify-between px-4 pt-1 pb-1.5">
+              {!embedded && projectInfo && showProjectContextBadge && (
+                <ProjectContextBadge
+                  projectId={projectInfo.id}
+                  projectName={projectInfo.name}
+                />
+              )}
+              {!embedded && contextUsage && (
+                <ChatContextMeter
+                  usage={contextUsage}
+                  usageModel={contextUsageModel}
+                  selectedModel={chatModel}
+                  autoRouting={autoRouting}
+                />
               )}
             </div>
           </div>
