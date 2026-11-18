@@ -18,6 +18,7 @@ export type StoredOrchestratorResult = {
   summary: string;
   attempts: number;
   toolCallCount: number;
+  artifacts?: Array<{ path: string; content: string }>;
 };
 
 export async function createOrchestratorCheckpoint(input: {

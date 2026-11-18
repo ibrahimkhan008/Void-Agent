@@ -4759,6 +4759,7 @@ export const OrchestratorCheckpointTable = pgTable(
           summary: string;
           attempts: number;
           toolCallCount: number;
+          artifacts?: Array<{ path: string; content: string }>;
         }>
       >(),
     verificationCriteria: text("verification_criteria"),

@@ -12,9 +12,6 @@ import {
 } from "ai";
 import type { Tool } from "ai";
 import { aiTelemetry } from "lib/ai/telemetry";
-import { e2bSandboxTool } from "lib/ai/tools/code/e2b-sandbox-tool";
-import { jsExecutionTool } from "lib/ai/tools/code/js-run-tool";
-import { pythonExecutionTool } from "lib/ai/tools/code/python-run-tool";
 import { httpFetchTool } from "lib/ai/tools/http/fetch";
 import { searchKnowledgeBase } from "lib/ai/tools/knowledge-base/search-knowledge-base";
 import {
@@ -32,6 +29,15 @@ import {
 import { generateUUID } from "lib/utils";
 import globalLogger from "logger";
 import { z } from "zod";
+import {
+  MAX_ARTIFACT_CHARS,
+  MAX_WORKER_ARTIFACTS,
+  MAX_WORKER_ARTIFACT_CHARS,
+  type WorkerArtifact,
+  addWorkerArtifact,
+  consolidateWorkerArtifacts,
+  validateArtifactPath,
+} from "./artifacts";
 
 /**
  * Void Orchestrator (master prompt §3.2/§3.4 — Stage 06): the main agent
@@ -74,6 +80,7 @@ export interface OrchestratorWorkerResult {
   summary: string;
   attempts: number;
   toolCallCount: number;
+  artifacts?: WorkerArtifact[];
 }
 
 export type OrchestratorToolOutput =
@@ -117,6 +124,10 @@ export type OrchestratorToolOutput =
         summary: string;
         failedChecks: string[];
       } | null;
+      artifacts: Array<
+        WorkerArtifact & { workerKey: string; workerName: string }
+      >;
+      artifactConflicts: Array<{ path: string; workers: string[] }>;
     }
   | { status: "failed"; error: string; runId?: string };
 
@@ -147,37 +158,43 @@ ${SHARED_WORKER_RULES}`,
   build: {
     title: "Build & Modify",
     system: `You are the 06B Build & Modify worker in a multi-agent build.
-Your mission: produce the working artifact the task describes — inside the
-sandboxed execution tools you have (cloud sandbox for web apps, code
-execution for scripts). Build it, run it, and confirm it actually works
-before reporting. Include the preview URL or file path in your summary.
+Your mission: create the requested text files using the writeArtifact tool.
+Every worker has an isolated output bundle; do not assume another worker can
+see your in-progress writes. Use unique paths when work is independent. If a
+prerequisite artifact is provided, modify it only when your task requires that.
+You cannot claim that generated code was executed unless a test worker supplies
+execution evidence. List every file path in your final summary.
 
 ${SHARED_WORKER_RULES}`,
   },
   test: {
     title: "Test & Analyze",
     system: `You are the 06C Test & Analyze worker in a multi-agent build.
-Your mission: verify the build outputs against the criteria you are given.
-Exercise what was built (fetch the preview URL, run the verification script
-in the sandbox), then report per criterion: PASS or FAIL with concrete
-evidence. Start your final summary with a line "VERDICT: PASS" or
-"VERDICT: FAIL" followed by the per-criterion results.
+Your mission: inspect prerequisite files with readArtifact and verify the
+outputs against the criteria you are given. Fetch an externally reachable
+preview URL when one is provided. Do not claim generated code was executed:
+this worker has no code-execution tool. Report per criterion: PASS or FAIL
+with concrete evidence, and label static inspection separately from runtime
+verification. Start your final summary with "VERDICT: PASS" or
+"VERDICT: FAIL" followed by per-criterion results.
 
 ${SHARED_WORKER_RULES}`,
   },
 };
 
-function workerToolset(
+export function createOrchestratorWorkerTools(
   role: OrchestratorWorkerRole,
-  deps: { customerId?: string; entityId?: string; projectId?: string },
+  deps: {
+    customerId?: string;
+    entityId?: string;
+    projectId?: string;
+    artifacts?: Map<string, string>;
+    inputArtifacts?: Map<string, string>;
+  },
 ): Record<string, Tool> {
-  // Role-scoped instances built fresh per worker: each lane gets ONLY the
-  // tools its role needs (research = read-only; build/test = sandboxed write
-  // scope). Static registry instances + per-request factories.
+  // Role-scoped server tools: workers must not receive UI-only tool schemas
+  // without executors. Build outputs stay in a per-worker bounded artifact map.
   const httpFetch = httpFetchTool;
-  const sandbox = e2bSandboxTool;
-  const js = jsExecutionTool;
-  const python = pythonExecutionTool;
   if (role === "research") {
     return {
       webSearch: createExaSearchTool(deps.customerId, deps.entityId),
@@ -188,17 +205,60 @@ function workerToolset(
   }
   if (role === "build") {
     return {
-      sandbox,
-      javascriptExecution: js,
-      pythonExecution: python,
+      writeArtifact: createTool({
+        description: `Write a text artifact into this worker's isolated output bundle. Paths are relative, never shared with another worker, and are combined after the worker wave. A conflicting write from another worker is reported instead of overwriting either output. Per worker: ${MAX_WORKER_ARTIFACTS} files, ${MAX_ARTIFACT_CHARS} characters per file, ${MAX_WORKER_ARTIFACT_CHARS} characters total. Never write secrets, credentials, or environment files.`,
+        inputSchema: z.object({
+          path: z.string().min(1).max(180),
+          content: z.string().max(MAX_ARTIFACT_CHARS),
+        }),
+        execute: async ({
+          path,
+          content,
+        }: { path: string; content: string }) => {
+          const written = addWorkerArtifact(
+            deps.artifacts ?? new Map(),
+            path,
+            content,
+          );
+          return { success: true, ...written };
+        },
+      }),
+      readArtifact: createTool({
+        description:
+          "Read a complete file from prerequisite workers' artifact bundles. This is read-only; your own output remains isolated until consolidation.",
+        inputSchema: z.object({ path: z.string().min(1).max(180) }),
+        execute: async ({ path }: { path: string }) => {
+          const safePath = validateArtifactPath(path);
+          const content = deps.inputArtifacts?.get(safePath);
+          return content === undefined
+            ? {
+                found: false,
+                error: "Artifact not found in prerequisite outputs.",
+              }
+            : { found: true, path: safePath, content };
+        },
+      }),
       httpFetch,
     };
   }
-  // test
+  // Test workers can read complete prerequisite artifacts through this
+  // read-only server tool and verify externally reachable URLs via HTTP fetch.
   return {
-    javascriptExecution: js,
-    pythonExecution: python,
-    sandbox,
+    readArtifact: createTool({
+      description:
+        "Read a complete file from the prerequisite workers' consolidated artifact bundle. This is read-only; files are isolated to this orchestration run.",
+      inputSchema: z.object({ path: z.string().min(1).max(180) }),
+      execute: async ({ path }: { path: string }) => {
+        const safePath = validateArtifactPath(path);
+        const content = deps.inputArtifacts?.get(safePath);
+        return content === undefined
+          ? {
+              found: false,
+              error: "Artifact not found in prerequisite outputs.",
+            }
+          : { found: true, path: safePath, content };
+      },
+    }),
     httpFetch,
   };
 }
@@ -377,15 +437,18 @@ async function runWorker(
   plan: OrchestratorWorkerPlan,
   deps: OrchestratorDeps,
   signal: AbortSignal | undefined,
+  inputArtifacts: WorkerArtifact[] = [],
 ): Promise<OrchestratorWorkerResult> {
   const role = ROLE_INSTRUCTIONS[plan.role];
   let attempts = 0;
   let lastError = "";
+  let artifacts = new Map<string, string>();
 
   // One retry with the failure reason attached — the master prompt's
   // "retry or delegate failed tasks".
   while (attempts < 2) {
     attempts += 1;
+    artifacts = new Map();
     const retryNote =
       attempts > 1
         ? `\n\nRETRY (attempt ${attempts}). Your previous attempt failed with:\n${lastError}\nFix that specific problem and try again.`
@@ -397,10 +460,14 @@ async function runWorker(
         model: deps.model,
         system: `${role.system}\n\nWorker key: ${plan.key}. Worker name: ${plan.name}.`,
         prompt: task,
-        tools: workerToolset(plan.role, {
+        tools: createOrchestratorWorkerTools(plan.role, {
           customerId: deps.customerId,
           entityId: deps.entityId,
           projectId: deps.projectId,
+          artifacts,
+          inputArtifacts: new Map(
+            inputArtifacts.map((file) => [file.path, file.content]),
+          ),
         }),
         stopWhen: stepCountIs(WORKER_STEPS),
         abortSignal: signal,
@@ -444,6 +511,14 @@ async function runWorker(
         summary,
         attempts,
         toolCallCount: countToolCalls(lastMessage),
+        ...(artifacts.size
+          ? {
+              artifacts: [...artifacts.entries()].map(([path, content]) => ({
+                path,
+                content,
+              })),
+            }
+          : {}),
       };
       sink.push({
         status: "worker-done",
@@ -509,8 +584,8 @@ export const createOrchestratorTool = (deps: OrchestratorDeps) =>
 
 Workers (max ${MAX_WORKERS}):
 - research: read-only fact gathering (web, knowledge base, HTTP)
-- build: produces the artifact inside the sandboxed execution tools (web apps, scripts)
-- test: verifies outputs against criteria
+- build: writes files into an isolated, bounded artifact bundle; workers do not share a filesystem
+- test: reads prerequisite artifacts and verifies outputs against criteria
 
 Use this when the objective genuinely needs MULTIPLE specialists working at
 once (research + build + test, or several independent build pieces). Do NOT
@@ -521,9 +596,12 @@ and dependent workers receive prerequisite summaries after those workers finish.
 Omit workers when you want the orchestrator to decompose the objective itself.
 When you provide verificationCriteria, a Test
 worker independently checks the build outputs against them after the build
-finishes (repaired is not verified). Checkpoints are saved between dependency
-waves. If a run fails, resume with its runId and resumeRunId; only unfinished
-or failed workers rerun.`,
+finishes (repaired is not verified). Build workers can read prerequisite files
+and write up to ${MAX_WORKER_ARTIFACTS} relative text files each. Identical
+same-path writes are deduplicated; conflicting content is withheld and listed
+for resolution. Checkpoints save worker outputs between dependency waves. If a
+run fails, resume with its runId and resumeRunId; only unfinished or failed
+workers rerun.`,
     inputSchema: orchestratorSchema,
     execute: async function* (
       {
@@ -612,7 +690,7 @@ or failed workers rerun.`,
           const planned = await generateText({
             model: deps.model,
             abortSignal: runSignal,
-            prompt: `Decompose this objective into 1-${MAX_WORKERS} role-scoped workers. Use research, build, and test roles. Give each a concrete self-contained task. Use dependsOn only where one worker needs another's output. Keep independent tasks parallel.\n\nObjective: ${objective}\nVerification criteria: ${verificationCriteria ?? "none"}`,
+            prompt: `Decompose this objective into 1-${MAX_WORKERS} role-scoped workers. Use research, build, and test roles. Build workers write requested text files with writeArtifact; they do not share a filesystem. Give each a concrete self-contained task and disjoint paths unless a later dependent build worker is assigned integration. Use dependsOn only where one worker needs another's result. Keep independent tasks parallel.\n\nObjective: ${objective}\nVerification criteria: ${verificationCriteria ?? "none"}`,
             output: Output.object({
               schema: z.object({
                 workers: z.array(workerSchema).min(1).max(MAX_WORKERS),
@@ -729,14 +807,23 @@ or failed workers rerun.`,
                 }
                 const handoff = prerequisites.length
                   ? `\n\nPrerequisite worker results:\n${prerequisites
-                      .map((result) => `[${result.name}] ${result.summary}`)
+                      .map((result) => {
+                        const fileList = result.artifacts?.length
+                          ? `\nArtifacts: ${result.artifacts.map((file) => file.path).join(", ")}`
+                          : "";
+                        return `[${result.name}] ${result.summary}${fileList}`;
+                      })
                       .join("\n\n")}`.slice(0, MAX_PROMPT_CHARS)
                   : "";
+                const inputArtifacts = prerequisites.flatMap(
+                  (result) => result.artifacts ?? [],
+                );
                 return runWorker(
                   sink,
                   { ...plan, task: `${plan.task}${handoff}` },
                   deps,
                   runSignal,
+                  inputArtifacts,
                 );
               }),
             );
@@ -820,6 +907,9 @@ or failed workers rerun.`,
             verifyPlan,
             deps,
             runSignal,
+            workerResults
+              .filter((worker) => worker.role === "build")
+              .flatMap((worker) => worker.artifacts ?? []),
           );
           const parsed = parseVerification(verifyResult.summary);
           verification = {
@@ -838,6 +928,8 @@ or failed workers rerun.`,
         const failedWorkers = workerResults.filter(
           (w) => w.status === "failed",
         );
+        const { artifacts, conflicts: artifactConflicts } =
+          consolidateWorkerArtifacts(workerResults);
         const report = [
           `Objective: ${objective}`,
           "",
@@ -847,6 +939,12 @@ or failed workers rerun.`,
           ),
           verification
             ? `\nVerification: ${verification.passed ? "PASSED" : "FAILED"}\n${verification.summary}`
+            : "",
+          artifacts.length
+            ? `\nConsolidated artifacts (${artifacts.length}): ${artifacts.map((artifact) => artifact.path).join(", ")}`
+            : "",
+          artifactConflicts.length
+            ? `\nArtifact path conflicts: ${artifactConflicts.map((conflict) => `${conflict.path} (${conflict.workers.join(", ")})`).join("; ")}. Conflicting files were withheld; use non-overlapping paths or add an explicit integration worker.`
             : "",
           failedWorkers.length
             ? `\nFailed workers: ${failedWorkers.map((w) => w.name).join(", ")} — their tasks are NOT done.`
@@ -876,6 +974,8 @@ or failed workers rerun.`,
           workers: workerResults,
           report,
           verification,
+          artifacts,
+          artifactConflicts,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

@@ -50,6 +50,13 @@ interface OrchestratorCardOutput {
     failedChecks: string[];
   };
   report?: string;
+  artifacts?: Array<{
+    path: string;
+    content: string;
+    workerKey: string;
+    workerName: string;
+  }>;
+  artifactConflicts?: Array<{ path: string; workers: string[] }>;
 }
 
 const ROLE_ICONS: Record<string, typeof Search> = {
@@ -251,6 +258,40 @@ export const OrchestratorCard = memo(function OrchestratorCard({
       ) : null}
 
       {/* Consolidated report */}
+      {output?.artifacts?.length ? (
+        <section className="space-y-1 rounded-lg border p-3">
+          <h4 className="text-xs font-medium">
+            Generated files ({output.artifacts.length})
+          </h4>
+          {output.artifacts.map((artifact) => (
+            <div
+              key={`${artifact.workerKey}:${artifact.path}`}
+              className="flex items-center justify-between gap-3 text-xs"
+            >
+              <span className="truncate font-mono">{artifact.path}</span>
+              <a
+                className="shrink-0 text-primary underline underline-offset-2"
+                href={`data:text/plain;charset=utf-8,${encodeURIComponent(artifact.content)}`}
+                download={artifact.path.replaceAll("/", "__")}
+              >
+                Download
+              </a>
+            </div>
+          ))}
+        </section>
+      ) : null}
+      {output?.artifactConflicts?.length ? (
+        <section className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs">
+          <h4 className="font-medium text-destructive">
+            Conflicting files were withheld
+          </h4>
+          {output.artifactConflicts.map((conflict) => (
+            <p key={conflict.path} className="mt-1">
+              <code>{conflict.path}</code>: {conflict.workers.join(", ")}
+            </p>
+          ))}
+        </section>
+      ) : null}
       {report ? (
         <div className="rounded-lg bg-muted/40 p-3 text-sm">
           <Markdown>{report}</Markdown>
