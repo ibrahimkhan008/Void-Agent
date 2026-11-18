@@ -15,10 +15,10 @@
 |---|--------|--------|
 | 1 | Void Intelligence — Multi-Model AI | ✅ DONE (BYOK live request pending operator keys) |
 | 2 | Void Agents — Autonomous AI Agents | ✅ DONE (browser automation enablement = operator env) |
-| 3 | Void Memory — Persistent Context | ✅ DONE (BOUNDARIES.md file not in the shipped 9-record set) |
+| 3 | Void Memory — Persistent Context | ✅ DONE (10 versioned project records, including BOUNDARIES.md) |
 | 4 | Void Orchestrator | ✅ DONE (conflict resolution between worker outputs is implicit, not explicit) |
 | 5 | Void Automations | ✅ DONE (Inngest-optional; systemd timers documented) |
-| 6 | Void Hooks | 🟡 (JS/TS/Python user-script hooks not implemented — hooks trigger agents) |
+| 6 | Void Hooks | 🟡 (agent-trigger pipeline and optional JS/TS/Python script step implemented; focused tests pass; live E2B execution remains unverified) |
 | 7 | Void Studio — Creative Workspace | ✅ DONE (artifact version history is single-slot updated_at, not full revision history) |
 | 8 | Void Canvas — Visual Editing | ✅ DONE (browser drill verified; model-plan edits need a provider key at use time) |
 | 9 | Void Motion — Video/Motion | 🟡 (text-to-video ✓; image-to-video, timeline/keyframe editing UI not built — Motion ships as a 29-skill capability pack) |
@@ -33,12 +33,20 @@
 | 18 | Software-development workflow | ✅ DONE (the orchestrator + audit pattern is in daily use) |
 | 19 | Design principles | ✅ inherent in the shipped architecture |
 
-**Organization UI gap (discovered 2026-11-18, not in the original list):**
-the org backend is complete (Better Auth org plugin, roles, invitation
-emails, one-org rule, activation resolution) but the management UI is
-missing — org settings/invite tab, `/accept-invitation/{id}` accept page,
-org switcher. Tracked as the top code-completable item in
-`docs/PROGRESS.md`.
+**Organization UI (cross-cutting feature):**
+`/organization/settings` lists members and pending invitations, sends
+member/admin invitations, and exposes owner/admin-only invite management and
+member removal (with self-removal disabled). Pending invitation links can be
+copied for manual sharing when SMTP delivery is unavailable.
+`/accept-invitation/{id}` keeps
+the sign-in callback, supports acceptance/decline, and activates the joined
+organization. The account menu exposes organization settings and the existing
+workspace switcher. Loading/error states are surfaced and server-side Better
+Auth permissions remain authoritative. This code is implemented but not fully
+verified: no browser end-to-end flow or live invitation-email delivery was
+run. A repository-wide typecheck attempted before the latest UI refinements
+reported existing errors; it was not rerun afterward. See `docs/PROGRESS.md`
+for the next verification steps.
 
 ---
 
@@ -89,7 +97,7 @@ org switcher. Tracked as the top code-completable item in
 - ✅ Project-level memory isolation.
 - ✅ Memory versioning and updates (full revision history; restores append new revisions).
 - ✅ Memory provenance and traceability (audit trail).
-- 🟡 Structured memory files — the shipped 9-record set is MEMORY.md, TODO.md, DONT.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md. **`BOUNDARIES.md` from this list is not in the shipped set.**
+- ✅ Structured project memory — ten versioned records are seeded per project: MEMORY.md, TODO.md, DONT.md, BOUNDARIES.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md, SECURITY.md, DEPLOYMENT.md. The `propose-record` tool accepts the canonical `records/boundaries` slug.
 - ✅ Approval-controlled memory updates (propose-record tool → approval in /memory; rejections keep the audit trail).
 
 ## 4. Void Orchestrator — Multi-Agent Orchestration
@@ -134,19 +142,19 @@ org switcher. Tracked as the top code-completable item in
 
 ## 6. Void Hooks — Event and Extension System
 
-**Status: 🟡 — the agent-trigger pipeline is complete and drill-verified (GitHub payloads, idempotency, gates, chaining); user-authored JS/TS/Python hook scripts are not implemented (hooks execute agents, not arbitrary scripts).**
+**Status: 🟡 — the agent-trigger pipeline is complete and drill-verified; optional user-authored JS/TS/Python script steps are implemented and covered by focused mocked tests. Live E2B execution was not run.**
 
 - ✅ Custom hooks; ✅ global hooks (owner-scoped endpoints); ✅ project-specific hooks (project-bound agents).
 - ✅ Event-based execution; ✅ rule-based execution.
 - ✅ Hooks that trigger agents (the entire pipeline).
+- ✅ Optional JavaScript, TypeScript, and Python script step before agent execution. Scripts receive the normalized event as `payload`; stdout/result output is capped at 12,000 characters and passed to the agent. Execution uses the account-owned `void-agent-code-interpreter` template, secured controller access, disabled outbound network, 30-second runtime timeout, 16,000-character source and 24,000-character payload limits, and unconditional sandbox cleanup. Hook creation and owner-scoped updates expose script configuration.
 - 🟡 Hooks that execute tools / launch workflows — indirectly: the triggered agent runs tools; direct tool-execution hooks are not a separate mechanism.
 - ✅ Hooks that react to GitHub events (push/pull_request/issues — validated against GitHub-realistic payloads; commit-content rules work).
 - 🟡 Hooks that react to project changes — partially (project-scoped endpoints exist; project-change events are not a distinct trigger source).
 - 🟡 Hooks for agent/workflow/verification/deployment events — not a distinct event source today (agent events notify; they don't trigger hooks).
 - 🟡 Hooks for memory updates — the agent can propose memory updates during a hook run; dedicated memory hooks are not separate.
 - ✅ Hooks for schedules and external integrations (webhook/email/Slack inbound).
-- ❌ JavaScript/TypeScript hook support — not implemented.
-- ❌ Python hook support — not implemented.
+- 🟡 Live E2B script run — not verified; focused tests mock the sandbox boundary. E2B's current security page requests prior written consent before tests against its service, so no provider call was made.
 - ✅ Webhook-based triggers.
 - ✅ Scoped permissions (owner-owns-agent, owner-scoped tokens).
 - ✅ Execution timeouts (run clock); ✅ rate limits (cooldown + daily cap).
@@ -306,10 +314,16 @@ org switcher. Tracked as the top code-completable item in
 
 1. ❌ **Void Sentinel** — the largest missing module.
 2. ❌ **Void Cloud** and **Void Devices** — missing (Devices is web-native: per-user persistent sandbox machines layered on the live E2B substrate; Cloud is provider-API infrastructure management).
-3. ❌ **Write-capable swarms** — general N-worker write fan-out.
-4. 🟡 **Hooks as user scripts** (JS/TS/Python) — hooks currently trigger agents.
+3. ✅ **Write-capable swarms (bounded artifact fan-out)** — up to four
+   concurrent workers write isolated, capped text artifacts; prerequisite
+   workers can hand files to dependent builders/verifiers; identical paths are
+   deduplicated and conflicting writes are withheld; successful artifacts are
+   included in the scoped checkpoint and downloadable from chat. Focused tests
+   pass. This does not provide a shared E2B filesystem, mutate the user's
+   repository, execute generated source, or enforce the documented daily tier
+   quotas (2/15/50/200).
+4. 🟡 **Hooks as user scripts** — implementation and focused tests are complete; live E2B runtime verification remains outstanding.
 5. 🟡 **Motion editing surface** — video generation exists; timeline/keyframe editing does not.
-6. 🟡 **BOUNDARIES.md** memory record — add one record to the shipped 9.
-7. 🟡 **Artifact revision history** — full version history for artifacts (Deploy already has versioned history).
-8. 🟡 **Org management UI** — backend complete; settings/invite/accept/switcher surfaces missing (top code-completable item).
-9. 🔒 Live-provider drills (BYOK request, fallback provider drill, connector live OAuth, SMTP delivery) — blocked on operator credentials/accounts, not code.
+6. 🟡 **Artifact revision history** — full version history for artifacts (Deploy already has versioned history).
+7. 🟡 **Org management UI** — implemented; typecheck and browser-flow verification remain.
+8. 🔒 Live-provider drills (BYOK request, fallback provider drill, connector live OAuth, SMTP delivery) — blocked on operator credentials/accounts, not code.

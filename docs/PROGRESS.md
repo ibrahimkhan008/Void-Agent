@@ -16,10 +16,16 @@
 
 ### §3.3 Void Memory — persistent context ✅
 **Implemented:**
-- **Project records**: 9 versioned documents per project — MEMORY.md,
-  TODO.md, DONT.md, RULES.md, STYLE.md, ARCHITECTURE.md, DECISIONS.md,
-  SECURITY.md, DEPLOYMENT.md — stored as brain pages with full revision
+- **Project records**: 10 versioned documents per project — MEMORY.md,
+  TODO.md, DONT.md, BOUNDARIES.md, RULES.md, STYLE.md, ARCHITECTURE.md,
+  DECISIONS.md, SECURITY.md, DEPLOYMENT.md — stored as brain pages with full revision
   history; restores append the restored content as a NEW revision
+- **BOUNDARIES follow-up (2026-11-18)**: the canonical project slug is
+  `records/boundaries`; the `propose-record` tool description now lists valid
+  slugs from the registry. Focused regression coverage verifies the seeded
+  page and initial revision, returned project-record view, and approval-gated
+  proposal path (3/3 tests). The database path is mocked; this does not claim
+  a live PostgreSQL persistence drill.
 - **Global user records**: 5 user-level documents — MEMORY, PERSONA,
   BEHAVIOR, SKILLS, PREFERENCES — applying across all projects, auto-seeded
   on first visit
@@ -97,6 +103,8 @@
     contains/equals, AND semantics, ≤6 rules)
   - Secret-gated tick driver (`/api/hooks/tick`) + the Inngest outbox path
   - Run audit: status, thread, error, timings
+  - Optional user-authored JavaScript/TypeScript/Python step runs before the agent in an ephemeral secured E2B sandbox. Outbound network is denied; source, event payload, execution time, and output are bounded; failures fail the hook before the agent runs; the sandbox is always killed. Creation and owner-scoped script edits are supported.
+  - Focused sandbox-adapter, route, and executor tests pass (40 tests). These mock E2B; no live E2B execution was performed because E2B's current security guidance requests prior written consent before testing against its service.
 **Commits**: `1071f79`, `0f80748`, `4accd3f`, `342d786`
 
 ### B20 — egress isolation ✅ (security boundary)
@@ -168,6 +176,26 @@
 ---
 
 ## 🟡 HALF DONE — exists, exact gaps documented
+
+### Organization management UI — implemented, pending functional verification
+- The authenticated `/organization/settings` page shows the active
+  organization, member list, owner/admin-only invite controls, pending invite
+  management, and member removal (excluding self-removal). Pending invite links
+  can be copied for manual sharing when SMTP email is not configured.
+- `/accept-invitation/{id}` preserves a callback through sign-in and supports
+  accepting or declining an invitation. Accepting activates the joined org.
+- The account menu exposes organization settings and the existing workspace
+  switcher.
+- UI errors and loading states are surfaced; mutations report failures rather
+  than silently appearing successful. Server-side Better Auth permissions
+  remain authoritative.
+- **Not yet fully verified:** no browser end-to-end flow or live invitation
+  email was run. The most recent repository-wide typecheck attempt reported
+  pre-existing failures; it preceded the latest UI refinements and was not
+  repeated. SMTP delivery still requires operator credentials.
+- **Next verification:** run a web typecheck when the known baseline errors
+  are cleared, then exercise organization switch, invitation send/accept/
+  decline/cancel, and member removal in an isolated test organization.
 
 ### §3.1 BYOK — bring your own keys
 - ✅ Per-user keys for local/OpenAI-compatible endpoints
@@ -508,7 +536,7 @@ Autonomous monitoring + repair for published sites, complete as a v1:
   Ledger correction: the earlier claim that a "published-page uptime
   monitor shipped with Deploy depth" had NO code behind it — live/offline
   was DB-state derived only; Sentinel's probes are the first real network
-  monitoring. Remaining NEVER STARTED: §3.11 Cloud & Devices, swarms.
+  monitoring. Remaining NEVER STARTED: §3.11 Cloud & Devices.
 
 ### §3.11 Void Cloud & Devices
 Authorized connections to user infrastructure: VPSs, dedicated servers,
@@ -517,11 +545,34 @@ file operations, deployment, service management — least-privilege, scoped,
 explicit authorization. The voice-device auth module is unrelated hardware
 pairing, not this.
 
-### Write-capable swarms (Stage 06 generalization)
-The orchestrator's workers are role-scoped but the general "spawn N workers
-with write access + consolidation" engine (divide-records-into-ranges,
-wide-research fan-out) is unbuilt. The quota fields in the docs
-(swarm launches/day 2/15/50/200) still have no consuming code.
+### Write-capable swarms (Stage 06 generalization) — implemented, focused verified
+The orchestrator supports up to four concurrent workers with isolated text
+artifact bundles. Build workers write via a server-executed `writeArtifact`
+tool; later dependent build/test workers can read complete prerequisite files.
+Successful outputs are consolidated into downloadable chat artifacts and the
+existing owner/thread-scoped checkpoint JSONB, so no schema migration is
+needed. Identical writes to a path are deduplicated; differing content for a
+shared path is withheld and reported with each writer rather than overwritten.
+
+Write boundaries: relative paths only; traversal, `.env*`, credential/secret,
+and private-key filenames are rejected. Each worker can write at most 16 files,
+32,000 characters per file, and 64,000 characters total; the full swarm is
+limited to 256,000 characters. Retry attempts start with an empty worker-local
+bundle, and failed workers' artifacts are not included in consolidation.
+
+Verification: focused unit tests passed (2 files / 15 tests), including worker
+tool execution, worker isolation, safe paths, all write caps, dependency reads,
+identical-path deduplication, conflict withholding, and failed-worker
+exclusion. The full web suite passed (528 files / 3,501 tests; 7 files / 26
+tests skipped). Targeted Biome, `pnpm db:check`, and `git diff --check` passed.
+One full web typecheck was attempted and failed on existing Code Review,
+Sentinel, Hooks, Notifications, and organization errors; it reported no errors
+in the orchestrator implementation. Two unused imports found in this run were
+removed afterwards; typecheck was not rerun. This is text artifact generation,
+not writes into a shared E2B filesystem or the user's repository, and no
+generated source execution is claimed. Tier-based daily swarm quotas
+(2/15/50/200) remain unenforced. No live model/E2B or PostgreSQL swarm drill
+was run.
 
 ---
 
