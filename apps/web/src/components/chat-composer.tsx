@@ -311,11 +311,11 @@ const VC_STYLES = `
 .vc-message { background: transparent; border: 0; outline: none; resize: none; width: 100%; display: block; color: var(--ct-text); font-size: ${SIZES.msgFs}; line-height: ${SIZES.msgLh}; overflow-y: auto; max-height: calc(${SIZES.msgLh} * 6); }
 .vc-message::placeholder { color: var(--ct-muted); }
 .vc-toolbar { display: flex; align-items: center; gap: ${SIZES.gapToolbar}; margin-top: ${SIZES.cardPadTop}; }
-.vc-toolbar--end { margin-left: auto; gap: ${SIZES.gapToolbarEnd}; }
+.vc-toolbar--end { position: relative; margin-left: auto; gap: ${SIZES.gapToolbarEnd}; }
 .vc-icon-btn { display: grid; place-items: center; width: ${SIZES.icon}; height: ${SIZES.icon}; border-radius: 0.956cqw; color: var(--ct-muted); transition: color 0.15s, background-color 0.15s; }
 .vc-icon-btn:hover { color: var(--ct-text); background: var(--ct-hover-fill); }
 .vc-label { font-size: ${SIZES.labelFs}; line-height: 1.4; color: var(--ct-muted); }
-.vc-foot { display: flex; align-items: center; justify-content: space-between; gap: 1.906cqw; padding: ${SIZES.footPadY} ${SIZES.cardPadX}; }
+.vc-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1.906cqw; padding: ${SIZES.footPadY} ${SIZES.cardPadX}; }
 .vc-row { display: inline-flex; align-items: center; gap: 0.735cqw; font-size: ${SIZES.labelFs}; color: var(--ct-muted); border-radius: 0.956cqw; transition: color 0.15s, background-color 0.15s; padding: 0.29cqw 0.59cqw; margin: -0.29cqw -0.59cqw; }
 .vc-row:hover { color: var(--ct-text); background: var(--ct-hover-fill); }
 .vc-icon { display: grid; place-items: center; width: ${SIZES.icon}; height: ${SIZES.icon}; }
@@ -347,6 +347,9 @@ const VC_STYLES = `
 .vc-square { display: grid; place-items: center; width: ${SIZES.send}; height: ${SIZES.send}; border-radius: ${SIZES.sendRadius}; background: var(--ct-sq-bg); border: 1px solid var(--ct-sq-border); box-shadow: 0 0.83px 1.67px rgba(0,0,0,0.4); color: var(--ct-text); }
 .vc-menu { position: absolute; z-index: 30; background: var(--ct-menu-bg); border-radius: ${SIZES.menuRadius}; padding: ${SIZES.menuPad}; box-shadow: var(--ct-menu-shadow); min-width: 40cqw; transform-origin: var(--vc-origin, bottom right); animation: vc-menu-in 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
 .vc-menu-head { padding: 0.59cqw 1.32cqw 0.44cqw; font-size: 1.62cqw; color: var(--ct-muted); }
+.vc-menu--model { right: 0.5cqw; bottom: calc(100% + 0.66cqw); left: auto; top: auto; transform-origin: bottom right; }
+.vc-menu--folder { left: 0.59cqw; bottom: calc(100% + 0.66cqw); right: auto; top: auto; transform-origin: bottom left; }
+.vc-menu--apps { right: 0.59cqw; bottom: calc(100% + 0.66cqw); left: auto; top: auto; transform-origin: bottom right; }
 @keyframes vc-menu-in { 0% { opacity: 0; transform: scale(0.96); } 100% { opacity: 1; transform: scale(1); } }
 .vc-menu-list { position: relative; display: flex; flex-direction: column; }
 .vc-hover-fill { position: absolute; left: 0; right: 0; height: 0; background: var(--ct-hover-fill); border-radius: 1.32cqw; transition: top 0.15s cubic-bezier(0.22, 1, 0.36, 1), height 0.15s; opacity: 0; }
@@ -697,6 +700,126 @@ export function ChatComposer({
     textareaRef.current?.focus();
   }, []);
 
+  const menuPanel =
+    openMenu === null ? null : (
+      <div
+        className={cn(
+          "vc-menu",
+          openMenu === "model"
+            ? "vc-menu--model"
+            : openMenu === "folder"
+              ? "vc-menu--folder"
+              : "vc-menu--apps",
+        )}
+        role={openMenu === "apps" ? "menu" : "listbox"}
+        aria-label={
+          openMenu === "model"
+            ? "Model picker"
+            : openMenu === "folder"
+              ? "Folder picker"
+              : "Connect apps"
+        }
+        aria-activedescendant={`vc-opt-${activeIndex}`}
+        tabIndex={-1}
+        ref={(el) => {
+          // Placement is pure CSS (vc-menu--model/folder/apps open the
+          // panel upward, edge-aligned to the trigger inside the
+          // positioned foot/toolbar containers). Only focus here, and
+          // never let focus scroll the page.
+          if (el) el.focus({ preventScroll: true });
+        }}
+        onKeyDown={onMenuKeyDown}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node))
+            closeMenu(true);
+        }}
+      >
+        {openMenu !== "model" && (
+          <div className="vc-menu-head">
+            {openMenu === "apps" ? "Apps" : "Work in a folder"}
+          </div>
+        )}
+        <div className="vc-menu-list">
+          <div
+            ref={hoverFillRef}
+            className="vc-hover-fill"
+            data-on="false"
+            aria-hidden="true"
+          />
+          {menuItems.map((item, index) => {
+            const id = `vc-opt-${index}`;
+            const isModel = openMenu === "model" && "description" in item;
+            const isApp = openMenu === "apps" && "logo" in item;
+            const description = isModel
+              ? (item as ChatComposerModel).description
+              : undefined;
+            const selected =
+              openMenu === "model"
+                ? (item as ChatComposerModel).id === modelId
+                : openMenu === "folder"
+                  ? (item as { id: string }).id === pickedFolder
+                  : connected.includes((item as ChatComposerApp).id);
+            return (
+              <div
+                key={item.id}
+                id={id}
+                ref={(el) => {
+                  if (el) optionRefs.current.set(index, el);
+                  else optionRefs.current.delete(index);
+                }}
+                role={openMenu === "apps" ? "menuitemcheckbox" : "option"}
+                aria-checked={openMenu === "apps" ? selected : undefined}
+                aria-selected={openMenu === "apps" ? undefined : selected}
+                className="vc-option"
+                data-hover={
+                  hoverIndex === index ||
+                  (hoverIndex == null && activeIndex === index)
+                }
+                onMouseEnter={() => setHoverIndex(index)}
+                onMouseLeave={() => setHoverIndex(null)}
+                onClick={() => {
+                  if (openMenu === "model")
+                    pickModel(item as ChatComposerModel);
+                  else if (openMenu === "folder")
+                    pickFolder((item as { id: string; name: string }).name);
+                  else toggleApp((item as ChatComposerApp).id);
+                }}
+              >
+                {isApp && (item as ChatComposerApp).logo ? (
+                  <span className="vc-icon" aria-hidden="true">
+                    {(item as ChatComposerApp).logo}
+                  </span>
+                ) : null}
+                {openMenu === "folder" && (
+                  <span className="vc-icon" aria-hidden="true">
+                    <Folder
+                      style={{
+                        width: "1.76cqw",
+                        height: "1.76cqw",
+                        color: "var(--ct-muted)",
+                      }}
+                    />
+                  </span>
+                )}
+                <span>
+                  <span className="vc-option-name">{item.name}</span>
+                  {description && (
+                    <span className="vc-option-desc block">{description}</span>
+                  )}
+                </span>
+                <Check
+                  className="vc-check"
+                  style={{
+                    width: "1.76cqw",
+                    height: "1.76cqw",
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   return (
     <div
       ref={rootRef}
@@ -900,6 +1023,7 @@ export function ChatComposer({
                   </button>
                 )}
               </div>
+              {openMenu === "model" && menuPanel}
             </div>
           </div>
           <div className="vc-foot">
@@ -981,6 +1105,7 @@ export function ChatComposer({
                       </span>
                     );
                   }
+
                   return (
                     <span
                       key={app.id}
@@ -996,154 +1121,9 @@ export function ChatComposer({
                 })}
               </span>
             </button>
+            {(openMenu === "folder" || openMenu === "apps") && menuPanel}
           </div>
         </section>
-
-        {openMenu && (
-          <div
-            className="vc-menu"
-            role={openMenu === "apps" ? "menu" : "listbox"}
-            aria-label={
-              openMenu === "model"
-                ? "Model picker"
-                : openMenu === "folder"
-                  ? "Folder picker"
-                  : "Connect apps"
-            }
-            aria-activedescendant={`vc-opt-${activeIndex}`}
-            tabIndex={-1}
-            ref={(el) => {
-              if (!el) return;
-              // Anchor to the trigger button's corner and open UPWARD over the
-              // card (the composer sits low; flip below only when no room).
-              const btn =
-                openMenu === "model"
-                  ? modelButtonRef.current
-                  : openMenu === "folder"
-                    ? folderButtonRef.current
-                    : appsButtonRef.current;
-              const root = rootRef.current;
-              if (!btn || !root) return;
-              const rootRect = root.getBoundingClientRect();
-              const btnRect = btn.getBoundingClientRect();
-              if (openMenu === "folder") {
-                el.style.left = `${btnRect.left - rootRect.left}px`;
-                el.style.right = "auto";
-              } else {
-                el.style.right = `${rootRect.right - btnRect.right}px`;
-                el.style.left = "auto";
-              }
-              // Foot-row menus always open upward over the card; the model
-              // menu too. Flip below only when the viewport has no room.
-              const opensUp = btnRect.top > 300;
-              if (opensUp) {
-                el.style.bottom = `${rootRect.bottom - btnRect.top + 10}px`;
-                el.style.top = "auto";
-                el.style.setProperty(
-                  "--vc-origin",
-                  openMenu === "folder" ? "bottom left" : "bottom right",
-                );
-              } else {
-                el.style.bottom = "auto";
-                el.style.top = `${btnRect.bottom - rootRect.top + 10}px`;
-                el.style.setProperty(
-                  "--vc-origin",
-                  openMenu === "folder" ? "top left" : "top right",
-                );
-              }
-              el.focus();
-            }}
-            onKeyDown={onMenuKeyDown}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node))
-                closeMenu(true);
-            }}
-          >
-            {openMenu !== "model" && (
-              <div className="vc-menu-head">
-                {openMenu === "apps" ? "Apps" : "Work in a folder"}
-              </div>
-            )}
-            <div className="vc-menu-list">
-              <div
-                ref={hoverFillRef}
-                className="vc-hover-fill"
-                data-on="false"
-                aria-hidden="true"
-              />
-              {menuItems.map((item, index) => {
-                const id = `vc-opt-${index}`;
-                const isModel = openMenu === "model" && "description" in item;
-                const isApp = openMenu === "apps" && "logo" in item;
-                const description = isModel
-                  ? (item as ChatComposerModel).description
-                  : undefined;
-                const selected =
-                  openMenu === "model"
-                    ? (item as ChatComposerModel).id === modelId
-                    : openMenu === "folder"
-                      ? (item as { id: string }).id === pickedFolder
-                      : connected.includes((item as ChatComposerApp).id);
-                return (
-                  <div
-                    key={item.id}
-                    id={id}
-                    ref={(el) => {
-                      if (el) optionRefs.current.set(index, el);
-                      else optionRefs.current.delete(index);
-                    }}
-                    role={openMenu === "apps" ? "menuitemcheckbox" : "option"}
-                    aria-checked={openMenu === "apps" ? selected : undefined}
-                    aria-selected={openMenu === "apps" ? undefined : selected}
-                    className="vc-option"
-                    data-hover={
-                      hoverIndex === index ||
-                      (hoverIndex == null && activeIndex === index)
-                    }
-                    onMouseEnter={() => setHoverIndex(index)}
-                    onMouseLeave={() => setHoverIndex(null)}
-                    onClick={() => {
-                      if (openMenu === "model")
-                        pickModel(item as ChatComposerModel);
-                      else if (openMenu === "folder")
-                        pickFolder((item as { id: string; name: string }).name);
-                      else toggleApp((item as ChatComposerApp).id);
-                    }}
-                  >
-                    {isApp && (item as ChatComposerApp).logo ? (
-                      <span className="vc-icon" aria-hidden="true">
-                        {(item as ChatComposerApp).logo}
-                      </span>
-                    ) : null}
-                    {openMenu === "folder" && (
-                      <span className="vc-icon" aria-hidden="true">
-                        <Folder
-                          style={{
-                            width: "1.76cqw",
-                            height: "1.76cqw",
-                            color: "var(--ct-muted)",
-                          }}
-                        />
-                      </span>
-                    )}
-                    <span>
-                      <span className="vc-option-name">{item.name}</span>
-                      {description && (
-                        <span className="vc-option-desc block">
-                          {description}
-                        </span>
-                      )}
-                    </span>
-                    <Check
-                      className="vc-check"
-                      style={{ width: "1.76cqw", height: "1.76cqw" }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
