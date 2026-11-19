@@ -1022,8 +1022,8 @@ export function ChatComposer({
                     <ArrowUp style={{ width: "2.2cqw", height: "2.2cqw" }} />
                   </button>
                 )}
+                {openMenu === "model" && menuPanel}
               </div>
-              {openMenu === "model" && menuPanel}
             </div>
           </div>
           <div className="vc-foot">
