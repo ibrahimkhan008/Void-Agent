@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   cyberRepository
     .logAuditEvent({
       userId: access.session.user.id,
-      sessionId: finding.sessionId,
+      sessionId: finding.sessionId ?? undefined,
       eventType: "evidence_vault_added",
       severity: "info",
       details: {

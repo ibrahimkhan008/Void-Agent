@@ -24,7 +24,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const [evidence, reports, session] = await Promise.all([
     cyberRepository.listEvidenceByFinding(id),
     cyberRepository.listReportsByFinding(id),
-    cyberRepository.getSessionById(finding.sessionId),
+    finding.sessionId
+      ? cyberRepository.getSessionById(finding.sessionId)
+      : Promise.resolve(null),
   ]);
 
   return NextResponse.json({ finding, evidence, reports, session });
@@ -69,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   cyberRepository
     .logAuditEvent({
       userId: access.session.user.id,
-      sessionId: finding.sessionId,
+      sessionId: finding.sessionId ?? undefined,
       eventType: "finding_updated",
       severity: "info",
       details: { findingId: id, changes: body },

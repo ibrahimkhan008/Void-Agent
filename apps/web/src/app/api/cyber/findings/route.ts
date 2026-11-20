@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!access.ok) return access.response;
 
   let body: {
-    sessionId: string;
+    sessionId?: string | null;
     title: string;
     description?: string;
     severity: string;
@@ -70,32 +70,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (
-    !body.sessionId ||
-    !body.title?.trim() ||
-    !body.severity ||
-    !body.affectedAsset?.trim()
-  ) {
+  if (!body.title?.trim() || !body.severity || !body.affectedAsset?.trim()) {
     return NextResponse.json(
-      { error: "sessionId, title, severity, and affectedAsset are required" },
+      { error: "title, severity, and affectedAsset are required" },
       { status: 400 },
     );
   }
 
-  const cyberSession = await cyberRepository.getSessionById(body.sessionId);
-  if (!cyberSession) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
-  }
+  const normalizedSessionId = body.sessionId?.trim() || null;
+  if (normalizedSessionId) {
+    const cyberSession =
+      await cyberRepository.getSessionById(normalizedSessionId);
+    if (!cyberSession) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
 
-  if (
-    cyberSession.userId !== access.session.user.id &&
-    access.profile.accessTier < 3
-  ) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    if (
+      cyberSession.userId !== access.session.user.id &&
+      access.profile.accessTier < 3
+    ) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
   }
 
   const finding = await cyberRepository.createFinding({
-    sessionId: body.sessionId,
+    sessionId: normalizedSessionId,
     userId: access.session.user.id,
     title: body.title.trim(),
     severity: body.severity.toLowerCase(),
@@ -114,7 +113,7 @@ export async function POST(req: NextRequest) {
   cyberRepository
     .logAuditEvent({
       userId: access.session.user.id,
-      sessionId: body.sessionId,
+      sessionId: normalizedSessionId ?? undefined,
       eventType: "finding_created",
       severity: "info",
       details: {

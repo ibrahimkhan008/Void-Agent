@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     cyberRepository
       .logAuditEvent({
         userId: access.session.user.id,
-        sessionId: finding.sessionId,
+        sessionId: finding.sessionId ?? undefined,
         eventType: "report_exported",
         severity: "info",
         details: { reportId: id, format: report.reportFormat },

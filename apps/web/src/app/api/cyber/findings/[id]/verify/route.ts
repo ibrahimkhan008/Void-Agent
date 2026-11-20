@@ -34,7 +34,9 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
-  const cyberSession = await cyberRepository.getSessionById(finding.sessionId);
+  const cyberSession = finding.sessionId
+    ? await cyberRepository.getSessionById(finding.sessionId)
+    : null;
   const rawScopes = cyberSession
     ? await cyberRepository.listProgramScopes(cyberSession.programId)
     : [];
@@ -48,10 +50,18 @@ export async function POST(_req: NextRequest, { params }: Params) {
     instructionNotes: s.instructionNotes,
   }));
 
-  const scopeEval = evaluateTargetScope({
-    target: finding.affectedAsset,
-    scopes,
-  });
+  const scopeEval =
+    scopes.length > 0
+      ? evaluateTargetScope({
+          target: finding.affectedAsset,
+          scopes,
+        })
+      : {
+          status: "free_form",
+          isInScope: true,
+          reason:
+            "Free-form research finding (no bound target program scope rules).",
+        };
 
   const evidence = await cyberRepository.listEvidenceByFinding(findingId);
   const quality = evaluateFindingQuality(finding);
@@ -122,7 +132,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
   cyberRepository
     .logAuditEvent({
       userId: access.session.user.id,
-      sessionId: finding.sessionId,
+      sessionId: finding.sessionId ?? undefined,
       eventType: "finding_verified",
       severity: mandatoryPassed ? "info" : "warning",
       details: {

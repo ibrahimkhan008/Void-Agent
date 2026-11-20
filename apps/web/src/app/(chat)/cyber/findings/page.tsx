@@ -27,7 +27,7 @@ type Finding = {
   affectedAsset: string;
   cvssScore: string | null;
   createdAt: string;
-  sessionId: string;
+  sessionId: string | null;
 };
 
 type SessionOption = { id: string; title: string };
@@ -67,10 +67,6 @@ function ReportFindingModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!sessionId) {
-      setError("Please create and select a research session first.");
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
@@ -78,7 +74,7 @@ function ReportFindingModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
+          sessionId: sessionId || null,
           title,
           severity,
           affectedAsset,
@@ -112,15 +108,14 @@ function ReportFindingModal({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1">
-            Research Session *
+            Research Session (optional)
           </label>
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
-            required
             className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
           >
-            <option value="">Select session…</option>
+            <option value="">Standalone / Free-form finding</option>
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.title}

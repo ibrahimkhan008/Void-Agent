@@ -25,6 +25,8 @@ export const CyberResearcherProfileTable = pgTable(
     status: varchar("status", { length: 32 }).notNull().default("active"), // active, suspended, revoked
     voidTrustScore: integer("void_trust_score").notNull().default(500), // 0 - 1000
     mfaEnforced: boolean("mfa_enforced").notNull().default(false),
+    maxConcurrentAgents: integer("max_concurrent_agents"), // null = inherit from user's subscription plan
+    maxActiveSessions: integer("max_active_sessions"), // null = inherit from user's subscription plan
     invitedByUserId: uuid("invited_by_user_id").references(() => UserTable.id, {
       onDelete: "set null",
     }),
@@ -134,9 +136,9 @@ export const CyberFindingTable = pgTable(
   "cyber_finding",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => CyberSessionTable.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => CyberSessionTable.id, {
+      onDelete: "set null",
+    }),
     userId: uuid("user_id")
       .notNull()
       .references(() => UserTable.id, { onDelete: "cascade" }),
@@ -230,5 +232,63 @@ export const CyberAuditEventTable = pgTable(
     userAuditIdx: index("cyber_audit_user_idx").on(table.userId),
     sessionAuditIdx: index("cyber_audit_session_idx").on(table.sessionId),
     eventAuditIdx: index("cyber_audit_event_type_idx").on(table.eventType),
+  }),
+);
+
+// 9. User-Defined Predefined Cyber Agents
+export const CyberAgentTable = pgTable(
+  "cyber_agent",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 128 }).notNull(),
+    description: text("description"),
+    systemPrompt: text("system_prompt").notNull(),
+    skillSlugs: jsonb("skill_slugs").notNull().default([]), // e.g. ["cloudflare-security-audit"]
+    sandboxEnabled: boolean("sandbox_enabled").notNull().default(true),
+    isShared: boolean("is_shared").notNull().default(false),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    userAgentIdx: index("cyber_agent_user_idx").on(table.userId),
+  }),
+);
+
+// 10. Bug Bounty Agent Self-Learning Playbook Files
+export const CyberLearningFileTable = pgTable(
+  "cyber_learning_file",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => UserTable.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").references(() => CyberAgentTable.id, {
+      onDelete: "set null",
+    }),
+    filename: varchar("filename", { length: 128 })
+      .notNull()
+      .default("bugbounty-self-learning.md"),
+    contentMarkdown: text("content_markdown").notNull().default(""),
+    entriesCount: integer("entries_count").notNull().default(0),
+    lastLearnedSummary: text("last_learned_summary"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: timestamp("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    userFileIdx: index("cyber_learning_user_file_idx").on(
+      table.userId,
+      table.filename,
+    ),
   }),
 );

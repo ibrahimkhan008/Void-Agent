@@ -1,4 +1,5 @@
 import { requireCyberAccess } from "lib/cyber/auth";
+import { resolveUserCyberQuotas } from "lib/cyber/quotas";
 import { cyberRepository } from "lib/db/pg/repositories/cyber-repository.pg";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -10,16 +11,35 @@ export async function GET(req: NextRequest) {
   const limit = Number(url.searchParams.get("limit") ?? "20");
   const programId = url.searchParams.get("programId");
 
-  const sessions = programId
-    ? await cyberRepository.listSessionsByProgram(programId, limit)
-    : await cyberRepository.listSessionsByUser(access.session.user.id, limit);
+  const [sessions, quotas] = await Promise.all([
+    programId
+      ? cyberRepository.listSessionsByProgram(programId, limit)
+      : cyberRepository.listSessionsByUser(access.session.user.id, limit),
+    resolveUserCyberQuotas(access.session.user.id, access.profile),
+  ]);
 
-  return NextResponse.json({ sessions });
+  return NextResponse.json({ sessions, quotas });
 }
 
 export async function POST(req: NextRequest) {
   const access = await requireCyberAccess(1);
   if (!access.ok) return access.response;
+
+  // Enforce owner-controlled Max Active Cyber Sessions per user plan / override
+  const quotas = await resolveUserCyberQuotas(
+    access.session.user.id,
+    access.profile,
+  );
+  if (quotas.activeCyberSessions >= quotas.maxActiveCyberSessions) {
+    return NextResponse.json(
+      {
+        error: `Active Void Cyber session limit reached (${quotas.activeCyberSessions}/${quotas.maxActiveCyberSessions} for ${quotas.planLabel} plan). Complete or pause an active session first, or ask an admin to raise your limit.`,
+        code: "CYBER_SESSION_LIMIT_REACHED",
+        quotas,
+      },
+      { status: 429 },
+    );
+  }
 
   let body: {
     programId: string;
@@ -73,7 +93,12 @@ export async function POST(req: NextRequest) {
       sessionId: cyberSession.id,
       eventType: "session_created",
       severity: "info",
-      details: { programId: body.programId, title: cyberSession.title },
+      details: {
+        programId: body.programId,
+        title: cyberSession.title,
+        activeSessionsAfter: quotas.activeCyberSessions + 1,
+        maxActiveSessions: quotas.maxActiveCyberSessions,
+      },
     })
     .catch(() => {});
 

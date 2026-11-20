@@ -11,10 +11,12 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  Lock,
   RefreshCw,
   Search,
   ShieldAlert,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AuditEvent = {
@@ -36,13 +38,13 @@ const SEVERITY_FILTERS = [
 
 export default function AuditTrailPage() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [canViewAll, setCanViewAll] = useState(false);
-  const [scopeAll, setScopeAll] = useState(false);
+  const [scopeAll, setScopeAll] = useState(true);
   const [severity, setSeverity] = useState("");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
@@ -50,20 +52,24 @@ export default function AuditTrailPage() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
       setError(null);
+      setForbidden(false);
 
       const params = new URLSearchParams({ limit: "100" });
-      if (scopeAll) params.set("scope", "all");
+      if (!scopeAll) params.set("scope", "self");
       if (severity) params.set("severity", severity);
 
       try {
         const res = await fetch(`/api/cyber/audit?${params}`);
+        if (res.status === 403 || res.status === 401) {
+          setForbidden(true);
+          return;
+        }
         const data = await res.json();
         if (!res.ok) {
           setError(data.error ?? "Failed to load audit log");
           return;
         }
         setEvents(data.events ?? []);
-        setCanViewAll(Boolean(data.canViewAll));
       } catch {
         setError("Network error while loading audit events");
       } finally {
@@ -90,27 +96,48 @@ export default function AuditTrailPage() {
 
   const breachCount = events.filter((e) => e.severity === "breach").length;
 
+  if (!loading && forbidden) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center">
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 mb-4">
+          <Lock className="size-7 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h1 className="text-lg font-semibold text-foreground mb-1.5">
+          Administrator Access Required
+        </h1>
+        <p className="text-sm text-muted-foreground max-w-md mb-6">
+          The Void Cyber Security Audit Trail is restricted strictly to platform
+          administrators.
+        </p>
+        <Link
+          href="/cyber/dashboard"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+        >
+          Back to Cyber Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-5xl space-y-6">
       <CyberPageHeader
         title="Security Audit Trail"
-        description="Immutable behavioral log of scope evaluations, blocked out-of-scope attempts, agent commands, verifications, and governance actions."
+        description="Admin-only immutable behavioral log of scope evaluations, blocked out-of-scope attempts, agent commands, verifications, and governance actions."
         actions={
           <div className="flex items-center gap-2">
-            {canViewAll && (
-              <button
-                type="button"
-                onClick={() => setScopeAll((v) => !v)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
-                  scopeAll
-                    ? "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
-                    : "bg-card text-muted-foreground border-border hover:text-foreground",
-                )}
-              >
-                {scopeAll ? "Viewing Organization" : "My Events Only"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setScopeAll((v) => !v)}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+                scopeAll
+                  ? "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground",
+              )}
+            >
+              {scopeAll ? "All Organization Events" : "My Events Only"}
+            </button>
             <button
               type="button"
               onClick={() => load(true)}

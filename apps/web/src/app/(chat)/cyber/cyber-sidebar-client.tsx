@@ -4,8 +4,10 @@ import { TIER_LABELS, TIER_STYLES } from "@/components/cyber/cyber-ui";
 import { cn } from "lib/utils";
 import {
   Activity,
+  Bot,
   Bug,
   FileText,
+  LayoutDashboard,
   Menu,
   Search,
   Shield,
@@ -26,13 +28,18 @@ interface CyberProfile {
 }
 
 interface CyberSidebarClientProps {
-  userEmail: string;
-  userName: string;
   cyberProfile: CyberProfile | null;
 }
 
 const NAV_ITEMS = [
-  { label: "Command Center", href: "/cyber", icon: Shield, exact: true },
+  { label: "Cyber Chat", href: "/cyber", icon: Shield, exact: true },
+  {
+    label: "Dashboard",
+    href: "/cyber/dashboard",
+    icon: LayoutDashboard,
+    exact: false,
+  },
+  { label: "Cyber Agents", href: "/cyber/agents", icon: Bot, exact: false },
   { label: "Programs", href: "/cyber/programs", icon: Target, exact: false },
   {
     label: "Scope Checker",
@@ -43,15 +50,18 @@ const NAV_ITEMS = [
   { label: "Sessions", href: "/cyber/sessions", icon: Terminal, exact: false },
   { label: "Findings", href: "/cyber/findings", icon: Bug, exact: false },
   { label: "Reports", href: "/cyber/reports", icon: FileText, exact: false },
-  { label: "Audit Trail", href: "/cyber/audit", icon: Activity, exact: false },
 ];
 
-const ADMIN_NAV_ITEM = {
-  label: "User Governance",
-  href: "/cyber/admin/users",
-  icon: Users,
-  exact: false,
-};
+// Strictly Admin / Owner ONLY (never visible to regular users/researchers)
+const ADMIN_NAV_ITEMS = [
+  { label: "Audit Trail", href: "/cyber/audit", icon: Activity, exact: false },
+  {
+    label: "User Governance",
+    href: "/cyber/admin/users",
+    icon: Users,
+    exact: false,
+  },
+];
 
 function VoidTrustBar({ score }: { score: number }) {
   const pct = Math.min(Math.max(Math.round((score / 1000) * 100), 0), 100);
@@ -138,12 +148,15 @@ function NavItem({
   );
 }
 
-export function CyberSidebarClient({
-  userEmail,
-  userName,
-  cyberProfile,
-}: CyberSidebarClientProps) {
+export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Keep `/cyber` 100% identical to `/` and `/cloud-agent` — NO extra side panel on default Cyber Chat.
+  // The Cyber workspace sidebar only appears on `/cyber/dashboard` and extra feature routes.
+  if (pathname === "/cyber") {
+    return null;
+  }
 
   const tierLabel = cyberProfile
     ? (TIER_LABELS[cyberProfile.accessTier] ??
@@ -156,7 +169,7 @@ export function CyberSidebarClient({
 
   const navItems = [
     ...NAV_ITEMS,
-    ...(cyberProfile && cyberProfile.accessTier >= 3 ? [ADMIN_NAV_ITEM] : []),
+    ...(cyberProfile && cyberProfile.accessTier >= 3 ? ADMIN_NAV_ITEMS : []),
   ];
 
   const sidebarBody = (
@@ -194,22 +207,12 @@ export function CyberSidebarClient({
         ))}
       </nav>
 
-      <div className="px-4 py-4 border-t border-border space-y-3">
+      <div className="px-4 py-4 border-t border-border">
         {cyberProfile ? (
           <VoidTrustBar score={cyberProfile.voidTrustScore} />
         ) : (
           <p className="text-xs text-muted-foreground">No cyber profile</p>
         )}
-        <div className="min-w-0 pt-1">
-          <p className="text-xs font-medium text-foreground truncate">
-            {userName || userEmail}
-          </p>
-          {userName && userEmail && (
-            <p className="text-[11px] text-muted-foreground truncate">
-              {userEmail}
-            </p>
-          )}
-        </div>
       </div>
     </div>
   );

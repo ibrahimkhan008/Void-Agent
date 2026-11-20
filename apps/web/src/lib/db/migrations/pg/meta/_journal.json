@@ -666,6 +666,20 @@
       "when": 1795090000000,
       "tag": "0096_void_cyber_subsystem",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1795100000000,
+      "tag": "0097_void_cyber_agents_and_quotas",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1795110000000,
+      "tag": "0098_void_cyber_self_learning_and_nullable_session",
+      "breakpoints": true
     }
   ]
 }

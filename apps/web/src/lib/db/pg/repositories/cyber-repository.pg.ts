@@ -1,11 +1,13 @@
 import "server-only";
 
-import { type SQL, and, desc, eq, sql } from "drizzle-orm";
+import { type SQL, and, desc, eq, or, sql } from "drizzle-orm";
 import { pgDb as db } from "../db.pg";
 import {
+  CyberAgentTable,
   CyberAuditEventTable,
   CyberEvidenceVaultTable,
   CyberFindingTable,
+  CyberLearningFileTable,
   CyberProgramScopeTable,
   CyberProgramTable,
   CyberReportTable,
@@ -20,6 +22,7 @@ const UUID_REGEX =
 export type CyberResearcherWithUser = CyberResearcherProfile & {
   email: string | null;
   name: string | null;
+  subscriptionTier: string | null;
 };
 
 export type CyberProgramWithCounts = CyberProgram & {
@@ -37,6 +40,8 @@ export type CyberFinding = typeof CyberFindingTable.$inferSelect;
 export type CyberEvidenceVault = typeof CyberEvidenceVaultTable.$inferSelect;
 export type CyberReport = typeof CyberReportTable.$inferSelect;
 export type CyberAuditEvent = typeof CyberAuditEventTable.$inferSelect;
+export type CyberAgent = typeof CyberAgentTable.$inferSelect;
+export type CyberLearningFile = typeof CyberLearningFileTable.$inferSelect;
 
 export const cyberRepository = {
   // --- 1. Target Programs ---
@@ -219,6 +224,8 @@ export const cyberRepository = {
     status?: string;
     voidTrustScore?: number;
     mfaEnforced?: boolean;
+    maxConcurrentAgents?: number | null;
+    maxActiveSessions?: number | null;
     invitedByUserId?: string;
   }): Promise<CyberResearcherProfile> {
     const [upserted] = await db
@@ -230,6 +237,8 @@ export const cyberRepository = {
         status: data.status ?? "active",
         voidTrustScore: data.voidTrustScore ?? 500,
         mfaEnforced: data.mfaEnforced ?? false,
+        maxConcurrentAgents: data.maxConcurrentAgents ?? null,
+        maxActiveSessions: data.maxActiveSessions ?? null,
         invitedByUserId: data.invitedByUserId,
       })
       .onConflictDoUpdate({
@@ -249,11 +258,27 @@ export const cyberRepository = {
             data.mfaEnforced !== undefined
               ? data.mfaEnforced
               : sql`${CyberResearcherProfileTable.mfaEnforced}`,
+          maxConcurrentAgents:
+            data.maxConcurrentAgents !== undefined
+              ? data.maxConcurrentAgents
+              : sql`${CyberResearcherProfileTable.maxConcurrentAgents}`,
+          maxActiveSessions:
+            data.maxActiveSessions !== undefined
+              ? data.maxActiveSessions
+              : sql`${CyberResearcherProfileTable.maxActiveSessions}`,
           updatedAt: sql`CURRENT_TIMESTAMP`,
         },
       })
       .returning();
     return upserted;
+  },
+
+  async deleteResearcherProfile(userId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(CyberResearcherProfileTable)
+      .where(eq(CyberResearcherProfileTable.userId, userId))
+      .returning({ userId: CyberResearcherProfileTable.userId });
+    return deleted.length > 0;
   },
 
   async listResearchers(options?: {
@@ -265,6 +290,7 @@ export const cyberRepository = {
         profile: CyberResearcherProfileTable,
         email: UserTable.email,
         name: UserTable.name,
+        subscriptionTier: UserTable.tier,
       })
       .from(CyberResearcherProfileTable)
       .leftJoin(UserTable, eq(CyberResearcherProfileTable.userId, UserTable.id))
@@ -276,7 +302,98 @@ export const cyberRepository = {
       ...r.profile,
       email: r.email ?? null,
       name: r.name ?? null,
+      subscriptionTier: r.subscriptionTier ?? "free",
     }));
+  },
+
+  async countActiveSessionsByUser(userId: string): Promise<number> {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(CyberSessionTable)
+      .where(
+        and(
+          eq(CyberSessionTable.userId, userId),
+          eq(CyberSessionTable.status, "active"),
+        ),
+      );
+    return row?.count ?? 0;
+  },
+
+  // --- 9. Predefined Cyber Agents ---
+  async createAgent(data: {
+    userId: string;
+    name: string;
+    description?: string;
+    systemPrompt: string;
+    skillSlugs?: string[];
+    sandboxEnabled?: boolean;
+    isShared?: boolean;
+  }): Promise<CyberAgent> {
+    const [inserted] = await db
+      .insert(CyberAgentTable)
+      .values({
+        userId: data.userId,
+        name: data.name,
+        description: data.description,
+        systemPrompt: data.systemPrompt,
+        skillSlugs: data.skillSlugs ?? [],
+        sandboxEnabled: data.sandboxEnabled ?? true,
+        isShared: data.isShared ?? false,
+      })
+      .returning();
+    return inserted;
+  },
+
+  async getAgentById(id: string): Promise<CyberAgent | null> {
+    const [agent] = await db
+      .select()
+      .from(CyberAgentTable)
+      .where(eq(CyberAgentTable.id, id))
+      .limit(1);
+    return agent || null;
+  },
+
+  async listAgentsForUser(userId: string): Promise<CyberAgent[]> {
+    return db
+      .select()
+      .from(CyberAgentTable)
+      .where(
+        or(
+          eq(CyberAgentTable.userId, userId),
+          eq(CyberAgentTable.isShared, true),
+        ),
+      )
+      .orderBy(desc(CyberAgentTable.createdAt));
+  },
+
+  async updateAgent(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      systemPrompt: string;
+      skillSlugs: string[];
+      sandboxEnabled: boolean;
+      isShared: boolean;
+    }>,
+  ): Promise<CyberAgent | null> {
+    const [updated] = await db
+      .update(CyberAgentTable)
+      .set({
+        ...data,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+      })
+      .where(eq(CyberAgentTable.id, id))
+      .returning();
+    return updated || null;
+  },
+
+  async deleteAgent(id: string): Promise<boolean> {
+    const deleted = await db
+      .delete(CyberAgentTable)
+      .where(eq(CyberAgentTable.id, id))
+      .returning({ id: CyberAgentTable.id });
+    return deleted.length > 0;
   },
 
   async findUserByEmailOrId(
@@ -385,7 +502,7 @@ export const cyberRepository = {
 
   // --- 5. Security Findings ---
   async createFinding(data: {
-    sessionId: string;
+    sessionId?: string | null;
     userId: string;
     title: string;
     cweId?: string;
@@ -403,7 +520,7 @@ export const cyberRepository = {
     const [inserted] = await db
       .insert(CyberFindingTable)
       .values({
-        sessionId: data.sessionId,
+        sessionId: data.sessionId ?? null,
         userId: data.userId,
         title: data.title,
         cweId: data.cweId,
@@ -596,5 +713,64 @@ export const cyberRepository = {
       return query.where(and(...conditions));
     }
     return query;
+  },
+
+  // --- 10. Bug Bounty Agent Self-Learning Playbook Files ---
+  async getLearningFile(
+    userId: string,
+    filename = "bugbounty-self-learning.md",
+  ): Promise<CyberLearningFile | null> {
+    const [row] = await db
+      .select()
+      .from(CyberLearningFileTable)
+      .where(
+        and(
+          eq(CyberLearningFileTable.userId, userId),
+          eq(CyberLearningFileTable.filename, filename),
+        ),
+      )
+      .limit(1);
+    return row || null;
+  },
+
+  async upsertLearningFile(data: {
+    userId: string;
+    filename?: string;
+    contentMarkdown: string;
+    entriesCount: number;
+    lastLearnedSummary?: string | null;
+    agentId?: string | null;
+  }): Promise<CyberLearningFile> {
+    const filename = data.filename ?? "bugbounty-self-learning.md";
+    const existing = await this.getLearningFile(data.userId, filename);
+    if (existing) {
+      const [updated] = await db
+        .update(CyberLearningFileTable)
+        .set({
+          contentMarkdown: data.contentMarkdown,
+          entriesCount: data.entriesCount,
+          lastLearnedSummary:
+            data.lastLearnedSummary !== undefined
+              ? data.lastLearnedSummary
+              : existing.lastLearnedSummary,
+          updatedAt: sql`CURRENT_TIMESTAMP`,
+        })
+        .where(eq(CyberLearningFileTable.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [inserted] = await db
+      .insert(CyberLearningFileTable)
+      .values({
+        userId: data.userId,
+        agentId: data.agentId ?? null,
+        filename,
+        contentMarkdown: data.contentMarkdown,
+        entriesCount: data.entriesCount,
+        lastLearnedSummary: data.lastLearnedSummary ?? null,
+      })
+      .returning();
+    return inserted;
   },
 };

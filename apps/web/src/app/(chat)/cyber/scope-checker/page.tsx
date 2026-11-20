@@ -214,23 +214,23 @@ function ScopeCheckerInner() {
 
         <div>
           <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-            Attack Category
+            Test / Attack Category (Optional — free-form)
           </label>
-          <div className="relative">
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 pr-8 transition-colors"
-            >
-              <option value="">Any / Not specified</option>
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          </div>
+          <input
+            type="text"
+            list="cyber-category-suggestions"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Type any security test, e.g. Cloudflare Workers audit, SSRF, BOLA, GraphQL auth…"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-colors"
+          />
+          <datalist id="cyber-category-suggestions">
+            {CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </datalist>
         </div>
 
         <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border">

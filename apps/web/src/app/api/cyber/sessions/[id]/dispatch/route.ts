@@ -2,6 +2,11 @@ import { generateText } from "ai";
 import { getModelInstance } from "lib/ai/models";
 import { requireCyberAccess } from "lib/cyber/auth";
 import {
+  acquireCyberAgentSlot,
+  releaseCyberAgentSlot,
+  resolveUserCyberQuotas,
+} from "lib/cyber/quotas";
+import {
   type ProgramScopeAsset,
   evaluateTargetScope,
 } from "lib/cyber/scope-matcher";
@@ -213,7 +218,27 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
     .catch(() => {});
 
-  // 2. INVOKE VOID AGENT SECURITY RESEARCH MODEL
+  // 2. ENFORCE CONCURRENT CYBER AGENT QUOTA
+  const quotas = await resolveUserCyberQuotas(
+    access.session.user.id,
+    access.profile,
+  );
+  const slot = acquireCyberAgentSlot(
+    access.session.user.id,
+    quotas.maxConcurrentAgents,
+  );
+  if (!slot.acquired) {
+    return NextResponse.json(
+      {
+        error: `Concurrent Cyber agent limit reached (${slot.running}/${quotas.maxConcurrentAgents} on ${quotas.planLabel}). Wait for an active agent run to finish or ask an owner to increase your plan/user limit.`,
+        code: "CYBER_CONCURRENT_AGENT_LIMIT",
+        quotas,
+      },
+      { status: 429 },
+    );
+  }
+
+  // 3. INVOKE VOID AGENT SECURITY RESEARCH MODEL
   const inScopeSummary = scopes
     .filter((s) => s.isInScope)
     .map(
@@ -316,5 +341,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         reason: c.reason,
       })),
     });
+  } finally {
+    releaseCyberAgentSlot(access.session.user.id);
   }
 }

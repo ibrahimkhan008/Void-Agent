@@ -14,7 +14,7 @@ import { AgentSummary, AgentUpdateSchema } from "app-types/agent";
 import { canCreateAgent } from "lib/auth/client-permissions";
 import { notify } from "lib/notify";
 import { fetcher } from "lib/utils";
-import { ArrowUpRight, Library, Plus } from "lucide-react";
+import { ArrowUpRight, Library, Plus, Shield, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
@@ -27,9 +27,21 @@ import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
 import { handleErrorWithToast } from "ui/shared-toast";
 import { useShallow } from "zustand/shallow";
 
+export interface CyberAgentSummary {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  isShared: boolean;
+  isBuiltin?: boolean;
+  openHref?: string;
+  editHref?: string | null;
+}
+
 interface AgentsListProps {
   initialMyAgents: AgentSummary[];
   initialSharedAgents: AgentSummary[];
+  initialCyberAgents?: CyberAgentSummary[];
   userId: string;
   userRole?: string | null;
 }
@@ -37,11 +49,15 @@ interface AgentsListProps {
 export function AgentsList({
   initialMyAgents,
   initialSharedAgents,
+  initialCyberAgents = [],
   userId,
   userRole,
 }: AgentsListProps) {
   const t = useTranslations();
   const mutateAgents = useMutateAgents();
+  const [cyberAgents, setCyberAgents] =
+    useState<CyberAgentSummary[]>(initialCyberAgents);
+  const [deletingCyberId, setDeletingCyberId] = useState<string | null>(null);
   const [deletingAgentLoading, setDeletingAgentLoading] = useState<
     string | null
   >(null);
@@ -139,6 +155,28 @@ export function AgentsList({
         toast.error(t("Common.error"));
       })
       .watch(() => setDeletingAgentLoading(null));
+  };
+
+  const deleteCyberAgent = async (agentId: string) => {
+    const ok = await notify.confirm({
+      description: t("Agent.deleteConfirm"),
+    });
+    if (!ok) return;
+    setDeletingCyberId(agentId);
+    try {
+      const res = await fetch(`/api/cyber/agents/${agentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        toast.error(t("Common.error"));
+        return;
+      }
+      setCyberAgents((prev) => prev.filter((a) => a.id !== agentId));
+    } catch {
+      toast.error(t("Common.error"));
+    } finally {
+      setDeletingCyberId(null);
+    }
   };
 
   // Check if user can create agents using Better Auth permissions
@@ -280,6 +318,97 @@ export function AgentsList({
           )}
         </div>
       </div>
+
+      {/* Void Cyber Predefined Agents Section (shown whenever Cyber agents exist) */}
+      {cyberAgents.length > 0 && (
+        <div className="mt-8 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Shield className="size-4 text-cyan-600 dark:text-cyan-400" />
+            <h2 className="text-lg font-semibold">Void Cyber Agents</h2>
+            <div className="flex-1 h-px bg-border" />
+            <Link href="/cyber/agents">
+              <Button variant="ghost" size="sm">
+                <Plus className="size-3.5" />
+                Manage Cyber Agents
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {cyberAgents.map((agent) => {
+              const isMine = !agent.isBuiltin && agent.userId === userId;
+              const openHref =
+                agent.openHref ??
+                `/cyber?agentId=${encodeURIComponent(agent.id)}`;
+              const editHref =
+                agent.editHref !== undefined
+                  ? agent.editHref
+                  : isMine
+                    ? "/cyber/agents"
+                    : null;
+              return (
+                <Card
+                  key={agent.id}
+                  className="flex flex-col justify-between hover:border-cyan-500/40 transition-colors"
+                >
+                  <CardHeader className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex items-center justify-center size-7 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shrink-0">
+                          <Shield className="size-3.5" />
+                        </span>
+                        <CardTitle className="text-base truncate">
+                          {agent.name}
+                        </CardTitle>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25 shrink-0">
+                        {agent.isBuiltin
+                          ? "Built-in Cyber"
+                          : agent.isShared && !isMine
+                            ? "Shared Cyber"
+                            : "Cyber"}
+                      </span>
+                    </div>
+                    <CardDescription className="line-clamp-2 text-xs">
+                      {agent.description ||
+                        "Predefined Void Cyber specialist agent."}
+                    </CardDescription>
+                  </CardHeader>
+                  <div className="px-6 pb-4 flex items-center justify-between gap-2">
+                    <Link href={openHref}>
+                      <Button variant="secondary" size="sm">
+                        Open in Cyber
+                        <ArrowUpRight className="size-3.5" />
+                      </Button>
+                    </Link>
+                    <div className="flex items-center gap-1">
+                      {editHref && (
+                        <Link href={editHref}>
+                          <Button variant="ghost" size="sm">
+                            Edit
+                          </Button>
+                        </Link>
+                      )}
+                      {isMine && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={deletingCyberId === agent.id}
+                          onClick={() => deleteCyberAgent(agent.id)}
+                          aria-label={`Delete ${agent.name}`}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

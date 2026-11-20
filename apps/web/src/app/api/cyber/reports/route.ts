@@ -98,9 +98,9 @@ export async function POST(req: NextRequest) {
 
   const firstFinding = validFindings[0];
   let programName: string | undefined;
-  const cyberSession = await cyberRepository.getSessionById(
-    firstFinding.sessionId,
-  );
+  const cyberSession = firstFinding.sessionId
+    ? await cyberRepository.getSessionById(firstFinding.sessionId)
+    : null;
   if (cyberSession) {
     const program = await cyberRepository.getProgramById(
       cyberSession.programId,
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
   cyberRepository
     .logAuditEvent({
       userId: access.session.user.id,
-      sessionId: firstFinding.sessionId,
+      sessionId: firstFinding.sessionId ?? undefined,
       eventType: "report_compiled",
       severity: "info",
       details: {

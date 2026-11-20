@@ -39,6 +39,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     status?: string;
     voidTrustScore?: number;
     mfaEnforced?: boolean;
+    maxConcurrentAgents?: number | null;
+    maxActiveSessions?: number | null;
   };
 
   try {
@@ -55,13 +57,44 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
+  const clampedTrust =
+    typeof body.voidTrustScore === "number" &&
+    Number.isFinite(body.voidTrustScore)
+      ? Math.min(1000, Math.max(0, Math.round(body.voidTrustScore)))
+      : undefined;
+
+  const cleanRole =
+    typeof body.role === "string" && body.role.trim()
+      ? body.role.trim().slice(0, 32)
+      : undefined;
+
+  const cleanMaxAgents =
+    body.maxConcurrentAgents === null
+      ? null
+      : typeof body.maxConcurrentAgents === "number" &&
+          Number.isFinite(body.maxConcurrentAgents) &&
+          body.maxConcurrentAgents >= 1
+        ? Math.floor(body.maxConcurrentAgents)
+        : undefined;
+
+  const cleanMaxSessions =
+    body.maxActiveSessions === null
+      ? null
+      : typeof body.maxActiveSessions === "number" &&
+          Number.isFinite(body.maxActiveSessions) &&
+          body.maxActiveSessions >= 1
+        ? Math.floor(body.maxActiveSessions)
+        : undefined;
+
   const updated = await cyberRepository.upsertResearcherProfile({
     userId,
     accessTier: body.accessTier,
-    role: body.role,
+    role: cleanRole,
     status: body.status,
-    voidTrustScore: body.voidTrustScore,
+    voidTrustScore: clampedTrust,
     mfaEnforced: body.mfaEnforced,
+    maxConcurrentAgents: cleanMaxAgents,
+    maxActiveSessions: cleanMaxSessions,
   });
 
   cyberRepository
@@ -71,10 +104,50 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       severity: "info",
       details: {
         targetUserId: userId,
-        changes: body,
+        changes: {
+          accessTier: body.accessTier,
+          role: cleanRole,
+          status: body.status,
+          voidTrustScore: clampedTrust,
+          maxConcurrentAgents: cleanMaxAgents,
+          maxActiveSessions: cleanMaxSessions,
+        },
       },
     })
     .catch(() => {});
 
   return NextResponse.json({ researcher: updated });
+}
+
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const access = await requireCyberAccess(3);
+  if (!access.ok) return access.response;
+
+  const { userId } = await params;
+
+  if (userId === access.session.user.id) {
+    return NextResponse.json(
+      { error: "You cannot delete your own active admin profile." },
+      { status: 400 },
+    );
+  }
+
+  const deleted = await cyberRepository.deleteResearcherProfile(userId);
+  if (!deleted) {
+    return NextResponse.json(
+      { error: "Researcher profile not found" },
+      { status: 404 },
+    );
+  }
+
+  cyberRepository
+    .logAuditEvent({
+      userId: access.session.user.id,
+      eventType: "researcher_access_deleted",
+      severity: "warning",
+      details: { targetUserId: userId },
+    })
+    .catch(() => {});
+
+  return NextResponse.json({ success: true });
 }

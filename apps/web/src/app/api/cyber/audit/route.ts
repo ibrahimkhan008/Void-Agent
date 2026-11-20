@@ -3,12 +3,12 @@ import { cyberRepository } from "lib/db/pg/repositories/cyber-repository.pg";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const access = await requireCyberAccess(1);
+  // Audit trail is strictly restricted to Admin / Owner (Tier 3)
+  const access = await requireCyberAccess(3);
   if (!access.ok) return access.response;
 
   const url = new URL(req.url);
-  const scopeAll =
-    url.searchParams.get("scope") === "all" && access.profile.accessTier >= 3;
+  const scopeAll = url.searchParams.get("scope") !== "self";
   const sessionId = url.searchParams.get("sessionId") || undefined;
   const severityFilter = url.searchParams.get("severity") || "";
   const limit = Math.min(Number(url.searchParams.get("limit") ?? "100"), 200);
@@ -25,6 +25,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     events: filtered,
-    canViewAll: access.profile.accessTier >= 3,
+    canViewAll: true,
   });
 }
