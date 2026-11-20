@@ -79,8 +79,8 @@ export interface AppState {
   openUserUsage: boolean;
   openOrgSettings: boolean;
   openReferral: boolean;
-  /** Community edition: the Teams plan pitch behind "Create Organization". */
-  openTeamsPlan: boolean;
+  /** "Create Organization" (`CreateOrganizationDialog` in components/organization). */
+  openCreateOrganization: boolean;
   openWorkflowBuilder: boolean;
   openSalesAgentBuilder: boolean;
   openBlogAgentBuilder: boolean;
@@ -140,7 +140,7 @@ const initialState: AppState = {
   openUserUsage: false,
   openOrgSettings: false,
   openReferral: false,
-  openTeamsPlan: false,
+  openCreateOrganization: false,
   openWorkflowBuilder: false,
   openSalesAgentBuilder: false,
   openBlogAgentBuilder: false,

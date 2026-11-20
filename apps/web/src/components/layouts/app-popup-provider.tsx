@@ -1,6 +1,6 @@
 "use client";
 
-import { CloudPopups } from "@/components/gate";
+import { GatePopups } from "@/components/gate";
 import dynamic from "next/dynamic";
 
 const KeyboardShortcutsPopup = dynamic(
@@ -80,7 +80,7 @@ export function AppPopupProvider() {
       <ChatBotTemporary />
       <McpCustomizationPopup />
       <ProblemReportDialog />
-      <CloudPopups />
+      <GatePopups />
     </>
   );
 }

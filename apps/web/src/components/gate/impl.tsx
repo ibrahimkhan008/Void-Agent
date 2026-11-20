@@ -10,17 +10,18 @@ import { useUpdateSetupUrl } from "./updates";
 /**
  * Community implementation of the client-side edition seam.
  *
- * Team workspaces and billing are part of the hosted product. The exports
- * mirror the cloud module so consumers never branch on the edition
- * themselves.
+ * Billing and the managed builders are part of the hosted product; creating
+ * a team organization runs on the Better Auth organization plugin in every
+ * edition. The exports mirror the cloud module so consumers never branch on
+ * the edition themselves.
  */
 
 /**
- * An account owns its single personal workspace. "Create Organization" stays
- * in the menu, as in the hosted product, but opens the Teams plan pitch
- * (`TeamsPlanDialog` in ./popups) instead of creating one. The dialog is
- * opened through the store because it must outlive this menu, which unmounts
- * its content as soon as it closes.
+ * An account owns its single personal workspace. "Create Organization" opens
+ * the real creation flow (`CreateOrganizationDialog` in
+ * components/organization, mounted via ./popups). The dialog is opened
+ * through the store because it must outlive this menu, which unmounts its
+ * content as soon as it closes.
  */
 export function WorkspaceMenuSection() {
   const tOrg = useTranslations("Organization");
@@ -30,7 +31,7 @@ export function WorkspaceMenuSection() {
     <>
       <DropdownMenuItem
         className="cursor-pointer"
-        onClick={() => appStore.setState({ openTeamsPlan: true })}
+        onClick={() => appStore.setState({ openCreateOrganization: true })}
         data-testid="create-organization-menu-item"
       >
         <Building2 className="size-4 text-foreground" />

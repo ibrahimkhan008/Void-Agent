@@ -1485,11 +1485,10 @@
       "namePlaceholder": "Acme Corp",
       "slugLabel": "URL Slug",
       "slugPlaceholder": "acme-corp",
-      "slugHint": "Used in URLs and references. Must be unique.",
+      "slugHint": "Used in URLs and references. Must be unique. Left empty, it is derived from the name.",
       "submit": "Create Organization",
       "submitting": "Creating...",
       "cancel": "Cancel",
-      "success": "Organization \"{name}\" created",
       "failed": "Failed to create organization",
       "createdButSwitchFailed": "Organization created but failed to switch"
     },
@@ -1701,12 +1700,6 @@
       "connectDone": "Done, save session",
       "connectFailed": "Could not open a browser for this site.",
       "sessionStored": "Session saved."
-    },
-    "teamsPlan": {
-      "title": "Join our Teams plan",
-      "description": "Organizations with shared workspaces, member management and per-member AI budgets are part of the Void Agent Teams plan, for €8 per user. Book a short call and we will set up billing and your organization with you.",
-      "cta": "Book a call",
-      "dismiss": "Not now"
     }
   },
   "Referral": {
