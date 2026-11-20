@@ -8,6 +8,13 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const profile = await getOrBootstrapCyberProfile(session);
-  return NextResponse.json({ profile: profile ?? null });
+  try {
+    const profile = await getOrBootstrapCyberProfile(session);
+    return NextResponse.json({ profile: profile ?? null });
+  } catch {
+    return NextResponse.json(
+      { error: "Void Cyber is unavailable", unavailable: true },
+      { status: 503 },
+    );
+  }
 }

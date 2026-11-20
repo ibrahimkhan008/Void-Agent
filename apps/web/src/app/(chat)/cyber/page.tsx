@@ -1,5 +1,6 @@
 "use client";
 
+import { CyberAccessLocked } from "@/components/cyber/cyber-access-locked";
 import { CyberCopyButton, CyberDialog } from "@/components/cyber/cyber-ui";
 import { Markdown } from "@/components/markdown";
 import { AccentSpan } from "@/components/ui/accent-span";
@@ -19,7 +20,6 @@ import {
   RotateCcw,
   Shield,
   ShieldAlert,
-  Sparkles,
   Target,
 } from "lucide-react";
 import Link from "next/link";
@@ -260,6 +260,7 @@ function VoidCyberChatInner() {
   const [recentFindingsCount, setRecentFindingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   // Chat state (sandboxId is tracked silently — server auto-boots E2B on first message)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -286,6 +287,10 @@ function VoidCyberChatInner() {
         const profRes = await fetch("/api/cyber/users/me");
         if (profRes.status === 401 || profRes.status === 403) {
           setAccessDenied(true);
+          return;
+        }
+        if (!profRes.ok) {
+          setUnavailable(true);
           return;
         }
         const profData = await profRes.json();
@@ -328,7 +333,7 @@ function VoidCyberChatInner() {
           setRecentFindingsCount((d.findings ?? []).length);
         }
       } catch {
-        // Network error
+        setUnavailable(true);
       } finally {
         setLoading(false);
       }
@@ -443,21 +448,18 @@ function VoidCyberChatInner() {
     );
   }
 
-  if (accessDenied || !profile) {
+  if (unavailable || accessDenied || !profile) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[70vh] p-8 text-center">
-        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
-          <Shield className="size-8 text-red-600 dark:text-red-400" />
-        </div>
-        <h1 className="text-xl font-semibold text-foreground mb-2">
-          Void Cyber Access Required
-        </h1>
-        <p className="text-sm text-muted-foreground max-w-md mb-6">
-          {profile?.status && profile.status !== "active"
-            ? `Your researcher account is currently ${profile.status}. Contact an administrator to review your access.`
-            : "Void Cyber is restricted to authorized internal security researchers and administrators."}
-        </p>
-      </div>
+      <CyberAccessLocked
+        reason={
+          unavailable && !profile
+            ? "unavailable"
+            : profile && profile.status !== "active"
+              ? "inactive"
+              : "none"
+        }
+        status={profile?.status}
+      />
     );
   }
 
@@ -577,12 +579,12 @@ function VoidCyberChatInner() {
                 className={cn(
                   "inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-xs font-medium border transition-colors",
                   autoLearnAndLog
-                    ? "bg-violet-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300"
+                    ? "bg-foreground/8 border-foreground/20 text-foreground"
                     : "bg-muted/60 border-border/80 text-muted-foreground hover:text-foreground",
                 )}
                 title="Automatically train your self-learning playbook and save discovered bugs via Finding Scribe to Recent Findings"
               >
-                <Sparkles className="size-3.5" />
+                <BookOpen className="size-3.5" />
                 <span>Self-Learn: {autoLearnAndLog ? "On" : "Off"}</span>
               </button>
             </div>
@@ -764,7 +766,7 @@ function VoidCyberChatInner() {
                               {msg.automation.learnedAdded && (
                                 <Link
                                   href="/cyber/dashboard#self-learning"
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/25 hover:bg-violet-500/15 transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-foreground border border-border hover:bg-accent transition-colors"
                                   title={
                                     msg.automation.learnedSummary ?? undefined
                                   }

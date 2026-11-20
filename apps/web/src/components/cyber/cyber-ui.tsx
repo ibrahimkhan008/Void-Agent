@@ -22,8 +22,7 @@ export const STATUS_STYLES: Record<string, string> = {
     "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
   confirmed:
     "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
-  triaged:
-    "bg-indigo-500/12 text-indigo-700 dark:text-indigo-400 border-indigo-500/30",
+  triaged: "bg-foreground/8 text-foreground border-foreground/20",
   reported:
     "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/30",
   paused:
@@ -44,7 +43,7 @@ export const STATUS_STYLES: Record<string, string> = {
 export const TIER_STYLES: Record<number, string> = {
   1: "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/30",
   2: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
-  3: "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+  3: "bg-foreground/8 text-foreground border-foreground/20",
 };
 
 export const TIER_LABELS: Record<number, string> = {

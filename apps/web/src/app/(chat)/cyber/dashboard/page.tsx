@@ -464,7 +464,7 @@ export default function CyberDashboardPage() {
         <div className="bg-card border border-border rounded-xl p-4 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Self-Learned Entries</span>
-            <BookOpen className="size-3.5 text-violet-600 dark:text-violet-400" />
+            <BookOpen className="size-3.5 text-muted-foreground" />
           </div>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
             {learningFile?.entriesCount ?? 0}
@@ -635,7 +635,7 @@ export default function CyberDashboardPage() {
           <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-border flex-wrap">
             <div className="space-y-0.5 min-w-0">
               <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <BookOpen className="size-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                <BookOpen className="size-4 text-muted-foreground shrink-0" />
                 Agent Self-Learning File
               </h2>
               <p className="text-[11px] font-mono text-muted-foreground truncate">
@@ -647,7 +647,7 @@ export default function CyberDashboardPage() {
               <button
                 type="button"
                 onClick={() => setShowAddLesson((v) => !v)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 text-xs font-medium transition-colors"
                 title="Add a manual training note to the self-learning file"
               >
                 <Plus className="size-3.5" />
@@ -721,7 +721,7 @@ export default function CyberDashboardPage() {
                   disabled={
                     addingLesson || (!lessonText.trim() && !tacticText.trim())
                   }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 text-xs font-semibold disabled:opacity-60 transition-colors"
                 >
                   {addingLesson ? (
                     <Loader2 className="size-3.5 animate-spin" />
@@ -742,7 +742,7 @@ export default function CyberDashboardPage() {
                   onChange={(e) => setDraftMarkdown(e.target.value)}
                   rows={16}
                   aria-label="Edit self-learning markdown file"
-                  className="w-full bg-background border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
+                  className="w-full bg-background border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 />
                 <div className="flex items-center justify-between gap-2">
                   <button
@@ -758,7 +758,7 @@ export default function CyberDashboardPage() {
                     type="button"
                     onClick={handleSaveLearningFile}
                     disabled={savingFile}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 text-xs font-semibold disabled:opacity-60 transition-colors"
                   >
                     {savingFile ? (
                       <Loader2 className="size-3.5 animate-spin" />

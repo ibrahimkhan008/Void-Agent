@@ -132,7 +132,7 @@ export default function AuditTrailPage() {
               className={cn(
                 "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
                 scopeAll
-                  ? "bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                  ? "bg-foreground/8 text-foreground border-foreground/20"
                   : "bg-card text-muted-foreground border-border hover:text-foreground",
               )}
             >

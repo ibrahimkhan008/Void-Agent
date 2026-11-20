@@ -1,3 +1,4 @@
+import { CyberAccessLocked } from "@/components/cyber/cyber-access-locked";
 import { getSession } from "lib/auth/server";
 import { getOrBootstrapCyberProfile } from "lib/cyber/auth";
 import { redirect } from "next/navigation";
@@ -21,6 +22,7 @@ export default async function CyberLayout({
     status: string;
     voidTrustScore: number;
   } | null = null;
+  let lookupFailed = false;
 
   try {
     const profile = await getOrBootstrapCyberProfile(session);
@@ -33,7 +35,23 @@ export default async function CyberLayout({
       };
     }
   } catch {
-    // Database unreachable or migration pending — treat as no access gracefully
+    lookupFailed = true;
+  }
+
+  // Every /cyber route is gated here so sub-pages never render empty panels
+  // (and a nav full of locked links) for users without an active profile.
+  if (!cyberProfile || cyberProfile.status !== "active") {
+    return (
+      <div className="h-full w-full min-h-0 overflow-y-auto bg-background">
+        <CyberAccessLocked
+          reason={
+            lookupFailed ? "unavailable" : cyberProfile ? "inactive" : "none"
+          }
+          email={session.user.email}
+          status={cyberProfile?.status}
+        />
+      </div>
+    );
   }
 
   return (

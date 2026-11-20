@@ -126,7 +126,7 @@ const getBadgeIcons = (badges: {
   }
   if (badges.maxPerformance) {
     icons.push({
-      icon: <MaxIcon className="size-3.5 text-indigo-500" />,
+      icon: <MaxIcon className="size-3.5 text-foreground" />,
       tooltip: "The best model from its developer",
     });
   }
@@ -138,7 +138,7 @@ const getBadgeIcons = (badges: {
   }
   if (badges.thinking) {
     icons.push({
-      icon: <BrainIcon className="size-3.5 text-purple-500" />,
+      icon: <BrainIcon className="size-3.5 text-teal-500" />,
       tooltip: "Follows instructions optimally through planning and reasoning.",
     });
   }
@@ -399,8 +399,10 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
         ) : (
           <div className="ml-3" />
         )}
-        <span className="pr-2 flex items-center gap-1">
-          {item.name}
+        <span className="pr-2 flex min-w-0 items-center gap-1">
+          <span className="truncate" title={item.name}>
+            {item.name}
+          </span>
           {flag && <span className="text-sm">{flag}</span>}
         </span>
 
@@ -671,7 +673,7 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <MaxIcon className="size-3.5 text-indigo-500 mt-0.5" />
+                    <MaxIcon className="size-3.5 text-foreground mt-0.5" />
                     <span className="text-xs">
                       The best model from its developer
                     </span>
@@ -683,7 +685,7 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
                     </span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <BrainIcon className="size-3.5 text-purple-500 mt-0.5" />
+                    <BrainIcon className="size-3.5 text-teal-500 mt-0.5" />
                     <span className="text-xs">
                       Follows instructions optimally through planning and
                       reasoning.
@@ -722,7 +724,11 @@ export const SelectModel = (props: PropsWithChildren<SelectModelProps>) => {
       <CommandList className="p-2">
         {hasNoResults ? (
           <div className="space-y-3 p-4 text-center text-sm text-muted-foreground">
-            <p>No models match the selected filters.</p>
+            <p>
+              {activeFilters.length > 0
+                ? "No models match the selected filters."
+                : "No models are available. Ask an admin to enable a provider."}
+            </p>
             {activeFilters.length > 0 && (
               <Button variant="outline" size="sm" onClick={clearFilters}>
                 Clear filters

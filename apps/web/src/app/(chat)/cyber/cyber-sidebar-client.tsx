@@ -28,7 +28,7 @@ interface CyberProfile {
 }
 
 interface CyberSidebarClientProps {
-  cyberProfile: CyberProfile | null;
+  cyberProfile: CyberProfile;
 }
 
 const NAV_ITEMS = [
@@ -158,18 +158,14 @@ export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
     return null;
   }
 
-  const tierLabel = cyberProfile
-    ? (TIER_LABELS[cyberProfile.accessTier] ??
-      `Tier ${cyberProfile.accessTier}`)
-    : "No Access";
+  const tierLabel =
+    TIER_LABELS[cyberProfile.accessTier] ?? `Tier ${cyberProfile.accessTier}`;
 
-  const tierColor = cyberProfile
-    ? (TIER_STYLES[cyberProfile.accessTier] ?? TIER_STYLES[1])
-    : "text-muted-foreground bg-muted border-border";
+  const tierColor = TIER_STYLES[cyberProfile.accessTier] ?? TIER_STYLES[1];
 
   const navItems = [
     ...NAV_ITEMS,
-    ...(cyberProfile && cyberProfile.accessTier >= 3 ? ADMIN_NAV_ITEMS : []),
+    ...(cyberProfile.accessTier >= 3 ? ADMIN_NAV_ITEMS : []),
   ];
 
   const sidebarBody = (
@@ -208,11 +204,7 @@ export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
       </nav>
 
       <div className="px-4 py-4 border-t border-border">
-        {cyberProfile ? (
-          <VoidTrustBar score={cyberProfile.voidTrustScore} />
-        ) : (
-          <p className="text-xs text-muted-foreground">No cyber profile</p>
-        )}
+        <VoidTrustBar score={cyberProfile.voidTrustScore} />
       </div>
     </div>
   );
