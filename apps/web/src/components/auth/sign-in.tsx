@@ -198,7 +198,7 @@ export default function SignIn({
                 type="email"
                 placeholder="user@example.com"
                 required
-                className="rounded-lg border-(--bs-paper)/10 bg-white text-(--bs-paper) placeholder:text-(--bs-paper)/40"
+                className="rounded-lg border-(--bs-paper)/10 bg-white/[0.04] text-(--bs-paper) placeholder:text-(--bs-paper)/40"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -226,7 +226,7 @@ export default function SignIn({
                 onChange={(e) => setFormData({ password: e.target.value })}
                 type="password"
                 required
-                className="rounded-lg border-(--bs-paper)/10 bg-white text-(--bs-paper) placeholder:text-(--bs-paper)/40"
+                className="rounded-lg border-(--bs-paper)/10 bg-white/[0.04] text-(--bs-paper) placeholder:text-(--bs-paper)/40"
               />
             </div>
             {captcha.widget}

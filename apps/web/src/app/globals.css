@@ -1891,3 +1891,111 @@
   mask-image: radial-gradient(circle, #000 0.95px, #0000 1.3px);
   mask-size: 2.4px 2.4px;
 }
+
+/* ============================================================
+   Kestrel dark display surface — the (auth) pages' shell. Same
+   token names as the light .brand-surface system, so the auth
+   components flip without per-component plumbing; the app theme
+   tokens are re-declared dark inside the scope for the shadcn
+   Card/Input pieces (email sign-up). The dashboard stays light.
+   ============================================================ */
+.kestrel {
+  --ink: #0a0a0a;
+  --ink-2: #171717;
+  --paper: #f2efe9;
+  --brand: #0099ff;
+  --brand-glow: #66c2ff;
+
+  --bs-paper: #f2efe9;
+  --bs-brand: #0099ff;
+  --bs-brand-glow: #66c2ff;
+  --bs-accent-from: #f2efe9;
+  --bs-accent-to: #0099ff;
+
+  --bs-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px
+    rgba(0, 0, 0, 0.5), 0 8px 20px -12px rgba(0, 0, 0, 0.6);
+  --bs-shadow-tray: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 1px
+    rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5), 0 24px 60px -36px
+    rgba(0, 0, 0, 0.8);
+
+  /* app theme tokens, dark inside this scope */
+  --background: #0a0a0a;
+  --foreground: #f2efe9;
+  --card: #141414;
+  --card-foreground: #f2efe9;
+  --popover: #141414;
+  --popover-foreground: #f2efe9;
+  --primary: #f2efe9;
+  --primary-foreground: #0a0a0a;
+  --secondary: #171717;
+  --secondary-foreground: #f2efe9;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(242, 239, 233, 0.6);
+  --accent: rgba(255, 255, 255, 0.05);
+  --accent-foreground: #f2efe9;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: rgba(242, 239, 233, 0.3);
+
+  color-scheme: dark;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dark variants for the light button system used by the auth card.
+   bs-btn-default (white gradient + black text) already reads as the
+   Kestrel primary on dark and is left untouched. */
+.kestrel .bs-btn-outline {
+  --surface-base: #1a1a1a;
+  --surface-lit: #141414;
+  --btn-ring: rgba(255, 255, 255, 0.14);
+  --btn-edge-top: rgba(255, 255, 255, 0);
+  --btn-edge-bottom: rgba(0, 0, 0, 0.3);
+  color: var(--paper);
+}
+.kestrel .bs-btn-outline:hover {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-lit) 94%, #fff),
+    color-mix(in srgb, var(--surface-base) 94%, #fff)
+  );
+}
+.kestrel .bs-btn-secondary {
+  --surface-base: #262626;
+  --surface-lit: #303030;
+  --btn-ring: rgba(255, 255, 255, 0.1);
+  --btn-edge-top: rgba(255, 255, 255, 0);
+  --btn-edge-bottom: rgba(0, 0, 0, 0.25);
+  color: var(--paper);
+}
+.kestrel .bs-btn-secondary:hover {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--surface-lit) 94%, #fff),
+    color-mix(in srgb, var(--surface-base) 94%, #fff)
+  );
+}
+
+/* Motion parity for the auth scope (same no-JS gate as brand-surface). */
+.js .kestrel .landing-rise {
+  opacity: var(--rise-opacity, 1);
+  animation: landing-rise var(--rise-duration, 0.7s)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0s) both;
+}
+
+.js .kestrel [data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(var(--rise, 14px));
+  filter: blur(var(--rise-blur, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kestrel .landing-rise,
+  .js .kestrel [data-reveal="pending"] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

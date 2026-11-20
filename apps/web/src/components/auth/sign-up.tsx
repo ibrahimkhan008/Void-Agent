@@ -76,7 +76,7 @@ export default function SignUpPage({
   }
   return (
     // Design system §4.15: no card chrome — grouping by space, not boxes.
-    // The (auth) layout already provides the brand-surface backdrop.
+    // The (auth) layout already provides the kestrel dark backdrop.
     <div className="w-full md:max-w-sm mx-auto flex flex-col items-start gap-1 text-left">
       <h1 className="text-2xl font-normal tracking-[-0.03em] text-balance">
         {isFirstUser ? t("Auth.SignUp.titleAdmin") : t("Auth.SignUp.title")}

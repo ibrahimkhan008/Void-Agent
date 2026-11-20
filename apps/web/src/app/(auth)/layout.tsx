@@ -22,7 +22,7 @@ export default async function AuthLayout({
 }: { children: React.ReactNode }) {
   const t = await getTranslations("Auth.Intro");
   return (
-    <div className="brand-surface min-h-dvh w-full">
+    <div className="kestrel min-h-dvh w-full">
       <div className="flex min-h-dvh w-full">
         <div className="hidden lg:flex lg:w-1/2 flex-col p-18 relative">
           <Reveal delay={0} rise={0} duration={0.3} className="landing-drop">
@@ -32,7 +32,7 @@ export default async function AuthLayout({
                 alt="Void Agent logo"
                 width={24}
                 height={24}
-                className="object-contain"
+                className="rounded-md bg-white object-contain p-1"
               />
               <span className="text-xl font-semibold">Void Agent</span>
             </div>

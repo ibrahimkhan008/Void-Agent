@@ -13,8 +13,8 @@
  * header.
  */
 
-import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 
 export function AuthIntroDecoration() {
   const reducedMotion = useReducedMotion();
@@ -26,7 +26,7 @@ export function AuthIntroDecoration() {
           flex centering around. */}
       <motion.div
         aria-hidden
-        className="absolute inset-0 m-auto h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.primary/0.25),transparent_70%)]"
+        className="absolute inset-0 m-auto h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,rgba(0,153,255,0.22),transparent_70%)]"
         animate={
           reducedMotion
             ? undefined
@@ -55,7 +55,7 @@ export function AuthIntroDecoration() {
           alt="Void Agent"
           width={128}
           height={128}
-          className="object-contain drop-shadow-[0_0_24px_theme(colors.primary/0.35)]"
+          className="rounded-2xl bg-white object-contain p-3 drop-shadow-[0_0_24px_rgba(0,153,255,0.35)]"
           priority
         />
       </motion.div>
