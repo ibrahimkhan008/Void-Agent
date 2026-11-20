@@ -17,8 +17,12 @@
     "clean": "rimraf .next"
   },
   "dependencies": {
+    "@tabler/icons-react": "^2.47.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotted-map": "^3.1.0",
     "framer-motion": "^12.23.22",
+    "liveline": "^0.0.7",
     "lucide-react": "^0.486.0",
     "next": "15.4.11",
     "react": "^19.2.1",

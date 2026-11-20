@@ -1,5 +1,4 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { ArrowRight } from "lucide-react";
@@ -191,12 +190,7 @@ function SectionHeader({
 
 export default function DocsPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* 1. Hero */}
       <section className="mx-auto max-w-3xl px-6 pt-40 pb-16 text-center sm:pt-48">
         <Eyebrow>Docs · Agents</Eyebrow>
@@ -207,10 +201,10 @@ export default function DocsPage() {
           Everything you need to know about autonomous chat and Cloud Agent: how
           they think, which tools they use, and how to hand them real work.
         </p>
-        <div className="mt-8 inline-flex rounded-full border border-black/[0.08] bg-(--ink-2) p-1">
+        <div className="mt-8 inline-flex rounded-full border border-white/[0.08] bg-(--ink-2) p-1">
           <span
             aria-current="location"
-            className="inline-flex h-8 items-center rounded-full bg-white px-4 text-sm font-medium text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+            className="inline-flex h-8 items-center rounded-full bg-(--paper) px-4 text-sm font-medium text-(--ink) shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)]"
           >
             Agents
           </span>
@@ -234,7 +228,7 @@ export default function DocsPage() {
               <p className="mb-3 px-4 text-[11px] font-medium tracking-[0.14em] text-(--paper)/45 uppercase">
                 {group.group}
               </p>
-              <ul className="space-y-0.5 border-l border-black/10">
+              <ul className="space-y-0.5 border-l border-white/10">
                 {group.items.map((item) => (
                   <li key={item.href + item.label}>
                     <Link
@@ -272,7 +266,7 @@ export default function DocsPage() {
                 key={card.name}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
                   <h3 className="text-base font-medium text-(--paper)">
                     {card.name}
                   </h3>
@@ -280,7 +274,7 @@ export default function DocsPage() {
                     {card.rows.map(([k, v]) => (
                       <div
                         key={k}
-                        className="flex items-baseline justify-between gap-4 border-t border-black/[0.06] py-2"
+                        className="flex items-baseline justify-between gap-4 border-t border-white/[0.06] py-2"
                       >
                         <dt className="text-sm text-(--paper)/45">{k}</dt>
                         <dd className="text-right text-sm text-(--paper)/80">
@@ -309,7 +303,7 @@ export default function DocsPage() {
                 key={step.n}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="h-full rounded-[14px] bg-white p-4">
+                <div className="h-full rounded-[14px] bg-[#0a0a0a] p-4">
                   <p className="font-mono text-[11px] text-(--brand)">
                     {step.n}
                   </p>
@@ -346,8 +340,8 @@ export default function DocsPage() {
                 key={card.title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
-                  <span className="grid size-8 place-items-center rounded-lg bg-(--paper) text-xs font-semibold text-white">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
+                  <span className="grid size-8 place-items-center rounded-lg bg-(--paper) text-xs font-semibold text-(--ink)">
                     {i + 1}
                   </span>
                   <h3 className="mt-3 text-base font-medium text-(--paper)">
@@ -377,7 +371,7 @@ export default function DocsPage() {
                 key={card.title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
                   <h3 className="text-base font-medium text-(--paper)">
                     {card.title}
                   </h3>
@@ -419,14 +413,14 @@ export default function DocsPage() {
           </SectionHeader>
           <p className="mt-5 text-base/8 text-(--paper)/70">
             Cloud Agent comes with a built-in tool server called{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               voidagent-mcp
             </code>
             . You do not need to set anything up. Your own MCP servers are added
             on top of these.
           </p>
           <div className="mt-8 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="divide-y divide-black/[0.06] rounded-[14px] bg-white px-5">
+            <div className="divide-y divide-white/[0.06] rounded-[14px] bg-[#0a0a0a] px-5">
               {TOOLS.map(([name, body]) => (
                 <div
                   key={name}
@@ -486,7 +480,7 @@ export default function DocsPage() {
                 key={title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
                   <h3 className="text-base font-medium text-(--paper)">
                     {title}
                   </h3>
@@ -512,7 +506,7 @@ export default function DocsPage() {
             if you need more.
           </p>
           <div className="mt-8 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="overflow-x-auto rounded-[14px] bg-white p-2">
+            <div className="overflow-x-auto rounded-[14px] bg-[#0a0a0a] p-2">
               <table className="w-full min-w-[560px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="bg-(--ink-2)/60">
@@ -528,7 +522,7 @@ export default function DocsPage() {
                 </thead>
                 <tbody>
                   {LIMITS.map((row) => (
-                    <tr key={row[0]} className="border-t border-black/[0.06]">
+                    <tr key={row[0]} className="border-t border-white/[0.06]">
                       {row.map((cell, j) => (
                         <td
                           key={j}
@@ -549,7 +543,7 @@ export default function DocsPage() {
             href="/docs/mcp"
             className="group block rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)] transition-transform active:scale-[0.99]"
           >
-            <div className="flex items-center justify-between rounded-[14px] bg-white p-6">
+            <div className="flex items-center justify-between rounded-[14px] bg-[#0a0a0a] p-6">
               <div>
                 <p className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
                   Next
@@ -563,8 +557,6 @@ export default function DocsPage() {
           </Link>
         </article>
       </div>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

@@ -25,7 +25,7 @@ export function FaqAccordion({
   const [open, setOpen] = useState<number | null>(defaultOpen);
 
   return (
-    <ul className="mt-14 space-y-1.5 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.05),0_24px_60px_-36px_rgba(0,0,0,0.25)]">
+    <ul className="mt-14 space-y-1.5 rounded-[20px] bg-[#141414] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5),0_30px_80px_-30px_rgba(0,0,0,0.8)]">
       {items.map((item, i) => {
         const isOpen = open === i;
         return (
@@ -33,7 +33,7 @@ export function FaqAccordion({
             key={item.question}
             className={cn(
               "rounded-[14px] transition-colors duration-150",
-              isOpen ? "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06),0_8px_20px_-12px_rgba(0,0,0,0.12)]" : "",
+              isOpen ? "bg-[#0a0a0a] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5),0_8px_20px_-12px_rgba(0,0,0,0.6)]" : "",
             )}
           >
             <h3>
@@ -43,7 +43,7 @@ export function FaqAccordion({
                 aria-expanded={isOpen}
                 aria-controls={`faq-a-${i}`}
                 onClick={() => setOpen(isOpen ? null : i)}
-                className="flex w-full items-center justify-between gap-6 rounded-[14px] px-5 py-4 text-left text-base text-(--paper) hover:bg-white/70"
+                className="flex w-full items-center justify-between gap-6 rounded-[14px] px-5 py-4 text-left text-base text-(--paper) hover:bg-white/[0.04]"
               >
                 {item.question}
                 <Plus

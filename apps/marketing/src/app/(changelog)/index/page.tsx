@@ -1,5 +1,4 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { DitherCanvas } from "@/components/ui/dither-canvas";
 import type { Metadata } from "next";
@@ -15,24 +14,19 @@ export const metadata: Metadata = {
 
 export default function IndexPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* Hero */}
-      <section className="relative border-b border-black/[0.06] pt-32 pb-16 sm:pt-40 sm:pb-20">
+      <section className="relative border-b border-white/[0.06] pt-32 pb-16 sm:pt-40 sm:pb-20">
         <div aria-hidden className="absolute inset-0 -z-10 opacity-40">
           <DitherCanvas
             src="/images/dither-footer.png"
             topFade
-            className="h-full w-full object-cover [image-rendering:pixelated]"
+            className="h-full w-full object-cover invert [image-rendering:pixelated]"
           />
         </div>
         <div className="mx-auto max-w-6xl px-6">
-          <p className="inline-flex items-center gap-2.5 rounded-full border border-black/[0.12] bg-white/80 px-3.5 py-1.5 font-mono text-[11px] tracking-[0.14em] text-(--paper)/70 uppercase">
-            <span className="size-2 animate-pulse rounded-full bg-[#a1a1aa]" />
+          <p className="inline-flex items-center gap-2.5 rounded-full border border-white/[0.12] bg-white/[0.05] px-3.5 py-1.5 font-mono text-[11px] tracking-[0.14em] text-(--paper)/70 uppercase">
+            <span className="size-2 animate-pulse rounded-full bg-(--brand)" />
             Void Agent index // 2026 releases
           </p>
           <h1 className="mt-6 max-w-[24ch] text-5xl leading-[1.05] font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-6xl lg:text-7xl">
@@ -50,8 +44,6 @@ export default function IndexPage() {
       <div className="mx-auto max-w-6xl px-6 pt-12">
         <IndexPostsClient />
       </div>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

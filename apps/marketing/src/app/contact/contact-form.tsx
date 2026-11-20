@@ -137,12 +137,12 @@ export function ContactForm() {
         {/* Form card */}
         <div className="lg:col-span-7">
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="rounded-[16px] bg-white p-6 sm:p-8">
+            <div className="rounded-[16px] bg-[#0a0a0a] p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-2xl font-medium tracking-tight text-(--paper)">
                   Send a Message
                 </h2>
-                <span className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/70 px-3 py-1 font-mono text-[10px] tracking-[0.1em] text-emerald-700 sm:flex">
+                <span className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[10px] tracking-[0.1em] text-emerald-400 sm:flex">
                   <span className="size-2 animate-pulse rounded-full bg-emerald-500" />
                   ALL SYSTEMS OPERATIONAL
                 </span>
@@ -167,7 +167,7 @@ export function ContactForm() {
                           "rounded-xl border px-3.5 py-3 text-left transition-colors",
                           topic.id === t.id
                             ? "border-(--brand)/40 bg-(--brand)/[0.06] ring-(--brand)/30"
-                            : "border-black/[0.1] hover:bg-(--ink-2)",
+                            : "border-white/[0.1] hover:bg-white/[0.04]",
                         )}
                       >
                         <p className="text-sm font-medium text-(--paper)">
@@ -193,7 +193,7 @@ export function ContactForm() {
                       name="name"
                       type="text"
                       placeholder="Ada Lovelace"
-                      className="h-10 rounded-lg border border-black/[0.12] bg-white px-3 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
+                      className="h-10 rounded-lg border border-white/[0.12] bg-white/[0.04] px-3 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
                     />
                   </label>
                   <label className="grid gap-2 text-sm">
@@ -205,7 +205,7 @@ export function ContactForm() {
                       name="email"
                       type="email"
                       placeholder="ada@company.com"
-                      className="h-10 rounded-lg border border-black/[0.12] bg-white px-3 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
+                      className="h-10 rounded-lg border border-white/[0.12] bg-white/[0.04] px-3 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
                     />
                   </label>
                 </div>
@@ -221,7 +221,7 @@ export function ContactForm() {
                       name="subject"
                       type="text"
                       placeholder="Brief overview of your inquiry..."
-                      className="h-10 w-full rounded-lg border border-black/[0.12] bg-white pr-3 pl-[110px] text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
+                      className="h-10 w-full rounded-lg border border-white/[0.12] bg-white/[0.04] pr-3 pl-[110px] text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
                     />
                   </span>
                 </label>
@@ -237,12 +237,12 @@ export function ContactForm() {
                     rows={5}
                     resize-none
                     placeholder={`Please provide context, steps to reproduce, or requirements so our ${topic.label} team can help in one response...`}
-                    className="rounded-lg border border-black/[0.12] bg-white px-3 py-2.5 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
+                    className="rounded-lg border border-white/[0.12] bg-white/[0.04] px-3 py-2.5 text-(--paper) outline-none placeholder:text-(--paper)/40 focus-visible:ring-2 focus-visible:ring-(--paper)/25"
                   />
                 </label>
 
                 {/* Footer row */}
-                <div className="flex flex-wrap items-center gap-3 border-t border-black/[0.06] pt-5">
+                <div className="flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-5">
                   <p className="font-mono text-xs text-(--paper)/55">
                     Target mailbox:{" "}
                     <span className="font-bold text-(--paper)">
@@ -258,7 +258,7 @@ export function ContactForm() {
                   </a>
                   <button
                     type="submit"
-                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-[#18181b] px-5 text-sm font-medium text-white transition-colors hover:bg-[#1c2ba8]"
+                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-(--brand) px-5 text-sm font-medium text-white transition-colors hover:bg-[#0077cc]"
                   >
                     <Send className="size-4" />
                     Send Message
@@ -280,7 +280,7 @@ export function ContactForm() {
               {EMAIL_CARDS.map((card) => (
                 <div
                   key={card.title}
-                  className="group rounded-2xl border border-black/[0.07] bg-white/70 p-4 backdrop-blur-xs transition-all hover:border-black/20 hover:shadow-sm"
+                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 backdrop-blur-xs transition-all hover:border-white/20 hover:shadow-sm"
                 >
                   <div className="flex items-start gap-3">
                     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-(--ink) text-(--brand)">
@@ -306,7 +306,7 @@ export function ContactForm() {
                           />
                         </button>
                       </div>
-                      <p className="mt-0.5 font-mono text-[10px] text-black/50">
+                      <p className="mt-0.5 font-mono text-[10px] text-(--paper)/50">
                         {card.sla}
                       </p>
                       <p className="mt-1.5 text-xs/5 text-(--paper)/60">
@@ -315,7 +315,7 @@ export function ContactForm() {
                       <p className="mt-2 font-mono text-xs text-(--brand)">
                         {card.email}
                       </p>
-                      <p className="mt-1 font-mono text-[10px] text-black/40">
+                      <p className="mt-1 font-mono text-[10px] text-(--paper)/40">
                         Suggested subject: {card.subject}
                       </p>
                     </div>
@@ -326,7 +326,7 @@ export function ContactForm() {
           </div>
 
           {/* Statutory card */}
-          <div className="rounded-2xl bg-white/70 p-5 backdrop-blur-xs">
+          <div className="rounded-2xl bg-white/[0.03] p-5 backdrop-blur-xs">
             <h3 className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/55 uppercase">
               STATUTORY & GRIEVANCE REDRESSAL
             </h3>
@@ -356,7 +356,7 @@ export function ContactForm() {
           </div>
 
           {/* Community */}
-          <div className="rounded-2xl bg-white/70 p-5 backdrop-blur-xs">
+          <div className="rounded-2xl bg-white/[0.03] p-5 backdrop-blur-xs">
             <h3 className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/55 uppercase">
               COMMUNITY & CODE
             </h3>
@@ -378,7 +378,7 @@ export function ContactForm() {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-(--ink-2)"
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-white/[0.05]"
                 >
                   <span className="text-(--paper)/70">{label}</span>
                   <span className="font-medium text-(--paper)">{display}</span>

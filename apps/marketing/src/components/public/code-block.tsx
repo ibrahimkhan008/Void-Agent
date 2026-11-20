@@ -28,7 +28,7 @@ export function CodeBlock({
 
   return (
     <div className="mt-6 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-      <div className="overflow-hidden rounded-[14px] bg-white">
+      <div className="overflow-hidden rounded-[14px] bg-[#0a0a0a]">
         <div className="flex h-9 items-center justify-between px-2.5">
           <span className="px-1.5 font-mono text-xs text-(--paper)/55">
             {label}
@@ -38,7 +38,7 @@ export function CodeBlock({
             onClick={copy}
             title={`Copy ${label}`}
             aria-label={`Copy ${label}`}
-            className="grid size-7 place-items-center rounded-md text-(--paper)/55 transition-colors hover:bg-black/5 hover:text-(--paper)"
+            className="grid size-7 place-items-center rounded-md text-(--paper)/55 transition-colors hover:bg-white/5 hover:text-(--paper)"
           >
             {copied ? (
               <Check className="size-3.5 text-(--brand)" />
@@ -47,7 +47,7 @@ export function CodeBlock({
             )}
           </button>
         </div>
-        <pre className="overflow-x-auto border-t border-black/[0.06] p-4 font-mono text-[13px]/6 text-(--paper)/85">
+        <pre className="overflow-x-auto border-t border-white/[0.06] p-4 font-mono text-[13px]/6 text-(--paper)/85">
           {code}
         </pre>
       </div>

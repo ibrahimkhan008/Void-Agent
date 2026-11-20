@@ -190,7 +190,7 @@ export function IndexPostsClient() {
   return (
     <>
       {/* Filter bar */}
-      <div className="mt-12 flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white/60 p-2 backdrop-blur-md lg:flex-row lg:items-center">
+      <div className="mt-12 flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.04] p-2 backdrop-blur-md lg:flex-row lg:items-center">
         <div className="flex flex-wrap gap-1.5">
           {CATEGORIES.map((cat) => (
             <button
@@ -200,8 +200,8 @@ export function IndexPostsClient() {
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
                 category === cat
-                  ? "bg-[#121212] text-white"
-                  : "text-(--paper)/60 hover:bg-black/[0.04] hover:text-(--paper)",
+                  ? "bg-(--paper) text-(--ink)"
+                  : "text-(--paper)/60 hover:bg-white/[0.06] hover:text-(--paper)",
               )}
             >
               {cat}
@@ -216,7 +216,7 @@ export function IndexPostsClient() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search updates, models, tags..."
             aria-label="Search updates"
-            className="w-full rounded-full border border-black/[0.1] bg-white py-2 pr-9 pl-9 text-sm text-(--paper) outline-none placeholder:text-(--paper)/45 focus-visible:ring-2 focus-visible:ring-(--paper)/30"
+            className="w-full rounded-full border border-white/[0.1] bg-white/[0.05] py-2 pr-9 pl-9 text-sm text-(--paper) outline-none placeholder:text-(--paper)/45 focus-visible:ring-2 focus-visible:ring-(--paper)/30"
           />
           {query && (
             <button
@@ -240,14 +240,14 @@ export function IndexPostsClient() {
           </p>
           <a
             href={`/index/${featured.slug}`}
-            className="group relative mt-4 block overflow-hidden rounded-3xl border border-black/[0.08] bg-white p-6 shadow-sm transition-all hover:border-black/20 hover:shadow-xl sm:p-10"
+            className="group relative mt-4 block overflow-hidden rounded-3xl border border-white/[0.08] bg-[#141414] p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] transition-all hover:border-white/20 sm:p-10"
           >
             <div
               aria-hidden
               className="absolute inset-y-0 right-0 w-1/3"
               style={{
                 background:
-                  "linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.06) 100%)",
+                  "linear-gradient(105deg, transparent 0%, rgba(0,153,255,0.08) 100%)",
               }}
             />
             <div className="relative grid gap-8 lg:grid-cols-12">
@@ -267,13 +267,13 @@ export function IndexPostsClient() {
                     {featured.readTime}
                   </span>
                 </p>
-                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-[#18181b] sm:text-5xl">
+                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-(--brand) sm:text-5xl">
                   {featured.title}
                 </h2>
                 <p className="mt-4 max-w-[60ch] text-base/7 text-(--paper)/65">
                   {featured.excerpt}
                 </p>
-                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-[#18181b]">
+                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-(--brand)">
                   Read announcement
                   <span className="transition-transform group-hover:translate-x-1">
                     →
@@ -282,18 +282,18 @@ export function IndexPostsClient() {
               </div>
               <div className="relative hidden lg:col-span-5 lg:block">
                 <div
-                  className="aspect-video rounded-2xl border border-black/[0.08]"
+                  className="aspect-video rounded-2xl border border-white/[0.08]"
                   style={{
                     backgroundImage:
-                      "radial-gradient(circle, #d9dce8 1px, transparent 1px)",
+                      "radial-gradient(circle, rgba(255,255,255,0.14) 1px, transparent 1px)",
                     backgroundSize: "14px 14px",
                   }}
                 />
                 <div className="absolute top-3 left-3 flex gap-2">
-                  <span className="rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.1em] text-(--paper)/70 uppercase">
+                  <span className="rounded-md bg-white/[0.08] px-2 py-1 font-mono text-[10px] tracking-[0.1em] text-(--paper)/70 uppercase">
                     {featured.tag}
                   </span>
-                  <span className="rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] text-(--paper)/55">
+                  <span className="rounded-md bg-white/[0.08] px-2 py-1 font-mono text-[10px] text-(--paper)/55">
                     {featured.id}
                   </span>
                 </div>
@@ -327,7 +327,7 @@ export function IndexPostsClient() {
               setCategory("All");
               setQuery("");
             }}
-            className="mt-4 inline-flex h-10 items-center rounded-lg border border-black/[0.15] bg-white px-4 text-sm font-medium text-(--paper) transition-colors hover:bg-(--ink-2)"
+            className="mt-4 inline-flex h-10 items-center rounded-lg border border-white/[0.15] bg-white/[0.06] px-4 text-sm font-medium text-(--paper) transition-colors hover:bg-white/[0.1]"
           >
             Reset filters
           </button>
@@ -338,15 +338,15 @@ export function IndexPostsClient() {
             <a
               key={post.slug}
               href={`/index/${post.slug}`}
-              className="group flex h-full flex-col rounded-2xl border border-black/[0.07] bg-white p-5 shadow-xs transition-all duration-200 hover:border-black/20 hover:shadow-lg"
+              className="group flex h-full flex-col rounded-2xl border border-white/[0.07] bg-[#141414] p-5 transition-all duration-200 hover:border-white/20 hover:shadow-lg"
             >
-              <div className="relative h-36 overflow-hidden rounded-xl bg-[#f5f5f3] ring-1 ring-black/[0.06] transition-[--tw-ring-color] group-hover:ring-[rgba(0,0,0,0.35)]">
+              <div className="relative h-36 overflow-hidden rounded-xl bg-[#0a0a0a] ring-1 ring-white/[0.06] transition-[--tw-ring-color] group-hover:ring-[rgba(0,153,255,0.4)]">
                 <div
                   aria-hidden
                   className="absolute inset-0"
                   style={{
                     backgroundImage:
-                      "radial-gradient(circle, #d8d8d3 1px, transparent 1px)",
+                      "radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)",
                     backgroundSize: "12px 12px",
                   }}
                 />
@@ -366,15 +366,15 @@ export function IndexPostsClient() {
                   {post.readTime}
                 </span>
               </p>
-              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-[#18181b]">
+              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-(--brand)">
                 {post.title}
               </h3>
               <p className="mt-2 line-clamp-3 text-sm/6 text-(--paper)/65">
                 {post.excerpt}
               </p>
-              <p className="mt-auto flex items-center justify-between border-t border-black/[0.04] pt-4 font-mono text-[11px] text-(--paper)/55">
+              <p className="mt-auto flex items-center justify-between border-t border-white/[0.04] pt-4 font-mono text-[11px] text-(--paper)/55">
                 <span>{post.team}</span>
-                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-[#18181b]">
+                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-(--brand)">
                   Read post
                   <span className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                     ↗

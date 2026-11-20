@@ -1,6 +1,5 @@
+import { PageShell } from "@/components/landing/page-shell";
 import { FaqAccordion } from "@/components/public/faq-accordion";
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import type { Metadata } from "next";
@@ -61,13 +60,8 @@ export default async function PricingPage({
 }) {
   const { plan, billing, retry } = await searchParams;
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
-      {/* 1. Hero */}
+    <PageShell>
+      {/* 1. Hero - extra top padding for the fixed site header */}
       <section className="mx-auto max-w-3xl px-6 pt-40 text-center sm:pt-48">
         <Eyebrow>Pricing</Eyebrow>
         <h1 className="mt-6 text-5xl leading-[1.03] font-normal tracking-[-0.04em] text-balance text-(--paper) sm:text-6xl lg:text-7xl">
@@ -111,8 +105,6 @@ export default async function PricingPage({
         </div>
         <FaqAccordion items={FAQ_ITEMS} />
       </section>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

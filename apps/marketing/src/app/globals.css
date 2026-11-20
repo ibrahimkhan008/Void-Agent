@@ -408,3 +408,62 @@
   mask-image: radial-gradient(circle, #000 0.95px, #0000 1.3px);
   mask-size: 2.4px 2.4px;
 }
+
+/* ============================================================
+   Kestrel dark display surface — the marketing site's page
+   shell. The landing sections carry these tokens inline via
+   TOKENS; every other page resolves them from this scope, so
+   the existing token classes (text-(--paper), bg-(--ink-2), …)
+   flip to the dark system without per-page variable plumbing.
+   /design keeps the light .brand-surface scope untouched.
+   ============================================================ */
+.kestrel {
+  --ink: #0a0a0a;
+  --ink-2: #171717;
+  --paper: #f2efe9;
+  --brand: #0099ff;
+  --brand-glow: #66c2ff;
+
+  /* Accent-span + eyebrow endpoints on this surface */
+  --bs-paper: #f2efe9;
+  --bs-brand: #0099ff;
+  --bs-brand-glow: #66c2ff;
+
+  /* canonical dark shadow stacks (same names as the light system) */
+  --bs-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px
+    rgba(0, 0, 0, 0.5), 0 8px 20px -12px rgba(0, 0, 0, 0.6);
+  --bs-shadow-tray: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 1px
+    rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5), 0 24px 60px -36px
+    rgba(0, 0, 0, 0.8);
+
+  color-scheme: dark;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Landing motion keyframes work on this scope too (legal pages use
+   landing-drop; the no-JS gate stays per-scope). */
+@keyframes landing-drop-kestrel {
+  0% {
+    opacity: 0;
+    translate: 0 -70px;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+
+.js .kestrel .landing-drop {
+  animation: landing-drop-kestrel var(--rise-duration, 0.7s)
+    cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0s) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .kestrel .landing-drop {
+    animation: none;
+    opacity: 1;
+    translate: 0;
+  }
+}

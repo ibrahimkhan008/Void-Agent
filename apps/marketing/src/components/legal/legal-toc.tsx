@@ -214,7 +214,7 @@ export function LegalTocCollapsible({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full cursor-pointer items-center justify-between rounded-xl bg-(--ink-2) px-4 py-3 text-sm font-medium text-(--paper) shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.05)] transition-colors duration-150 hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)"
+        className="flex w-full cursor-pointer items-center justify-between rounded-xl bg-(--ink-2) px-4 py-3 text-sm font-medium text-(--paper) shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--paper)"
       >
         On this page
         <ChevronDown

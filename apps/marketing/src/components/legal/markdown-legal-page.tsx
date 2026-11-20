@@ -167,7 +167,7 @@ function renderMarkdownTable(lines: string[]): string {
         `<tr>${row
           .map(
             (c) =>
-              `<td class="border-t border-black/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75">${inline(c)}</td>`,
+              `<td class="border-t border-white/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75">${inline(c)}</td>`,
           )
           .join("")}</tr>`,
     )
@@ -265,7 +265,7 @@ function inline(text: string): string {
   // Inline code: `text`
   result = result.replace(
     /`([^`]+)`/g,
-    '<code class="rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[0.88em]">$1</code>',
+    '<code class="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[0.88em]">$1</code>',
   );
   return result;
 }

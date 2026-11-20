@@ -1,5 +1,5 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
+import { Button } from "@/components/landing/ui";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { APP_URL } from "lib/site";
@@ -103,18 +103,13 @@ const DEEP_DIVE = [
 
 export default function VsManusPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* 1. Hero */}
       <section
-        className="border-b border-black/[0.06] pt-36 pb-20 sm:pt-44 sm:pb-28"
+        className="border-b border-white/[0.06] pt-36 pb-20 sm:pt-44 sm:pb-28"
         style={{
           backgroundImage:
-            "radial-gradient(circle, rgba(18,18,18,0.22) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(242,239,233,0.14) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
         }}
       >
@@ -142,12 +137,12 @@ export default function VsManusPage() {
             {["Updated for 2026", "Neutral & Fact-Checked"].map((badge) => (
               <span
                 key={badge}
-                className="rounded-full border border-black/[0.12] bg-white px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-(--paper)/70 uppercase"
+                className="rounded-full border border-white/[0.12] bg-white/[0.05] px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-(--paper)/70 uppercase"
               >
                 {badge}
               </span>
             ))}
-            <span className="rounded-full border border-[#a1a1aa]/40 bg-[#a1a1aa]/10 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-[#18181b] uppercase">
+            <span className="rounded-full border border-(--brand)/40 bg-(--brand)/10 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-(--brand) uppercase">
               $0 Free Tier Available
             </span>
           </div>
@@ -168,8 +163,8 @@ export default function VsManusPage() {
           </p>
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
             {/* Choose Void Agent */}
-            <div className="rounded-[20px] bg-(--ink) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="rounded-[14px] bg-white p-6 sm:p-8">
+            <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
+              <div className="rounded-[14px] bg-[#0a0a0a] p-6 sm:p-8">
                 <div className="flex items-center gap-3">
                   <span className="size-2.5 animate-pulse rounded-full bg-(--brand)" />
                   <span className="rounded-full bg-(--brand)/10 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-(--brand) uppercase">
@@ -209,12 +204,12 @@ export default function VsManusPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-6 border-t border-black/[0.06] pt-4 font-mono text-[11px] tracking-[0.12em] text-(--paper)/45 uppercase">
+                <p className="mt-6 border-t border-white/[0.06] pt-4 font-mono text-[11px] tracking-[0.12em] text-(--paper)/45 uppercase">
                   Starting at $0 / mo
                 </p>
                 <Link
                   href={`${APP_URL}/sign-up`}
-                  className="mt-3 inline-flex h-10 items-center rounded-lg bg-white px-4 text-sm font-medium text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] transition-colors hover:bg-(--ink-2)"
+                  className="mt-3 inline-flex h-10 items-center rounded-lg bg-(--paper) px-4 text-sm font-medium text-(--ink) shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)] transition-colors hover:bg-white/90"
                 >
                   Try Void Agent Free
                 </Link>
@@ -222,11 +217,11 @@ export default function VsManusPage() {
             </div>
 
             {/* Choose Manus */}
-            <div className="rounded-[20px] bg-(--ink) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="rounded-[14px] bg-white p-6 sm:p-8">
+            <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
+              <div className="rounded-[14px] bg-[#0a0a0a] p-6 sm:p-8">
                 <div className="flex items-center gap-3">
                   <span className="size-2.5 rounded-full bg-zinc-400" />
-                  <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-zinc-600 uppercase">
+                  <span className="rounded-full bg-white/[0.06] px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-(--paper)/60 uppercase">
                     Single engine swarm
                   </span>
                 </div>
@@ -263,7 +258,7 @@ export default function VsManusPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-6 border-t border-black/[0.06] pt-4 font-mono text-[11px] tracking-[0.12em] text-(--paper)/45 uppercase">
+                <p className="mt-6 border-t border-white/[0.06] pt-4 font-mono text-[11px] tracking-[0.12em] text-(--paper)/45 uppercase">
                   Reported $20-$40+ / mo · Invite / waitlist
                 </p>
               </div>
@@ -283,32 +278,32 @@ export default function VsManusPage() {
             Detailed breakdown across core runtime, model freedom, developer
             tools, and economics.
           </p>
-          <div className="mt-12 overflow-x-auto rounded-[20px] border border-black/[0.08] bg-white shadow-sm">
+          <div className="mt-12 overflow-x-auto rounded-[20px] border border-white/[0.08] bg-[#141414] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)]">
             <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-(--ink-2)">
-                  <th className="w-1/4 px-5 py-4 font-mono text-[11px] tracking-[0.12em] text-black/60 uppercase">
+                  <th className="w-1/4 px-5 py-4 font-mono text-[11px] tracking-[0.12em] text-(--paper)/60 uppercase">
                     Capability
                   </th>
                   <th className="w-3/8 px-5 py-4 text-[13px] font-semibold text-(--brand)">
                     Void Agent
                   </th>
-                  <th className="w-3/8 px-5 py-4 text-[13px] font-semibold text-black/60">
+                  <th className="w-3/8 px-5 py-4 text-[13px] font-semibold text-(--paper)/60">
                     Manus AI
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[0.05]">
+              <tbody className="divide-y divide-white/[0.05]">
                 {MATRIX_ROWS.map((row) => (
-                  <tr key={row.capability} className="hover:bg-black/[0.015]">
-                    <td className="px-5 py-4 align-top font-medium text-black/70">
+                  <tr key={row.capability} className="hover:bg-white/[0.03]">
+                    <td className="px-5 py-4 align-top font-medium text-(--paper)/70">
                       {row.capability}
                     </td>
-                    <td className="bg-[#a1a1aa]/[0.08] px-5 py-4 align-top text-black/75">
+                    <td className="bg-(--brand)/[0.08] px-5 py-4 align-top text-(--paper)/75">
                       {row.us}
                     </td>
                     <td
-                      className={`px-5 py-4 align-top ${row.winner === "them" ? "bg-zinc-50 text-black/75" : "text-black/60"}`}
+                      className={`px-5 py-4 align-top ${row.winner === "them" ? "bg-white/[0.03] text-(--paper)/75" : "text-(--paper)/60"}`}
                     >
                       {row.them}
                     </td>
@@ -335,10 +330,10 @@ export default function VsManusPage() {
             {DEEP_DIVE.map((card) => (
               <div
                 key={card.title}
-                className="rounded-2xl border border-black/[0.07] bg-white p-6 sm:p-8"
+                className="rounded-2xl border border-white/[0.07] bg-[#141414] p-6 sm:p-8"
               >
                 <div className="flex flex-col gap-5 sm:flex-row">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#a1a1aa]/10 text-(--brand)">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-(--brand)/10 text-(--brand)">
                     <card.icon className="size-5" />
                   </span>
                   <div>
@@ -370,14 +365,14 @@ export default function VsManusPage() {
             Transparent Quotas vs. Opaque Credits
           </h2>
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-black/[0.08] bg-white p-6 sm:p-8">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#141414] p-6 sm:p-8">
               <span className="rounded-full bg-(--brand)/10 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-(--brand) uppercase">
                 Transparent quotas
               </span>
               <h3 className="mt-4 text-lg font-medium text-(--paper)">
                 Void Agent
               </h3>
-              <dl className="mt-5 divide-y divide-black/[0.06]">
+              <dl className="mt-5 divide-y divide-white/[0.06]">
                 {[
                   [
                     "Free — $0/mo",
@@ -403,14 +398,14 @@ export default function VsManusPage() {
                 ))}
               </dl>
             </div>
-            <div className="rounded-2xl border border-black/[0.08] bg-white p-6 sm:p-8">
-              <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-zinc-600 uppercase">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#141414] p-6 sm:p-8">
+              <span className="rounded-full bg-white/[0.06] px-2.5 py-1 font-mono text-[10px] tracking-[0.12em] text-(--paper)/60 uppercase">
                 Invite / credit based
               </span>
               <h3 className="mt-4 text-lg font-medium text-(--paper)">
                 Manus AI
               </h3>
-              <dl className="mt-5 divide-y divide-black/[0.06]">
+              <dl className="mt-5 divide-y divide-white/[0.06]">
                 {[
                   [
                     "Waitlist access",
@@ -444,7 +439,7 @@ export default function VsManusPage() {
       <section className="bg-(--ink) pb-24 sm:pb-32">
         <div className="mx-auto max-w-6xl px-6">
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="rounded-[14px] bg-white px-6 py-16 text-center sm:py-20">
+            <div className="rounded-[14px] bg-[#0a0a0a] px-6 py-16 text-center sm:py-20">
               <Eyebrow>Start building today</Eyebrow>
               <h2 className="mx-auto mt-5 max-w-[24ch] text-4xl font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-5xl">
                 Experience Autonomous Multi-Model Agents on{" "}
@@ -456,25 +451,28 @@ export default function VsManusPage() {
                 required.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link
+                <Button
                   href={`${APP_URL}/sign-up`}
-                  className="bs-btn bs-btn-outline h-11 rounded-lg px-6 text-[15px] [--surface-base:#fbfbfa]"
+                  scheme="dark"
+                  size="lg"
+                  rounded
                 >
                   Start Building Free
-                </Link>
-                <Link
+                </Button>
+                <Button
                   href="/pricing"
-                  className="bs-btn bs-btn-default h-11 rounded-lg px-6 text-[15px] [--surface-base:#e6e6e3]"
+                  variant="secondary"
+                  scheme="dark"
+                  size="lg"
+                  rounded
                 >
                   View Pricing Plans
-                </Link>
+                </Button>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

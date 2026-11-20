@@ -1,4 +1,5 @@
-import { APP_URL } from "lib/site";
+import { PageShell } from "@/components/landing/page-shell";
+import { Button } from "@/components/landing/ui";
 import {
   CloudCog,
   Gauge,
@@ -8,7 +9,6 @@ import {
   Workflow,
 } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Contact Sales | Void Agent",
@@ -43,64 +43,8 @@ const FEATURES = [
 
 export default function ContactSalesPage() {
   return (
-    <div
-      className="min-h-dvh w-full overflow-x-clip"
-      style={
-        {
-          background: "#080808",
-          "--ink": "#080808",
-          "--ink-2": "#141414",
-          "--paper": "#f2efe9",
-          "--brand": "#a1a1aa",
-          "--brand-glow": "#d4d4d8",
-        } as React.CSSProperties
-      }
-    >
-      {/* Dark-tone floating navbar */}
-      <header className="fixed inset-x-3 top-3 z-100 mx-auto max-w-7xl rounded-2xl bg-[#0d0d0d]/80 backdrop-blur-xl transition-[top,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] sm:inset-x-4 sm:top-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_0_1px_rgba(255,255,255,0.07)]">
-        <nav
-          aria-label="Main"
-          className="grid h-[60px] grid-cols-[1fr_auto] items-center gap-4 pr-2.5 pl-4 md:grid-cols-[1fr_auto_1fr]"
-        >
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="text-[17px] font-medium tracking-[-0.01em] text-white">
-              Void Agent
-            </span>
-          </Link>
-          <div className="hidden items-center rounded-xl bg-white/[0.05] p-1 md:flex">
-            {[
-              ["About", "/about"],
-              ["Pricing", "/pricing"],
-              ["Docs", "/docs"],
-            ].map(([label, href]) => (
-              <Link
-                key={href}
-                href={href}
-                className="block rounded-lg px-3.5 py-1.5 text-[13.5px] text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <Link
-              href={`${APP_URL}/sign-in`}
-              className="hidden h-9 items-center rounded-[10px] border border-white/[0.15] bg-transparent px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.06] sm:inline-flex"
-            >
-              Log in
-            </Link>
-            <Link
-              href={`${APP_URL}/sign-up`}
-              className="inline-flex h-9 items-center gap-2 rounded-[10px] bg-white px-4 text-sm font-medium text-black"
-            >
-              Start free
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
-        </nav>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-6 pt-32 pb-24 md:px-12 lg:grid lg:grid-cols-12 lg:gap-12 lg:gap-16">
+    <PageShell>
+      <div className="mx-auto max-w-7xl px-6 pt-32 pb-24 md:px-12 lg:grid lg:grid-cols-12 lg:gap-12 lg:gap-16">
         {/* Left */}
         <div className="pt-8 lg:col-span-6">
           <h1 className="text-4xl leading-[1.08] font-extrabold text-white md:text-5xl lg:text-6xl">
@@ -119,7 +63,7 @@ export default function ContactSalesPage() {
           <ul className="mt-6 space-y-5">
             {FEATURES.map((f) => (
               <li key={f.title} className="flex items-start gap-4">
-                <span className="grid shrink-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-[#a1a1aa]">
+                <span className="grid shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.05] p-2.5 text-(--brand)">
                   <f.icon className="size-5" />
                 </span>
                 <div>
@@ -139,17 +83,17 @@ export default function ContactSalesPage() {
 
         {/* Right card */}
         <div className="mt-16 lg:col-span-6 lg:mt-0">
-          <div className="relative min-h-[560px] rounded-2xl border border-zinc-800 bg-[#0c0c0e] p-6 shadow-2xl md:p-8">
+          <div className="relative min-h-[560px] rounded-2xl border border-white/[0.08] bg-[#141414] p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] md:p-8">
             <div
               aria-hidden
               className="absolute inset-0 rounded-2xl"
               style={{
                 background:
-                  "radial-gradient(ellipse 60% 40% at 80% 0%, rgba(126,137,230,0.10), transparent)",
+                  "radial-gradient(ellipse 60% 40% at 80% 0%, rgba(0,153,255,0.10), transparent)",
               }}
             />
             <div className="relative flex h-full flex-col">
-              <span className="grid size-11 place-items-center rounded-xl border border-[#a1a1aa]/25 bg-[#a1a1aa]/10 text-[#d4d4d8]">
+              <span className="grid size-11 place-items-center rounded-xl border border-(--brand)/25 bg-(--brand)/10 text-(--brand-glow)">
                 <Mail className="size-5" />
               </span>
               <h2 className="mt-6 text-2xl font-bold text-white md:text-3xl">
@@ -160,15 +104,16 @@ export default function ContactSalesPage() {
                 models or tools, and target capacity. We will reply with the
                 closest current plan and clearly scope any custom work.
               </p>
-              <a
+              <Button
                 href="mailto:support@voidagent.space?subject=Void Agent%20sales%20inquiry"
-                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#a1a1aa] px-5 font-semibold text-black transition-colors hover:bg-[#919bf0]"
+                scheme="dark"
+                size="lg"
+                className="mt-8 min-h-12"
               >
-                <Mail className="size-4" />
                 Email sales
-              </a>
+              </Button>
 
-              <div className="my-8 border-t border-zinc-800" />
+              <div className="my-8 border-t border-white/[0.08]" />
 
               <h3 className="text-xs font-bold tracking-wider text-zinc-500 uppercase">
                 Community channels
@@ -178,13 +123,13 @@ export default function ContactSalesPage() {
                   href="https://github.com/ibrahimkhan008"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 text-sm font-medium text-white transition-colors hover:bg-zinc-900"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition-colors hover:bg-white/[0.1]"
                 >
                   GitHub
                 </a>
                 <a
                   href="mailto:support@voidagent.space"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 text-sm font-medium text-white transition-colors hover:bg-zinc-900"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white transition-colors hover:bg-white/[0.1]"
                 >
                   <MessageCircle className="size-4" />
                   Support
@@ -199,17 +144,7 @@ export default function ContactSalesPage() {
             </div>
           </div>
         </div>
-      </main>
-
-      {/* No footer on this page (§5.7); toast region only */}
-      <div className="pb-8 text-center">
-        <Link
-          href="/"
-          className="text-sm text-zinc-500 transition-colors hover:text-zinc-300"
-        >
-          ← Back to Void Agent
-        </Link>
       </div>
-    </div>
+    </PageShell>
   );
 }

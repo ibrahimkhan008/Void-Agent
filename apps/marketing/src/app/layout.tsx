@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -9,6 +9,12 @@ const geistSans = Geist({
 });
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+// The landing page's UI is built around Inter as its sans face. Published as
+// --font-inter; only the landing tokens reference it, other pages unchanged.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 // Display serif for the brand-surface accent words ("Rights" in "Grievance
@@ -56,7 +62,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${inter.variable} antialiased`}
       >
         {children}
         <Toaster richColors />

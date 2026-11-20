@@ -1,8 +1,6 @@
+import { SiteHeader } from "@/components/landing/site-header";
 import { AccentSpan } from "@/components/ui/accent-span";
-import { BrandButtonLink } from "@/components/ui/brand-button";
-import { APP_URL } from "lib/site";
 import { cn } from "lib/utils";
-import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,14 +51,6 @@ export function legalMetadata(
   };
 }
 
-const NAV_LINKS = [
-  { label: "About", href: "/about" },
-  { label: "Docs", href: "/docs" },
-  { label: "Pricing", href: "/pricing" },
-  // The changelog hub's one true URL is /index ("/changelog" never existed).
-  { label: "Changelog", href: "/index" },
-];
-
 export function LegalPage({
   eyebrow = "Legal",
   title,
@@ -75,66 +65,8 @@ export function LegalPage({
   activeSibling,
 }: LegalPageProps) {
   return (
-    <div className="brand-surface min-h-dvh w-full overflow-x-clip">
-      {/* ===== Floating pill navbar (Design system §4.1) ===== */}
-      <header className="landing-drop fixed inset-x-3 z-100 mx-auto max-w-7xl rounded-2xl backdrop-blur-xl transition-[top,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] top-3 sm:inset-x-4 sm:top-4 bg-(--ink-2)/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
-        <nav
-          aria-label="Main"
-          className="grid h-[60px] grid-cols-[1fr_auto] items-center gap-4 pr-2.5 pl-4 md:grid-cols-[1fr_auto_1fr]"
-        >
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="relative block shrink-0 size-7">
-                <Image
-                  src="/logo-192.webp"
-                  alt="Void Agent"
-                  width={28}
-                  height={28}
-                  className="object-contain"
-                  priority
-                />
-              </span>
-              <span className="text-[17px] font-medium tracking-[-0.01em] text-(--paper)">
-                Void Agent
-              </span>
-            </Link>
-          </div>
-
-          {/* Center pill nav (desktop only) — links inside a tray chip */}
-          <div className="hidden items-center rounded-xl bg-black/[0.035] p-1 md:flex">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block rounded-lg px-3.5 py-1.5 text-[13.5px] transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40 text-(--paper)/60 hover:text-(--paper) hover:bg-white/70"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Right: Log in (outline) + Start free (primary + arrow, glow sweep) */}
-          <div className="flex items-center justify-end gap-2">
-            <BrandButtonLink
-              variant="outline"
-              size="md"
-              href={`${APP_URL}/sign-in`}
-              className="hidden sm:inline-flex"
-            >
-              Log in
-            </BrandButtonLink>
-            <BrandButtonLink
-              variant="default"
-              size="md"
-              href={`${APP_URL}/sign-up`}
-            >
-              Start free
-              <ArrowRight data-icon="end" />
-            </BrandButtonLink>
-          </div>
-        </nav>
-      </header>
+    <div className="kestrel min-h-dvh w-full overflow-x-clip">
+      <SiteHeader />
 
       {/* ===== Hero ===== */}
       <section className="mx-auto max-w-3xl px-6 pt-40 pb-14 text-center sm:pt-48">
@@ -196,7 +128,7 @@ export function LegalPage({
           aria-label="Legal documents"
           className="mx-auto max-w-3xl px-6 pb-8 flex justify-center"
         >
-          <div className="max-w-full overflow-x-auto rounded-xl bg-black/[0.04] p-1 [scrollbar-width:none] flex gap-1">
+          <div className="max-w-full overflow-x-auto rounded-xl bg-white/[0.05] p-1 [scrollbar-width:none] flex gap-1">
             {siblings.map((sib, i) => (
               <Link
                 key={sib.href}
@@ -204,8 +136,8 @@ export function LegalPage({
                 className={cn(
                   "block rounded-lg px-3.5 py-1.5 text-[13.5px] whitespace-nowrap transition-[background-color,color,box-shadow] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-(--paper)/40",
                   i === activeSibling
-                    ? "bg-white text-(--paper) rounded-xl"
-                    : "text-(--paper)/60 hover:text-(--paper) hover:bg-white/70",
+                    ? "bg-(--paper) text-(--ink) rounded-xl"
+                    : "text-(--paper)/60 hover:text-(--paper) hover:bg-white/10",
                 )}
               >
                 {sib.label}
@@ -254,7 +186,7 @@ export function LegalPage({
           )}
           {sections.map((section) => (
             <section key={section.id} id={section.id}>
-              <h2 className="mt-12 scroll-mt-28 border-t border-black/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">
+              <h2 className="mt-12 scroll-mt-28 border-t border-white/10 pt-12 text-3xl font-normal tracking-[-0.03em] text-balance text-(--paper) first:mt-12">
                 {section.title}
               </h2>
               <div className="space-y-0 text-base/7 text-(--paper)/75">
@@ -264,7 +196,7 @@ export function LegalPage({
           ))}
 
           {/* Bottom back link */}
-          <div className="mt-16 border-t border-black/10 pt-8">
+          <div className="mt-16 border-t border-white/10 pt-8">
             <Link
               href="/"
               className="text-sm text-(--paper)/55 transition-colors duration-150 hover:text-(--paper) hover:underline underline-offset-4"
@@ -400,7 +332,7 @@ export function LegalTable({
                 {row.map((cell, j) => (
                   <td
                     key={j}
-                    className="border-t border-black/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75"
+                    className="border-t border-white/[0.06] px-4 py-3 align-top text-sm/6 text-(--paper)/75"
                   >
                     {cell}
                   </td>

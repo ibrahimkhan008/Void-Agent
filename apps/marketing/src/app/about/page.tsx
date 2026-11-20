@@ -1,12 +1,11 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
+import { Button, LANDSCAPE_SRC } from "@/components/landing/ui";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { DitherCanvas } from "@/components/ui/dither-canvas";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { IconArrowRight } from "@tabler/icons-react";
 import { APP_URL } from "lib/site";
-import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "About Void Agent: AI Research and Product Company",
@@ -21,7 +20,7 @@ const PARTNERS = [
   "Google",
   "Groq",
   "Z AI",
-  "Cloudflare",
+  "Cloudvoid-agent",
 ];
 
 const BUILD_CARDS = [
@@ -67,22 +66,18 @@ const PRINCIPLES = [
 
 export default function AboutPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* 1. Hero */}
       <section className="relative pt-40 pb-20 sm:pt-48">
-        <div
-          aria-hidden
-          className="absolute inset-x-0 top-0 -z-10 h-[620px] [mask-image:radial-gradient(ellipse_60%_55%_at_50%_58%,black,transparent_85%)]"
-        >
-          <DitherCanvas
-            src="/images/dither-footer.png"
-            className="h-full w-full object-cover [image-rendering:pixelated]"
+        <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
+          <img
+            src={LANDSCAPE_SRC}
+            alt=""
+            width={1672}
+            height={941}
+            className="size-full object-cover object-[center_75%] opacity-45 [mask-image:radial-gradient(ellipse_60%_55%_at_50%_40%,black,transparent_80%)]"
           />
+          <div className="absolute inset-0 bg-linear-to-b from-(--ink) via-transparent to-(--ink)" />
         </div>
         <div className="mx-auto max-w-7xl px-6">
           <Eyebrow>About Void Agent</Eyebrow>
@@ -96,19 +91,19 @@ export default function AboutPage() {
             and actually finish it.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href={`${APP_URL}/sign-up`}
-              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
-            >
+            <Button href={`${APP_URL}/sign-up`} scheme="dark" size="lg" rounded>
               Start free
-              <ArrowRight className="size-4" data-icon="end" />
-            </Link>
-            <Link
+              <IconArrowRight data-icon="inline-end" aria-hidden />
+            </Button>
+            <Button
               href="/pricing"
-              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              variant="secondary"
+              scheme="dark"
+              size="lg"
+              rounded
             >
               See pricing
-            </Link>
+            </Button>
           </div>
         </div>
 
@@ -138,7 +133,7 @@ export default function AboutPage() {
           <div className="size-28 sm:size-36">
             <DitherCanvas
               src="/images/dither-plan-3.png"
-              className="h-full w-full rounded-2xl object-cover [image-rendering:pixelated]"
+              className="h-full w-full rounded-2xl object-cover invert [image-rendering:pixelated]"
             />
           </div>
           <div className="mt-8">
@@ -170,10 +165,13 @@ export default function AboutPage() {
 
           <figure className="mt-14">
             <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="aspect-[16/7] overflow-hidden rounded-[14px] bg-white sm:aspect-[16/6]">
-                <DitherCanvas
-                  src="/images/dither-footer.png"
-                  className="h-full w-full object-cover [image-rendering:pixelated]"
+              <div className="aspect-[16/7] overflow-hidden rounded-[14px] bg-[#0a0a0a] sm:aspect-[16/6]">
+                <img
+                  src={LANDSCAPE_SRC}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  className="size-full object-cover object-[50%_62%] opacity-80"
                 />
               </div>
             </div>
@@ -220,11 +218,11 @@ export default function AboutPage() {
                 key={card.title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white">
+                <div className="rounded-[14px] bg-[#0a0a0a]">
                   <div className="h-44 overflow-hidden rounded-t-[14px]">
                     <DitherCanvas
                       src="/images/dither-plan-2.png"
-                      className="h-full w-full object-cover [image-rendering:pixelated]"
+                      className="h-full w-full object-cover invert [image-rendering:pixelated]"
                     />
                   </div>
                   <div className="p-5">
@@ -253,11 +251,11 @@ export default function AboutPage() {
             How We <AccentSpan>Work.</AccentSpan>
           </h2>
           <div className="mt-14 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid rounded-[14px] bg-white sm:grid-cols-2">
+            <div className="grid rounded-[14px] bg-[#0a0a0a] sm:grid-cols-2">
               {PRINCIPLES.map((p) => (
                 <div
                   key={p.n}
-                  className="border-b border-r border-black/[0.06] p-6 text-center last:border-r-0 sm:[&:nth-child(2)]:border-r-0 sm:[&:nth-child(3)]:border-b-0 sm:[&:nth-child(4)]:border-b-0 sm:[&:nth-child(4)]:border-r-0"
+                  className="border-b border-r border-white/[0.06] p-6 text-center last:border-r-0 sm:[&:nth-child(2)]:border-r-0 sm:[&:nth-child(3)]:border-b-0 sm:[&:nth-child(4)]:border-b-0 sm:[&:nth-child(4)]:border-r-0"
                 >
                   <p className="font-mono text-[11px] text-(--brand)">{p.n}</p>
                   <h3 className="mt-3 text-lg font-medium text-(--paper)">
@@ -275,20 +273,17 @@ export default function AboutPage() {
       <section className="pt-8 pb-24 sm:pb-32">
         <div className="mx-auto max-w-6xl px-6">
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="relative overflow-hidden rounded-[14px] bg-white px-6 py-20 sm:py-28">
-              <div aria-hidden className="absolute inset-0 -z-10">
-                <DitherCanvas
-                  src="/images/dither-footer.png"
-                  className="h-full w-full object-cover object-[50%_70%] [image-rendering:pixelated]"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(255,255,255,0.85) 30%, rgba(255,255,255,0.4) 100%)",
-                  }}
-                />
-              </div>
+            <div className="relative overflow-hidden rounded-[14px] bg-[#0a0a0a] px-6 py-20 sm:py-28">
+              <img
+                src={LANDSCAPE_SRC}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 -z-10 size-full object-cover object-[50%_62%] saturate-[1.15]"
+              />
+              <div
+                aria-hidden
+                className="absolute inset-0 -z-10 bg-linear-to-t from-(--ink)/80 via-(--ink)/15 to-transparent"
+              />
               <div className="text-center">
                 <Eyebrow>Looking ahead</Eyebrow>
                 <h2 className="mx-auto mt-5 max-w-[18ch] text-4xl font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-5xl">
@@ -300,26 +295,29 @@ export default function AboutPage() {
                   getting started, and we would love for you to build with us.
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
-                  <Link
+                  <Button
                     href={`${APP_URL}/sign-up`}
-                    className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+                    scheme="dark"
+                    size="lg"
+                    rounded
                   >
                     Start free
-                  </Link>
-                  <Link
+                  </Button>
+                  <Button
                     href="/contact"
-                    className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+                    variant="secondary"
+                    scheme="dark"
+                    size="lg"
+                    rounded
                   >
                     Talk to us
-                  </Link>
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

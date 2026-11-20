@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/landing/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import { APP_URL, MARKETING_URL } from "lib/site";
 import { cn } from "lib/utils";
@@ -13,7 +14,6 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -257,7 +257,7 @@ export function PricingPlans({
         <div
           role="radiogroup"
           aria-label="Billing period"
-          className="inline-flex rounded-full border border-black/[0.08] bg-(--ink-2) p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(0,0,0,0.05)]"
+          className="inline-flex rounded-full border border-white/[0.08] bg-(--ink-2) p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.5)]"
         >
           {(
             [
@@ -274,7 +274,7 @@ export function PricingPlans({
               className={cn(
                 "inline-flex h-8 items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors",
                 interval === option.id
-                  ? "bg-white text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+                  ? "bg-(--paper) text-(--ink) shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)]"
                   : "text-(--paper)/60 hover:text-(--paper)",
               )}
             >
@@ -294,7 +294,7 @@ export function PricingPlans({
         aria-label="Plans"
         className="mx-auto mt-14 max-w-7xl px-6 pt-14 pb-24 sm:pb-32"
       >
-        <div className="grid gap-1.5 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(0,0,0,0.05),0_24px_60px_-36px_rgba(0,0,0,0.25)] sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-1.5 rounded-[20px] bg-(--ink-2) p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.06),0_24px_60px_-36px_rgba(0,0,0,0.8)] sm:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
@@ -306,7 +306,7 @@ export function PricingPlans({
               {/* Top block */}
               <div
                 className={cn(
-                  "p-5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06),0_8px_20px_-12px_rgba(0,0,0,0.12)] rounded-[14px]",
+                  "p-5 bg-[#0a0a0a] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5),0_8px_20px_-12px_rgba(0,0,0,0.6)] rounded-[14px]",
                   plan.highlight && "ring-(--brand)/30",
                 )}
               >
@@ -316,9 +316,9 @@ export function PricingPlans({
                     alt=""
                     width={400}
                     height={96}
-                    className="h-24 w-full object-cover [image-rendering:pixelated]"
+                    className="h-24 w-full object-cover invert [image-rendering:pixelated]"
                   />
-                  <div className="bg-linear-to-t from-white via-white/30 to-transparent" />
+                  <div className="bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent" />
                 </div>
                 <div className="flex min-h-6 items-center">
                   {plan.badge &&
@@ -370,54 +370,48 @@ export function PricingPlans({
                 {plan.cta.href ? (
                   /* Free plan (and any plan with a plain href): link into
                      the product app's sign-up flow. */
-                  <Link
+                  <Button
                     href={`${APP_URL}${plan.cta.href}`}
-                    className={cn(
-                      "mt-5 inline-flex h-10 w-full items-center justify-center rounded-lg text-sm font-medium transition-colors",
-                      plan.cta.variant === "outline" &&
-                        "border border-black/[0.15] bg-white text-(--paper) hover:bg-(--ink-2)",
-                      plan.cta.variant === "secondary" &&
-                        "bg-(--ink-2) text-(--paper) hover:bg-white",
-                    )}
+                    variant="outline"
+                    scheme="dark"
+                    className="mt-5 w-full"
                   >
                     {plan.cta.label}
-                  </Link>
+                  </Button>
                 ) : plan.cta.variant === "default" ? (
-                  /* Pro CTA: the v2 default button — gray gradient +
-                     dotted brand-glow sweep (bs-btn system). */
-                  <button
-                    type="button"
+                  /* Pro CTA: the landing's default dark-scheme button —
+                     white surface, dark text. */
+                  <Button
+                    variant="default"
+                    scheme="dark"
                     onClick={() => handleCheckout(plan)}
                     disabled={checkoutPending}
-                    className="bs-btn bs-btn-default mt-5 h-10 w-full rounded-lg text-sm"
+                    aria-busy={pendingTier === plan.id}
+                    className="mt-5 w-full"
                   >
                     {pendingTier === plan.id && (
-                      <Loader2 className="size-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
                     )}
                     {pendingTier === plan.id
                       ? "Opening checkout"
                       : plan.cta.label}
-                  </button>
+                  </Button>
                 ) : (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    scheme="dark"
                     onClick={() => handleCheckout(plan)}
                     disabled={checkoutPending}
-                    className={cn(
-                      "mt-5 inline-flex h-10 w-full items-center justify-center rounded-lg text-sm font-medium transition-colors",
-                      plan.cta.variant === "outline" &&
-                        "border border-black/[0.15] bg-white text-(--paper) hover:bg-(--ink-2)",
-                      plan.cta.variant === "secondary" &&
-                        "bg-(--ink-2) text-(--paper) hover:bg-white",
-                    )}
+                    aria-busy={pendingTier === plan.id}
+                    className="mt-5 w-full"
                   >
                     {pendingTier === plan.id && (
-                      <Loader2 className="size-4 animate-spin" />
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
                     )}
                     {pendingTier === plan.id
                       ? "Opening checkout"
                       : plan.cta.label}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -433,12 +427,15 @@ export function PricingPlans({
               your team.
             </p>
           </div>
-          <Link
+          <Button
             href="/contact-sales"
-            className="inline-flex h-8 shrink-0 items-center rounded-full border border-black/[0.15] bg-white px-3.5 text-sm font-medium text-(--paper) transition-colors hover:bg-(--ink-2)"
+            variant="outline"
+            scheme="dark"
+            rounded
+            className="shrink-0"
           >
             Contact sales
-          </Link>
+          </Button>
         </div>
       </div>
     </>

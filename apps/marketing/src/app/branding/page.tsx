@@ -1,11 +1,9 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
+import { Button } from "@/components/landing/ui";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { DitherCanvas } from "@/components/ui/dither-canvas";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { Download } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Brand Kit | Void Agent",
@@ -16,17 +14,17 @@ export const metadata: Metadata = {
 
 const COLORS = [
   {
-    name: "Graphite",
-    hex: "#18181b",
+    name: "Blue",
+    hex: "#2537D5",
     role: "Actions, accents, links, the mark's color",
-    bg: "#18181b",
+    bg: "#2537D5",
     text: "#FFFFFF",
   },
   {
-    name: "Silver",
-    hex: "#a1a1aa",
+    name: "Light Blue",
+    hex: "#7E89E6",
     role: "Active markers, the button glow, gradient mid-tones",
-    bg: "#a1a1aa",
+    bg: "#7E89E6",
     text: "#000000",
   },
   {
@@ -45,9 +43,9 @@ const COLORS = [
   },
   {
     name: "Surface",
-    hex: "#f4f4f5",
+    hex: "#F4F5F8",
     role: "Trays and raised panels",
-    bg: "#f4f4f5",
+    bg: "#F4F5F8",
     text: "#000000",
   },
   {
@@ -73,7 +71,7 @@ const RULES = [
   ],
   [
     "Place it only on the three brand grounds",
-    "Ground #FFFFFF, Ink #000000, or Ink #18181b. Nothing else.",
+    "Ground #FFFFFF, Ink #000000, or Blue #2537D5. Nothing else.",
   ],
   [
     "Partners are technology partners, never customers",
@@ -85,7 +83,7 @@ const RULES = [
   ],
   [
     "The blue always comes from below",
-    "Gradients fall like light: white at the top, Silver in the middle, Graphite at the base. Never blend hues side to side.",
+    "Gradients fall like light: white at the top, Light Blue in the middle, Blue at the base. Never blend hues side to side.",
   ],
   [
     "Show units and real numbers",
@@ -103,12 +101,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export default function BrandingPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* Hero */}
       <section className="mx-auto max-w-3xl px-6 pt-40 pb-16 text-center sm:pt-48">
         <Eyebrow>Brand kit</Eyebrow>
@@ -122,15 +115,16 @@ export default function BrandingPage() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {ASSETS.map((asset) => (
-            <a
+            <Button
               key={asset.href}
               href={asset.href}
               download
-              className="bs-btn bs-btn-default h-10 rounded-lg px-4 text-sm"
+              variant="secondary"
+              scheme="dark"
+              className="h-10 px-4 text-sm"
             >
-              <Download className="size-4" />
               {asset.label}
-            </a>
+            </Button>
           ))}
         </div>
       </section>
@@ -176,7 +170,7 @@ export default function BrandingPage() {
           </div>
           {/* Green */}
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid h-64 place-items-center rounded-[14px] bg-[#18181b]">
+            <div className="grid h-64 place-items-center rounded-[14px] bg-[#2537D5]">
               <span className="relative block size-28">
                 <DitherCanvas
                   src="/images/logo-va-128.webp"
@@ -187,7 +181,7 @@ export default function BrandingPage() {
               </span>
             </div>
             <p className="px-4 py-3 text-sm text-(--paper)/60">
-              Mark on Ink — #18181b
+              Mark on Blue — #2537D5
             </p>
           </div>
         </div>
@@ -207,10 +201,10 @@ export default function BrandingPage() {
             Cool White With One <AccentSpan>Living Color</AccentSpan>
           </SectionHeading>
           <p className="mt-5 max-w-[70ch] text-lg/8 text-(--paper)/60">
-            Three primaries carry the system: Graphite, Ink, and the white
-            ground. Gray is the neutral in between; Silver tints markers, glows,
-            and gradient mid-tones. Graphite stays readable at every size (8.1:1
-            on white); reserve Silver for graphic accents.
+            Three primaries carry the system: Blue, Ink, and the white ground.
+            Gray is the neutral in between; Light Blue tints markers, glows, and
+            gradient mid-tones. Blue stays readable at every size (8.1:1 on
+            white); reserve Light Blue for graphic accents.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {COLORS.map((color) => (
@@ -218,9 +212,9 @@ export default function BrandingPage() {
                 key={color.hex}
                 className="rounded-[20px] bg-(--ink) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-4">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-4">
                   <div
-                    className="h-24 rounded-xl border border-black/[0.08]"
+                    className="h-24 rounded-xl border border-white/[0.08]"
                     style={{ background: color.bg }}
                   />
                   <p className="mt-3 text-sm font-medium text-(--paper)">
@@ -248,7 +242,7 @@ export default function BrandingPage() {
           </SectionHeading>
           <div className="mt-12 space-y-4">
             <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="rounded-[14px] bg-white p-6">
+              <div className="rounded-[14px] bg-[#0a0a0a] p-6">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
                   Geist — headlines, UI, body
                 </p>
@@ -262,7 +256,7 @@ export default function BrandingPage() {
               </div>
             </div>
             <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="rounded-[14px] bg-white p-6">
+              <div className="rounded-[14px] bg-[#0a0a0a] p-6">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
                   Geist Mono — eyebrows, labels, numbers, code
                 </p>
@@ -272,7 +266,7 @@ export default function BrandingPage() {
               </div>
             </div>
             <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-              <div className="rounded-[14px] bg-white p-6">
+              <div className="rounded-[14px] bg-[#0a0a0a] p-6">
                 <p className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
                   Instrument Serif italic — accent words only
                 </p>
@@ -296,7 +290,7 @@ export default function BrandingPage() {
             {RULES.map(([title, body]) => (
               <div
                 key={title}
-                className="rounded-[14px] bg-white p-6 shadow-[var(--bs-shadow-card)]"
+                className="rounded-[14px] bg-[#0a0a0a] p-6 shadow-[var(--bs-shadow-card)]"
               >
                 <h3 className="text-base font-medium text-(--paper)">
                   {title}
@@ -320,23 +314,21 @@ export default function BrandingPage() {
             rules — is published as Markdown for AI tools and humans.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/design.md"
-              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
-            >
+            <Button href="/design.md" scheme="dark" size="lg" rounded>
               Read design.md
-            </Link>
-            <Link
+            </Button>
+            <Button
               href="/contact"
-              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              variant="secondary"
+              scheme="dark"
+              size="lg"
+              rounded
             >
               Talk to us
-            </Link>
+            </Button>
           </div>
         </div>
       </section>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

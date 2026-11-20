@@ -1,5 +1,4 @@
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
+import { PageShell } from "@/components/landing/page-shell";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import type { Metadata } from "next";
@@ -14,23 +13,15 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       {/* Hero with dot-grid backdrop */}
-      <section
-        className="relative border-b border-black/[0.06] pt-36 pb-16 sm:pt-44 sm:pb-24"
-        style={{ colorScheme: "light" }}
-      >
+      <section className="relative border-b border-white/[0.06] pt-36 pb-16 sm:pt-44 sm:pb-24">
         <div
           aria-hidden
           className="absolute inset-0 opacity-[0.25]"
           style={{
             backgroundImage:
-              "radial-gradient(circle, rgba(18,18,18,0.25) 1px, transparent 1px)",
+              "radial-gradient(circle, rgba(242,239,233,0.14) 1px, transparent 1px)",
             backgroundSize: "20px 20px",
           }}
         />
@@ -49,8 +40,6 @@ export default function ContactPage() {
       </section>
 
       <ContactForm />
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

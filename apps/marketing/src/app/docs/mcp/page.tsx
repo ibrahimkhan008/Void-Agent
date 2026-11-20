@@ -1,7 +1,8 @@
+import { IconArrowRight } from "@tabler/icons-react";
+import { PageShell } from "@/components/landing/page-shell";
+import { Button } from "@/components/landing/ui";
 import { CodeBlock } from "@/components/public/code-block";
 import { DocsHero, DocsSidebar } from "@/components/public/docs-chrome";
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
 import { AccentSpan } from "@/components/ui/accent-span";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { APP_URL } from "lib/site";
@@ -122,12 +123,7 @@ function SectionHeader({
 
 export default function McpDocsPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
+    <PageShell>
       <DocsHero
         eyebrow="Docs · MCP"
         title="Connect Your Tools With"
@@ -148,11 +144,11 @@ export default function McpDocsPage() {
             The Model Context Protocol (MCP) is an open standard that lets AI
             apps use tools from other services. A service runs an MCP server
             that lists its tools, like{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               create_issue
             </code>{" "}
             or{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               search_pages
             </code>
             . Void Agent connects to that server, shows the tools to the agent,
@@ -164,7 +160,7 @@ export default function McpDocsPage() {
                 key={step.n}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="h-full rounded-[14px] bg-white p-4">
+                <div className="h-full rounded-[14px] bg-[#0a0a0a] p-4">
                   <p className="font-mono text-[11px] text-(--brand)">
                     {step.n}
                   </p>
@@ -189,7 +185,7 @@ export default function McpDocsPage() {
                 key={card.title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
                   <span className="grid size-8 place-items-center rounded-lg bg-(--paper) text-xs font-semibold text-white">
                     {i + 1}
                   </span>
@@ -205,11 +201,11 @@ export default function McpDocsPage() {
           </div>
           <p className="text-base/8 text-(--paper)/70">
             A remote server needs a{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               url
             </code>
             . Add{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               headers
             </code>{" "}
             when the server wants an API key or token:
@@ -236,11 +232,11 @@ export default function McpDocsPage() {
             <p className="mt-2 text-sm/6 text-(--paper)/60">
               The hosted app connects to MCP servers over HTTPS. Servers that
               run as a local command (
-              <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+              <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
                 command
               </code>{" "}
               and{" "}
-              <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+              <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
                 args
               </code>
               ) only work on self-hosted Void Agent.
@@ -274,7 +270,7 @@ export default function McpDocsPage() {
                 key={card.title}
                 className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]"
               >
-                <div className="rounded-[14px] bg-white p-5">
+                <div className="rounded-[14px] bg-[#0a0a0a] p-5">
                   <h3 className="text-base font-medium text-(--paper)">
                     {card.title}
                   </h3>
@@ -292,7 +288,7 @@ export default function McpDocsPage() {
           </SectionHeader>
           <p className="mt-5 text-base/8 text-(--paper)/70">
             Cloud Agent loads your MCP tools next to its built-in{" "}
-            <code className="rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
+            <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.88em] text-(--paper)">
               voidagent-mcp
             </code>{" "}
             tools, so one task can read your GitHub issues, change code in the
@@ -335,7 +331,7 @@ Then post a short summary to #eng in Slack.`}
             ].map(([k, v]) => (
               <div
                 key={k}
-                className="rounded-[14px] bg-white p-4 shadow-[var(--bs-shadow-card)]"
+                className="rounded-[14px] bg-[#0a0a0a] p-4 shadow-[var(--bs-shadow-card)]"
               >
                 <dt className="font-mono text-[10px] tracking-[0.12em] text-(--paper)/45 uppercase">
                   {k}
@@ -361,7 +357,7 @@ Then post a short summary to #eng in Slack.`}
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}
           />
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="divide-y divide-black/[0.06] rounded-[14px] bg-white px-5">
+            <div className="divide-y divide-white/[0.06] rounded-[14px] bg-[#0a0a0a] px-5">
               {SERVER_TOOLS.map(([name, body]) => (
                 <div
                   key={name}
@@ -389,18 +385,19 @@ Then post a short summary to #eng in Slack.`}
             ))}
           </ul>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href={`${APP_URL}/sign-up`}
-              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
-            >
+            <Button href={`${APP_URL}/sign-up`} scheme="dark" size="lg" rounded>
               Connect your first server
-            </Link>
-            <Link
+              <IconArrowRight data-icon="inline-end" aria-hidden />
+            </Button>
+            <Button
               href="/docs"
-              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              variant="secondary"
+              scheme="dark"
+              size="lg"
+              rounded
             >
               Back to Agents
-            </Link>
+            </Button>
           </div>
 
           {/* Previous pager */}
@@ -408,7 +405,7 @@ Then post a short summary to #eng in Slack.`}
             href="/docs"
             className="group block rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)] transition-transform active:scale-[0.99]"
           >
-            <div className="flex items-center justify-between rounded-[14px] bg-white p-6">
+            <div className="flex items-center justify-between rounded-[14px] bg-[#0a0a0a] p-6">
               <div>
                 <p className="font-mono text-[11px] tracking-[0.14em] text-(--paper)/45 uppercase">
                   Previous
@@ -422,8 +419,6 @@ Then post a short summary to #eng in Slack.`}
           </Link>
         </article>
       </div>
-
-      <PublicFooter />
-    </div>
+    </PageShell>
   );
 }

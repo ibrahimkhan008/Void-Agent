@@ -1,20 +1,14 @@
-import { FaqAccordion } from "@/components/public/faq-accordion";
-import { PublicFooter } from "@/components/public/public-footer";
-import { PublicHeader } from "@/components/public/public-header";
-import { AccentSpan } from "@/components/ui/accent-span";
-import { Eyebrow } from "@/components/ui/eyebrow";
+import { Catalog } from "@/components/landing/catalog";
+import { Cta } from "@/components/landing/cta";
+import { Developers } from "@/components/landing/developers";
+import { Faq } from "@/components/landing/faq";
+import { Features } from "@/components/landing/features";
+import { Footer } from "@/components/landing/footer";
+import { Hero } from "@/components/landing/hero";
+import { Network } from "@/components/landing/network";
+import { Pricing } from "@/components/landing/pricing";
+import { Workflows } from "@/components/landing/workflows";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { PricingPlans } from "../../pricing/pricing-plans";
-import { AgentsTabs } from "./agents-tabs";
-import {
-  FeaturesSection,
-  GetStartedSection,
-  LandingHero,
-  PartnerStrip,
-} from "./landing-sections";
-import { NetworkSection, WorkflowSection } from "./landing-workflow";
-import { ModelsCatalog } from "./models-catalog";
 
 export const metadata: Metadata = {
   title: "Void Agent: Autonomous AI Agent Platform with Multi-Model Freedom",
@@ -64,64 +58,19 @@ const FAQ_ITEMS = [
 
 export default function LandingPage() {
   return (
-    <div
-      className="brand-surface min-h-dvh w-full overflow-x-clip"
-      style={{ colorScheme: "light" }}
-    >
-      <PublicHeader />
-
-      <LandingHero />
-      <PartnerStrip />
-      <FeaturesSection />
-      <WorkflowSection />
-      <NetworkSection />
-      <AgentsTabs />
-      <ModelsCatalog />
-
-      {/* 8. #pricing */}
-      <section id="pricing" className="scroll-mt-24">
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <Eyebrow>Pricing</Eyebrow>
-          <h2 className="mt-6 text-4xl font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-5xl lg:text-6xl">
-            Simple Pricing For <AccentSpan>Every Builder.</AccentSpan>
-          </h2>
-          <p className="mx-auto mt-5 max-w-[560px] text-lg/8 text-pretty text-(--paper)/60">
-            Start free, upgrade when your agents need more room, and get two
-            months free when you pay yearly.
-          </p>
-        </div>
-        <PricingPlans />
-      </section>
-
-      {/* 9. #faq */}
-      <section
-        id="faq"
-        className="mx-auto max-w-3xl scroll-mt-24 px-6 py-24 sm:py-32"
-      >
-        <div className="text-center">
-          <Eyebrow>FAQ</Eyebrow>
-          <h2 className="mt-6 text-4xl font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-5xl">
-            Frequently Asked <AccentSpan>Questions</AccentSpan>
-          </h2>
-          <p className="mt-5 text-lg/8 text-(--paper)/60">
-            Can&apos;t find what you need?{" "}
-            <Link
-              href="/contact"
-              className="font-medium text-(--paper) underline decoration-(--paper)/30 underline-offset-4 transition-colors hover:decoration-(--paper)"
-            >
-              Contact us
-            </Link>
-            .
-          </p>
-        </div>
-        <FaqAccordion items={FAQ_ITEMS} />
-      </section>
-
-      {/* 10. #get-started */}
-      <GetStartedSection />
-
-      {/* 11. Footer */}
-      <PublicFooter />
+    <div className="w-full bg-[#0a0a0a]">
+      <main>
+        <Hero />
+        <Features />
+        <Workflows />
+        <Network />
+        <Developers />
+        <Catalog />
+        <Pricing />
+        <Faq items={FAQ_ITEMS} />
+        <Cta />
+      </main>
+      <Footer />
     </div>
   );
 }

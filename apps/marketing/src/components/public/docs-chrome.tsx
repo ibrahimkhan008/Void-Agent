@@ -54,13 +54,13 @@ export function DocsHero({
       <p className="mx-auto mt-5 max-w-[560px] text-lg/8 text-pretty text-(--paper)/60">
         {sub}
       </p>
-      <div className="mt-8 inline-flex rounded-full border border-black/[0.08] bg-(--ink-2) p-1">
+      <div className="mt-8 inline-flex rounded-full border border-white/[0.08] bg-(--ink-2) p-1">
         <Link
           href="/docs"
           aria-current={active === "agents" ? "location" : undefined}
           className={
             active === "agents"
-              ? "inline-flex h-8 items-center rounded-full bg-white px-4 text-sm font-medium text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+              ? "inline-flex h-8 items-center rounded-full bg-(--paper) px-4 text-sm font-medium text-(--ink) shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)]"
               : "inline-flex h-8 items-center rounded-full px-4 text-sm text-(--paper)/60 transition-colors hover:text-(--paper)"
           }
         >
@@ -71,7 +71,7 @@ export function DocsHero({
           aria-current={active === "mcp" ? "location" : undefined}
           className={
             active === "mcp"
-              ? "inline-flex h-8 items-center rounded-full bg-white px-4 text-sm font-medium text-(--paper) shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.06)]"
+              ? "inline-flex h-8 items-center rounded-full bg-(--paper) px-4 text-sm font-medium text-(--ink) shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5)]"
               : "inline-flex h-8 items-center rounded-full px-4 text-sm text-(--paper)/60 transition-colors hover:text-(--paper)"
           }
         >
@@ -100,7 +100,7 @@ export function DocsSidebar({
           <p className="mb-3 px-4 text-[11px] font-medium tracking-[0.14em] text-(--paper)/45 uppercase">
             {group.group}
           </p>
-          <ul className="space-y-0.5 border-l border-black/10">
+          <ul className="space-y-0.5 border-l border-white/10">
             {group.items.map((item) => {
               const isActive =
                 group.group.toLowerCase() === activeGroup &&
