@@ -1,5 +1,13 @@
 "use client";
 
+import { AgentSummary, getAgentForkedFrom } from "app-types/agent";
+import { MCPServerInfo } from "app-types/mcp";
+import { WorkflowSummary } from "app-types/workflow";
+import { format } from "date-fns";
+import { cn } from "lib/utils";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import {
   Card,
   CardContent,
@@ -8,16 +16,8 @@ import {
   CardHeader,
   CardTitle,
 } from "ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
-import { useTranslations } from "next-intl";
-import { format } from "date-fns";
-import { cn } from "lib/utils";
-import { ShareableActions, type Visibility } from "./shareable-actions";
-import { WorkflowSummary } from "app-types/workflow";
-import { AgentSummary } from "app-types/agent";
-import { MCPServerInfo } from "app-types/mcp";
 import { MCPIcon } from "ui/mcp-icon";
-import Link from "next/link";
+import { ShareableActions, type Visibility } from "./shareable-actions";
 
 export interface ShareableIcon {
   value?: string;
@@ -33,6 +33,8 @@ interface ShareableCardProps {
   onBookmarkToggle?: (itemId: string, isBookmarked: boolean) => void;
   onVisibilityChange?: (itemId: string, visibility: Visibility) => void;
   onDelete?: (itemId: string) => void;
+  onFork?: (itemId: string) => void;
+  isForkLoading?: boolean;
   isVisibilityChangeLoading?: boolean;
   isBookmarkToggleLoading?: boolean;
   isDeleteLoading?: boolean;
@@ -49,8 +51,10 @@ export function ShareableCard({
   onBookmarkToggle,
   onVisibilityChange,
   onDelete,
+  onFork,
   isBookmarkToggleLoading,
   isVisibilityChangeLoading,
+  isForkLoading,
   isDeleteLoading,
   actionsDisabled,
   headerMeta,
@@ -59,6 +63,10 @@ export function ShareableCard({
   const isPublished = (item as WorkflowSummary).isPublished;
   const isBookmarked =
     type === "mcp" ? undefined : (item as AgentSummary).isBookmarked;
+  const agentItem = type === "agent" ? (item as AgentSummary) : null;
+  const forkedFrom = agentItem
+    ? getAgentForkedFrom(agentItem.galleryMetadata)
+    : null;
 
   return (
     <Link href={href} title={item.name}>
@@ -102,6 +110,19 @@ export function ShareableCard({
                     {t("Workflow.draft")}
                   </span>
                 )}
+                {agentItem?.publishedAt && (
+                  <span className="px-2 rounded-sm bg-secondary text-foreground shrink-0">
+                    {t("Agent.inGallery")}
+                  </span>
+                )}
+                {!!agentItem?.forkCount && agentItem.forkCount > 0 && (
+                  <span
+                    className="px-2 rounded-sm bg-secondary text-foreground shrink-0"
+                    data-testid="agent-card-fork-count"
+                  >
+                    {t("Agent.forkCount", { count: agentItem.forkCount })}
+                  </span>
+                )}
                 {headerMeta}
               </div>
             </div>
@@ -112,6 +133,15 @@ export function ShareableCard({
           <CardDescription className="text-xs line-clamp-3 break-words overflow-hidden">
             {item.description}
           </CardDescription>
+          {forkedFrom && (
+            <p
+              className="mt-1 text-xs text-muted-foreground truncate"
+              data-testid="agent-card-forked-from"
+            >
+              {t("Agent.forkedFrom", { name: forkedFrom.name })}
+              {forkedFrom.userName ? ` · ${forkedFrom.userName}` : ""}
+            </p>
+          )}
         </CardContent>
 
         <CardFooter className="shrink min-h-0 overflow-visible">
@@ -133,9 +163,11 @@ export function ShareableCard({
                     ? (isBookmarked) => onBookmarkToggle(item.id, isBookmarked)
                     : undefined
                 }
+                onFork={onFork ? () => onFork(item.id) : undefined}
                 onDelete={onDelete ? () => onDelete(item.id) : undefined}
                 isBookmarkToggleLoading={isBookmarkToggleLoading}
                 isVisibilityChangeLoading={isVisibilityChangeLoading}
+                isForkLoading={isForkLoading}
                 isDeleteLoading={isDeleteLoading}
                 disabled={actionsDisabled}
               />

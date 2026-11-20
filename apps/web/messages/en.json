@@ -1049,7 +1049,19 @@
     "toolsNotAvailable": "Not attached — these tools aren't available in your workspace: {tools}",
     "thisAgentIs": "This agent is an expert in",
     "expertIn": "",
-    "agentRolePlaceholder": "stock analysis"
+    "agentRolePlaceholder": "stock analysis",
+    "fork": "Fork",
+    "forkCount": "{count, plural, one {# fork} other {# forks}}",
+    "forkedFrom": "Forked from {name}",
+    "viewOriginal": "View original",
+    "forkedToast": "Forked {name} — your copy is ready to customize",
+    "forkFailedToast": "Could not fork this agent. Please try again.",
+    "signInToFork": "Sign in to fork",
+    "inGallery": "In gallery",
+    "publishToGallery": "Publish to gallery",
+    "unpublishFromGallery": "Unpublish",
+    "publishedToast": "Published to the public gallery — anyone can now fork it",
+    "unpublishedToast": "Removed from the public gallery"
   },
   "KeyboardShortcuts": {
     "title": "Keyboard Shortcuts",

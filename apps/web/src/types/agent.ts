@@ -107,16 +107,53 @@ export type AgentSummary = {
   presetId?: string | null;
   /** Pinned chat model as "provider/model"; null inherits the chat's model */
   model?: string | null;
+  /** How many users forked this agent into their own account */
+  forkCount?: number | null;
+  /** Set when this row is a fork: the source agent it was copied from */
+  forkedFromAgentId?: string | null;
+  /**
+   * Gallery/publishing metadata. A fork snapshots its source here:
+   * `{ forkedFrom: { agentId, name, userName } }` — survives the source
+   * being deleted or unpublished.
+   */
+  galleryMetadata?: Record<string, unknown> | null;
+  /** When the owner published this agent to the public gallery */
+  publishedAt?: Date | string | null;
 };
 
 export type Agent = AgentSummary & {
   instructions: z.infer<typeof AgentInstructionsSchema>;
 };
 
+/** The `galleryMetadata.forkedFrom` snapshot written at fork time. */
+export type AgentForkedFrom = {
+  agentId: string;
+  name: string;
+  userName?: string | null;
+};
+
+export function getAgentForkedFrom(
+  metadata: Record<string, unknown> | null | undefined,
+): AgentForkedFrom | null {
+  const candidate = metadata?.forkedFrom;
+  if (
+    candidate &&
+    typeof candidate === "object" &&
+    typeof (candidate as AgentForkedFrom).agentId === "string" &&
+    typeof (candidate as AgentForkedFrom).name === "string"
+  ) {
+    return candidate as AgentForkedFrom;
+  }
+  return null;
+}
+
 export type AgentRepository = {
   insertAgent(
     agent: z.infer<typeof AgentCreateSchema> & {
       organizationId?: string | null;
+      /** Fork provenance + gallery snapshot when this row is a fork */
+      forkedFromAgentId?: string | null;
+      galleryMetadata?: Record<string, unknown> | null;
     },
   ): Promise<Agent>;
 
@@ -156,6 +193,19 @@ export type AgentRepository = {
     destructive?: boolean,
     activeOrganizationId?: string | null,
   ): Promise<boolean>;
+
+  /**
+   * Counts a fork against its source agent. Fire-and-forget by contract: a
+   * counting failure must never fail the fork it counts.
+   */
+  incrementAgentForkCount(agentId: string): Promise<void>;
+
+  /**
+   * Author display names for gallery cards — the published-agent browse
+   * queries are owner-free by design, so the gallery pages join names in
+   * afterwards.
+   */
+  getAgentAuthorNames(userIds: string[]): Promise<Map<string, string | null>>;
 };
 
 export const AgentGenerateSchema = z.object({

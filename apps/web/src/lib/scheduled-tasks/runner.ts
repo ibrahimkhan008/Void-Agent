@@ -62,6 +62,8 @@ type RunnableTask = {
   name?: string;
   inputPrompt: string | null;
   lastChatThreadId: string | null;
+  // Pinned execution model as "provider/model"; NULL/absent = Automatic.
+  model?: string | null;
 };
 type RunnableAgent = {
   name: string | null;
@@ -244,6 +246,18 @@ export async function executeScheduledRun(
         ? ["webSearch", "memory"]
         : undefined;
 
+  // Model precedence for an unattended run, mirroring the schedule dialog:
+  // 1. the task's pinned model (the owner's explicit choice for THIS
+  //    schedule — the task row is the authority for unattended runs), then
+  // 2. the linked agent's pinned model, and otherwise
+  // 3. Automatic: auto-routing picks the best model available to the
+  //    account (org policy, member budget, task fit). The chat route degrades
+  //    that to the platform fallback model when routing cannot decide, so an
+  //    unconfigured model_deployment table can never kill a schedule.
+  const pinnedChatModel =
+    parseAgentModel(task.model) ??
+    (agent ? parseAgentModel(agent.model) : null);
+
   const requestBody = {
     id: threadId,
     message: {
@@ -253,7 +267,9 @@ export async function executeScheduledRun(
     },
     toolChoice: "auto",
     ...(allowedAppDefaultToolkit ? { allowedAppDefaultToolkit } : {}),
-    chatModel: agent ? (parseAgentModel(agent.model) ?? undefined) : undefined,
+    ...(pinnedChatModel
+      ? { chatModel: pinnedChatModel }
+      : { autoRouting: true }),
     mentions: agent
       ? [
           {

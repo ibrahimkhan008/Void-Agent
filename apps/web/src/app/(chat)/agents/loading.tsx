@@ -1,7 +1,7 @@
-import { Skeleton } from "ui/skeleton";
-import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
-import { BackgroundPaths } from "ui/background-paths";
 import { getTranslations } from "next-intl/server";
+import { BackgroundPaths } from "ui/background-paths";
+import { Card, CardDescription, CardHeader, CardTitle } from "ui/card";
+import { Skeleton } from "ui/skeleton";
 
 export default async function AgentsLoading() {
   const t = await getTranslations();
@@ -41,22 +41,6 @@ export default async function AgentsLoading() {
 
           {/* Agent cards */}
           {Array(5)
-            .fill(null)
-            .map((_, i) => (
-              <Skeleton key={i} className="min-h-[196px]" />
-            ))}
-        </div>
-      </div>
-
-      {/* Shared Agents Section */}
-      <div className="flex flex-col gap-4 mt-8">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">{t("Agent.sharedAgents")}</h2>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array(6)
             .fill(null)
             .map((_, i) => (
               <Skeleton key={i} className="min-h-[196px]" />

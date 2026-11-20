@@ -1,5 +1,6 @@
 "use client";
 
+import { SelectModel } from "@/components/select-model";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { formatAgentModel, parseAgentModel } from "@/lib/ai/agent-model";
 import { authClient } from "@/lib/auth/client";
 import {
   type ScheduleFrequency,
@@ -28,7 +30,7 @@ import {
   getUserTimezone,
   timeToCron,
 } from "@/lib/scheduled-tasks/time-to-cron";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -43,6 +45,8 @@ export type DeferredScheduleConfig = {
   cronExpression: string;
   timezone: string;
   inputPrompt: string | null;
+  // Pinned execution model as "provider/model"; null = Automatic.
+  model: string | null;
   browserAutomationEnabled: boolean;
   browserCredentialAliases: string[];
   enabled: true;
@@ -106,6 +110,8 @@ export function ScheduleDialog({
   const [customCron, setCustomCron] = useState("0 9 * * 1-5");
   const [timezone, setTimezone] = useState(getUserTimezone());
   const [inputPrompt, setInputPrompt] = useState("");
+  // Pinned run model as "provider/model"; null = Automatic (best available).
+  const [model, setModel] = useState<string | null>(null);
   const [scheduleName, setScheduleName] = useState("");
   const [description, setDescription] = useState("");
   const [browserAutomationEnabled, setBrowserAutomationEnabled] =
@@ -149,6 +155,7 @@ export function ScheduleDialog({
       setScheduleName(existingSchedule.name || "");
       setDescription(existingSchedule.description || "");
       setInputPrompt(existingSchedule.inputPrompt || "");
+      setModel(existingSchedule.model ?? null);
       setBrowserAutomationEnabled(
         Boolean(existingSchedule.browserAutomationEnabled),
       );
@@ -172,6 +179,7 @@ export function ScheduleDialog({
       setScheduleName(initialName || "");
       setDescription("");
       setInputPrompt(initialPrompt || "");
+      setModel(null);
       setBrowserAutomationEnabled(false);
       setCredentialAliases([]);
       setFrequency(initialFrequency || "daily");
@@ -216,6 +224,7 @@ export function ScheduleDialog({
         cronExpression,
         timezone,
         inputPrompt: inputPrompt || null,
+        model: model || null,
         browserAutomationEnabled,
         browserCredentialAliases: credentialAliases,
         enabled: true,
@@ -248,6 +257,7 @@ export function ScheduleDialog({
         cronExpression,
         timezone,
         inputPrompt,
+        model: model || null,
         browserAutomationEnabled,
         browserCredentialAliases: credentialAliases,
         enabled: true,
@@ -394,6 +404,43 @@ export function ScheduleDialog({
               )}
             </div>
           )}
+
+          {/* Model — which model executes every run of this schedule */}
+          <div className="space-y-2">
+            <Label>Model</Label>
+            <p className="text-xs text-muted-foreground">
+              Automatic uses the linked agent's pinned model when it has one,
+              otherwise the best model available to your account. Pin a model to
+              run every occurrence with it — it overrides the agent's pinned
+              model for this schedule.
+            </p>
+            <div className="flex items-center gap-2">
+              <SelectModel
+                currentModel={parseAgentModel(model) ?? undefined}
+                onSelect={(selected) => setModel(formatAgentModel(selected))}
+              >
+                <Button
+                  variant="secondary"
+                  className="bg-secondary/40 data-[state=open]:bg-input! hover:bg-input!"
+                  data-testid="schedule-model-select-button"
+                >
+                  {parseAgentModel(model)?.model ??
+                    "Automatic (best available)"}
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </Button>
+              </SelectModel>
+              {model && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => setModel(null)}
+                >
+                  Use Automatic
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Input Prompt — the user message of every scheduled run */}
           <div className="space-y-2">

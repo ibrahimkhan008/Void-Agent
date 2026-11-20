@@ -8,6 +8,11 @@ import messages from "../../../messages/en.json";
 vi.mock("@/components/agent/agent-library-drawer", () => ({
   AgentLibraryDrawer: () => null,
 }));
+// AgentsList navigates to the fresh copy after a fork; jsdom has no app
+// router mounted, so supply the minimum it calls.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 vi.mock("@/components/scheduled-tasks/schedule-status-badge", () => ({
   ScheduleStatusBadge: () => null,
 }));
@@ -52,7 +57,6 @@ describe("AgentsList", () => {
               name: "Research Agent",
             } as any,
           ]}
-          initialSharedAgents={[]}
           userId="user-1"
           userRole="user"
         />
@@ -60,23 +64,18 @@ describe("AgentsList", () => {
     );
 
     expect(screen.getByText("Research Agent")).toBeTruthy();
-    expect(screen.getByText("Shared Agents")).toBeTruthy();
-    expect(screen.getByText("No available agents")).toBeTruthy();
     expect(screen.queryByTestId("create-agent-button")).toBeNull();
   });
 
-  it("shows agents another user shared with the current organization", () => {
+  it("does not render a shared-agents section — discovery moved to the gallery", () => {
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <AgentsList
-          initialMyAgents={[]}
-          initialSharedAgents={[
+          initialMyAgents={[
             {
-              id: "shared-agent-1",
-              userId: "other-user",
-              userName: "Developer",
-              name: "InstagramVideoPoster",
-              visibility: "public",
+              id: "agent-1",
+              userId: "user-1",
+              name: "Research Agent",
             } as any,
           ]}
           userId="user-1"
@@ -85,7 +84,8 @@ describe("AgentsList", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(screen.getByText("Shared Agents")).toBeTruthy();
-    expect(screen.getByText("InstagramVideoPoster")).toBeTruthy();
+    expect(screen.queryByText("Shared Agents")).toBeNull();
+    expect(screen.queryByText("No available agents")).toBeNull();
+    expect(screen.queryByText("No shared agents")).toBeNull();
   });
 });

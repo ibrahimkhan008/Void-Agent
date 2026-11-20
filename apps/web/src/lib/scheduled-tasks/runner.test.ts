@@ -310,3 +310,88 @@ describe("executeScheduledRun (cloud-agent)", () => {
     expect(body.message.parts[0].text).not.toContain("Cloud Agent");
   });
 });
+
+describe("executeScheduledRun model selection", () => {
+  beforeEach(() => {
+    process.env.SCHEDULED_TASK_SECRET = "secret";
+    process.env.NEXT_PUBLIC_BASE_URL = "https://staging.example.com";
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends the task's pinned model over the linked agent's model", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    // The schedule pins a model explicitly; the linked agent pins a different
+    // one. The task row is the authority for unattended runs.
+    await executeScheduledRun({ ...TASK, model: "openai/gpt-5.5" }, AGENT);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.chatModel).toEqual({ provider: "openai", model: "gpt-5.5" });
+    expect(body.autoRouting).toBeUndefined();
+  });
+
+  it("falls back to the agent's pinned model when the task has none", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    await executeScheduledRun({ ...TASK, model: null }, AGENT);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.chatModel).toEqual({
+      provider: "anthropic",
+      model: "claude-sonnet-5",
+    });
+    expect(body.autoRouting).toBeUndefined();
+  });
+
+  it("sends a pinned model for agent-less runs (chat / cloud-agent)", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    await executeScheduledRun(
+      { ...TASK, agentId: null, executionMode: "chat", model: "groq/llama-4" },
+      null,
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.chatModel).toEqual({ provider: "groq", model: "llama-4" });
+    expect(body.autoRouting).toBeUndefined();
+  });
+
+  it("defaults to Automatic (autoRouting) when nothing pins a model", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    // "Automatic": neither the task nor the agent pins a model, so the run
+    // asks the platform to route to the best model available to the account
+    // instead of silently falling to the hard-coded base model.
+    await executeScheduledRun(
+      { ...TASK, agentId: null, executionMode: "chat", model: null },
+      null,
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.chatModel).toBeUndefined();
+    expect(body.autoRouting).toBe(true);
+  });
+
+  it("prefers the task's model over the agent's when both exist (agent mode)", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    await executeAgentRun({ ...TASK, model: "z-ai/glm-5.3" }, AGENT);
+
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.chatModel).toEqual({ provider: "z-ai", model: "glm-5.3" });
+    // The mention still rides along so the agent's tools/instructions load.
+    expect(body.mentions).toHaveLength(1);
+  });
+});

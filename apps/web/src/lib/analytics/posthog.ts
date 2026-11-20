@@ -47,6 +47,14 @@ export interface AgentDeletedProps {
   name?: string;
 }
 
+export interface AgentForkedProps {
+  /** The source agent that was forked */
+  agentId: string;
+  /** The caller's new forked copy */
+  forkId: string;
+  name?: string;
+}
+
 export interface AgentVisibilityChangedProps {
   agentId: string;
   oldVisibility: "private" | "public" | "readonly";
@@ -139,6 +147,10 @@ export const analytics = {
 
   agentDeleted(props: AgentDeletedProps) {
     backend.capture("agent_deleted", props);
+  },
+
+  agentForked(props: AgentForkedProps) {
+    backend.capture("agent_forked", props);
   },
 
   agentVisibilityChanged(props: AgentVisibilityChangedProps) {

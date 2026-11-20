@@ -21,13 +21,22 @@ export const ScheduledTaskCreateSchema = z
   .object({
     taskType: z.literal("agent"),
     executionMode: z.enum(["agent", "chat", "cloud-agent"]).default("agent"),
-    agentId: z.string().uuid().optional(),
+    // Nullish, matching the update schema: the schedule dialog explicitly
+    // sends agentId: null for a new agent-less (Chat AI / Cloud Agent)
+    // schedule — the upsert keys on it. optional() alone rejected that and
+    // every such create 400'd.
+    agentId: z.string().uuid().nullish(),
     key: ScheduleKeySchema.optional().default("default"),
     name: z.string().max(200).optional(),
     description: z.string().max(2000).nullish(),
     cronExpression: z.string().min(1).max(100),
     timezone: z.string().min(1).max(64),
     inputPrompt: z.string().max(8000).nullish(),
+    // Model the runs execute with, as "provider/model" (same format as
+    // agent.model). Absent/null = Automatic: platform routing picks the best
+    // model available to the account, falling back to the linked agent's
+    // pinned model.
+    model: z.string().max(120).nullish(),
     browserAutomationEnabled: z.boolean().optional(),
     browserCredentialAliases: BrowserCredentialAliasesSchema.nullish(),
     enabled: z.boolean().optional().default(true),
@@ -52,6 +61,7 @@ export const ScheduledTaskUpdateSchema = z
     cronExpression: z.string().min(1).max(100).optional(),
     timezone: z.string().min(1).max(64).optional(),
     inputPrompt: z.string().max(8000).nullish(),
+    model: z.string().max(120).nullish(),
     browserAutomationEnabled: z.boolean().optional(),
     browserCredentialAliases: BrowserCredentialAliasesSchema.nullish(),
     enabled: z.boolean().optional(),

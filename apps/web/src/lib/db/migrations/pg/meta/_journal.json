@@ -680,6 +680,20 @@
       "when": 1795110000000,
       "tag": "0098_void_cyber_self_learning_and_nullable_session",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1795120000000,
+      "tag": "0099_scheduled_task_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1795130000000,
+      "tag": "0100_agent_fork",
+      "breakpoints": true
     }
   ]
 }

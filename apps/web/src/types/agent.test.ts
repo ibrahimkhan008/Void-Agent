@@ -3,6 +3,7 @@ import {
   AgentCreateSchema,
   AgentInstructionsSchema,
   MAX_AGENT_FILES,
+  getAgentForkedFrom,
 } from "./agent";
 
 const file = (filename: string) => ({
@@ -66,5 +67,23 @@ describe("AgentCreateSchema", () => {
     });
 
     expect(parsed).not.toHaveProperty("organizationId");
+  });
+});
+
+describe("getAgentForkedFrom", () => {
+  test("reads the fork snapshot written by the fork route", () => {
+    expect(
+      getAgentForkedFrom({
+        forkedFrom: { agentId: "agent-1", name: "Bug Hunter", userName: "A" },
+      }),
+    ).toEqual({ agentId: "agent-1", name: "Bug Hunter", userName: "A" });
+  });
+
+  test("returns null for missing, malformed, or non-object metadata", () => {
+    expect(getAgentForkedFrom(undefined)).toBeNull();
+    expect(getAgentForkedFrom(null)).toBeNull();
+    expect(getAgentForkedFrom({})).toBeNull();
+    expect(getAgentForkedFrom({ forkedFrom: "agent-1" })).toBeNull();
+    expect(getAgentForkedFrom({ forkedFrom: { agentId: 7 } })).toBeNull();
   });
 });

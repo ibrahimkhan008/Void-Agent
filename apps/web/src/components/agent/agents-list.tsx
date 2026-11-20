@@ -7,7 +7,6 @@ import { ScheduleStatusBadge } from "@/components/scheduled-tasks/schedule-statu
 import { Visibility } from "@/components/shareable-actions";
 import { ShareableCard } from "@/components/shareable-card";
 import { useMutateAgents } from "@/hooks/queries/use-agents";
-import { useBookmark } from "@/hooks/queries/use-bookmark";
 import { useScheduledTasks } from "@/hooks/queries/use-scheduled-tasks";
 import { analytics } from "@/lib/analytics/posthog";
 import { AgentSummary, AgentUpdateSchema } from "app-types/agent";
@@ -17,6 +16,7 @@ import { fetcher } from "lib/utils";
 import { ArrowUpRight, Library, Plus, Shield, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -40,7 +40,6 @@ export interface CyberAgentSummary {
 
 interface AgentsListProps {
   initialMyAgents: AgentSummary[];
-  initialSharedAgents: AgentSummary[];
   initialCyberAgents?: CyberAgentSummary[];
   userId: string;
   userRole?: string | null;
@@ -48,13 +47,14 @@ interface AgentsListProps {
 
 export function AgentsList({
   initialMyAgents,
-  initialSharedAgents,
   initialCyberAgents = [],
   userId,
   userRole,
 }: AgentsListProps) {
   const t = useTranslations();
+  const router = useRouter();
   const mutateAgents = useMutateAgents();
+  const [forkingAgentId, setForkingAgentId] = useState<string | null>(null);
   const [cyberAgents, setCyberAgents] =
     useState<CyberAgentSummary[]>(initialCyberAgents);
   const [deletingCyberId, setDeletingCyberId] = useState<string | null>(null);
@@ -65,32 +65,15 @@ export function AgentsList({
     string | null
   >(null);
 
-  const { data: allAgents } = useSWR(
-    "/api/agent?filters=mine,shared",
-    fetcher,
-    {
-      fallbackData: [...initialMyAgents, ...initialSharedAgents],
-    },
-  );
+  const { data: allAgents } = useSWR("/api/agent?filters=mine", fetcher, {
+    fallbackData: [...initialMyAgents],
+  });
 
   const myAgents =
     allAgents?.filter((agent: AgentSummary) => agent.userId === userId) ||
     initialMyAgents;
 
-  const sharedAgents =
-    allAgents?.filter((agent: AgentSummary) => agent.userId !== userId) ||
-    initialSharedAgents;
-
-  const { toggleBookmark: toggleBookmarkHook, isLoading: isBookmarkLoading } =
-    useBookmark({
-      itemType: "agent",
-    });
-
   const { byAgentId: scheduleByAgentId } = useScheduledTasks();
-
-  const toggleBookmark = async (agentId: string, isBookmarked: boolean) => {
-    await toggleBookmarkHook({ id: agentId, isBookmarked });
-  };
 
   const updateVisibility = async (agentId: string, visibility: Visibility) => {
     // Find current agent to get old visibility
@@ -155,6 +138,29 @@ export function AgentsList({
         toast.error(t("Common.error"));
       })
       .watch(() => setDeletingAgentLoading(null));
+  };
+
+  // GitHub-style fork: copy any agent the user can read (own, org-shared, or
+  // gallery-published) into their account, then land them on their editable
+  // copy — the customize half of "fork and customize".
+  const forkAgent = async (agentId: string) => {
+    safe(() => setForkingAgentId(agentId))
+      .map(() => fetcher(`/api/agent/${agentId}/fork`, { method: "POST" }))
+      .ifOk((result: { agent: AgentSummary }) => {
+        mutateAgents(result.agent);
+        analytics.agentForked({
+          agentId,
+          forkId: result.agent.id,
+          name: result.agent.name,
+        });
+        toast.success(t("Agent.forkedToast", { name: result.agent.name }));
+        router.push(`/agent/${result.agent.id}`);
+      })
+      .ifFail((e) => {
+        handleErrorWithToast(e);
+        toast.error(t("Common.error"));
+      })
+      .watch(() => setForkingAgentId(null));
   };
 
   const deleteCyberAgent = async (agentId: string) => {
@@ -264,6 +270,8 @@ export function AgentsList({
                   isVisibilityChangeLoading={
                     visibilityChangeLoading === agent.id
                   }
+                  isForkLoading={forkingAgentId === agent.id}
+                  onFork={canCreate ? forkAgent : undefined}
                   isDeleteLoading={deletingAgentLoading === agent.id}
                   onDelete={deleteAgent}
                   headerMeta={
@@ -281,43 +289,10 @@ export function AgentsList({
         </div>
       )}
 
-      {/* Shared/Available Agents Section */}
-      <div className="mt-8 flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">{t("Agent.sharedAgents")}</h2>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sharedAgents.map((agent) => (
-            <ShareableCard
-              key={agent.id}
-              type="agent"
-              item={agent}
-              isOwner={false}
-              href={`/agent/${agent.id}`}
-              onBookmarkToggle={toggleBookmark}
-              isBookmarkToggleLoading={isBookmarkLoading(agent.id)}
-            />
-          ))}
-          {sharedAgents.length === 0 && (
-            <Card className="col-span-full bg-transparent border-none">
-              <CardHeader className="text-center py-12">
-                <CardTitle>
-                  {canCreate
-                    ? t("Agent.noSharedAgents")
-                    : t("Agent.noAvailableAgents")}
-                </CardTitle>
-                <CardDescription>
-                  {canCreate
-                    ? t("Agent.noSharedAgentsDescription")
-                    : t("Agent.noAvailableAgentsDescription")}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-        </div>
-      </div>
+      {/* Shared/available agents moved to the public gallery
+       * (/gallery/agents) — that is where users discover and fork other
+       * people's agents now, so /agents lists only the user's own agents
+       * plus the Void Cyber agents below. */}
 
       {/* Void Cyber Predefined Agents Section (shown whenever Cyber agents exist) */}
       {cyberAgents.length > 0 && (

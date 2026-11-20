@@ -1,9 +1,9 @@
 import { Agent, AgentRepository, AgentSummary } from "app-types/agent";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import type { PresetAgent } from "lib/ai/agent/presets";
+import { generateUUID } from "lib/utils";
 import { pgDb as db } from "../db.pg";
 import { AgentTable, BookmarkTable, UserTable } from "../schema.pg";
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
-import { generateUUID } from "lib/utils";
-import type { PresetAgent } from "lib/ai/agent/presets";
 
 export const pgAgentRepository: AgentRepository = {
   async insertAgent(agent) {
@@ -20,6 +20,8 @@ export const pgAgentRepository: AgentRepository = {
         visibility: agent.visibility || "private",
         presetId: (agent as any).presetId ?? null,
         model: agent.model ?? null,
+        forkedFromAgentId: agent.forkedFromAgentId ?? null,
+        galleryMetadata: agent.galleryMetadata ?? null,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -62,11 +64,17 @@ export const pgAgentRepository: AgentRepository = {
         visibility: AgentTable.visibility,
         presetId: AgentTable.presetId,
         model: AgentTable.model,
+        forkCount: AgentTable.forkCount,
+        forkedFromAgentId: AgentTable.forkedFromAgentId,
+        galleryMetadata: AgentTable.galleryMetadata,
+        publishedAt: AgentTable.publishedAt,
         createdAt: AgentTable.createdAt,
         updatedAt: AgentTable.updatedAt,
+        userName: UserTable.name,
         isBookmarked: sql<boolean>`${BookmarkTable.id} IS NOT NULL`,
       })
       .from(AgentTable)
+      .leftJoin(UserTable, eq(AgentTable.userId, UserTable.id))
       .leftJoin(
         BookmarkTable,
         and(
@@ -92,6 +100,7 @@ export const pgAgentRepository: AgentRepository = {
       icon: result.icon ?? undefined,
       instructions: result.instructions ?? {},
       presetId: result.presetId ?? null,
+      userName: result.userName ?? undefined,
       isBookmarked: result.isBookmarked ?? false,
     };
   },
@@ -236,6 +245,11 @@ export const pgAgentRepository: AgentRepository = {
         // Exclude instructions from list queries for performance
         visibility: AgentTable.visibility,
         presetId: AgentTable.presetId,
+        model: AgentTable.model,
+        forkCount: AgentTable.forkCount,
+        forkedFromAgentId: AgentTable.forkedFromAgentId,
+        galleryMetadata: AgentTable.galleryMetadata,
+        publishedAt: AgentTable.publishedAt,
         createdAt: AgentTable.createdAt,
         updatedAt: AgentTable.updatedAt,
         userName: UserTable.name,
@@ -299,6 +313,35 @@ export const pgAgentRepository: AgentRepository = {
     )
       return true;
     return false;
+  },
+
+  /**
+   * Counts a fork against its source agent. Not part of the AgentRepository
+   * interface — only the fork route calls it, and it must never block the
+   * fork itself, so callers fire-and-forget.
+   */
+  async incrementAgentForkCount(agentId: string): Promise<void> {
+    await db
+      .update(AgentTable)
+      .set({ forkCount: sql`${AgentTable.forkCount} + 1` })
+      .where(eq(AgentTable.id, agentId));
+  },
+
+  /**
+   * Author display names for gallery cards. The published-agent browse
+   * queries are deliberately owner-free (public reads); the gallery pages
+   * join the names in afterwards so each card can attribute its author
+   * without widening those reads.
+   */
+  async getAgentAuthorNames(
+    userIds: string[],
+  ): Promise<Map<string, string | null>> {
+    if (userIds.length === 0) return new Map();
+    const rows = await db
+      .select({ id: UserTable.id, name: UserTable.name })
+      .from(UserTable)
+      .where(inArray(UserTable.id, userIds));
+    return new Map(rows.map((row) => [row.id, row.name]));
   },
 };
 

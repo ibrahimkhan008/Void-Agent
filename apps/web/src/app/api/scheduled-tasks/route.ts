@@ -46,6 +46,7 @@ export const POST = withAuth(async (request, session) => {
       cronExpression,
       timezone,
       inputPrompt,
+      model,
       browserAutomationEnabled,
       browserCredentialAliases,
       enabled,
@@ -116,6 +117,7 @@ export const POST = withAuth(async (request, session) => {
       cronExpression,
       timezone,
       inputPrompt: inputPrompt || null,
+      model: model || null,
       browserAutomationEnabled:
         executionMode === "agent" ? (browserAutomationEnabled ?? false) : false,
       browserCredentialAliases: grantedAliases,
@@ -137,6 +139,7 @@ export const POST = withAuth(async (request, session) => {
             cronExpression,
             timezone,
             inputPrompt: values.inputPrompt,
+            model: values.model,
             ...(browserAutomationEnabled === undefined
               ? {}
               : { browserAutomationEnabled }),

@@ -1,51 +1,49 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { toast } from "sonner";
-import { useMutateAgents } from "@/hooks/queries/use-agents";
-import { useMcpList } from "@/hooks/queries/use-mcp-list";
-import { useWorkflowToolList } from "@/hooks/queries/use-workflow-tool-list";
-import { useSkills } from "@/hooks/queries/use-skills";
-import { useAgentSchedules } from "@/hooks/queries/use-scheduled-tasks";
-import { useObjectState } from "@/hooks/use-object-state";
-import { useBookmark } from "@/hooks/queries/use-bookmark";
-import { Agent, AgentCreateSchema, AgentUpdateSchema } from "app-types/agent";
-import { ChatMention } from "app-types/chat";
-import { MCPServerInfo } from "app-types/mcp";
-import { WorkflowSummary } from "app-types/workflow";
-import { BACKGROUND_COLORS } from "lib/const";
-import { defaultToolMentionsFromNames } from "lib/ai/agent/default-tool-mentions";
-import { cn, fetcher, objectFlow } from "lib/utils";
-import { safe } from "ts-safe";
-import { handleErrorWithToast } from "ui/shared-toast";
-import { ChevronDown, Loader, Library, WandSparklesIcon } from "lucide-react";
-import { analytics } from "@/lib/analytics/posthog";
-import { Button } from "ui/button";
 import { appStore } from "@/app/store";
-import { useShallow } from "zustand/shallow";
-import { AgentLibraryDrawer } from "./agent-library-drawer";
-import { Input } from "ui/input";
-import { Label } from "ui/label";
-import { Textarea } from "ui/textarea";
-import { ScrollArea } from "ui/scroll-area";
-import { Skeleton } from "ui/skeleton";
-import { TextShimmer } from "ui/text-shimmer";
-import { ShareableActions, Visibility } from "@/components/shareable-actions";
-import { GenerateAgentDialog } from "./generate-agent-dialog";
-import { AgentIconPicker } from "./agent-icon-picker";
-import { AgentToolSelector } from "./agent-tool-selector";
-import { notify } from "lib/notify";
 import { ScheduleButton } from "@/components/scheduled-tasks/schedule-button";
 import type { DeferredScheduleConfig } from "@/components/scheduled-tasks/schedule-dialog";
 import { ScheduleStatus } from "@/components/scheduled-tasks/schedule-status";
 import { SelectModel } from "@/components/select-model";
+import { ShareableActions, Visibility } from "@/components/shareable-actions";
+import { useMutateAgents } from "@/hooks/queries/use-agents";
+import { useBookmark } from "@/hooks/queries/use-bookmark";
+import { useKnowledgeBases } from "@/hooks/queries/use-knowledge-bases";
+import { useMcpList } from "@/hooks/queries/use-mcp-list";
+import { useAgentSchedules } from "@/hooks/queries/use-scheduled-tasks";
+import { useSkills } from "@/hooks/queries/use-skills";
+import { useWorkflowToolList } from "@/hooks/queries/use-workflow-tool-list";
+import { useObjectState } from "@/hooks/use-object-state";
 import { formatAgentModel, parseAgentModel } from "@/lib/ai/agent-model";
+import { analytics } from "@/lib/analytics/posthog";
+import { Agent, AgentCreateSchema, AgentUpdateSchema } from "app-types/agent";
+import { getAgentForkedFrom } from "app-types/agent";
+import type { AgentKnowledgeBaseBinding } from "app-types/agent";
+import { ChatMention } from "app-types/chat";
+import { MCPServerInfo } from "app-types/mcp";
+import { WorkflowSummary } from "app-types/workflow";
+import { defaultToolMentionsFromNames } from "lib/ai/agent/default-tool-mentions";
 import {
   RandomDataGeneratorExample,
   WeatherExample,
 } from "lib/ai/agent/example";
+import { BACKGROUND_COLORS } from "lib/const";
+import { notify } from "lib/notify";
+import { cn, fetcher, objectFlow } from "lib/utils";
+import {
+  ChevronDown,
+  Globe,
+  Library,
+  Loader,
+  WandSparklesIcon,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { safe } from "ts-safe";
+import { Button } from "ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -55,8 +53,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "ui/dropdown-menu";
-import { useKnowledgeBases } from "@/hooks/queries/use-knowledge-bases";
-import type { AgentKnowledgeBaseBinding } from "app-types/agent";
+import { Input } from "ui/input";
+import { Label } from "ui/label";
+import { ScrollArea } from "ui/scroll-area";
+import { handleErrorWithToast } from "ui/shared-toast";
+import { Skeleton } from "ui/skeleton";
+import { TextShimmer } from "ui/text-shimmer";
+import { Textarea } from "ui/textarea";
+import { useShallow } from "zustand/shallow";
+import { AgentIconPicker } from "./agent-icon-picker";
+import { AgentLibraryDrawer } from "./agent-library-drawer";
+import { AgentToolSelector } from "./agent-tool-selector";
+import { GenerateAgentDialog } from "./generate-agent-dialog";
 
 const defaultConfig = (): PartialBy<
   Omit<Agent, "createdAt" | "updatedAt" | "userId">,
@@ -208,6 +216,11 @@ export default function EditAgent({
   const [isSaving, setIsSaving] = useState(false);
   const [isVisibilityChangeLoading, setIsVisibilityChangeLoading] =
     useState(false);
+  // Gallery publication state (owner action) + in-flight markers.
+  const [publishedAt, setPublishedAt] = useState(initialAgent?.publishedAt);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isForking, setIsForking] = useState(false);
+  const forkedFrom = getAgentForkedFrom(initialAgent?.galleryMetadata);
   // Schedule configured during creation, saved right after the agent is.
   const [pendingSchedule, setPendingSchedule] =
     useState<DeferredScheduleConfig | null>(null);
@@ -460,6 +473,53 @@ export default function EditAgent({
     isBookmarkToggleLoading,
   ]);
 
+  // GitHub-style fork from the agent page: copy this agent into the viewer's
+  // account and land them on their editable copy.
+  const forkAgent = useCallback(async () => {
+    if (!initialAgent?.id || isForking) return;
+    safe(() => setIsForking(true))
+      .map(() =>
+        fetcher(`/api/agent/${initialAgent.id}/fork`, { method: "POST" }),
+      )
+      .ifOk((result: { agent: Agent }) => {
+        mutateAgents(result.agent);
+        analytics.agentForked({
+          agentId: initialAgent.id,
+          forkId: result.agent.id,
+          name: result.agent.name,
+        });
+        router.push(`/agent/${result.agent.id}`);
+      })
+      .ifFail(handleErrorWithToast)
+      .watch(() => setIsForking(false));
+  }, [initialAgent?.id, isForking, mutateAgents, router]);
+
+  // Owner-only: list this agent in the public gallery (/gallery/agents),
+  // where any signed-in user can browse and fork it.
+  const toggleGalleryPublish = useCallback(async () => {
+    if (!initialAgent?.id || isPublishing) return;
+    safe(() => setIsPublishing(true))
+      .map(() =>
+        fetcher(`/api/agent/${initialAgent.id}/publish`, {
+          method: publishedAt ? "DELETE" : "POST",
+        }),
+      )
+      .ifOk((result: { publishedAt: string | null }) => {
+        setPublishedAt(result.publishedAt);
+        mutateAgents({
+          id: initialAgent.id,
+          publishedAt: result.publishedAt,
+        });
+        toast.success(
+          result.publishedAt
+            ? t("Agent.publishedToast")
+            : t("Agent.unpublishedToast"),
+        );
+      })
+      .ifFail(handleErrorWithToast)
+      .watch(() => setIsPublishing(false));
+  }, [initialAgent?.id, isPublishing, publishedAt, mutateAgents, t]);
+
   const handleAgentChange = useCallback((generatedData: any) => {
     if (textareaRef.current) {
       textareaRef.current.scrollTo({
@@ -589,11 +649,59 @@ export default function EditAgent({
                   disabled={isLoading}
                   onBookmarkToggle={handleBookmarkToggle}
                   isBookmarkToggleLoading={isBookmarkToggleLoading}
+                  onFork={forkAgent}
+                  isForkLoading={isForking}
                 />
+                {isOwner && (
+                  <Button
+                    variant={publishedAt ? "ghost" : "outline"}
+                    size="sm"
+                    disabled={isPublishing || isLoading}
+                    onClick={toggleGalleryPublish}
+                    data-testid={
+                      publishedAt
+                        ? "agent-unpublish-button"
+                        : "agent-publish-button"
+                    }
+                  >
+                    {isPublishing ? (
+                      <Loader className="size-3.5 animate-spin" />
+                    ) : (
+                      <Globe className="size-3.5" />
+                    )}
+                    {publishedAt
+                      ? t("Agent.unpublishFromGallery")
+                      : t("Agent.publishToGallery")}
+                  </Button>
+                )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Fork provenance — the snapshot survives the source being deleted
+         * (forkedFromAgentId is set to NULL then), so only link while the
+         * source row still exists. */}
+        {forkedFrom && (
+          <p
+            className="text-sm text-muted-foreground mt-2"
+            data-testid="agent-forked-from"
+          >
+            {t("Agent.forkedFrom", { name: forkedFrom.name })}
+            {forkedFrom.userName ? ` · ${forkedFrom.userName}` : ""}
+            {initialAgent?.forkedFromAgentId ? (
+              <>
+                {" · "}
+                <Link
+                  href={`/agent/${initialAgent.forkedFromAgentId}`}
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("Agent.viewOriginal")}
+                </Link>
+              </>
+            ) : null}
+          </p>
+        )}
 
         <div className="flex gap-4 mt-4">
           <div className="flex flex-col justify-between gap-2 flex-1">

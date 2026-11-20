@@ -7,6 +7,7 @@ import {
   type ScheduledTaskSummary,
   useScheduledTasks,
 } from "@/hooks/queries/use-scheduled-tasks";
+import { parseAgentModel } from "@/lib/ai/agent-model";
 import { cronToHumanReadable } from "@/lib/scheduled-tasks/time-to-cron";
 import { randomId } from "@/lib/utils";
 import {
@@ -421,6 +422,9 @@ function ScheduleCard({
                 : task.executionMode === "chat"
                   ? "Chat AI"
                   : "Custom Agent"}
+            </span>
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
+              {parseAgentModel(task.model)?.model ?? "Automatic model"}
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

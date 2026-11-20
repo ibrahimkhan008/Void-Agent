@@ -23,25 +23,19 @@ export default async function AgentsPage() {
     session.session as { activeOrganizationId?: string | null } | undefined
   )?.activeOrganizationId;
 
-  // Fetch normal Void Agent agents, Cyber profile, and Cyber predefined agents
-  const [allAgents, cyberProfile, cyberAgents] = await Promise.all([
+  // Fetch the user's own agents, Cyber profile, and Cyber predefined agents.
+  // Shared/public agents are discovered in the gallery (/gallery/agents) —
+  // /agents lists only what the user owns.
+  const [myAgents, cyberProfile, cyberAgents] = await Promise.all([
     agentRepository.selectAgents(
       session.user.id,
-      ["mine", "shared"],
+      ["mine"],
       50,
       activeOrganizationId,
     ),
     getOrBootstrapCyberProfile(session).catch(() => null),
     cyberRepository.listAgentsForUser(session.user.id).catch(() => []),
   ]);
-
-  // Separate into my agents and shared agents
-  const myAgents = allAgents.filter(
-    (agent) => agent.userId === session.user.id,
-  );
-  const sharedAgents = allAgents.filter(
-    (agent) => agent.userId !== session.user.id,
-  );
 
   const hasActiveCyberAccess =
     Boolean(cyberProfile) && cyberProfile?.status === "active";
@@ -93,7 +87,6 @@ export default async function AgentsPage() {
   return (
     <AgentsList
       initialMyAgents={myAgents}
-      initialSharedAgents={sharedAgents}
       initialCyberAgents={initialCyberAgents}
       userId={session.user.id}
       userRole={session.user.role}

@@ -630,8 +630,9 @@ export function CustomizePage({
   agents: AgentSummary[];
   marketplaceServers: MarketplaceMcpServer[];
 }) {
+  // Shared/public agents are discovered in the gallery (/gallery/agents);
+  // the embedded agents list shows only the user's own agents.
   const myAgents = agents.filter((agent) => agent.userId === userId);
-  const sharedAgents = agents.filter((agent) => agent.userId !== userId);
 
   return (
     <main className="mx-auto min-h-full w-full max-w-[720px] px-5 pb-12 pt-8 sm:px-8 sm:pt-12">
@@ -669,7 +670,6 @@ export function CustomizePage({
       {tab === "agents" ? (
         <AgentsList
           initialMyAgents={myAgents}
-          initialSharedAgents={sharedAgents}
           userId={userId}
           userRole={userRole}
         />

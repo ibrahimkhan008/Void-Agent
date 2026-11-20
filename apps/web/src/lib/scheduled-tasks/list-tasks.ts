@@ -32,6 +32,7 @@ export async function listScheduledTasksForUser(
       cronExpression: ScheduledTaskTable.cronExpression,
       timezone: ScheduledTaskTable.timezone,
       inputPrompt: ScheduledTaskTable.inputPrompt,
+      model: ScheduledTaskTable.model,
       browserAutomationEnabled: ScheduledTaskTable.browserAutomationEnabled,
       browserCredentialAliases: ScheduledTaskTable.browserCredentialAliases,
       enabled: ScheduledTaskTable.enabled,

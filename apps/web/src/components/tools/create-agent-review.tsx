@@ -1,19 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { toast } from "sonner";
-import { BotIcon, CalendarClock, CheckCircle2, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { appStore } from "@/app/store";
 import {
   type DeferredScheduleConfig,
   ScheduleDialog,
 } from "@/components/scheduled-tasks/schedule-dialog";
-import { appStore } from "@/app/store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useMutateAgents } from "@/hooks/queries/use-agents";
 import { defaultToolMentionsFromNames } from "lib/ai/agent/default-tool-mentions";
 import { storageKeyFromDownloadUrl } from "lib/code-runner/storage-key";
@@ -21,6 +16,11 @@ import {
   cronToHumanReadable,
   getUserTimezone,
 } from "lib/scheduled-tasks/time-to-cron";
+import { BotIcon, CalendarClock, CheckCircle2, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 export interface CreateAgentProposal {
   name?: string;
@@ -84,6 +84,7 @@ export function CreateAgentReviewUI({
           cronExpression: proposal.schedule.cronExpression,
           timezone: proposal.schedule.timezone || getUserTimezone(),
           inputPrompt: proposal.schedule.inputPrompt || null,
+          model: null,
           browserAutomationEnabled: false,
           browserCredentialAliases: [],
           enabled: true,

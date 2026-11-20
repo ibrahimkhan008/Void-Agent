@@ -1,16 +1,18 @@
 "use client";
 
 import {
-  Lock,
-  Eye,
-  Globe,
   Bookmark,
   BookmarkCheck,
-  Trash2,
+  Eye,
+  GitFork,
+  Globe,
   Loader2,
+  Lock,
+  Trash2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { Button } from "ui/button";
 import {
   DropdownMenu,
@@ -20,7 +22,6 @@ import {
 } from "ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import { WriteIcon } from "ui/write-icon";
-import { useMemo } from "react";
 
 export type Visibility = "private" | "public" | "readonly";
 
@@ -79,6 +80,9 @@ interface ShareableActionsProps {
   isVisibilityChangeLoading?: boolean;
   onBookmarkToggle?: (isBookmarked: boolean) => void;
   isBookmarkToggleLoading?: boolean;
+  /** Copy this item into the caller's account (agents only, GitHub-style). */
+  onFork?: () => void;
+  isForkLoading?: boolean;
   onDelete?: () => void;
   isDeleteLoading?: boolean;
   renderActions?: () => React.ReactNode;
@@ -94,10 +98,12 @@ export function ShareableActions({
   editHref,
   onVisibilityChange,
   onBookmarkToggle,
+  onFork,
   onDelete,
   renderActions,
   isVisibilityChangeLoading = false,
   isBookmarkToggleLoading = false,
+  isForkLoading = false,
   isDeleteLoading = false,
   disabled = false,
 }: ShareableActionsProps) {
@@ -106,8 +112,16 @@ export function ShareableActions({
 
   const isAnyLoading = useMemo(
     () =>
-      isVisibilityChangeLoading || isBookmarkToggleLoading || isDeleteLoading,
-    [isVisibilityChangeLoading, isBookmarkToggleLoading, isDeleteLoading],
+      isVisibilityChangeLoading ||
+      isBookmarkToggleLoading ||
+      isForkLoading ||
+      isDeleteLoading,
+    [
+      isVisibilityChangeLoading,
+      isBookmarkToggleLoading,
+      isForkLoading,
+      isDeleteLoading,
+    ],
   );
 
   const VisibilityIcon = visibility ? VISIBILITY_ICONS[visibility] : null;
@@ -223,6 +237,35 @@ export function ShareableActions({
           <TooltipContent>
             {t(isBookmarked ? "Agent.removeBookmark" : "Agent.addBookmark")}
           </TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Fork Action — copy into the caller's account. Offered to owners and
+       * non-owners alike (forking your own agent is a duplicate, like
+       * GitHub); the parent decides which item types pass it. */}
+      {onFork && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              data-testid="fork-button"
+              disabled={isAnyLoading || disabled}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFork();
+              }}
+            >
+              {isForkLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <GitFork className="size-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("Agent.fork")}</TooltipContent>
         </Tooltip>
       )}
 

@@ -146,6 +146,14 @@ export const AgentTable = pgTable(
     installCount: integer("install_count").notNull().default(0),
     galleryMetadata: jsonb("gallery_metadata").$type<Record<string, unknown>>(),
     coverImageUrl: text("cover_image_url"),
+    // GitHub-style fork provenance: the agent this row was copied from. The
+    // link is severed (not cascaded) when the original is deleted; the
+    // galleryMetadata.forkedFrom snapshot keeps the display name alive.
+    // FK to agent(id) ON DELETE SET NULL lives in migration 0100 — a
+    // self-referencing .references() here collapses Drizzle's
+    // update/returning type inference.
+    forkedFromAgentId: uuid("forked_from_agent_id"),
+    forkCount: integer("fork_count").notNull().default(0),
     // Pinned chat model as "provider/model"; NULL inherits the chat's selected
     // model / routing default. When set it wins over both — see api/chat.
     model: varchar("model", { length: 120 }),
@@ -270,6 +278,13 @@ export const ScheduledTaskTable = pgTable(
 
     // The message to send to the agent
     inputPrompt: text("input_prompt"),
+
+    // Model this task's runs execute with, as "provider/model" (same format as
+    // agent.model). NULL = Automatic: the platform routes to the best model
+    // available to the account; a linked agent's pinned model is the fallback
+    // within that. Explicitly set, it wins over the agent's pinned model —
+    // the task row is the authority for unattended runs.
+    model: varchar("model", { length: 120 }),
 
     // Per-task opt-in for driving a browser with nobody watching. Defaults off
     // and is not ceremony: headful browser time bills at 128 credits/second

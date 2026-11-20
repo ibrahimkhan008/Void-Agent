@@ -75,6 +75,7 @@ export const PATCH = withAuth(
         cronExpression,
         timezone,
         inputPrompt,
+        model,
         browserAutomationEnabled,
         browserCredentialAliases,
         enabled,
@@ -182,6 +183,9 @@ export const PATCH = withAuth(
           ...(cronExpression !== undefined && { cronExpression }),
           ...(timezone !== undefined && { timezone }),
           ...(inputPrompt !== undefined && { inputPrompt }),
+          // nullish explicitly (null clears a pinned model back to Automatic),
+          // undefined leaves it untouched.
+          ...(model !== undefined && { model: model || null }),
           ...(effectiveMode !== "agent"
             ? { browserAutomationEnabled: false }
             : browserAutomationEnabled !== undefined

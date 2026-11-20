@@ -15,6 +15,7 @@ export type ScheduledTaskSummary = {
   cronExpression: string;
   timezone: string;
   inputPrompt: string | null;
+  model: string | null;
   enabled: boolean | null;
   lastRunAt: string | null;
   lastRunStatus: "success" | "failure" | "timeout" | null;

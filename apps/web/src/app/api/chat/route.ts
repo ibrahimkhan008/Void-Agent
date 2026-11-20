@@ -524,7 +524,11 @@ export async function POST(request: Request) {
     );
     const agentModel = parseAgentModel(agent?.model);
     let effectiveAutoRouting = autoRouting;
-    if (agentModel) {
+    // An unattended run's request chatModel comes from the schedule's pinned
+    // model (scheduled_task.model — the task row is the authority for
+    // unattended runs), so it must not be clobbered by the linked agent's
+    // pinned model. Interactive chats keep the agent-first precedence.
+    if (agentModel && !(isUnattendedRun && requestedChatModel)) {
       chatModel = agentModel;
       effectiveAutoRouting = false;
     }
@@ -618,6 +622,20 @@ export async function POST(request: Request) {
           logger.info(
             `[chat] fallback chain applied: ${fallback.chatModel.provider}/${fallback.chatModel.model}`,
           );
+        } else if (isUnattendedRun && !chatModel) {
+          // A schedule left on "Automatic" must not die on routing
+          // configuration (NO_ELIGIBLE_MODEL on an unseeded model_deployment
+          // table, or an org that disabled auto-routing). Nobody is watching
+          // to pick a model: degrade to the platform fallback model — the
+          // same resolution a pre-model-selection scheduled run always used.
+          // An explicitly pinned model that is refused still 403s below.
+          logger.warn(
+            `[chat] automatic routing unavailable for unattended run; degrading to the platform fallback model (${error.code})`,
+          );
+          routingMetadata = {
+            automatic: false,
+            reasonCode: `auto_routing_degraded:${error.code}`,
+          };
         } else {
           await markPreStreamFailure();
           return chatErrorResponse(error.code, error.message, 403);
