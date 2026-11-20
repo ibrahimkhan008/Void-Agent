@@ -74,8 +74,10 @@ const OPTIONAL_FEATURES: OptionalFeature[] = [
   },
   {
     vars: ["ELEVENLABS_API_KEY"],
-    feature: "Voice dictation in the chat composer (ElevenLabs Scribe)",
-    fallback: "the composer microphone is unavailable",
+    feature:
+      "Voice dictation in the chat composer and realtime voice chat (ElevenLabs Scribe + Realtime)",
+    fallback:
+      "the composer microphone is unavailable and voice chat falls back to the AI Gateway",
   },
   {
     vars: ["COMPOSIO_API_KEY"],

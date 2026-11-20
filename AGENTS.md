@@ -146,9 +146,11 @@ Key production vars in `.env.production` (see `docker/.env.production.example`):
 - `NEXT_PUBLIC_BASE_URL` — public URL for OAuth callbacks
 - `ELEVENLABS_API_KEY` — optional; enables ElevenLabs Scribe streaming
   speech-to-text for the chat-composer voice dictation (server mints
-  single-use tokens at `/api/elevenlabs/scribe-token`; locally the ElevenLabs
-  CLI stores the key in the repo-root `.env.local`, which
-  `apps/web/next.config.ts` loads)
+  single-use tokens at `/api/elevenlabs/scribe-token`) and ElevenLabs Realtime
+  for voice chat (server mints single-use client secrets in
+  `/api/chat/openai-realtime`; the AI Gateway is the fallback provider).
+  Locally the ElevenLabs CLI stores the key in the repo-root `.env.local`,
+  which `apps/web/next.config.ts` loads
 - `KERNEL_API_KEY` — optional; enables the Kernel cloud browser provider
 - `STEEL_BASE_URL`, `STEEL_EXECUTOR_URL`, `STEEL_PUBLIC_BASE_URL` — optional;
   enable the free self-hosted Steel browser provider (see compose services)

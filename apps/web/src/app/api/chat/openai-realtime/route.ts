@@ -1,12 +1,14 @@
 import { ChatMention } from "app-types/chat";
 import { withAuth } from "auth/route-guard";
 import { colorize } from "consola/utils";
+import { mintElevenLabsRealtimeSecret } from "lib/ai/speech/eleven-labs/realtime-mint.server";
 import { getVoiceGateway } from "lib/ai/speech/voice-gateway.server";
 import {
   VOICE_REALTIME_MODEL,
   getAiGatewayTeamIdOrSlug,
   isAiGatewayConfigured,
   parseVoiceLanguage,
+  resolveVoiceRealtimeProvider,
 } from "lib/ai/speech/voice-realtime-config";
 import globalLogger from "lib/logger";
 import { resolveVoiceBrowserSuppression } from "lib/voice/browser-gate";
@@ -50,11 +52,16 @@ function resolveVoiceRequestContext(
 
 export const POST = withAuth(async (request, session) => {
   try {
-    if (!isAiGatewayConfigured()) {
+    // The provider is decided once per session here, exactly like the browser
+    // provider chain: ElevenLabs Realtime when its key is configured, the AI
+    // Gateway otherwise. The response carries the choice so the client picks
+    // the matching realtime wire format.
+    const provider = resolveVoiceRealtimeProvider();
+    if (provider === "gateway" && !isAiGatewayConfigured()) {
       return new Response(
         JSON.stringify({
           error:
-            "AI Gateway is not configured. Set AI_GATEWAY_API_KEY (or VERCEL_AI_GATEWAY_API_KEY).",
+            "Voice realtime is not configured. Set ELEVENLABS_API_KEY (ElevenLabs Realtime) or AI_GATEWAY_API_KEY (Vercel AI Gateway).",
         }),
         { status: 500 },
       );
@@ -146,6 +153,29 @@ export const POST = withAuth(async (request, session) => {
         toolExecutionMap: toolSetup.toolExecutionMap,
         browserAutomation,
         teamIdOrSlug,
+        provider,
+      });
+    }
+
+    if (provider === "elevenlabs") {
+      // Same response contract as the gateway mint below: the browser only
+      // needs { token, url } plus the context it re-sends in its own
+      // session.update. The mint body is the authoritative initial session,
+      // so it carries the same instructions and tools.
+      const { token, url } = await mintElevenLabsRealtimeSecret({
+        instructions: context.systemPrompt,
+        tools: toolSetup.tools,
+      });
+
+      return Response.json({
+        token,
+        url,
+        tools: toolSetup.tools,
+        toolStatus: toolSetup.toolStatus,
+        toolExecutionMap: toolSetup.toolExecutionMap,
+        instructions: context.systemPrompt,
+        browserAutomation,
+        provider,
       });
     }
 
@@ -164,6 +194,7 @@ export const POST = withAuth(async (request, session) => {
       instructions: context.systemPrompt,
       browserAutomation,
       teamIdOrSlug,
+      provider,
     });
   } catch (error: unknown) {
     // The detail stays in the server log: a 500 body never carries internals.

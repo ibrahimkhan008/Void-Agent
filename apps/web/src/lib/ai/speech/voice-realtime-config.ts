@@ -1,6 +1,22 @@
 export const VOICE_REALTIME_MODEL = "openai/gpt-realtime-2";
 
 /**
+ * Which realtime provider a voice session runs on. ElevenLabs when its key is
+ * configured (the same key the composer dictation uses), the Vercel AI
+ * Gateway otherwise — decided once per session by the token route, which
+ * answers with the provider so the client can pick the matching wire format.
+ */
+export type VoiceRealtimeProvider = "gateway" | "elevenlabs";
+
+export function isElevenLabsRealtimeConfigured(): boolean {
+  return Boolean(process.env.ELEVENLABS_API_KEY?.trim());
+}
+
+export function resolveVoiceRealtimeProvider(): VoiceRealtimeProvider {
+  return isElevenLabsRealtimeConfigured() ? "elevenlabs" : "gateway";
+}
+
+/**
  * The language a voice session answers in by default. A property of the voice
  * preset (Jarvis speaks English, the plain voices German) and sent once to the
  * server prompt, so the prompt never carries two default languages: two

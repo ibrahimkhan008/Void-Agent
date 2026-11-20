@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   buildVoiceAgentContext: vi.fn(),
   getToken: vi.fn(),
   resolveVoiceBrowserSuppression: vi.fn(),
+  resolveVoiceRealtimeProvider: vi.fn(),
+  isAiGatewayConfigured: vi.fn(),
+  mintElevenLabsRealtimeSecret: vi.fn(),
 }));
 
 vi.mock("auth/server", () => ({
@@ -22,9 +25,14 @@ vi.mock("lib/ai/speech/voice-realtime-config", async (importOriginal) => ({
   ...(await importOriginal<
     typeof import("lib/ai/speech/voice-realtime-config")
   >()),
-  isAiGatewayConfigured: () => true,
+  isAiGatewayConfigured: mocks.isAiGatewayConfigured,
+  resolveVoiceRealtimeProvider: mocks.resolveVoiceRealtimeProvider,
   VOICE_REALTIME_MODEL: "openai/gpt-realtime",
   getAiGatewayTeamIdOrSlug: () => "keinsaas",
+}));
+
+vi.mock("lib/ai/speech/eleven-labs/realtime-mint.server", () => ({
+  mintElevenLabsRealtimeSecret: mocks.mintElevenLabsRealtimeSecret,
 }));
 
 vi.mock("lib/ai/speech/voice-gateway.server", () => ({
@@ -105,6 +113,9 @@ describe("POST /api/chat/openai-realtime", () => {
     mocks.resolveVoiceBrowserSuppression.mockResolvedValue(
       "org policy browser_automation_enabled is off",
     );
+    // The gateway is the default provider in tests, as in a fresh checkout.
+    mocks.resolveVoiceRealtimeProvider.mockReturnValue("gateway");
+    mocks.isAiGatewayConfigured.mockReturnValue(true);
   });
 
   it.each([
@@ -350,6 +361,97 @@ describe("POST /api/chat/openai-realtime", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
       error: "Failed to create voice session",
+    });
+  });
+
+  /**
+   * The provider chain: ElevenLabs Realtime when its key is configured, the
+   * AI Gateway otherwise — decided once per session here, and answered to
+   * the client so it picks the matching wire format.
+   */
+  describe("realtime provider", () => {
+    beforeEach(() => {
+      mocks.buildVoiceAgentContext.mockResolvedValue({
+        enabledMentions: [],
+        mcpTools: {},
+        composioTools: {},
+        systemPrompt: "Be helpful.",
+      });
+    });
+
+    it("mints an ElevenLabs client secret with the session context when ElevenLabs is configured", async () => {
+      mocks.resolveVoiceRealtimeProvider.mockReturnValue("elevenlabs");
+      mocks.mintElevenLabsRealtimeSecret.mockResolvedValue({
+        token: "el-secret",
+        url: "wss://api.elevenlabs.io/v1/convai/realtime",
+      });
+
+      const response = await POST(
+        new NextRequest("http://localhost/api/chat/openai-realtime", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.provider).toBe("elevenlabs");
+      expect(payload.token).toBe("el-secret");
+      expect(payload.url).toBe("wss://api.elevenlabs.io/v1/convai/realtime");
+      // The mint body is the authoritative initial session: same
+      // instructions and tools the client re-sends after connecting.
+      expect(mocks.mintElevenLabsRealtimeSecret).toHaveBeenCalledWith({
+        instructions: "Be helpful.",
+        tools: expect.any(Array),
+      });
+      expect(mocks.getToken).not.toHaveBeenCalled();
+    });
+
+    it("reports the provider on the prepare (sessionOnly) response", async () => {
+      mocks.resolveVoiceRealtimeProvider.mockReturnValue("elevenlabs");
+
+      const payload = await requestSetup();
+
+      expect(payload.provider).toBe("elevenlabs");
+    });
+
+    it("keeps the gateway mint when ElevenLabs is not configured", async () => {
+      mocks.getToken.mockResolvedValue({
+        token: "gw-token",
+        url: "wss://gateway/realtime-model",
+      });
+
+      const response = await POST(
+        new NextRequest("http://localhost/api/chat/openai-realtime", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(payload.provider).toBe("gateway");
+      expect(payload.token).toBe("gw-token");
+      expect(payload.url).toBe("wss://gateway/realtime-model");
+      expect(mocks.mintElevenLabsRealtimeSecret).not.toHaveBeenCalled();
+    });
+
+    it("fails closed when no realtime provider is configured", async () => {
+      mocks.isAiGatewayConfigured.mockReturnValue(false);
+
+      const response = await POST(
+        new NextRequest("http://localhost/api/chat/openai-realtime", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }),
+      );
+
+      expect(response.status).toBe(500);
+      expect(mocks.getToken).not.toHaveBeenCalled();
+      expect(mocks.mintElevenLabsRealtimeSecret).not.toHaveBeenCalled();
     });
   });
 });

@@ -4,6 +4,12 @@ import { appStore } from "@/app/store";
 import { experimental_useRealtime } from "@ai-sdk/react";
 import type { Experimental_RealtimeServerEvent } from "ai";
 import { isToolUIPart } from "ai";
+import {
+  buildElevenLabsSessionConfig,
+  buildElevenLabsWireSession,
+} from "lib/ai/speech/eleven-labs/realtime-session-config";
+import type { VoiceRealtimeProvider } from "lib/ai/speech/voice-realtime-config";
+import { createVoiceRealtimeModel } from "lib/ai/speech/voice-realtime-model";
 import { analytics } from "lib/analytics/posthog";
 import { generateUUID } from "lib/utils";
 import { isBrowserVoiceAppTool } from "lib/voice/app-tool-definitions";
@@ -41,10 +47,7 @@ import {
   DEFAULT_OPENAI_VOICE,
   resolveOpenAIVoicePreset,
 } from "./voice-constants";
-import {
-  createBrowserGatewayRealtimeModel,
-  setBrowserGatewayTeamIdOrSlug,
-} from "./voice-gateway-client";
+import { setBrowserGatewayTeamIdOrSlug } from "./voice-gateway-client";
 import {
   type VoiceSessionConfirmation,
   type VoiceSettings,
@@ -315,6 +318,8 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     toolExecutionMap: VoiceToolExecutionMap;
     /** Whether the session was offered browseWeb/checkBrowserRun. */
     browserAutomation: boolean;
+    /** Which realtime provider the token route picked for this session. */
+    provider: VoiceRealtimeProvider;
   } | null>(null);
 
   const { setTheme } = useTheme();
@@ -375,11 +380,16 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
   const toolExecutionMapRef = useRef<VoiceToolExecutionMap>({});
 
   /**
-   * Docs use `gateway.experimental_realtime(modelId)` from `@ai-sdk/gateway`.
-   * canary.107 throws in browsers ("cannot be used in browsers yet"), so this
-   * object mirrors GatewayRealtimeModel (getWebSocketConfig / parse / serialize).
+   * Which realtime provider the token route picked. Starts at the gateway and
+   * is corrected as soon as the prepare call answers; `createVoiceRealtimeModel`
+   * routes every wire call through this (see voice-realtime-model.ts for why
+   * reading it at call time is safe).
    */
-  const realtimeModel = useMemo(() => createBrowserGatewayRealtimeModel(), []);
+  const voiceProviderRef = useRef<VoiceRealtimeProvider>("gateway");
+  const realtimeModel = useMemo(
+    () => createVoiceRealtimeModel(() => voiceProviderRef.current),
+    [],
+  );
 
   const toolMentions = props?.toolMentions ?? [];
   const agentId = props?.agentId;
@@ -397,18 +407,21 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     [requestedContextKey],
   );
 
-  // See realtime-session-config.ts for why this has two layers.
-  const sessionConfig = useMemo(
-    () =>
-      buildRealtimeSessionConfig({
-        voice: preparedContext?.voice ?? voice,
-        settings: connectSettings,
-        instructions: preparedContext?.instructions,
-        tools: preparedContext?.tools,
-        ptt,
-      }),
-    [voice, preparedContext, ptt, connectSettings],
-  );
+  // See realtime-session-config.ts for why this has two layers. The
+  // ElevenLabs variant drops what that provider does not document
+  // (transcription model, noise reduction, speed, reasoning).
+  const sessionConfig = useMemo(() => {
+    const input = {
+      voice: preparedContext?.voice ?? voice,
+      settings: connectSettings,
+      instructions: preparedContext?.instructions,
+      tools: preparedContext?.tools,
+      ptt,
+    };
+    return preparedContext?.provider === "elevenlabs"
+      ? buildElevenLabsSessionConfig(input)
+      : buildRealtimeSessionConfig(input);
+  }, [voice, preparedContext, ptt, connectSettings]);
 
   // Only the agent id: this URL is POSTed by the AI SDK's transport with a body
   // we do not control, and that call keeps only the token — the context the
@@ -864,16 +877,21 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
           toolStatus?: VoiceToolStatus;
           toolExecutionMap?: VoiceToolExecutionMap;
           browserAutomation?: boolean;
+          provider?: string;
         };
         if (cancelled) {
           return;
         }
+        const provider: VoiceRealtimeProvider =
+          payload.provider === "elevenlabs" ? "elevenlabs" : "gateway";
+        voiceProviderRef.current = provider;
         const toolStatus = payload.toolStatus ?? createEmptyVoiceToolStatus();
         latencyRef.current.prepareMs = Math.round(
           performance.now() - prepareStartedAt,
         );
         setPreparedContext({
           ...requestedContext,
+          provider,
           instructions: payload.instructions,
           tools: payload.tools ?? [],
           toolStatus,
@@ -1010,8 +1028,11 @@ export function useOpenAIVoiceChat(props?: VoiceChatOptions): VoiceChatSession {
     pendingSettingsRef.current = null;
     setSettingsPending(false);
     // No voice: OpenAI refuses a voice change once the model has spoken, and
-    // a field left out of `session.update` keeps its current value.
-    const wire = buildVoiceWireSession({ settings: next, ptt });
+    // a field left out of session.update keeps its current value.
+    const wire =
+      voiceProviderRef.current === "elevenlabs"
+        ? buildElevenLabsWireSession({ settings: next, ptt })
+        : buildVoiceWireSession({ settings: next, ptt });
     expectedWireRef.current = wire;
     setSessionConfirmation({ status: "pending" });
     try {
