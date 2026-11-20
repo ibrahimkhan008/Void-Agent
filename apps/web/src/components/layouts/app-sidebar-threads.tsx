@@ -184,7 +184,7 @@ export function AppSidebarThreads() {
       loading: t("deletingAllChats"),
       success: () => {
         mutate("/api/thread");
-        router.push("/dashboard");
+        router.push("/");
         return t("allChatsDeleted");
       },
       error: t("failedToDeleteAllChats"),
@@ -196,7 +196,7 @@ export function AppSidebarThreads() {
       loading: t("deletingUnarchivedChats"),
       success: () => {
         mutate("/api/thread");
-        router.push("/dashboard");
+        router.push("/");
         return t("unarchivedChatsDeleted");
       },
       error: t("failedToDeleteUnarchivedChats"),

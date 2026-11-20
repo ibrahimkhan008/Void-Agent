@@ -95,7 +95,7 @@ export function AppSidebarAgents({ userRole }: { userRole?: string | null }) {
           };
         });
       } else {
-        router.push("/dashboard");
+        router.push("/");
 
         appStore.setState(() => ({
           pendingThreadMention: newMention,
