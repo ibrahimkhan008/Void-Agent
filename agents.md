@@ -6,8 +6,9 @@ This file provides guidance for AI agents working in this repository.
 
 Before making any code, config, or docs change:
 1. Read `context.md` completely — it contains prior decisions, constraints, and recent diffs.
-2. Do not edit files until `context.md` has been reviewed.
-3. After every meaningful action batch, append a new timestamped entry to `context.md` with request summary, actions, files edited, diff summary, and validation results. Never delete or rewrite older entries.
+2. Read `PROJECT_PRIORITIES.md` completely — all development, architecture, implementation, UI/UX, and testing must strictly follow the Hack2Skill AI Evaluation rubric defined there.
+3. Do not edit files until `context.md` and `PROJECT_PRIORITIES.md` have been reviewed.
+4. After every meaningful action batch, append a new timestamped entry to `context.md` with request summary, actions, files edited, diff summary, and validation results. Never delete or rewrite older entries.
 
 ## Session Memory System
 
@@ -144,6 +145,13 @@ Key production vars in `.env.production` (see `docker/.env.production.example`):
 - `POSTGRES_URL` — database connection
 - `BETTER_AUTH_SECRET` — auth session secret
 - `NEXT_PUBLIC_BASE_URL` — public URL for OAuth callbacks
+- `ELEVENLABS_API_KEY` — optional; enables ElevenLabs Scribe streaming
+  speech-to-text for the chat-composer voice dictation (server mints
+  single-use tokens at `/api/elevenlabs/scribe-token`) and ElevenLabs Realtime
+  for voice chat (server mints single-use client secrets in
+  `/api/chat/openai-realtime`; the AI Gateway is the fallback provider).
+  Locally the ElevenLabs CLI stores the key in the repo-root `.env.local`,
+  which `apps/web/next.config.ts` loads
 - `KERNEL_API_KEY` — optional; enables the Kernel cloud browser provider
 - `STEEL_BASE_URL`, `STEEL_EXECUTOR_URL`, `STEEL_PUBLIC_BASE_URL` — optional;
   enable the free self-hosted Steel browser provider (see compose services)

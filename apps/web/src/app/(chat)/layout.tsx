@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layouts/app-shell";
 import { UsageLimitGate } from "@/components/gate/usage-limit";
 import { getSession } from "lib/auth/server";
 import { userRepository } from "lib/db/repository";
+import { isOnboardingEnabled } from "lib/onboarding/config";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -23,14 +24,13 @@ export default async function ChatLayout({
     redirect("/sign-in");
   }
 
-  // Onboarding gate. The completion cookie is device-local, so on a brand-new
-  // device fall back to ONE server-side DB read instead of bouncing the
-  // browser through /onboarding → /api/onboarding/complete → / — the old
-  // middleware cookie gate did exactly that, which users experienced as the
-  // app loading twice on first open. When the DB already says "done" we
-  // render immediately and let the client backfill the cookie.
+  // Onboarding gate (controlled via Admin Settings -> General -> Onboarding Flow).
+  // Defaults to off so users enter the app immediately unless an admin turns it on.
   let syncOnboardingCookie = false;
-  if (!cookieStore.get("onboarding_complete")) {
+  if (
+    !cookieStore.get("onboarding_complete") &&
+    (await isOnboardingEnabled())
+  ) {
     const preferences = await userRepository.getPreferences(session.user.id);
     if (preferences?.onboarding?.step === "done") {
       syncOnboardingCookie = true;

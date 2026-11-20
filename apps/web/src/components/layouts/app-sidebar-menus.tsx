@@ -17,6 +17,7 @@ import {
   BookOpen,
   CalendarClock,
   MonitorSmartphone,
+  Shield,
   SlidersHorizontal,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -121,6 +122,20 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
                 <MonitorSmartphone className="size-4" />
                 <span className="group-data-[collapsible=icon]:hidden">
                   Sandbox
+                </span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+          <SidebarMenuItem className="mb-1">
+            <Link href="/cyber" onClick={() => setOpenMobile(false)}>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/cyber")}
+                className="font-semibold"
+                tooltip="Void Cyber"
+              >
+                <Shield className="size-4 text-cyan-400" />
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Void Cyber
                 </span>
               </SidebarMenuButton>
             </Link>

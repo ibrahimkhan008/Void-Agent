@@ -14,8 +14,9 @@ Headline capabilities: multi-model chat, autonomous agents, **Void Memory** (ver
 
 Before making any code, config, or docs change:
 1. Read `context.md` completely (repo root, gitignored) — prior decisions, constraints, recent diffs.
-2. Do not edit files until `context.md` has been reviewed.
-3. After every meaningful action batch, append a timestamped entry to `context.md`. Never delete or rewrite older entries.
+2. Read `PROJECT_PRIORITIES.md` completely — all development, architecture, implementation, UI/UX, and testing must strictly follow the Hack2Skill AI Evaluation rubric defined there.
+3. Do not edit files until `context.md` and `PROJECT_PRIORITIES.md` have been reviewed.
+4. After every meaningful action batch, append a timestamped entry to `context.md`. Never delete or rewrite older entries.
 
 ## Build, Test, and Development
 

@@ -5316,3 +5316,5 @@ export const BugReportCommentTable = pgTable(
 );
 
 export type BugReportCommentEntity = typeof BugReportCommentTable.$inferSelect;
+
+export * from "./schema.cyber.pg";

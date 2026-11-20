@@ -40,6 +40,12 @@ interface GeneralConfig {
 
 const FEATURE_FLAG_DEFS: FeatureFlag[] = [
   {
+    key: "onboardingFlow",
+    label: "Onboarding Flow",
+    description:
+      "Require new users to complete the onboarding wizard before entering the app",
+  },
+  {
     key: "newCanvas",
     label: "New Canvas",
     description: "Enable the new canvas generation engine",
@@ -71,6 +77,7 @@ export default function GeneralPage() {
     rateLimitPerUser: 60,
     rateLimitPerIP: 120,
     featureFlags: {
+      onboardingFlow: false,
       newCanvas: true,
       voiceChat: true,
       communityPage: true,

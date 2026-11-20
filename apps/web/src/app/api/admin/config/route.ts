@@ -98,6 +98,7 @@ function buildDefaultGeneralConfig() {
     rateLimitPerUser: 60,
     rateLimitPerIP: 120,
     featureFlags: {
+      onboardingFlow: false,
       newCanvas: true,
       voiceChat: true,
       communityPage: true,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "lib/auth/server";
 import { userRepository } from "lib/db/repository";
+import { isOnboardingEnabled } from "lib/onboarding/config";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,10 @@ export default async function OnboardingPage() {
   const session = await getSession();
   if (!session?.user?.id) {
     redirect("/sign-in");
+  }
+
+  if (!(await isOnboardingEnabled())) {
+    redirect("/");
   }
 
   const preferences = await userRepository.getPreferences(session.user.id);

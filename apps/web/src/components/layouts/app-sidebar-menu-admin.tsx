@@ -4,12 +4,20 @@
  */
 "use client";
 
-import { CreditCard, Settings2, Shield } from "lucide-react";
+import { CreditCard, Settings2, Shield, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "ui/sidebar";
 
 export const AppSidebarAdmin = () => (
   <SidebarMenu>
+    <SidebarMenuItem>
+      <Link href="/admin/settings/general">
+        <SidebarMenuButton className="font-semibold">
+          <SlidersHorizontal className="size-4" />
+          General settings
+        </SidebarMenuButton>
+      </Link>
+    </SidebarMenuItem>
     <SidebarMenuItem>
       <Link href="/admin/providers">
         <SidebarMenuButton className="font-semibold">
