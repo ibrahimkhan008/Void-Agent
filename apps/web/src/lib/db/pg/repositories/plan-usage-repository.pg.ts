@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { pgDb as db } from "../db.pg";
 import { PlanUsageTable } from "../schema.pg";
 
@@ -40,7 +40,7 @@ export const planUsageRepository = {
             PlanUsageTable.periodKey,
           ],
           set: {
-            used: PlanUsageTable.used + amount,
+            used: sql`${PlanUsageTable.used} + ${amount}`,
             updatedAt: new Date(),
           },
         });

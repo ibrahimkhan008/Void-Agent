@@ -112,7 +112,7 @@ describe("devices payload", () => {
             endAt: null,
             state: "running",
             cpuCount: 2,
-            memoryMb: 512,
+            memoryMB: 512,
           },
         ]);
       }
@@ -126,7 +126,7 @@ describe("devices payload", () => {
           endAt: null,
           state: "paused",
           cpuCount: 2,
-          memoryMb: 512,
+          memoryMB: 512,
         },
       ]);
     });
@@ -145,7 +145,13 @@ describe("devices payload", () => {
     vi.doMock("lib/db/repository", () => ({
       userRepository: {
         getPreferences: async () => ({
-          orchestratorDailyUsage: { day: "2026-11-18", used: 3 },
+          // The payload counts the daily swarm usage only when the stored
+          // counter is for TODAY (UTC) — a stale day means the window reset.
+          // Use the live UTC day so the fixture stays valid every date.
+          orchestratorDailyUsage: {
+            day: new Date().toISOString().slice(0, 10),
+            used: 3,
+          },
         }),
       },
     }));

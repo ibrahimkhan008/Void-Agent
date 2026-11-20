@@ -66,7 +66,7 @@ async function listUserSandboxes(userId: string): Promise<DeviceSandboxView[]> {
               ? new Date(info.startedAt).toISOString()
               : null,
             cpuCount: info.cpuCount ?? null,
-            memoryMb: info.memoryMb ?? null,
+            memoryMb: info.memoryMB ?? null,
           });
         }
       }
