@@ -1,4 +1,4 @@
-CREATE TABLE "plan_usage" (
+CREATE TABLE IF NOT EXISTS "plan_usage" (
 	"user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
 	"metric" varchar(40) NOT NULL,
 	"period_key" varchar(10) NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE "plan_usage" (
 	CONSTRAINT "plan_usage_metric_check" CHECK ("metric" IN ('agent_launches', 'scheduled_runs', 'agent_tokens'))
 );
 --> statement-breakpoint
-CREATE INDEX "plan_usage_user_metric_idx" ON "plan_usage" ("user_id", "metric", "period_key");
+CREATE INDEX IF NOT EXISTS "plan_usage_user_metric_idx" ON "plan_usage" ("user_id", "metric", "period_key");

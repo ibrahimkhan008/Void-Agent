@@ -1,4 +1,4 @@
-CREATE TABLE "sentinel_monitor" (
+CREATE TABLE IF NOT EXISTS "sentinel_monitor" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
 	"slug" text NOT NULL,
@@ -16,11 +16,11 @@ CREATE TABLE "sentinel_monitor" (
 	CONSTRAINT "sentinel_monitor_interval_check" CHECK ("interval_seconds" BETWEEN 60 AND 86400)
 );
 --> statement-breakpoint
-CREATE INDEX "sentinel_monitor_user_idx" ON "sentinel_monitor" ("user_id", "slug");
+CREATE INDEX IF NOT EXISTS "sentinel_monitor_user_idx" ON "sentinel_monitor" ("user_id", "slug");
 --> statement-breakpoint
-CREATE INDEX "sentinel_monitor_enabled_idx" ON "sentinel_monitor" ("enabled", "last_checked_at");
+CREATE INDEX IF NOT EXISTS "sentinel_monitor_enabled_idx" ON "sentinel_monitor" ("enabled", "last_checked_at");
 --> statement-breakpoint
-CREATE TABLE "sentinel_incident" (
+CREATE TABLE IF NOT EXISTS "sentinel_incident" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"monitor_id" uuid NOT NULL REFERENCES "sentinel_monitor"("id") ON DELETE CASCADE,
 	"user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -41,6 +41,6 @@ CREATE TABLE "sentinel_incident" (
 	CONSTRAINT "sentinel_incident_slug_check" CHECK ("slug" ~ '^[A-Za-z0-9_-]{1,200}$')
 );
 --> statement-breakpoint
-CREATE INDEX "sentinel_incident_user_idx" ON "sentinel_incident" ("user_id", "detected_at");
+CREATE INDEX IF NOT EXISTS "sentinel_incident_user_idx" ON "sentinel_incident" ("user_id", "detected_at");
 --> statement-breakpoint
-CREATE INDEX "sentinel_incident_open_idx" ON "sentinel_incident" ("monitor_id", "status");
+CREATE INDEX IF NOT EXISTS "sentinel_incident_open_idx" ON "sentinel_incident" ("monitor_id", "status");

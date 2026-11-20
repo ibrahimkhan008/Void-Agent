@@ -1,4 +1,4 @@
-CREATE TABLE "code_review_user_prefs" (
+CREATE TABLE IF NOT EXISTS "code_review_user_prefs" (
 	"user_id" uuid PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
 	"review_trigger" varchar(20) DEFAULT 'pr_open' NOT NULL,
 	"exhaustive_review" boolean DEFAULT false NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE "code_review_user_prefs" (
 	CONSTRAINT "code_review_user_prefs_trigger_check" CHECK ("review_trigger" IN ('pr_open', 'every_push', 'smart_detect'))
 );
 --> statement-breakpoint
-CREATE TABLE "code_review_repo_setting" (
+CREATE TABLE IF NOT EXISTS "code_review_repo_setting" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
 	"repository" text NOT NULL,
@@ -24,5 +24,5 @@ CREATE TABLE "code_review_repo_setting" (
 	CONSTRAINT "code_review_repo_setting_instructions_check" CHECK ("review_instructions" IS NULL OR length("review_instructions") BETWEEN 1 AND 4000)
 );
 --> statement-breakpoint
-CREATE INDEX "code_review_repo_setting_user_idx"
+CREATE INDEX IF NOT EXISTS "code_review_repo_setting_user_idx"
 	ON "code_review_repo_setting" ("user_id", "repository");
