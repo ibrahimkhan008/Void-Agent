@@ -27,7 +27,7 @@ export function Eyebrow({
       )}
     >
       {withAsterisk && (
-        <Asterisk className="size-3.5 stroke-[2.5] text-[var(--bs-brand-glow,#7e89e6)]" />
+        <Asterisk className="size-3.5 stroke-[2.5] text-[var(--bs-brand-glow,#a1a1aa)]" />
       )}
       {children}
     </p>

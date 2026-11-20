@@ -88,6 +88,7 @@ export function SidebarCollapsedRail({ user }: { user?: BasicUser }) {
                 alt="Void Agent"
                 width={28}
                 height={28}
+                priority
                 className="rounded-md transition-opacity group-hover/logo:opacity-0"
               />
               <span

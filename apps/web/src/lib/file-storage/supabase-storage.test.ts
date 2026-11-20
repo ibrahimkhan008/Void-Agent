@@ -59,6 +59,15 @@ describe("supabase file storage ownership and bounded downloads", () => {
     mocks.list.mockResolvedValue({ data: [], error: null });
   });
 
+  it("reports an empty, complete listing when storage is not configured", async () => {
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    const { createSupabaseStorage } = await import("./supabase-storage");
+    await expect(
+      createSupabaseStorage().listOwnedFiles("user-1"),
+    ).resolves.toEqual({ files: [], incomplete: false });
+  });
+
   it("stores authenticated uploads under the validated owner prefix", async () => {
     mocks.upload.mockResolvedValueOnce({
       data: { path: "uploads/user-1/fixed-uuid-notes.txt" },

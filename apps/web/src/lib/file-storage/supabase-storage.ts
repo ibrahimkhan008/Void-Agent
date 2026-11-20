@@ -339,7 +339,9 @@ export const createSupabaseStorage = (): FileStorage => {
     },
 
     async listOwnedFiles(ownerId): Promise<OwnedFileListing> {
-      ensureSupabaseConfigured();
+      // Without storage nothing can have been uploaded, so an empty listing is
+      // complete rather than a failure worth warning the user about.
+      if (!supabase) return { files: [], incomplete: false };
       const safeOwnerId = validateStorageOwnerId(ownerId);
       const prefix = STORAGE_PREFIX
         ? `${STORAGE_PREFIX}/${safeOwnerId}`

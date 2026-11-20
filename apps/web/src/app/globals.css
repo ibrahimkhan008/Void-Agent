@@ -5,9 +5,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* The brand Blue (design.md): theme-independent accent for controls that
-     must stay brand-colored in both light and dark (composer send button). */
-  --color-brand: #2537d5;
+  --color-brand: #18181b;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -85,7 +83,7 @@
      --bs-paper/--bs-brand on its own element, so these fallbacks only apply
      where the display tokens are absent. */
   --bs-accent-from: #000000;
-  --bs-accent-to: #2537d5;
+  --bs-accent-to: #71717a;
 }
 .light {
   [data-theme="zinc"] {
@@ -774,10 +772,8 @@
 }
 
 .dark {
-  /* Light Blue instead of raw Blue: #2537d5 is under 3:1 on the dark ground,
-     the glow clears 6:1. */
   --bs-accent-from: #ffffff;
-  --bs-accent-to: #7e89e6;
+  --bs-accent-to: #a1a1aa;
   --background: hsl(220 6% 9%);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
@@ -798,8 +794,8 @@
   --ring: oklch(0.552 0.016 285.938);
   --sidebar: hsl(220 6% 9%);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.92 0.004 286.32);
+  --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
   --sidebar-accent: oklch(1 0 0 / 15%);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
@@ -1568,10 +1564,10 @@
 .brand-surface {
   /* display-surface tokens (independent of the app theme) */
   --bs-ink: #ffffff;
-  --bs-ink-2: #f4f5f8;
+  --bs-ink-2: #f4f4f5;
   --bs-paper: #000000;
-  --bs-brand: #2537d5;
-  --bs-brand-glow: #7e89e6;
+  --bs-brand: #18181b;
+  --bs-brand-glow: #a1a1aa;
 
   /* Unprefixed aliases — components inside the surface reference these
      directly (text-(--paper), text-(--brand-glow), …). Without them the
@@ -1610,7 +1606,7 @@
   --popover-foreground: #000000;
   --primary: #000000;
   --primary-foreground: #ffffff;
-  --secondary: #f4f5f8;
+  --secondary: #f4f4f5;
   --secondary-foreground: #000000;
   --muted: rgba(0, 0, 0, 0.05);
   --muted-foreground: rgba(0, 0, 0, 0.6);
@@ -1863,13 +1859,13 @@
 }
 
 /* Brand gradient — the brand's only allowed gradient direction: a neutral
-   top that deepens into Blue at the base (design.md). Never blend hues
-   side to side; the blue always comes from below. */
+   top that deepens into graphite at the base. Never blend hues side to
+   side. */
 .gradient-brand {
-  background: linear-gradient(to bottom, #ffffff, #7e89e6 55%, #2537d5);
+  background: linear-gradient(to bottom, #ffffff, #a1a1aa 55%, #18181b);
 }
 .gradient-brand-soft {
-  background: linear-gradient(to bottom, #f4f5f8, #2537d5);
+  background: linear-gradient(to bottom, #f4f4f5, #18181b);
 }
 
 /* Accent span — italic serif with paper→brand gradient + halftone mask.

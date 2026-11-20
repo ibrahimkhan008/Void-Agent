@@ -203,12 +203,16 @@ export function DevicesPanel() {
                       </div>
                       <div className="mt-1.5 flex items-center gap-3">
                         <Progress value={pct} className="h-1.5 flex-1" />
-                        <span className="w-24 text-right text-xs text-muted-foreground">
-                          resets{" "}
-                          {quota.metric === "swarm_launches"
-                            ? "daily"
-                            : "Mon UTC"}
-                          {reset ? ` · ${reset}` : ""}
+                        <span
+                          className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-muted-foreground"
+                          title={reset ?? undefined}
+                        >
+                          Resets{" "}
+                          {reset
+                            ? reset.slice(0, 11)
+                            : quota.metric === "swarm_launches"
+                              ? "daily"
+                              : "Monday"}
                         </span>
                       </div>
                     </div>

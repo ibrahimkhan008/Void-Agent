@@ -95,6 +95,7 @@ export function SidebarHeaderShared({
                         alt="Void Agent"
                         width={28}
                         height={28}
+                        priority
                         className="rounded-md transition-opacity group-hover/logo:opacity-0"
                       />
                       <button

@@ -41,7 +41,12 @@ export function WorkspaceModeToggle({ className }: { className?: string }) {
             key={mode}
             value={mode}
             asChild
-            className="relative h-7 rounded-full px-4 text-sm font-medium text-foreground/60 hover:text-foreground data-[state=active]:text-foreground dark:data-[state=active]:text-black"
+            className={cn(
+              "relative h-7 rounded-full border-0 px-4 text-sm font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent",
+              active === mode
+                ? "text-black data-[state=active]:text-black dark:text-black dark:data-[state=active]:text-black"
+                : "text-foreground/60 hover:text-foreground dark:text-foreground/60",
+            )}
           >
             <Link
               href={href}

@@ -1046,7 +1046,7 @@ export default function PromptInput({
                         disabled={input.trim().length === 0}
                         aria-label={t("sendMessage")}
                         className={cn(
-                          "rounded-[8.64px] flex-shrink-0 bg-brand text-white hover:bg-brand/90 transition-all duration-200",
+                          "rounded-[8.64px] flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-[background-color,opacity,scale] duration-150 ease-out active:scale-[0.96]",
                           "disabled:opacity-40 disabled:cursor-not-allowed",
                           toolbarCompact ? "size-11" : "size-9",
                         )}
