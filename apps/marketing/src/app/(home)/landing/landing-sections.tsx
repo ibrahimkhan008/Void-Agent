@@ -13,7 +13,7 @@ export function LandingHero() {
       {/* Dithered backdrop, radially masked, fading to the bottom */}
       <div
         aria-hidden
-        className="absolute inset-0 [mask-image:radial-gradient(ellipse_44%_34%_at_27%_70%,black,transparent_85%)]"
+        className="absolute inset-0 [mask-image:radial-gradient(ellipse_44%_34%_at_27%_55%,black,transparent_85%)]"
       >
         <DitherCanvas
           src="/images/dither-footer.png"
@@ -24,7 +24,7 @@ export function LandingHero() {
       {/* Brand glow square masked by the site texture, rising at 0.5s */}
       <div
         aria-hidden
-        className="landing-rise absolute top-[44%] right-[-6vw] h-[clamp(380px,40vw,760px)] w-[clamp(380px,40vw,760px)] bg-(--brand-glow)/55 [--rise-delay:0.5s] [--rise:24px]"
+        className="landing-rise absolute top-[28%] right-[-6vw] h-[clamp(380px,40vw,760px)] w-[clamp(380px,40vw,760px)] bg-(--brand-glow)/55 [--rise-delay:0.5s] [--rise:24px]"
         style={{
           maskImage: "url(/bg.png)",
           maskSize: "contain",
@@ -42,7 +42,7 @@ export function LandingHero() {
         className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-(--brand-glow)/15 to-(--brand)/25"
       />
 
-      <div className="relative mx-auto flex min-h-svh max-w-7xl items-end px-5 pt-40 pb-14 lg:pb-[9vh]">
+      <div className="relative mx-auto flex min-h-svh max-w-7xl items-center px-5 pt-28 pb-20">
         <div className="max-w-[860px] lg:max-w-[min(880px,62%)]">
           <div className="landing-rise inline-flex items-center gap-2 [--rise-delay:0.05s]">
             <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-(--paper)">
