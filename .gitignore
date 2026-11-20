@@ -118,3 +118,10 @@ apps/gateway/dist/
 buildathon/
 cognixai-app-spec.md
 cognixai-rebuild-spec.md
+
+# Local-only drafts and stray npm artifacts (pnpm repo — npm lockfiles break
+# Next workspace-root detection; see apps/marketing/next.config.ts)
+/package-lock.json
+/apps/marketing/package-lock.json
+/feature.md
+/VoidCyberSecurity.md
