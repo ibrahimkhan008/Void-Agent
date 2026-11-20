@@ -21,15 +21,15 @@ function ProgramCard({ program }: { program: CyberProgram }) {
   return (
     <Link
       href={`/cyber/programs/${program.id}`}
-      className="block bg-card border border-border rounded-xl p-5 hover:border-cyan-500/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 transition-colors group"
+      className="block bg-card border border-border rounded-xl p-5 hover:border-border hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors group"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-cyan-500/12 border border-cyan-500/20 shrink-0">
-            <Target className="size-4 text-cyan-600 dark:text-cyan-400" />
+          <div className="p-1.5 rounded-lg bg-accent border border-border shrink-0">
+            <Target className="size-4 text-foreground" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-semibold text-sm text-foreground truncate group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
+            <h2 className="font-semibold text-sm text-foreground truncate group-hover:text-foreground transition-colors">
               {program.name}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -87,7 +87,7 @@ export default function ProgramsPage() {
         actions={
           <Link
             href="/cyber/programs/new"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> New Program
           </Link>
@@ -124,7 +124,7 @@ export default function ProgramsPage() {
           </p>
           <Link
             href="/cyber/programs/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Create First Program
           </Link>

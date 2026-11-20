@@ -13,6 +13,7 @@ import { useStartNewChat } from "@/hooks/use-start-new-chat";
 import { BasicUser } from "app-types/user";
 import { Shortcuts, getShortcutKeyList } from "lib/keyboard-shortcuts";
 import { getIsUserAdmin } from "lib/user/utils";
+import { fetcher } from "lib/utils";
 import {
   BookOpen,
   CalendarClock,
@@ -23,6 +24,7 @@ import {
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import useSWR from "swr";
 import { WriteIcon } from "ui/write-icon";
 import { AppSidebarAdmin } from "./app-sidebar-menu-admin";
 
@@ -37,6 +39,16 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
   const t = useTranslations("");
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const isAdmin = !!user && getIsUserAdmin({ role: user.role });
+  // Admins always get in (their profile is bootstrapped on first visit);
+  // everyone else only sees the entry once an admin has granted a profile,
+  // instead of a link that dead-ends on "Access Required".
+  const { data: cyberAccess } = useSWR<{ profile: { status: string } | null }>(
+    user && !isAdmin ? "/api/cyber/users/me" : null,
+    fetcher,
+    { revalidateOnFocus: false, shouldRetryOnError: false },
+  );
+  const showCyber = isAdmin || cyberAccess?.profile?.status === "active";
 
   return (
     <SidebarGroup>
@@ -126,22 +138,24 @@ export function AppSidebarMenus({ user }: { user?: BasicUser }) {
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
-          <SidebarMenuItem className="mb-1">
-            <Link href="/cyber" onClick={() => setOpenMobile(false)}>
-              <SidebarMenuButton
-                isActive={pathname.startsWith("/cyber")}
-                className="font-semibold"
-                tooltip="Void Cyber"
-              >
-                <Shield className="size-4 text-cyan-400" />
-                <span className="group-data-[collapsible=icon]:hidden">
-                  Void Cyber
-                </span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
+          {showCyber && (
+            <SidebarMenuItem className="mb-1">
+              <Link href="/cyber" onClick={() => setOpenMobile(false)}>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith("/cyber")}
+                  className="font-semibold"
+                  tooltip="Void Cyber"
+                >
+                  <Shield className="size-4" />
+                  <span className="group-data-[collapsible=icon]:hidden">
+                    Void Cyber
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
-        {user && getIsUserAdmin({ role: user.role }) && <AppSidebarAdmin />}
+        {isAdmin && <AppSidebarAdmin />}
       </SidebarGroupContent>
     </SidebarGroup>
   );

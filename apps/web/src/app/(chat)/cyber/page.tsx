@@ -261,6 +261,7 @@ function VoidCyberChatInner() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [platformRole, setPlatformRole] = useState<string | null>(null);
 
   // Chat state (sandboxId is tracked silently — server auto-boots E2B on first message)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -283,6 +284,7 @@ function VoidCyberChatInner() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setUnavailable(false);
       try {
         const profRes = await fetch("/api/cyber/users/me");
         if (profRes.status === 401 || profRes.status === 403) {
@@ -295,6 +297,7 @@ function VoidCyberChatInner() {
         }
         const profData = await profRes.json();
         const userProfile = profData.profile ?? null;
+        setPlatformRole(profData.platformRole ?? null);
         setProfile(userProfile);
 
         if (!userProfile || userProfile.status !== "active") {
@@ -459,6 +462,7 @@ function VoidCyberChatInner() {
               : "none"
         }
         status={profile?.status}
+        platformRole={platformRole}
       />
     );
   }

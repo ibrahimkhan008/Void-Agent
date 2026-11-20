@@ -28,6 +28,8 @@ interface CyberProfile {
 }
 
 interface CyberSidebarClientProps {
+  userEmail: string;
+  userName: string;
   cyberProfile: CyberProfile;
 }
 
@@ -131,24 +133,25 @@ function NavItem({
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60",
+        "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         isActive
-          ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400"
+          ? "bg-accent text-foreground"
           : "text-muted-foreground hover:text-foreground hover:bg-accent/70",
       )}
     >
       <Icon
-        className={cn(
-          "size-4 shrink-0",
-          isActive ? "text-cyan-600 dark:text-cyan-400" : "",
-        )}
+        className={cn("size-4 shrink-0", isActive ? "text-foreground" : "")}
       />
       <span className="truncate">{label}</span>
     </Link>
   );
 }
 
-export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
+export function CyberSidebarClient({
+  userEmail,
+  userName,
+  cyberProfile,
+}: CyberSidebarClientProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -172,7 +175,7 @@ export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
     <div className="flex flex-col h-full">
       <div className="px-4 py-4 border-b border-border space-y-2">
         <div className="flex items-center gap-2">
-          <Shield className="size-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+          <Shield className="size-4 text-foreground shrink-0" />
           <span className="font-semibold text-sm text-foreground tracking-tight">
             Void Cyber
           </span>
@@ -203,8 +206,18 @@ export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
         ))}
       </nav>
 
-      <div className="px-4 py-4 border-t border-border">
+      <div className="px-4 py-4 border-t border-border space-y-3">
         <VoidTrustBar score={cyberProfile.voidTrustScore} />
+        <div className="min-w-0 pt-1">
+          <p className="text-xs font-medium text-foreground truncate">
+            {userName || userEmail}
+          </p>
+          {userName && userEmail && (
+            <p className="text-[11px] text-muted-foreground truncate">
+              {userEmail}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -216,13 +229,13 @@ export function CyberSidebarClient({ cyberProfile }: CyberSidebarClientProps) {
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            className="p-1.5 -ml-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 transition-colors"
+            className="p-1.5 -ml-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors"
             aria-label="Open Void Cyber navigation"
             onClick={() => setOpen(true)}
           >
             <Menu className="size-4" />
           </button>
-          <Shield className="size-4 text-cyan-600 dark:text-cyan-400" />
+          <Shield className="size-4 text-foreground" />
           <span className="text-sm font-semibold text-foreground">
             Void Cyber
           </span>

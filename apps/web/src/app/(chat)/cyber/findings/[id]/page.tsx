@@ -107,7 +107,7 @@ function AddEvidenceModal({
           <select
             value={evidenceType}
             onChange={(e) => setEvidenceType(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="http_trace">HTTP Request / Response Trace</option>
             <option value="poc_script">PoC Script</option>
@@ -126,7 +126,7 @@ function AddEvidenceModal({
             required
             rows={6}
             placeholder="Paste raw HTTP trace, script, or log output..."
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-y"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-y"
           />
         </div>
 
@@ -141,7 +141,7 @@ function AddEvidenceModal({
           <button
             type="submit"
             disabled={submitting || !payloadBytes.trim()}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors"
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -333,7 +333,7 @@ export default function FindingDetailPage({
             disabled={updatingStatus}
             onChange={(e) => handleStatusChange(e.target.value)}
             aria-label="Finding status"
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-semibold text-foreground capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-card border border-border rounded-lg px-3 py-2 text-xs font-semibold text-foreground capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s} className="capitalize">
@@ -360,7 +360,7 @@ export default function FindingDetailPage({
             type="button"
             onClick={handleCompileReport}
             disabled={compiling}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold disabled:opacity-60 transition-colors"
           >
             {compiling ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -375,7 +375,7 @@ export default function FindingDetailPage({
       {feedbackBanner && (
         <div
           role="status"
-          className="flex items-center gap-2 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-800 dark:text-cyan-300 text-sm"
+          className="flex items-center gap-2 p-3 rounded-xl bg-accent border border-border text-foreground text-sm"
         >
           <CheckCircle2 className="size-4 shrink-0" />
           {feedbackBanner}
@@ -442,7 +442,7 @@ export default function FindingDetailPage({
       <section className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Fingerprint className="size-4 text-cyan-600 dark:text-cyan-400" />
+            <Fingerprint className="size-4 text-foreground" />
             <h2 className="text-sm font-semibold text-foreground">
               Evidence Vault ({evidence.length})
             </h2>
@@ -450,7 +450,7 @@ export default function FindingDetailPage({
           <button
             type="button"
             onClick={() => setShowAddEvidence(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/12 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400 text-xs font-medium hover:bg-cyan-500/20 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent border border-border text-foreground text-xs font-medium hover:bg-accent transition-colors"
           >
             <Plus className="size-3.5" /> Add Evidence
           </button>
@@ -467,7 +467,7 @@ export default function FindingDetailPage({
             {evidence.map((item) => (
               <div key={item.id} className="p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border border-cyan-500/25 uppercase">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-accent text-foreground border border-border uppercase">
                     {item.evidenceType.replace("_", " ")}
                   </span>
                   <div className="flex items-center gap-2">

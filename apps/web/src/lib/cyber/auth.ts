@@ -11,10 +11,29 @@ import { NextResponse } from "next/server";
 type AuthSession = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
 /**
+ * Accounts listed in VOID_CYBER_ADMIN_EMAILS (comma-separated) are treated
+ * like platform admins for Void Cyber, so an owner whose platform role is not
+ * "admin" can still bootstrap the first Tier 3 profile.
+ */
+export function isCyberBootstrapAdmin(user: {
+  role?: string | null;
+  email?: string | null;
+}): boolean {
+  if (getIsUserAdmin({ role: user.role })) return true;
+  const email = user.email?.trim().toLowerCase();
+  if (!email) return false;
+  return (process.env.VOID_CYBER_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email);
+}
+
+/**
  * Fetches the user's Void Cyber researcher profile.
- * If no profile exists yet and the user is a platform admin, automatically
- * bootstraps a Tier 3 admin profile so internal administrators are never
- * locked out on a fresh database.
+ * If no profile exists yet and the user is a platform admin (or listed in
+ * VOID_CYBER_ADMIN_EMAILS), automatically bootstraps a Tier 3 admin profile so
+ * internal administrators are never locked out on a fresh database.
  */
 export async function getOrBootstrapCyberProfile(
   session: AuthSession,
@@ -24,7 +43,7 @@ export async function getOrBootstrapCyberProfile(
     return existing;
   }
 
-  if (getIsUserAdmin({ role: session.user.role })) {
+  if (isCyberBootstrapAdmin(session.user)) {
     const bootstrapped = await cyberRepository.upsertResearcherProfile({
       userId: session.user.id,
       accessTier: 3,

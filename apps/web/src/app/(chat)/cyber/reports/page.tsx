@@ -73,7 +73,7 @@ function PreviewReportModal({
           <button
             type="button"
             onClick={onDownload}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium transition-colors"
           >
             <Download className="size-3.5" /> Download
           </button>
@@ -207,12 +207,12 @@ function CompileReportPanel({
                 className={cn(
                   "w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors",
                   selected.has(f.id)
-                    ? "bg-cyan-500/10 border-cyan-500/35"
+                    ? "bg-accent border-border"
                     : "bg-background border-border hover:border-muted-foreground/40",
                 )}
               >
                 {selected.has(f.id) ? (
-                  <CheckSquare className="size-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  <CheckSquare className="size-4 text-foreground shrink-0" />
                 ) : (
                   <Square className="size-4 text-muted-foreground shrink-0" />
                 )}
@@ -233,7 +233,7 @@ function CompileReportPanel({
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value)}
-              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 pr-8"
+              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pr-8"
             >
               <option value="markdown">Markdown (.md)</option>
               <option value="json">Structured JSON (.json)</option>
@@ -253,7 +253,7 @@ function CompileReportPanel({
           type="button"
           onClick={handleCompile}
           disabled={submitting || selected.size === 0}
-          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
@@ -330,7 +330,7 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={() => setShowCompile(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Compile Report
           </button>
@@ -359,7 +359,7 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={() => setShowCompile(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Compile First Report
           </button>
@@ -394,7 +394,7 @@ export default function ReportsPage() {
                   className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-accent text-foreground border border-border">
                       {FORMAT_LABELS[r.reportFormat] ?? r.reportFormat}
                     </span>
                   </td>

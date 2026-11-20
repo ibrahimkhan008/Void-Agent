@@ -170,7 +170,7 @@ export default function NewProgramPage() {
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="My Security Program"
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-colors"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-colors"
                 required
               />
             </div>
@@ -196,7 +196,7 @@ export default function NewProgramPage() {
                     );
                   }}
                   placeholder="my-program"
-                  className="w-full bg-background border border-border rounded-lg pl-7 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-colors"
+                  className="w-full bg-background border border-border rounded-lg pl-7 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-colors"
                   required
                   minLength={3}
                 />
@@ -217,7 +217,7 @@ export default function NewProgramPage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Brief description of the program..."
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 resize-none transition-colors"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border resize-none transition-colors"
             />
           </div>
 
@@ -234,7 +234,7 @@ export default function NewProgramPage() {
               onChange={(e) => setPolicy(e.target.value)}
               rows={5}
               placeholder="## Safe Harbor&#10;&#10;We will not pursue legal action..."
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 resize-y font-mono transition-colors"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border resize-y font-mono transition-colors"
             />
           </div>
 
@@ -246,7 +246,7 @@ export default function NewProgramPage() {
                 aria-checked={hasBounties}
                 onClick={() => setHasBounties((v) => !v)}
                 className={cn(
-                  "relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50",
+                  "relative w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring/50",
                   hasBounties ? "bg-emerald-500" : "bg-border",
                 )}
               >
@@ -273,7 +273,7 @@ export default function NewProgramPage() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="bg-background border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="bg-background border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                 >
                   <option value="USD">USD</option>
                   <option value="EUR">EUR</option>
@@ -365,7 +365,7 @@ export default function NewProgramPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? "Creating..." : "Create Program"}
           </button>
@@ -408,12 +408,12 @@ function ScopeRow({
           value={scope.assetIdentifier}
           onChange={(e) => onUpdate({ assetIdentifier: e.target.value })}
           placeholder="*.example.com or 192.168.0.0/24"
-          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50"
         />
         <select
           value={scope.assetType}
           onChange={(e) => onUpdate({ assetType: e.target.value })}
-          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring/50"
         >
           {ASSET_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -426,7 +426,7 @@ function ScopeRow({
           value={scope.notes}
           onChange={(e) => onUpdate({ notes: e.target.value })}
           placeholder="Notes (optional)"
-          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/50"
         />
       </div>
       <button

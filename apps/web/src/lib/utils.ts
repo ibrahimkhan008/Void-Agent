@@ -83,6 +83,12 @@ export const fetcher = async (url: string, options?: RequestInit) => {
   return res.json();
 };
 
+const FETCH_TIMEOUT_MS = 30_000;
+
+// Rejects instead of hanging so loading states can turn into a retry prompt.
+export const fetcherWithTimeout = (url: string) =>
+  fetcher(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+
 export const noop = () => {};
 
 export const wait = (delay = 0) =>

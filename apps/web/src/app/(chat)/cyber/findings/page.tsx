@@ -113,7 +113,8 @@ function ReportFindingModal({
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            required
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="">Standalone / Free-form finding</option>
             {sessions.map((s) => (
@@ -130,7 +131,7 @@ function ReportFindingModal({
           onChange={(e) => setTitle(e.target.value)}
           required
           placeholder="Finding title *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         />
 
         <div className="grid grid-cols-2 gap-3">
@@ -138,7 +139,7 @@ function ReportFindingModal({
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
             aria-label="Severity"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             {SEVERITIES.map((s) => (
               <option key={s} value={s} className="capitalize">
@@ -152,7 +153,7 @@ function ReportFindingModal({
             onChange={(e) => setAffectedAsset(e.target.value)}
             required
             placeholder="Affected asset *"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
 
@@ -162,14 +163,14 @@ function ReportFindingModal({
             value={cweId}
             onChange={(e) => setCweId(e.target.value)}
             placeholder="CWE (e.g. CWE-89)"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
           <input
             type="text"
             value={cvssScore}
             onChange={(e) => setCvssScore(e.target.value)}
             placeholder="CVSS (e.g. 8.2)"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
 
@@ -179,7 +180,7 @@ function ReportFindingModal({
           required
           rows={3}
           placeholder="Step-by-step reproduction instructions *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
 
         <textarea
@@ -188,7 +189,7 @@ function ReportFindingModal({
           required
           rows={3}
           placeholder="Proof of Concept / HTTP request or payload *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
 
         <textarea
@@ -197,7 +198,7 @@ function ReportFindingModal({
           required
           rows={2}
           placeholder="Security & business impact *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
 
         <textarea
@@ -205,7 +206,7 @@ function ReportFindingModal({
           onChange={(e) => setRemediationGuidance(e.target.value)}
           rows={2}
           placeholder="Recommended remediation (optional)"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
 
         {error && (
@@ -218,7 +219,7 @@ function ReportFindingModal({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors"
         >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
@@ -285,7 +286,7 @@ export default function FindingsPage() {
           <button
             type="button"
             onClick={() => setShowReportModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Report Finding
           </button>
@@ -302,7 +303,7 @@ export default function FindingsPage() {
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
             aria-label="Filter by severity"
-            className="appearance-none bg-card border border-border rounded-lg pl-3 pr-7 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="appearance-none bg-card border border-border rounded-lg pl-3 pr-7 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="">All Severities</option>
             {SEVERITIES.map((s) => (
@@ -318,7 +319,7 @@ export default function FindingsPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filter by status"
-            className="appearance-none bg-card border border-border rounded-lg pl-3 pr-7 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="appearance-none bg-card border border-border rounded-lg pl-3 pr-7 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="">All Statuses</option>
             {STATUSES.map((s) => (
@@ -353,7 +354,7 @@ export default function FindingsPage() {
           <button
             type="button"
             onClick={() => setShowReportModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Report First Finding
           </button>
@@ -392,7 +393,7 @@ export default function FindingsPage() {
                   <td className="px-4 py-3">
                     <Link
                       href={`/cyber/findings/${finding.id}`}
-                      className="font-medium text-foreground hover:text-cyan-700 dark:hover:text-cyan-400 transition-colors"
+                      className="font-medium text-foreground hover:text-foreground transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {finding.title}

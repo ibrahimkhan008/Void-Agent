@@ -150,7 +150,7 @@ function ScopeCheckerInner() {
     <div className="p-6 max-w-2xl space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Search className="size-5 text-cyan-400" />
+          <Search className="size-5 text-foreground" />
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Scope Pre-flight Checker
           </h1>
@@ -174,7 +174,7 @@ function ScopeCheckerInner() {
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
               required
-              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 pr-8 transition-colors"
+              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border pr-8 transition-colors"
             >
               <option value="">Select a program…</option>
               {programs.map((p) => (
@@ -190,7 +190,7 @@ function ScopeCheckerInner() {
               No programs found.{" "}
               <Link
                 href="/cyber/programs/new"
-                className="text-cyan-400 hover:underline"
+                className="text-foreground hover:underline"
               >
                 Create one first.
               </Link>
@@ -208,7 +208,7 @@ function ScopeCheckerInner() {
             onChange={(e) => setTargetAsset(e.target.value)}
             required
             placeholder="example.com  •  192.168.1.0/24  •  https://app.example.com/api/v1"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-colors"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-colors"
           />
         </div>
 
@@ -222,7 +222,7 @@ function ScopeCheckerInner() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="Type any security test, e.g. Cloudflare Workers audit, SSRF, BOLA, GraphQL auth…"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-colors"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-colors"
           />
           <datalist id="cyber-category-suggestions">
             {CATEGORIES.map((c) => (
@@ -240,7 +240,7 @@ function ScopeCheckerInner() {
             aria-checked={isIntrusive}
             onClick={() => setIsIntrusive((v) => !v)}
             className={cn(
-              "relative mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50 shrink-0",
+              "relative mt-0.5 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring/50 shrink-0",
               isIntrusive ? "bg-amber-500" : "bg-border",
             )}
           >
@@ -275,7 +275,7 @@ function ScopeCheckerInner() {
         <button
           type="submit"
           disabled={loading || !programId || !targetAsset.trim()}
-          className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? (
             <>
@@ -341,7 +341,7 @@ function ScopeCheckerInner() {
                     key={i}
                     className="flex items-start gap-2 text-sm text-muted-foreground"
                   >
-                    <ChevronRight className="size-3.5 mt-1 shrink-0 text-cyan-400" />
+                    <ChevronRight className="size-3.5 mt-1 shrink-0 text-foreground" />
                     {cite}
                   </li>
                 ))}

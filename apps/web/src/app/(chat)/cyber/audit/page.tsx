@@ -132,7 +132,7 @@ export default function AuditTrailPage() {
               className={cn(
                 "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
                 scopeAll
-                  ? "bg-foreground/8 text-foreground border-foreground/20"
+                  ? "bg-accent text-foreground border-border"
                   : "bg-card text-muted-foreground border-border hover:text-foreground",
               )}
             >
@@ -192,7 +192,7 @@ export default function AuditTrailPage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter by event or target…"
             aria-label="Filter audit events"
-            className="w-full bg-background border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="w-full bg-background border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
       </div>

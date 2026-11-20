@@ -4,46 +4,50 @@ import { cn } from "lib/utils";
 import { Check, Copy, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
+// Colour carries meaning only: red = danger, orange = high risk, amber =
+// caution, green = healthy. Every other state stays neutral so the cyber
+// surfaces read as part of the app theme rather than a separate palette.
+const DANGER = "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/25";
+const HIGH =
+  "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/25";
+const CAUTION =
+  "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25";
+const SUCCESS =
+  "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25";
+const EMPHASIS = "bg-accent text-foreground border-border";
+const NEUTRAL = "bg-muted text-muted-foreground border-border";
+
 export const SEVERITY_STYLES: Record<string, string> = {
-  critical: "bg-red-500/12 text-red-700 dark:text-red-400 border-red-500/30",
-  high: "bg-orange-500/12 text-orange-700 dark:text-orange-400 border-orange-500/30",
-  medium:
-    "bg-amber-500/12 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  low: "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  info: "bg-muted text-muted-foreground border-border",
+  critical: DANGER,
+  high: HIGH,
+  medium: CAUTION,
+  low: EMPHASIS,
+  info: NEUTRAL,
 };
 
 export const STATUS_STYLES: Record<string, string> = {
-  active:
-    "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-  verified:
-    "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-  resolved:
-    "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-  confirmed:
-    "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
-  triaged: "bg-foreground/8 text-foreground border-foreground/20",
-  reported:
-    "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  paused:
-    "bg-amber-500/12 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  warning:
-    "bg-amber-500/12 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  suspended: "bg-red-500/12 text-red-700 dark:text-red-400 border-red-500/30",
-  breach: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40",
-  revoked: "bg-muted text-muted-foreground border-border",
-  completed: "bg-muted text-muted-foreground border-border",
-  candidate: "bg-muted text-muted-foreground border-border",
-  duplicate:
-    "bg-orange-500/12 text-orange-700 dark:text-orange-400 border-orange-500/30",
-  informational: "bg-muted text-muted-foreground border-border",
-  info: "bg-muted text-muted-foreground border-border",
+  active: SUCCESS,
+  verified: SUCCESS,
+  resolved: SUCCESS,
+  confirmed: EMPHASIS,
+  triaged: EMPHASIS,
+  reported: EMPHASIS,
+  paused: CAUTION,
+  warning: CAUTION,
+  suspended: DANGER,
+  breach: DANGER,
+  duplicate: HIGH,
+  revoked: NEUTRAL,
+  completed: NEUTRAL,
+  candidate: NEUTRAL,
+  informational: NEUTRAL,
+  info: NEUTRAL,
 };
 
 export const TIER_STYLES: Record<number, string> = {
-  1: "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  2: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
-  3: "bg-foreground/8 text-foreground border-foreground/20",
+  1: NEUTRAL,
+  2: EMPHASIS,
+  3: "bg-primary text-primary-foreground border-transparent",
 };
 
 export const TIER_LABELS: Record<number, string> = {
@@ -193,7 +197,7 @@ export function CyberDialog({
               type="button"
               onClick={onClose}
               aria-label="Close dialog"
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors"
             >
               <X className="size-4" />
             </button>
@@ -231,7 +235,7 @@ export function CyberCopyButton({
       type="button"
       onClick={handleCopy}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 transition-colors",
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-colors",
         className,
       )}
     >

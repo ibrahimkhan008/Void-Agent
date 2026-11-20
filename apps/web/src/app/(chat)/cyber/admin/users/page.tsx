@@ -130,7 +130,7 @@ function GrantAccessModal({
             onChange={(e) => setIdentifier(e.target.value)}
             required
             placeholder="researcher@company.com or user UUID"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
 
@@ -143,7 +143,7 @@ function GrantAccessModal({
               <select
                 value={accessTier}
                 onChange={(e) => setAccessTier(Number(e.target.value))}
-                className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground pr-8"
+                className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pr-8"
               >
                 {[1, 2, 3].map((tier) => (
                   <option key={tier} value={tier}>
@@ -164,7 +164,7 @@ function GrantAccessModal({
               value={role}
               onChange={(e) => setRole(e.target.value)}
               placeholder="researcher, auditor, admin…"
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             />
           </div>
         </div>
@@ -193,7 +193,7 @@ function GrantAccessModal({
         <button
           type="submit"
           disabled={submitting || !identifier.trim()}
-          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
@@ -710,7 +710,7 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={() => setShowGrant(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Grant Access
           </button>
@@ -796,7 +796,7 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => setShowGrant(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
               >
                 <Plus className="size-4" /> Grant First Access
               </button>
@@ -962,7 +962,7 @@ export default function AdminUsersPage() {
                     "Per-plan Cyber limits updated.",
                   )
                 }
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold disabled:opacity-60 transition-colors"
               >
                 {savingConfig ? (
                   <Loader2 className="size-3.5 animate-spin" />
@@ -1218,7 +1218,7 @@ export default function AdminUsersPage() {
             <button
               type="submit"
               disabled={savingConfig || !newSkillUrl.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold disabled:opacity-60 transition-colors"
             >
               {savingConfig ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -1256,7 +1256,7 @@ export default function AdminUsersPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors",
                   agentSubTab === sub.id
-                    ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border-cyan-500/35"
+                    ? "bg-accent text-foreground border-border"
                     : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-accent",
                 )}
               >

@@ -81,7 +81,7 @@ function NewSessionModal({
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
               required
-              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 pr-8"
+              className="w-full appearance-none bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pr-8"
             >
               <option value="">Select program…</option>
               {programs.map((p) => (
@@ -104,7 +104,7 @@ function NewSessionModal({
             onChange={(e) => setTitle(e.target.value)}
             required
             placeholder="e.g. API Auth & IDOR Audit — Staging"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
 
@@ -119,7 +119,7 @@ function NewSessionModal({
           <button
             type="submit"
             disabled={submitting || !programId || !title.trim()}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
@@ -171,7 +171,7 @@ export default function SessionsPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> New Session
           </button>
@@ -209,7 +209,7 @@ export default function SessionsPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors"
           >
             <Plus className="size-4" /> Start First Session
           </button>
@@ -223,12 +223,12 @@ export default function SessionsPage() {
             return (
               <div
                 key={session.id}
-                className="bg-card border border-border rounded-xl p-5 hover:border-cyan-500/40 transition-colors flex flex-col justify-between gap-4"
+                className="bg-card border border-border rounded-xl p-5 hover:border-border transition-colors flex flex-col justify-between gap-4"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Terminal className="size-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                      <Terminal className="size-4 text-foreground shrink-0" />
                       <h2 className="font-semibold text-sm text-foreground truncate">
                         {session.title}
                       </h2>
@@ -251,7 +251,7 @@ export default function SessionsPage() {
                 <button
                   type="button"
                   onClick={() => router.push(`/cyber/sessions/${session.id}`)}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-cyan-500/12 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400 text-xs font-semibold hover:bg-cyan-500/20 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-accent border border-border text-foreground text-xs font-semibold hover:bg-accent transition-colors"
                 >
                   <Terminal className="size-3.5" /> Open Workspace
                 </button>

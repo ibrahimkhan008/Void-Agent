@@ -138,14 +138,14 @@ function AddFindingDialog({
           onChange={(e) => setTitle(e.target.value)}
           required
           placeholder="Finding title *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         />
         <div className="grid grid-cols-2 gap-3">
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
             aria-label="Severity"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             {["critical", "high", "medium", "low", "info"].map((s) => (
               <option key={s} value={s} className="capitalize">
@@ -159,7 +159,7 @@ function AddFindingDialog({
             onChange={(e) => setAffectedAsset(e.target.value)}
             required
             placeholder="Affected asset *"
-            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           />
         </div>
         <textarea
@@ -168,7 +168,7 @@ function AddFindingDialog({
           required
           rows={3}
           placeholder="Step-by-step reproduction instructions *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
         <textarea
           value={poc}
@@ -176,7 +176,7 @@ function AddFindingDialog({
           required
           rows={3}
           placeholder="Proof of concept / HTTP request or payload *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
         <textarea
           value={impact}
@@ -184,7 +184,7 @@ function AddFindingDialog({
           required
           rows={2}
           placeholder="Impact description *"
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 resize-none"
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 resize-none"
         />
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 text-sm">
@@ -195,7 +195,7 @@ function AddFindingDialog({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors"
         >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
@@ -375,7 +375,7 @@ export default function WorkspacePage({
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
               mobilePane === tab.id
-                ? "bg-cyan-500/12 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
+                ? "bg-accent text-foreground border border-border"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -393,7 +393,7 @@ export default function WorkspacePage({
         >
           <div className="p-4 border-b border-border space-y-2.5">
             <div className="flex items-center gap-2">
-              <Terminal className="size-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              <Terminal className="size-4 text-foreground shrink-0" />
               <span className="text-xs font-semibold text-foreground truncate">
                 {session?.title ?? "Session"}
               </span>
@@ -404,7 +404,7 @@ export default function WorkspacePage({
               onChange={(e) => handleStatusChange(e.target.value)}
               aria-label="Session status"
               className={cn(
-                "w-full rounded-md px-2.5 py-1.5 text-xs font-semibold border capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50",
+                "w-full rounded-md px-2.5 py-1.5 text-xs font-semibold border capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                 session?.status === "active"
                   ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
                   : "bg-muted text-muted-foreground border-border",
@@ -423,7 +423,7 @@ export default function WorkspacePage({
               </p>
               <Link
                 href={`/cyber/programs/${program.id}`}
-                className="text-sm text-foreground hover:text-cyan-600 dark:hover:text-cyan-400 font-medium transition-colors"
+                className="text-sm text-foreground hover:text-foreground font-medium transition-colors"
               >
                 {program.name}
               </Link>
@@ -480,7 +480,7 @@ export default function WorkspacePage({
         >
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-border bg-card/40 flex-wrap">
             <div className="flex items-center gap-2">
-              <Shield className="size-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              <Shield className="size-4 text-foreground shrink-0" />
               <span className="text-sm font-semibold text-foreground">
                 Specialist Agent
               </span>
@@ -498,9 +498,9 @@ export default function WorkspacePage({
                   aria-checked={agentMode === m.id}
                   onClick={() => setAgentMode(m.id)}
                   className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60",
+                    "px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     agentMode === m.id
-                      ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
+                      ? "bg-accent text-foreground border border-border"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent",
                   )}
                 >
@@ -523,7 +523,7 @@ export default function WorkspacePage({
                   className={cn(
                     "max-w-[88%] rounded-xl px-4 py-3 text-sm space-y-2",
                     msg.role === "user"
-                      ? "bg-cyan-600/12 dark:bg-cyan-500/18 border border-cyan-500/30 text-foreground"
+                      ? "bg-accent border border-border text-foreground"
                       : msg.role === "system"
                         ? "bg-muted/70 border border-border text-muted-foreground text-xs max-w-full"
                         : msg.blocked
@@ -532,7 +532,7 @@ export default function WorkspacePage({
                   )}
                 >
                   {msg.agentLabel && (
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
                       {msg.blocked ? (
                         <ShieldAlert className="size-3.5 text-red-600 dark:text-red-400" />
                       ) : (
@@ -585,7 +585,7 @@ export default function WorkspacePage({
             {!hasUserMessages && session?.status === "active" && (
               <div className="pt-2 space-y-2">
                 <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Sparkles className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <Sparkles className="size-3.5 text-foreground" />
                   Suggested starting prompts
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -594,7 +594,7 @@ export default function WorkspacePage({
                       key={prompt}
                       type="button"
                       onClick={() => dispatchCommand(prompt)}
-                      className="text-left text-xs px-3 py-2 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:border-cyan-500/40 transition-colors"
+                      className="text-left text-xs px-3 py-2 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:border-border transition-colors"
                     >
                       {prompt}
                     </button>
@@ -637,7 +637,7 @@ export default function WorkspacePage({
                     : "Session is not active — switch status to Active to dispatch commands"
                 }
                 disabled={sending || session?.status !== "active"}
-                className="flex-1 bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 disabled:opacity-60 transition-colors"
+                className="flex-1 bg-background border border-border rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60 transition-colors"
               />
               <button
                 type="submit"
@@ -645,7 +645,7 @@ export default function WorkspacePage({
                   sending || !input.trim() || session?.status !== "active"
                 }
                 aria-label="Send command"
-                className="p-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Send className="size-4" />
               </button>
@@ -667,7 +667,7 @@ export default function WorkspacePage({
               type="button"
               onClick={() => setShowAddFinding(true)}
               aria-label="Log finding"
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-500/12 border border-cyan-500/30 text-cyan-700 dark:text-cyan-400 text-[11px] font-medium hover:bg-cyan-500/20 transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-accent border border-border text-foreground text-[11px] font-medium hover:bg-accent transition-colors"
             >
               <Plus className="size-3" /> Log
             </button>
@@ -680,7 +680,7 @@ export default function WorkspacePage({
                 <button
                   type="button"
                   onClick={() => setShowAddFinding(true)}
-                  className="mt-2 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                  className="mt-2 text-xs font-medium text-foreground hover:underline"
                 >
                   Log first finding
                 </button>
@@ -690,7 +690,7 @@ export default function WorkspacePage({
                 <Link
                   key={f.id}
                   href={`/cyber/findings/${f.id}`}
-                  className="block p-3 rounded-lg bg-background border border-border hover:border-cyan-500/40 transition-colors"
+                  className="block p-3 rounded-lg bg-background border border-border hover:border-border transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <SeverityBadge severity={f.severity} />

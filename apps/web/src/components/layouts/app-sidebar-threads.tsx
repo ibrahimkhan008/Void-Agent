@@ -6,7 +6,7 @@ import {
 } from "@/app/api/chat/actions";
 import { appStore } from "@/app/store";
 import { useMounted } from "@/hooks/use-mounted";
-import { fetcher } from "lib/utils";
+import { fetcherWithTimeout } from "lib/utils";
 import { ChevronDown, ChevronUp, MoreHorizontal, Trash } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ import { SidebarGroupContent, SidebarMenu, SidebarMenuItem } from "ui/sidebar";
 import { SidebarGroup } from "ui/sidebar";
 import { useShallow } from "zustand/shallow";
 import { ThreadDropdown } from "../thread-dropdown";
+import { SidebarLoadError } from "./sidebar-load-error";
 
 import { ChatThread } from "app-types/chat";
 import { deduplicateByKey, groupBy } from "lib/utils";
@@ -62,7 +63,12 @@ export function AppSidebarThreads() {
   // State to track if expanded view is active
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { data: threadList, isLoading } = useSWR("/api/thread", fetcher, {
+  const {
+    data: threadList,
+    error: threadError,
+    isLoading,
+    mutate: retryThreads,
+  } = useSWR("/api/thread", fetcherWithTimeout, {
     onError: handleErrorWithToast,
     fallbackData: [],
     // Poll only while a thread is running (background/scheduled runs included)
@@ -213,6 +219,11 @@ export function AppSidebarThreads() {
                 Array.from({ length: 12 }).map(
                   (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
                 )
+              ) : threadError ? (
+                <SidebarLoadError
+                  label="Couldn't load chats"
+                  onRetry={() => retryThreads()}
+                />
               ) : (
                 <div className="px-2 py-4 text-center">
                   <p className="text-sm text-muted-foreground">

@@ -1452,6 +1452,15 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Thin, theme-tinted scrollbars. Without this Windows Chrome draws the
+     classic 17px gutter with arrow buttons inside every sidebar. Setting
+     scrollbar-color also turns off the legacy ::-webkit-scrollbar path. */
+  html,
+  html * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent)
+      transparent;
+  }
   body {
     @apply bg-background text-foreground;
   }

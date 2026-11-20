@@ -24,6 +24,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "ui/avatar";
 import { AgentDropdown } from "../agent/agent-dropdown";
+import { SidebarLoadError } from "./sidebar-load-error";
 
 import { appStore } from "@/app/store";
 import { ChatMention } from "app-types/chat";
@@ -40,7 +41,14 @@ export function AppSidebarAgents({ userRole }: { userRole?: string | null }) {
   const router = useRouter();
   const [sectionOpen, setSectionOpen] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  const { bookmarkedAgents, myAgents, isLoading, sharedAgents } = useAgents({
+  const {
+    bookmarkedAgents,
+    myAgents,
+    isLoading,
+    error: agentsError,
+    mutate: retryAgents,
+    sharedAgents,
+  } = useAgents({
     limit: 50,
   }); // Increase limit since we're not artificially limiting display
 
@@ -163,6 +171,11 @@ export function AppSidebarAgents({ userRole }: { userRole?: string | null }) {
                   (_, index) => mounted && <SidebarMenuSkeleton key={index} />,
                 )}
               </SidebarMenuItem>
+            ) : agentsError && agents.length == 0 ? (
+              <SidebarLoadError
+                label="Couldn't load agents"
+                onRetry={() => retryAgents()}
+              />
             ) : agents.length == 0 ? (
               <div className="px-2 mt-1">
                 {canCreateAgent(userRole) ? (

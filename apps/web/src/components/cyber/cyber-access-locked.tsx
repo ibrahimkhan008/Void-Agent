@@ -12,12 +12,14 @@ interface CyberAccessLockedProps {
   reason: CyberLockReason;
   email?: string | null;
   status?: string | null;
+  platformRole?: string | null;
 }
 
 export function CyberAccessLocked({
   reason,
   email,
   status,
+  platformRole,
 }: CyberAccessLockedProps) {
   const router = useRouter();
   const [checking, startChecking] = useTransition();
@@ -47,6 +49,16 @@ export function CyberAccessLocked({
       <p className="mt-2 max-w-md text-sm text-muted-foreground text-pretty">
         {body}
       </p>
+
+      {platformRole && reason === "none" ? (
+        <p className="mt-3 max-w-md text-xs text-muted-foreground text-pretty">
+          You are signed in with the{" "}
+          <span className="font-medium text-foreground">{platformRole}</span>{" "}
+          role. Only platform admins get access automatically. If this is your
+          workspace, give your account the admin role or add your email to{" "}
+          <code className="font-mono">VOID_CYBER_ADMIN_EMAILS</code>.
+        </p>
+      ) : null}
 
       {!unavailable && (
         <ol className="mt-6 w-full max-w-sm space-y-2 rounded-xl border border-border bg-card/60 p-4 text-left text-sm text-muted-foreground">
