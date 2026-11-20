@@ -67,7 +67,7 @@ import { KnowledgeBaseMenu } from "./knowledge-base/knowledge-base-menu";
 import { ToolSelectDropdown } from "./tool-select-dropdown";
 
 import { useChatModels } from "@/hooks/queries/use-chat-models";
-import { useAssemblyAI } from "@/hooks/use-assembly-ai";
+import { useElevenLabsScribe } from "@/hooks/use-elevenlabs-scribe";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   isFilePartSupported,
@@ -203,14 +203,14 @@ export default function PromptInput({
 
   const editorRef = useRef<Editor | null>(null);
 
-  // Keep a ref to current input for AssemblyAI callbacks
+  // Keep a ref to current input for dictation callbacks
   const inputRef = useRef(input);
   useEffect(() => {
     inputRef.current = input;
   }, [input]);
 
-  // Initialize AssemblyAI dictation hook
-  const { isListening, toggleListening, stopRecording } = useAssemblyAI({
+  // Initialize ElevenLabs Scribe dictation hook
+  const { isListening, toggleListening, stopRecording } = useElevenLabsScribe({
     onTranscript: (text) => {
       const currentInput = inputRef.current;
       const spacer =

@@ -73,6 +73,11 @@ const OPTIONAL_FEATURES: OptionalFeature[] = [
     fallback: "voice transcription is unavailable",
   },
   {
+    vars: ["ELEVENLABS_API_KEY"],
+    feature: "Voice dictation in the chat composer (ElevenLabs Scribe)",
+    fallback: "the composer microphone is unavailable",
+  },
+  {
     vars: ["COMPOSIO_API_KEY"],
     feature: "Connected apps (Composio: Gmail, Slack, GitHub, …)",
     fallback: "third-party app connections are unavailable",

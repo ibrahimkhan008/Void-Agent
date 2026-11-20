@@ -1,10 +1,25 @@
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
+import dotenv from "dotenv";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const require = createRequire(import.meta.url);
+
+// Next loads env files from apps/web only, but developer-machine secrets live
+// at the repo root: the ElevenLabs CLI writes ELEVENLABS_API_KEY to
+// ../../.env.local during onboarding. Load that file here so server code sees
+// those keys without duplicating them into apps/web. dotenv never overrides
+// values already in process.env, so this only fills gaps at boot.
+const ROOT_ENV_LOCAL = fileURLToPath(
+  new URL("../../.env.local", import.meta.url),
+);
+if (existsSync(ROOT_ENV_LOCAL)) {
+  dotenv.config({ path: ROOT_ENV_LOCAL, quiet: true });
+}
 const pptxGenEntry = require.resolve("pptxgenjs");
 const pptxGenBrowserBundle = path.join(
   path.dirname(pptxGenEntry),
