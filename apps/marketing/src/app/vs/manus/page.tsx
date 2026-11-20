@@ -147,7 +147,7 @@ export default function VsManusPage() {
                 {badge}
               </span>
             ))}
-            <span className="rounded-full border border-[#7e89e6]/40 bg-[#7e89e6]/10 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-[#2537d5] uppercase">
+            <span className="rounded-full border border-[#a1a1aa]/40 bg-[#a1a1aa]/10 px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-[#18181b] uppercase">
               $0 Free Tier Available
             </span>
           </div>
@@ -304,7 +304,7 @@ export default function VsManusPage() {
                     <td className="px-5 py-4 align-top font-medium text-black/70">
                       {row.capability}
                     </td>
-                    <td className="bg-[#7e89e6]/[0.08] px-5 py-4 align-top text-black/75">
+                    <td className="bg-[#a1a1aa]/[0.08] px-5 py-4 align-top text-black/75">
                       {row.us}
                     </td>
                     <td
@@ -338,7 +338,7 @@ export default function VsManusPage() {
                 className="rounded-2xl border border-black/[0.07] bg-white p-6 sm:p-8"
               >
                 <div className="flex flex-col gap-5 sm:flex-row">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#7e89e6]/10 text-(--brand)">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#a1a1aa]/10 text-(--brand)">
                     <card.icon className="size-5" />
                   </span>
                   <div>
@@ -458,13 +458,13 @@ export default function VsManusPage() {
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Link
                   href={`${APP_URL}/sign-up`}
-                  className="bs-btn h-11 rounded-lg px-6 text-[15px] [--surface-base:#fbfbfa]"
+                  className="bs-btn bs-btn-outline h-11 rounded-lg px-6 text-[15px] [--surface-base:#fbfbfa]"
                 >
                   Start Building Free
                 </Link>
                 <Link
                   href="/pricing"
-                  className="bs-btn h-11 rounded-lg px-6 text-[15px] [--surface-base:#e6e6e3]"
+                  className="bs-btn bs-btn-default h-11 rounded-lg px-6 text-[15px] [--surface-base:#e6e6e3]"
                 >
                   View Pricing Plans
                 </Link>

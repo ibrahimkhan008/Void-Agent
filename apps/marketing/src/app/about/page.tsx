@@ -21,7 +21,7 @@ const PARTNERS = [
   "Google",
   "Groq",
   "Z AI",
-  "Cloudvoid-agent",
+  "Cloudflare",
 ];
 
 const BUILD_CARDS = [
@@ -98,14 +98,14 @@ export default function AboutPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href={`${APP_URL}/sign-up`}
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
             >
               Start free
               <ArrowRight className="size-4" data-icon="end" />
             </Link>
             <Link
               href="/pricing"
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
             >
               See pricing
             </Link>
@@ -302,13 +302,13 @@ export default function AboutPage() {
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
                   <Link
                     href={`${APP_URL}/sign-up`}
-                    className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+                    className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
                   >
                     Start free
                   </Link>
                   <Link
                     href="/contact"
-                    className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+                    className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
                   >
                     Talk to us
                   </Link>

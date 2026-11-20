@@ -34,7 +34,7 @@ work instead of praising it.
 The look is a cool-white, minimal world with one living color. Surfaces are
 soft and physical, type is quiet and precise, one italic accent word carries
 the emotion of a headline, and imagery is rendered through a hard Bayer
-dither. Blue appears where something can be acted on or where meaning
+dither. Graphite appears where something can be acted on or where meaning
 lands. Everything else steps back.
 
 Facts that must stay true:
@@ -119,7 +119,7 @@ on the left and a single text column (about 72 characters) on the right.
 ### Accent words
 
 - One accent per headline, usually the last word or two. It is set in
-  Instrument Serif italic with a fade from ink (left) to Blue (right)
+  Instrument Serif italic with a fade from ink (left) to Graphite (right)
   and a halftone dot mask (0.95 px dots on a 2.4 px grid).
 - Never set body text, buttons, or labels in the accent face.
 
@@ -127,20 +127,20 @@ on the left and a single text column (about 72 characters) on the right.
 
 | Name | Hex | Role |
 | --- | --- | --- |
-| Blue | \`#2537D5\` | Actions, accents, links, the mark's color, the glow inside primary buttons |
+| Graphite | \`#18181b\` | Actions, accents, links, the mark's color, the glow inside primary buttons |
 | Ink | \`#000000\` | Type and marks |
 | Ground | \`#FFFFFF\` | The page |
-| Surface | \`#F4F5F8\` | Trays and raised panels |
+| Surface | \`#f4f4f5\` | Trays and raised panels |
 | Gray | \`#C7C7C4\` | Working neutral, rules, quiet fills |
-| Light Blue | \`#7E89E6\` | Active markers, the button glow, and gradient mid-tones |
+| Silver | \`#a1a1aa\` | Active markers, the button glow, and gradient mid-tones |
 
-- Three primaries carry the system: Blue, Ink, and the white ground.
-  Gray is the neutral in between; Light Blue tints markers, glows, and
+- Three primaries carry the system: Graphite, Ink, and the white ground.
+  Gray is the neutral in between; Silver tints markers, glows, and
   gradient mid-tones.
-- Blue is text-safe at every size (8.1:1 on white). Reserve Light Blue for
+- Graphite is text-safe at every size (8.1:1 on white). Reserve Silver for
   graphic accents and markers, never for body text.
-- Gradients fall like light: a white top that passes through Light Blue
-  and deepens into Blue at the base. Never blend two hues side to side; the
+- Gradients fall like light: a white top that passes through Silver
+  and deepens into Graphite at the base. Never blend two hues side to side; the
   blue always comes from below.
 - Surfaces are physical. A **tray** is a Surface panel, 20 px radius, 6 px
   padding, a white inner highlight on top and a hairline outer ring.
@@ -149,7 +149,7 @@ on the left and a single text column (about 72 characters) on the right.
 - Boundaries are hairlines at 5 to 10% black. Shadows are neutral and soft;
   never colored.
 - Dark tone exists for marketing comparisons and contact-sales only: ground
-  \`#080808\`, surface \`#141414\`, text \`#F2EFE9\`, blue \`#7E89E6\`.
+  \`#080808\`, surface \`#141414\`, text \`#F2EFE9\`, blue \`#a1a1aa\`.
   Product and public pages default to the light tone.
 
 ### Imagery and texture
@@ -171,7 +171,7 @@ on the left and a single text column (about 72 characters) on the right.
 - The mark is the "VA" monogram with an orbital swoosh. It sits on a fixed
   construction grid; never redraw, rotate, outline, recolor, or re-space it.
 - Place it only on the three brand grounds: Ground \`#FFFFFF\`, Ink
-  \`#000000\`, or Blue \`#2537D5\`.
+  \`#000000\`, or Graphite \`#18181b\`.
 - The word mark is Geist Medium at -2% tracking. Lockups pair the mark with
   "Void-Agent" (product) or "Void Agent" (full name) at a fixed gap,
   optically centered, in one flat color.
@@ -180,7 +180,7 @@ on the left and a single text column (about 72 characters) on the right.
 
 - Buttons are raised surfaces with a 10 px radius. Sizes: 32 px default,
   40 px large. Text is Geist Medium, 14 px.
-- **Primary**: light gray surface with a dotted Light Blue glow on its right
+- **Primary**: light gray surface with a dotted Silver glow on its right
   edge that widens on hover. **Outline**: white surface; on hover a dotted
   blue glow slides in from the bottom left. **Secondary**: light gray
   surface. **Ghost**: no surface, a 7% black fill on hover.

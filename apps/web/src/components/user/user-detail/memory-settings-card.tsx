@@ -1,26 +1,42 @@
 "use client";
 
-import { useState } from "react";
-import useSWR, { mutate } from "swr";
 import { fetcher } from "lib/utils";
+import {
+  Brain,
+  Check,
+  ClipboardCheck,
+  Copy,
+  Download,
+  ExternalLink,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
 import { Button } from "ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "ui/card";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
+  DialogHeader,
+  DialogTitle,
 } from "ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
+import { Input } from "ui/input";
 import {
   Select,
   SelectContent,
@@ -28,31 +44,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "ui/select";
-import {
-  Brain,
-  Pencil,
-  Trash2,
-  Plus,
-  Search,
-  Loader2,
-  Check,
-  Sparkles,
-  Download,
-  Copy,
-  ClipboardCheck,
-  ExternalLink,
-  Undo2,
-} from "lucide-react";
-import { Input } from "ui/input";
 import { Textarea } from "ui/textarea";
-import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "ui/tooltip";
 import {
+  MEMORY_CATEGORY_OPTIONS,
   buildSourceLink,
   getCategoryColor,
   getCategoryLabel,
   getScopeColor,
   getScopeLabel,
-  MEMORY_CATEGORY_OPTIONS,
   truncateForPreview,
 } from "./memory-ui-helpers";
 
@@ -406,8 +406,8 @@ export function MemorySettingsCard() {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-600/20">
-                <Brain className="h-5 w-5 text-violet-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <Brain className="h-5 w-5 text-foreground" />
               </div>
               <div>
                 <CardTitle className="text-xl font-semibold">Memory</CardTitle>
@@ -475,7 +475,7 @@ export function MemorySettingsCard() {
 
           {/* Add new memory inline */}
           {isAdding && (
-            <div className="p-4 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 space-y-3">
+            <div className="p-4 rounded-lg border border-dashed border-border bg-muted/40 space-y-3">
               <Textarea
                 placeholder="Write a fact to remember (e.g., 'I prefer TypeScript over JavaScript')"
                 value={newContent}

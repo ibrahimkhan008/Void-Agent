@@ -40,9 +40,9 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
   instruction: "bg-rose-500/15 text-rose-400",
   career: "bg-orange-500/15 text-orange-400",
   work: "bg-orange-500/15 text-orange-400",
-  projects: "bg-violet-500/15 text-violet-400",
-  project: "bg-violet-500/15 text-violet-400",
-  technical: "bg-cyan-500/15 text-cyan-400",
+  projects: "bg-muted text-foreground",
+  project: "bg-muted text-foreground",
+  technical: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
   general: "bg-secondary/60 text-secondary-foreground",
 };
 
@@ -71,8 +71,8 @@ const SCOPE_LABEL_MAP: Record<MemoryScope, string> = {
 
 const SCOPE_COLOR_MAP: Record<MemoryScope, string> = {
   user: "bg-slate-500/15 text-slate-400",
-  agent: "bg-indigo-500/15 text-indigo-400",
-  thread: "bg-pink-500/15 text-pink-400",
+  agent: "bg-muted text-muted-foreground",
+  thread: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
 };
 
 /** Display label for a memory's scope (user / agent / thread). */

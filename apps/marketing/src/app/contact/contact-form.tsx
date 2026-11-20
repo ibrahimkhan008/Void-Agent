@@ -258,7 +258,7 @@ export function ContactForm() {
                   </a>
                   <button
                     type="submit"
-                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-[#2537d5] px-5 text-sm font-medium text-white transition-colors hover:bg-[#1c2ba8]"
+                    className="ml-auto inline-flex h-10 items-center gap-2 rounded-lg bg-[#18181b] px-5 text-sm font-medium text-white transition-colors hover:bg-[#1c2ba8]"
                   >
                     <Send className="size-4" />
                     Send Message

@@ -44,10 +44,10 @@ export default function DesignSystemPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {[
               ["--bs-ink", "#ffffff"],
-              ["--bs-ink-2", "#f4f5f8"],
+              ["--bs-ink-2", "#f4f4f5"],
               ["--bs-paper", "#000000"],
-              ["--bs-brand", "#2537d5"],
-              ["--bs-brand-glow", "#7e89e6"],
+              ["--bs-brand", "#18181b"],
+              ["--bs-brand-glow", "#a1a1aa"],
             ].map(([name, hex]) => (
               <div key={name} className="bs-card p-4">
                 <div

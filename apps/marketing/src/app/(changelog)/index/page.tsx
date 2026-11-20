@@ -32,7 +32,7 @@ export default function IndexPage() {
         </div>
         <div className="mx-auto max-w-6xl px-6">
           <p className="inline-flex items-center gap-2.5 rounded-full border border-black/[0.12] bg-white/80 px-3.5 py-1.5 font-mono text-[11px] tracking-[0.14em] text-(--paper)/70 uppercase">
-            <span className="size-2 animate-pulse rounded-full bg-[#7E89E6]" />
+            <span className="size-2 animate-pulse rounded-full bg-[#a1a1aa]" />
             Void Agent index // 2026 releases
           </p>
           <h1 className="mt-6 max-w-[24ch] text-5xl leading-[1.05] font-normal tracking-[-0.03em] text-balance text-(--paper) sm:text-6xl lg:text-7xl">

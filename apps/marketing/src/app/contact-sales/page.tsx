@@ -51,8 +51,8 @@ export default function ContactSalesPage() {
           "--ink": "#080808",
           "--ink-2": "#141414",
           "--paper": "#f2efe9",
-          "--brand": "#7e89e6",
-          "--brand-glow": "#a9b3f1",
+          "--brand": "#a1a1aa",
+          "--brand-glow": "#d4d4d8",
         } as React.CSSProperties
       }
     >
@@ -119,7 +119,7 @@ export default function ContactSalesPage() {
           <ul className="mt-6 space-y-5">
             {FEATURES.map((f) => (
               <li key={f.title} className="flex items-start gap-4">
-                <span className="grid shrink-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-[#7e89e6]">
+                <span className="grid shrink-0 place-items-center rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-[#a1a1aa]">
                   <f.icon className="size-5" />
                 </span>
                 <div>
@@ -149,7 +149,7 @@ export default function ContactSalesPage() {
               }}
             />
             <div className="relative flex h-full flex-col">
-              <span className="grid size-11 place-items-center rounded-xl border border-[#7e89e6]/25 bg-[#7e89e6]/10 text-[#a9b3f1]">
+              <span className="grid size-11 place-items-center rounded-xl border border-[#a1a1aa]/25 bg-[#a1a1aa]/10 text-[#d4d4d8]">
                 <Mail className="size-5" />
               </span>
               <h2 className="mt-6 text-2xl font-bold text-white md:text-3xl">
@@ -162,7 +162,7 @@ export default function ContactSalesPage() {
               </p>
               <a
                 href="mailto:support@voidagent.space?subject=Void Agent%20sales%20inquiry"
-                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#7e89e6] px-5 font-semibold text-black transition-colors hover:bg-[#919bf0]"
+                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#a1a1aa] px-5 font-semibold text-black transition-colors hover:bg-[#919bf0]"
               >
                 <Mail className="size-4" />
                 Email sales

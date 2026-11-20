@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, memo } from "react";
+import { memo, useState } from "react";
 
 import clsx from "clsx";
 
@@ -73,7 +73,7 @@ const JsonNode = memo(
     const typeStyleMap: Record<string, string> = {
       number: "text-blue-500",
       boolean: "text-amber-500",
-      null: "text-purple-500",
+      null: "text-amber-600 dark:text-amber-400",
       undefined: "text-gray-500",
       string: "text-foreground break-all whitespace-pre-wrap",
       default: "text-muted-foreground",

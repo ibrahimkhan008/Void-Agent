@@ -56,13 +56,13 @@ export function NodeIcon({
             : type === NodeKind.Note
               ? "text-foreground bg-input"
               : type === NodeKind.LLM
-                ? "bg-indigo-500"
+                ? "bg-slate-600"
                 : type === NodeKind.Tool
                   ? "bg-blue-500"
                   : type === NodeKind.Code || type === NodeKind.Http
                     ? "bg-rose-500"
                     : type === NodeKind.Template
-                      ? "bg-purple-500"
+                      ? "bg-stone-500"
                       : type === NodeKind.Condition
                         ? "bg-amber-500"
                         : "bg-card",

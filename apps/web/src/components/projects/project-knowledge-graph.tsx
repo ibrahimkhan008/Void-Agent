@@ -82,14 +82,14 @@ type NodeDetail = {
 const KIND_COLORS: Record<string, string> = {
   project: "#0d00e0",
   person: "#e0007a",
-  organization: "#7c3aed",
+  organization: "#475569",
   meeting: "#0891b2",
   task: "#ea580c",
   decision: "#16a34a",
   document: "#64748b",
   topic: "#0369a1",
   tool: "#475569",
-  agent: "#9333ea",
+  agent: "#a16207",
   voice: "#0f766e",
 };
 

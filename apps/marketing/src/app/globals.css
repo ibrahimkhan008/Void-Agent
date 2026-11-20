@@ -71,7 +71,7 @@
      .brand-surface re-declares --bs-paper/--bs-brand on its own element, so
      these fallbacks only apply where the display tokens are absent. */
   --bs-accent-from: #000000;
-  --bs-accent-to: #2537d5;
+  --bs-accent-to: #18181b;
 }
 
 /* ============================================================
@@ -83,10 +83,10 @@
 .brand-surface {
   /* display-surface tokens (independent of the app theme) */
   --bs-ink: #ffffff;
-  --bs-ink-2: #f4f5f8;
+  --bs-ink-2: #f4f4f5;
   --bs-paper: #000000;
-  --bs-brand: #2537d5;
-  --bs-brand-glow: #7e89e6;
+  --bs-brand: #18181b;
+  --bs-brand-glow: #a1a1aa;
 
   /* Unprefixed aliases — components inside the surface reference these
      directly (text-(--paper), text-(--brand-glow), …). Without them the
@@ -123,7 +123,7 @@
   --popover-foreground: #000000;
   --primary: #000000;
   --primary-foreground: #ffffff;
-  --secondary: #f4f5f8;
+  --secondary: #f4f4f5;
   --secondary-foreground: #000000;
   --muted: rgba(0, 0, 0, 0.05);
   --muted-foreground: rgba(0, 0, 0, 0.6);
@@ -379,10 +379,10 @@
    top that deepens into Blue at the base (design.md). Never blend hues
    side to side; the blue always comes from below. */
 .gradient-brand {
-  background: linear-gradient(to bottom, #ffffff, #7e89e6 55%, #2537d5);
+  background: linear-gradient(to bottom, #ffffff, #a1a1aa 55%, #18181b);
 }
 .gradient-brand-soft {
-  background: linear-gradient(to bottom, #f4f5f8, #2537d5);
+  background: linear-gradient(to bottom, #f4f4f5, #18181b);
 }
 
 /* Accent span — italic serif with paper→brand gradient + halftone mask.

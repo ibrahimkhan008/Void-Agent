@@ -136,7 +136,7 @@ export function WorkflowSection() {
                 title="AI Agent"
                 subtitle="Triage and label"
                 icon="AI"
-                color="#2537d5"
+                color="#18181b"
                 className="left-[46%] top-[24%]"
                 wide
               />
@@ -150,7 +150,7 @@ export function WorkflowSection() {
               <SubNode
                 label="Library"
                 role="Memory"
-                color="#7c5cff"
+                color="#525252"
                 className="left-[44%] top-[48%]"
               />
               <SubNode
@@ -177,7 +177,7 @@ export function WorkflowSection() {
                 title="Library"
                 subtitle="Save daily report"
                 icon="LI"
-                color="#2537d5"
+                color="#18181b"
                 className="left-[92%] top-[44%] hidden lg:flex"
               />
 
@@ -211,13 +211,13 @@ export function WorkflowSection() {
         <div className="mt-10 flex flex-wrap gap-3">
           <Link
             href={`${APP_URL}/sign-up`}
-            className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+            className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
           >
             Build your first workflow
           </Link>
           <Link
             href="/docs"
-            className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+            className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
           >
             Read the docs
           </Link>
@@ -324,7 +324,7 @@ export function NetworkSection() {
               style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
             >
               <span
-                className={`grid size-8 place-items-center rounded-full ${pin.active ? "bg-(--paper) shadow-[0_2px_10px_rgba(11,122,63,0.35)]" : "bg-white/55"}`}
+                className={`grid size-8 place-items-center rounded-full ${pin.active ? "bg-(--paper) shadow-[0_2px_10px_rgba(0,0,0,0.35)]" : "bg-white/55"}`}
               >
                 <span
                   className={`size-2.5 rounded-full ${pin.active ? "bg-(--brand)" : "bg-(--brand)/55"}`}

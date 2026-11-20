@@ -77,19 +77,23 @@ export function DefaultToolIcon({
     }
     if (name === DefaultToolName.Canvas) {
       return (
-        <PresentationIcon className={cn("size-3.5 text-cyan-400", className)} />
+        <PresentationIcon
+          className={cn("size-3.5 text-sky-600 dark:text-sky-400", className)}
+        />
       );
     }
     if (name === DefaultToolName.VideoGeneration) {
       return (
         <ClapperboardIcon
-          className={cn("size-3.5 text-indigo-400", className)}
+          className={cn("size-3.5 text-muted-foreground", className)}
         />
       );
     }
     if (name === DefaultToolName.ArtifactCreation) {
       return (
-        <FileCode2Icon className={cn("size-3.5 text-cyan-400", className)} />
+        <FileCode2Icon
+          className={cn("size-3.5 text-sky-600 dark:text-sky-400", className)}
+        />
       );
     }
     return <HammerIcon className={cn("size-3.5", className)} />;

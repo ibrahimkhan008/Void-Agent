@@ -391,13 +391,13 @@ Then post a short summary to #eng in Slack.`}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href={`${APP_URL}/sign-up`}
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
             >
               Connect your first server
             </Link>
             <Link
               href="/docs"
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
             >
               Back to Agents
             </Link>

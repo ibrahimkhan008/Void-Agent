@@ -62,13 +62,13 @@ export function LandingHero() {
           <div className="landing-rise mt-8 flex flex-wrap items-center gap-3 [--rise-delay:0.36s]">
             <Link
               href={`${APP_URL}/sign-up`}
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
             >
               Start Building Free
             </Link>
             <Link
               href="/about"
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
             >
               Learn more about Void Agent
             </Link>
@@ -87,7 +87,7 @@ const PARTNERS = [
   "Google",
   "Groq",
   "Z AI",
-  "Cloudvoid-agent",
+  "Cloudflare",
 ];
 
 export function PartnerStrip() {
@@ -122,7 +122,7 @@ const MODEL_ROWS = [
   { label: "Anthropic models", color: "#d97757" },
   { label: "Google models", color: "#1c69e0", tint: "#f0f5ff" },
   { label: "Groq models", color: "#f55036" },
-  { label: "Local models", color: "#7c5cff" },
+  { label: "Local models", color: "#525252" },
 ];
 
 const TOOL_ROWS = [
@@ -374,13 +374,13 @@ export function GetStartedSection() {
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link
                     href={`${APP_URL}/sign-up`}
-                    className="bs-btn h-11 rounded-full px-5 text-[15px] [--surface-base:#fbfbfa]"
+                    className="bs-btn bs-btn-outline h-11 rounded-full px-5 text-[15px] [--surface-base:#fbfbfa]"
                   >
                     Start building free
                   </Link>
                   <Link
                     href="/docs"
-                    className="bs-btn h-11 rounded-full px-5 text-[15px] [--surface-base:#e6e6e3]"
+                    className="bs-btn bs-btn-default h-11 rounded-full px-5 text-[15px] [--surface-base:#e6e6e3]"
                   >
                     Read the docs
                   </Link>

@@ -115,7 +115,7 @@ const LABS: Lab[] = [
   {
     id: "moonshot",
     label: "Moonshot AI",
-    color: "#7c5cff",
+    color: "#525252",
     mark: "月",
     model: "Kimi K3",
     blurb: "Bilingual strength for Chinese and English document workflows.",
@@ -177,13 +177,13 @@ export function ModelsCatalog() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href={`${APP_URL}/sign-up`}
-                className="bs-btn h-10 rounded-full px-5 text-sm [--surface-base:#fbfbfa]"
+                className="bs-btn bs-btn-outline h-10 rounded-full px-5 text-sm [--surface-base:#fbfbfa]"
               >
                 Try every model free
               </Link>
               <Link
                 href="/pricing"
-                className="bs-btn h-10 rounded-full px-5 text-sm [--surface-base:#e6e6e3]"
+                className="bs-btn bs-btn-default h-10 rounded-full px-5 text-sm [--surface-base:#e6e6e3]"
               >
                 Compare plans
               </Link>

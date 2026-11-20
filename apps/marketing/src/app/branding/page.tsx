@@ -16,17 +16,17 @@ export const metadata: Metadata = {
 
 const COLORS = [
   {
-    name: "Blue",
-    hex: "#2537D5",
+    name: "Graphite",
+    hex: "#18181b",
     role: "Actions, accents, links, the mark's color",
-    bg: "#2537D5",
+    bg: "#18181b",
     text: "#FFFFFF",
   },
   {
-    name: "Light Blue",
-    hex: "#7E89E6",
+    name: "Silver",
+    hex: "#a1a1aa",
     role: "Active markers, the button glow, gradient mid-tones",
-    bg: "#7E89E6",
+    bg: "#a1a1aa",
     text: "#000000",
   },
   {
@@ -45,9 +45,9 @@ const COLORS = [
   },
   {
     name: "Surface",
-    hex: "#F4F5F8",
+    hex: "#f4f4f5",
     role: "Trays and raised panels",
-    bg: "#F4F5F8",
+    bg: "#f4f4f5",
     text: "#000000",
   },
   {
@@ -73,7 +73,7 @@ const RULES = [
   ],
   [
     "Place it only on the three brand grounds",
-    "Ground #FFFFFF, Ink #000000, or Blue #2537D5. Nothing else.",
+    "Ground #FFFFFF, Ink #000000, or Ink #18181b. Nothing else.",
   ],
   [
     "Partners are technology partners, never customers",
@@ -85,7 +85,7 @@ const RULES = [
   ],
   [
     "The blue always comes from below",
-    "Gradients fall like light: white at the top, Light Blue in the middle, Blue at the base. Never blend hues side to side.",
+    "Gradients fall like light: white at the top, Silver in the middle, Graphite at the base. Never blend hues side to side.",
   ],
   [
     "Show units and real numbers",
@@ -126,7 +126,7 @@ export default function BrandingPage() {
               key={asset.href}
               href={asset.href}
               download
-              className="bs-btn h-10 rounded-lg px-4 text-sm"
+              className="bs-btn bs-btn-default h-10 rounded-lg px-4 text-sm"
             >
               <Download className="size-4" />
               {asset.label}
@@ -176,7 +176,7 @@ export default function BrandingPage() {
           </div>
           {/* Green */}
           <div className="rounded-[20px] bg-(--ink-2) p-1.5 shadow-[var(--bs-shadow-tray)]">
-            <div className="grid h-64 place-items-center rounded-[14px] bg-[#2537D5]">
+            <div className="grid h-64 place-items-center rounded-[14px] bg-[#18181b]">
               <span className="relative block size-28">
                 <DitherCanvas
                   src="/images/logo-va-128.webp"
@@ -187,7 +187,7 @@ export default function BrandingPage() {
               </span>
             </div>
             <p className="px-4 py-3 text-sm text-(--paper)/60">
-              Mark on Blue — #2537D5
+              Mark on Ink — #18181b
             </p>
           </div>
         </div>
@@ -207,10 +207,10 @@ export default function BrandingPage() {
             Cool White With One <AccentSpan>Living Color</AccentSpan>
           </SectionHeading>
           <p className="mt-5 max-w-[70ch] text-lg/8 text-(--paper)/60">
-            Three primaries carry the system: Blue, Ink, and the white ground.
-            Gray is the neutral in between; Light Blue tints markers, glows, and
-            gradient mid-tones. Blue stays readable at every size (8.1:1 on
-            white); reserve Light Blue for graphic accents.
+            Three primaries carry the system: Graphite, Ink, and the white
+            ground. Gray is the neutral in between; Silver tints markers, glows,
+            and gradient mid-tones. Graphite stays readable at every size (8.1:1
+            on white); reserve Silver for graphic accents.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {COLORS.map((color) => (
@@ -322,13 +322,13 @@ export default function BrandingPage() {
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               href="/design.md"
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
+              className="bs-btn bs-btn-outline h-11 rounded-lg px-5 text-[15px] [--surface-base:#fbfbfa]"
             >
               Read design.md
             </Link>
             <Link
               href="/contact"
-              className="bs-btn h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
+              className="bs-btn bs-btn-default h-11 rounded-lg px-5 text-[15px] [--surface-base:#e6e6e3]"
             >
               Talk to us
             </Link>

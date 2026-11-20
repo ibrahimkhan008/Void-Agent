@@ -247,7 +247,7 @@ export function IndexPostsClient() {
               className="absolute inset-y-0 right-0 w-1/3"
               style={{
                 background:
-                  "linear-gradient(105deg, transparent 0%, rgba(11,122,63,0.06) 100%)",
+                  "linear-gradient(105deg, transparent 0%, rgba(0,0,0,0.06) 100%)",
               }}
             />
             <div className="relative grid gap-8 lg:grid-cols-12">
@@ -267,13 +267,13 @@ export function IndexPostsClient() {
                     {featured.readTime}
                   </span>
                 </p>
-                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-[#2537D5] sm:text-5xl">
+                <h2 className="mt-4 text-3xl leading-[1.1] font-normal tracking-tight text-balance text-(--paper) transition-colors group-hover:text-[#18181b] sm:text-5xl">
                   {featured.title}
                 </h2>
                 <p className="mt-4 max-w-[60ch] text-base/7 text-(--paper)/65">
                   {featured.excerpt}
                 </p>
-                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-[#2537D5]">
+                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-(--paper) transition-colors group-hover:text-[#18181b]">
                   Read announcement
                   <span className="transition-transform group-hover:translate-x-1">
                     →
@@ -340,7 +340,7 @@ export function IndexPostsClient() {
               href={`/index/${post.slug}`}
               className="group flex h-full flex-col rounded-2xl border border-black/[0.07] bg-white p-5 shadow-xs transition-all duration-200 hover:border-black/20 hover:shadow-lg"
             >
-              <div className="relative h-36 overflow-hidden rounded-xl bg-[#f5f5f3] ring-1 ring-black/[0.06] transition-[--tw-ring-color] group-hover:ring-[rgba(11,122,63,0.35)]">
+              <div className="relative h-36 overflow-hidden rounded-xl bg-[#f5f5f3] ring-1 ring-black/[0.06] transition-[--tw-ring-color] group-hover:ring-[rgba(0,0,0,0.35)]">
                 <div
                   aria-hidden
                   className="absolute inset-0"
@@ -366,7 +366,7 @@ export function IndexPostsClient() {
                   {post.readTime}
                 </span>
               </p>
-              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-[#2537D5]">
+              <h3 className="mt-2.5 line-clamp-2 text-lg font-medium tracking-tight text-(--paper) transition-colors group-hover:text-[#18181b]">
                 {post.title}
               </h3>
               <p className="mt-2 line-clamp-3 text-sm/6 text-(--paper)/65">
@@ -374,7 +374,7 @@ export function IndexPostsClient() {
               </p>
               <p className="mt-auto flex items-center justify-between border-t border-black/[0.04] pt-4 font-mono text-[11px] text-(--paper)/55">
                 <span>{post.team}</span>
-                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-[#2537D5]">
+                <span className="inline-flex items-center gap-1.5 transition-colors group-hover:text-[#18181b]">
                   Read post
                   <span className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
                     ↗
