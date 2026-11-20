@@ -171,7 +171,7 @@ import {
   shouldReadBrowserPolicy,
 } from "lib/chat/browser-tool-gate";
 import { isBrowserToolkitOn } from "lib/chat/browser-tool-pin";
-import { isUnattended } from "lib/chat/run-mode";
+import { isUnattended, resolveUnattendedToolkits } from "lib/chat/run-mode";
 import {
   DENIED_UNATTENDED_CONTEXT,
   loadUnattendedContext,
@@ -1091,13 +1091,31 @@ export async function POST(request: Request) {
             .orElse({}),
         );
 
+        // An unattended run's grants live on its scheduled_task row, not in the
+        // request body. Loaded only on that path, and fails closed. Hoisted
+        // above the tool loaders because the row also decides the run's
+        // toolkits: a Cloud Agent task's work executes on the E2B sandbox, so
+        // the Code toolkit (the E2B-backed python/js execution tools) is
+        // unioned in whatever the loopback body carried — the body can no
+        // longer strip the sandbox off the run.
+        const unattendedContext = isUnattendedRun
+          ? await loadUnattendedContext({
+              scheduledTaskId,
+              userId: session.user.id,
+            })
+          : DENIED_UNATTENDED_CONTEXT;
+        const runAllowedAppDefaultToolkit = resolveUnattendedToolkits({
+          executionMode: unattendedContext.executionMode,
+          allowedAppDefaultToolkit,
+        });
+
         const appDefaultToolsPromise = timer.track("appDefaultTools", () =>
           safe()
             .map(errorIf(() => !isToolCallAllowed && "Not allowed"))
             .map(() =>
               loadAppDefaultTools({
                 mentions,
-                allowedAppDefaultToolkit,
+                allowedAppDefaultToolkit: runAllowedAppDefaultToolkit,
                 userId: session.user.id,
                 billingCustomerId: customerId,
                 billingEntityId: entityId,
@@ -1507,16 +1525,10 @@ export async function POST(request: Request) {
         // what removed it.
         const browserToolkitOn = isBrowserToolkitOn({
           mentions,
-          allowedAppDefaultToolkit,
+          allowedAppDefaultToolkit: runAllowedAppDefaultToolkit,
         });
-        // An unattended run's grants live on its scheduled_task row, not in the
-        // request body. Loaded only on that path, and fails closed.
-        const unattendedContext = isUnattendedRun
-          ? await loadUnattendedContext({
-              scheduledTaskId,
-              userId: session.user.id,
-            })
-          : DENIED_UNATTENDED_CONTEXT;
+        // `unattendedContext` is loaded above the tool loaders — see the
+        // Cloud Agent toolkit note there.
 
         // Several independent gates collapse into one absent tool, which has
         // already cost a debugging session — name the first gate that failed
@@ -1724,7 +1736,7 @@ export async function POST(request: Request) {
         // Names, not just counts: answering "was web search even offered?"
         // from counts alone requires reconstructing it from the tool registry.
         logger.info(
-          `allowedMcpTools: ${allowedMcpTools.length ?? 0}, allowedAppDefaultToolkit: ${allowedAppDefaultToolkit?.length ?? 0} [${(allowedAppDefaultToolkit ?? []).join(", ")}]`,
+          `allowedMcpTools: ${allowedMcpTools.length ?? 0}, allowedAppDefaultToolkit: ${runAllowedAppDefaultToolkit?.length ?? 0} [${(runAllowedAppDefaultToolkit ?? []).join(", ")}]`,
         );
         if (useImageTool) {
           logger.info(

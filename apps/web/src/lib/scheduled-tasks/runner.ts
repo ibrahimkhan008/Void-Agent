@@ -1,6 +1,9 @@
 import "server-only";
 import { parseAgentModel } from "@/lib/ai/agent-model";
-import { SCHEDULED_TASK_ID_HEADER } from "@/lib/chat/run-mode";
+import {
+  CLOUD_AGENT_EXECUTION_MODE,
+  SCHEDULED_TASK_ID_HEADER,
+} from "@/lib/chat/run-mode";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { planUsageRepository } from "@/lib/db/pg/repositories/plan-usage-repository.pg";
 import {
@@ -206,6 +209,23 @@ export async function executeScheduledRun(
     return {
       success: false,
       error: "Scheduled agent is unavailable",
+      threadId,
+    };
+  }
+  // A Cloud Agent run executes its work on the E2B sandbox — that is the
+  // mode's contract, and task creation gates on E2B being configured. The
+  // run must re-check: a key removed (or a task created elsewhere) would
+  // otherwise send the model in with a prompt promising an isolated E2B
+  // sandbox while every code call fails. Returned, not thrown, so Inngest
+  // does not burn its retries on what is a configuration fix.
+  if (
+    executionMode === CLOUD_AGENT_EXECUTION_MODE &&
+    !process.env.E2B_API_KEY?.trim()
+  ) {
+    return {
+      success: false,
+      error:
+        "Cloud Agent run requires E2B (E2B_API_KEY is not configured). Configure E2B or switch this schedule to Chat AI.",
       threadId,
     };
   }

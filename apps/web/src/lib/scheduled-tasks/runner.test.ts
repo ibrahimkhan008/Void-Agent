@@ -13,7 +13,7 @@ vi.mock("@/lib/push/send-push-to-user", () => ({
 }));
 
 import { publishInternalHookEvent } from "@/lib/hooks/internal-events";
-import { executeAgentRun, isValidUUID } from "./runner";
+import { executeAgentRun, executeScheduledRun, isValidUUID } from "./runner";
 
 const TASK = {
   id: "task-1",
@@ -230,5 +230,83 @@ describe("isValidUUID", () => {
     expect(isValidUUID("33333333-3333-3333-3333-333333333333")).toBe(true);
     expect(isValidUUID("scheduled-task-abc")).toBe(false);
     expect(isValidUUID(null)).toBe(false);
+  });
+});
+
+describe("executeScheduledRun (cloud-agent)", () => {
+  let originalE2bKey: string | undefined;
+
+  beforeEach(() => {
+    process.env.SCHEDULED_TASK_SECRET = "secret";
+    process.env.NEXT_PUBLIC_BASE_URL = "https://staging.example.com";
+    originalE2bKey = process.env.E2B_API_KEY;
+    process.env.E2B_API_KEY = "test-e2b-key";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (originalE2bKey === undefined) {
+      delete process.env.E2B_API_KEY;
+    } else {
+      process.env.E2B_API_KEY = originalE2bKey;
+    }
+  });
+
+  const CLOUD_TASK = {
+    ...TASK,
+    agentId: null,
+    executionMode: "cloud-agent" as const,
+  };
+
+  it("fails permanently, without a loopback call, when E2B is not configured", async () => {
+    delete process.env.E2B_API_KEY;
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const result = await executeScheduledRun(CLOUD_TASK, null);
+
+    // The run promises an E2B sandbox in its prompt; without the key that
+    // promise is a lie, so the run must fail instead of "succeeding" with a
+    // model that can only apologize for failed code calls.
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("E2B");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the E2B-backed code toolkit and the Cloud Agent framing", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    const result = await executeScheduledRun(CLOUD_TASK, null);
+
+    expect(result).toEqual({
+      success: true,
+      threadId: TASK.lastChatThreadId,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.allowedAppDefaultToolkit).toEqual([
+      "webSearch",
+      "memory",
+      "code",
+    ]);
+    expect(body.message.parts[0].text).toContain("Cloud Agent");
+    expect(body.message.parts[0].text).toContain("E2B code sandbox");
+  });
+
+  it("does not gate chat-mode runs on E2B", async () => {
+    delete process.env.E2B_API_KEY;
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse(200));
+
+    const result = await executeScheduledRun(
+      { ...TASK, agentId: null, executionMode: "chat" },
+      null,
+    );
+
+    expect(result.success).toBe(true);
+    const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
+    expect(body.allowedAppDefaultToolkit).toEqual(["webSearch", "memory"]);
+    expect(body.message.parts[0].text).not.toContain("Cloud Agent");
   });
 });

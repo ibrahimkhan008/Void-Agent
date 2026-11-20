@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
 import { pgDb } from "@/lib/db/pg/db.pg";
 import { ScheduledTaskTable } from "@/lib/db/pg/schema.pg";
+import { and, eq } from "drizzle-orm";
 import logger from "logger";
 
 /**
@@ -17,6 +17,13 @@ export type UnattendedRunContext = {
   taskId: string | null;
   browserAutomationEnabled: boolean;
   credentialAliases: string[];
+  /**
+   * The task's execution mode, read from the same row as the browser grants.
+   * A `cloud-agent` value is what makes the chat route enforce the E2B code
+   * toolkit on the run (see `resolveUnattendedToolkits`); `null` is the
+   * fail-closed value, so a failed read grants no sandbox enforcement.
+   */
+  executionMode: "agent" | "chat" | "cloud-agent" | null;
 };
 
 /** Everything denied. The value every failure path returns. */
@@ -24,6 +31,7 @@ export const DENIED_UNATTENDED_CONTEXT: UnattendedRunContext = {
   taskId: null,
   browserAutomationEnabled: false,
   credentialAliases: [],
+  executionMode: null,
 };
 
 /**
@@ -45,6 +53,7 @@ export async function loadUnattendedContext(input: {
         id: ScheduledTaskTable.id,
         browserAutomationEnabled: ScheduledTaskTable.browserAutomationEnabled,
         browserCredentialAliases: ScheduledTaskTable.browserCredentialAliases,
+        executionMode: ScheduledTaskTable.executionMode,
       })
       .from(ScheduledTaskTable)
       .where(
@@ -64,6 +73,7 @@ export async function loadUnattendedContext(input: {
       taskId: row.id,
       browserAutomationEnabled: row.browserAutomationEnabled ?? false,
       credentialAliases: row.browserCredentialAliases ?? [],
+      executionMode: row.executionMode ?? null,
     };
   } catch (error) {
     logger.error(
