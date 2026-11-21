@@ -160,6 +160,10 @@ Key production vars in `.env.production` (see `docker/.env.production.example`):
 - `E2B_API_KEY` — optional; enables the E2B code-sandbox tool + PDF rendering
 - `GOOGLE_GENERATIVE_AI_API_KEY` — optional; enables chat-native video
   generation (Veo) and Gemini image generation
+- `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` —
+  optional; enables Sign in with Microsoft (Better Auth callback
+  `/api/auth/callback/microsoft` — register it as a Web redirect URI in the
+  Azure app registration; tenant GUID, `organizations`, or `common`)
 
 ## Before Opening PR / Merging
 
